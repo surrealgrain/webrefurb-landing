@@ -15,30 +15,30 @@ html { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 body {
   min-height: 100vh;
-  display: grid;
-  grid-template-rows: 1fr auto;
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.96) 0%, rgba(250, 250, 248, 0.95) 42%, #FAFAF8 100%);
   color: #1A1A1A;
-  padding: 44px 24px 24px;
+  padding: 38px 24px 22px;
 }
 
 .hero {
   width: 100%;
   max-width: 860px;
   margin: 0 auto;
-  align-self: center;
+  margin-top: clamp(28px, 7vh, 72px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(10px, 1.8vh, 16px);
+  gap: 8px;
   text-align: center;
 }
 
 .logo {
   display: block;
-  width: min(68vw, 620px);
-  max-width: 620px;
+  width: min(66vw, 590px);
+  max-width: 590px;
   height: auto;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.04));
 }
@@ -127,16 +127,16 @@ h1 {
 }
 
 footer {
-  align-self: end;
-  justify-self: center;
-  padding-bottom: 2px;
+  margin-top: auto;
+  padding-top: 18px;
   font-size: 12px;
   color: #999;
+  text-align: center;
 }
 
 @media (max-width: 640px) {
   .logo {
-    width: min(88vw, 560px);
+    width: min(88vw, 540px);
   }
 
   h1 {
@@ -145,6 +145,7 @@ footer {
 
   .hero {
     gap: 10px;
+    margin-top: 22px;
   }
 }
 
