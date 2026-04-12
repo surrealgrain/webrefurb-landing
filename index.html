@@ -164,9 +164,18 @@ body {
   flex-shrink: 0;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
+  html { overflow-y: auto; }
+  
+  body {
+    overflow-y: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
   .stage {
-    padding: 84px 18px 24px;
+    padding: 80px 16px 32px;
+    min-height: auto;
   }
 
   .hero {
@@ -174,22 +183,74 @@ body {
     align-items: center;
     text-align: center;
     gap: 16px;
-    padding: 28px 22px 30px;
+    padding: 0;
     transform: none;
+    max-width: 100%;
   }
 
   .logo {
-    width: min(49vw, 201px);
+    width: min(48vw, 170px);
     min-width: 0;
+    max-width: 170px;
   }
 
   .copy {
     align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .wordmark {
+    font-size: clamp(28px, 9vw, 44px);
+    text-align: center;
   }
 
   .headline {
-    max-width: 22ch;
+    max-width: 100%;
     padding-left: 0;
+    text-align: center;
+    font-size: clamp(14px, 4vw, 17px);
+    line-height: 1.35;
+  }
+
+  .headline-text {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 90vw;
+  }
+
+  .topbar {
+    top: 12px;
+    right: 12px;
+  }
+
+  .cta {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .stage {
+    padding: 72px 14px 28px;
+  }
+
+  .hero {
+    gap: 12px;
+  }
+
+  .logo {
+    width: min(46vw, 155px);
+    max-width: 155px;
+  }
+
+  .wordmark {
+    font-size: clamp(26px, 8.5vw, 40px);
+  }
+
+  .headline {
+    font-size: clamp(13px, 3.8vw, 16px);
   }
 }
 
