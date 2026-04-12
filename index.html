@@ -11,18 +11,48 @@
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+:root {
+  --bg: #FAFAF8;
+  --bg-gradient-top: rgba(255, 255, 255, 0.96);
+  --bg-gradient-mid: rgba(250, 250, 248, 0.95);
+  --text: #1A1A1A;
+  --text-muted: #3B3B3B;
+  --cta-bg: #1A1A1A;
+  --cta-text: #FAFAF8;
+  --cta-hover: #3B3B3B;
+  --toggle-bg: transparent;
+  --toggle-fill: #3B3B3B;
+  --toggle-hover-bg: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] {
+  --bg: #1A1A1A;
+  --bg-gradient-top: rgba(26, 26, 26, 0.96);
+  --bg-gradient-mid: rgba(26, 26, 26, 0.95);
+  --text: #FAFAF8;
+  --text-muted: #E0E0E0;
+  --cta-bg: #FAFAF8;
+  --cta-text: #1A1A1A;
+  --cta-hover: #E0E0E0;
+  --toggle-bg: transparent;
+  --toggle-fill: #E0E0E0;
+  --toggle-hover-bg: rgba(255, 255, 255, 0.08);
+}
+
 html {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   min-height: 100%;
-  background: #FAFAF8;
+  background: var(--bg);
+  transition: background 0.3s ease;
 }
 
 body {
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.96) 0%, rgba(250, 250, 248, 0.95) 42%, #FAFAF8 100%);
-  color: #1A1A1A;
+    radial-gradient(circle at top, var(--bg-gradient-top) 0%, var(--bg-gradient-mid) 42%, var(--bg) 100%);
+  color: var(--text);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 .topbar {
@@ -30,7 +60,45 @@ body {
   top: 24px;
   right: 24px;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--toggle-bg);
+  border: 1.5px solid var(--text-muted);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, border-color 0.3s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--toggle-hover-bg);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--toggle-fill);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.3s ease;
+}
+
+.theme-toggle .icon-moon,
+.theme-toggle .icon-sun { display: none; }
+
+[data-theme="light"] .theme-toggle .icon-sun,
+[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 
 .stage {
   min-height: 100vh;
@@ -105,7 +173,7 @@ body {
   font-weight: 700;
   letter-spacing: -0.055em;
   line-height: 0.92;
-  color: #3B3B3B;
+  color: var(--text-muted);
   opacity: 1;
   animation: fadeUp 0.6s ease forwards 0.75s;
 }
@@ -116,7 +184,7 @@ body {
   font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.08;
-  color: #3B3B3B;
+  color: var(--text-muted);
   max-width: 30ch;
   padding-left: 0.16em;
 }
@@ -144,17 +212,17 @@ body {
   align-items: center;
   gap: 8px;
   padding: 14px 28px;
-  background: #1A1A1A;
-  color: #FAFAF8;
+  background: var(--cta-bg);
+  color: var(--cta-text);
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
   border-radius: 999px;
-  transition: background 0.2s, transform 0.15s;
+  transition: background 0.2s, transform 0.15s, color 0.3s ease;
 }
 
 .cta:hover {
-  background: #3B3B3B;
+  background: var(--cta-hover);
   transform: translateY(-1px);
 }
 
@@ -251,6 +319,22 @@ body {
 <body>
 
 <header class="topbar">
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+    <svg class="icon-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
   <a class="cta" href="mailto:chris@webrefurb.com">
     Get in touch
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -272,6 +356,27 @@ body {
     </h1>
   </section>
 </main>
+
+<script>
+(function() {
+  const html = document.documentElement;
+  const stored = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  if (stored === 'dark' || (!stored && prefersDark)) {
+    html.setAttribute('data-theme', 'dark');
+  } else {
+    html.setAttribute('data-theme', 'light');
+  }
+
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+})();
+</script>
 
 </body>
 </html>
