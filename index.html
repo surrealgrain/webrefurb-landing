@@ -122,8 +122,11 @@ body {
 }
 
 .headline-text {
-  display: inline-block;
-  white-space: nowrap;
+  display: inline;
+}
+
+.headline-text-2 {
+  display: inline;
 }
 
 @keyframes fadeUp {
@@ -192,6 +195,9 @@ body {
     width: min(48vw, 170px);
     min-width: 0;
     max-width: 170px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .copy {
@@ -214,10 +220,11 @@ body {
   }
 
   .headline-text {
-    white-space: normal;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    max-width: 90vw;
+    display: inline;
+  }
+
+  .headline-text-2 {
+    display: block;
   }
 
   .topbar {
@@ -228,29 +235,6 @@ body {
   .cta {
     padding: 10px 20px;
     font-size: 14px;
-  }
-}
-
-@media (max-width: 375px) {
-  .stage {
-    padding: 72px 14px 28px;
-  }
-
-  .hero {
-    gap: 12px;
-  }
-
-  .logo {
-    width: min(46vw, 155px);
-    max-width: 155px;
-  }
-
-  .wordmark {
-    font-size: clamp(26px, 8.5vw, 40px);
-  }
-
-  .headline {
-    font-size: clamp(13px, 3.8vw, 16px);
   }
 }
 
@@ -281,7 +265,9 @@ body {
 
     <h1 class="copy">
       <span class="wordmark">WebRefurb</span>
-      <span class="headline"><span class="headline-text">Helping businesses improve their web presence.</span></span>
+      <span class="headline">
+        <span class="headline-text">Helping businesses improve </span><span class="headline-text-2">their web presence.</span>
+      </span>
     </h1>
   </section>
 </main>
