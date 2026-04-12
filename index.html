@@ -361,13 +361,8 @@ body {
 (function() {
   const html = document.documentElement;
   const stored = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  if (stored === 'dark' || (!stored && prefersDark)) {
-    html.setAttribute('data-theme', 'dark');
-  } else {
-    html.setAttribute('data-theme', 'light');
-  }
+  html.setAttribute('data-theme', stored === 'dark' ? 'dark' : 'light');
 
   document.getElementById('themeToggle').addEventListener('click', function() {
     const current = html.getAttribute('data-theme');
