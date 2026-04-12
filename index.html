@@ -15,21 +15,31 @@ html { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 body {
   min-height: 100vh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.96) 0%, rgba(250, 250, 248, 0.95) 42%, #FAFAF8 100%);
+  color: #1A1A1A;
+  padding: 44px 24px 24px;
+}
+
+.hero {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  align-self: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: #FAFAF8;
-  color: #1A1A1A;
-  padding: 40px 24px 28px;
+  gap: clamp(22px, 3.4vh, 34px);
+  text-align: center;
 }
 
 .logo {
   display: block;
-  width: min(78vw, 760px);
-  max-width: 760px;
+  width: min(68vw, 620px);
+  max-width: 620px;
   height: auto;
-  margin-bottom: 28px;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.04));
 }
 
@@ -64,11 +74,12 @@ body {
 }
 
 h1 {
-  font-size: clamp(24px, 3vw, 34px);
+  max-width: 30ch;
+  font-size: clamp(22px, 2.2vw, 30px);
   font-weight: 600;
   letter-spacing: -0.3px;
   color: #3B3B3B;
-  margin-bottom: 34px;
+  margin: 0;
   text-align: center;
   line-height: 1.3;
 }
@@ -78,7 +89,7 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   clip-path: inset(0 100% 0 0);
-  animation: revealHeadline 1.1s linear 0.9s forwards;
+  animation: revealHeadline 0.95s linear 0.92s forwards;
 }
 
 @keyframes revealHeadline {
@@ -116,25 +127,24 @@ h1 {
 }
 
 footer {
-  position: fixed;
-  bottom: 18px;
+  align-self: end;
+  justify-self: center;
+  padding-bottom: 2px;
   font-size: 12px;
   color: #999;
 }
 
 @media (max-width: 640px) {
-  body {
-    padding-top: 28px;
-  }
-
   .logo {
-    width: min(88vw, 520px);
-    margin-bottom: 24px;
+    width: min(88vw, 560px);
   }
 
   h1 {
-    margin-bottom: 28px;
     font-size: clamp(20px, 5.5vw, 28px);
+  }
+
+  .hero {
+    gap: 18px;
   }
 }
 
@@ -154,6 +164,7 @@ footer {
 <body>
 
 <!-- WebRefurb Logo -->
+<main class="hero">
 <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 695 160" role="img" aria-label="WebRefurb">
   <circle cx="11.071" cy="10.765" r="11.500" fill="#ffdc04"/>
   <circle cx="57.355" cy="10.680" r="11.000" fill="#f93c04"/>
@@ -183,6 +194,7 @@ footer {
     <polyline points="22,6 12,13 2,6"/>
   </svg>
 </a>
+</main>
 
 <footer>www.webrefurb.com</footer>
 
