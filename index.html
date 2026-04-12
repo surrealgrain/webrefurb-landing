@@ -55,12 +55,23 @@ body {
 .logo circle:nth-of-type(15) { animation-delay: 0.56s; }
 .logo circle:nth-of-type(16) { animation-delay: 0.60s; }
 
+.logo path {
+  opacity: 0;
+  animation: wordmarkFadeIn 1.2s ease-out 0.55s forwards;
+}
+
 @keyframes dotFadeIn {
   0% { opacity: 0; }
   20% { opacity: 0.35; }
   45% { opacity: 0.15; }
   70% { opacity: 0.75; }
   100% { opacity: 1; }
+}
+
+@keyframes wordmarkFadeIn {
+  0% { opacity: 0; transform: translateY(1px); }
+  60% { opacity: 0.55; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 h1 {
@@ -125,7 +136,8 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .logo circle {
+  .logo circle,
+  .logo path {
     animation: none;
     opacity: 1;
   }
