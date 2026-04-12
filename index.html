@@ -122,11 +122,12 @@ body {
 }
 
 .headline-text {
-  display: inline;
+  display: inline-block;
+  white-space: nowrap;
 }
 
-.headline-text-2 {
-  display: inline;
+.mobile-break {
+  display: none;
 }
 
 @keyframes fadeUp {
@@ -220,11 +221,11 @@ body {
   }
 
   .headline-text {
-    display: inline;
+    white-space: normal;
   }
 
-  .headline-text-2 {
-    display: block;
+  .mobile-break {
+    display: inline;
   }
 
   .topbar {
@@ -266,7 +267,7 @@ body {
     <h1 class="copy">
       <span class="wordmark">WebRefurb</span>
       <span class="headline">
-        <span class="headline-text">Helping businesses improve </span><span class="headline-text-2">their web presence.</span>
+        <span class="headline-text">Helping businesses improve <br class="mobile-break">their web presence.</span>
       </span>
     </h1>
   </section>
