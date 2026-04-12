@@ -15,36 +15,63 @@ html { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 body {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.96) 0%, rgba(250, 250, 248, 0.95) 42%, #FAFAF8 100%);
   color: #1A1A1A;
-  padding: 28px 24px;
+}
+
+.topbar {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 2;
+}
+
+.stage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 96px 24px 32px;
 }
 
 .hero {
   width: 100%;
-  max-width: 860px;
+  max-width: 1200px;
   margin: 0 auto;
+  padding: clamp(26px, 4vw, 42px) clamp(28px, 4vw, 48px);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  text-align: center;
+  justify-content: center;
+  gap: clamp(20px, 3vw, 36px);
+  background: rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 34px;
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.025);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .logo {
   display: block;
-  width: min(60vw, 540px);
-  max-width: 540px;
+  width: min(21vw, 260px);
+  min-width: 190px;
   height: auto;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.04));
+  flex-shrink: 0;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .logo circle {
-  opacity: 0;
+  opacity: 1;
   animation: dotFadeIn 1.8s ease-in-out forwards;
 }
 
@@ -66,35 +93,46 @@ body {
 .logo circle:nth-of-type(16) { animation-delay: 0.60s; }
 
 @keyframes dotFadeIn {
-  0% { opacity: 0; }
-  20% { opacity: 0.35; }
-  45% { opacity: 0.15; }
-  70% { opacity: 0.75; }
+  0% { opacity: 0.6; }
+  20% { opacity: 0.75; }
+  45% { opacity: 0.68; }
+  70% { opacity: 0.9; }
   100% { opacity: 1; }
 }
 
-h1 {
-  max-width: 30ch;
-  font-size: clamp(22px, 2.2vw, 30px);
-  font-weight: 600;
-  letter-spacing: -0.3px;
+.wordmark {
+  display: block;
+  font-size: clamp(50px, 6vw, 86px);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 0.92;
   color: #3B3B3B;
-  margin: 0;
-  text-align: center;
-  line-height: 1.15;
+  opacity: 1;
+  animation: fadeUp 0.6s ease forwards 0.75s;
 }
 
 .headline {
-  display: inline-block;
-  white-space: nowrap;
-  overflow: hidden;
-  clip-path: inset(0 100% 0 0);
-  animation: revealHeadline 0.95s linear 0.92s forwards;
+  display: block;
+  font-size: clamp(21px, 2.4vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: #3B3B3B;
+  max-width: 24ch;
 }
 
-@keyframes revealHeadline {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0 0 0 0); }
+.headline-text {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .cta {
@@ -126,45 +164,57 @@ h1 {
   flex-shrink: 0;
 }
 
-footer {
-  margin-top: 28px;
-  font-size: 12px;
-  color: #999;
-  text-align: center;
-}
-
 @media (max-width: 640px) {
-  .logo {
-    width: min(84vw, 500px);
-  }
-
-  h1 {
-    font-size: clamp(20px, 5.5vw, 28px);
+  .stage {
+    padding: 84px 18px 24px;
   }
 
   .hero {
-    gap: 10px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    padding: 28px 22px 30px;
+  }
+
+  .logo {
+    width: min(64vw, 250px);
+    min-width: 0;
+  }
+
+  .copy {
+    align-items: center;
+  }
+
+  .headline {
+    max-width: 22ch;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .logo circle,
-  .headline {
+  .wordmark {
     animation: none;
     opacity: 1;
-  }
-
-  .headline {
-    clip-path: none;
   }
 }
 </style>
 </head>
 <body>
 
-<!-- WebRefurb Logo -->
-<main class="hero">
-<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 695 160" role="img" aria-label="WebRefurb">
+<header class="topbar">
+  <a class="cta" href="mailto:chris@webrefurb.com">
+    Get in touch
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+  </a>
+</header>
+
+<main class="stage">
+  <section class="hero" aria-label="WebRefurb">
+<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="WebRefurb dots">
   <circle cx="11.071" cy="10.765" r="11.500" fill="#ffdc04"/>
   <circle cx="57.355" cy="10.680" r="11.000" fill="#f93c04"/>
   <circle cx="103.535" cy="10.671" r="11.000" fill="#04b3ec"/>
@@ -181,21 +231,14 @@ footer {
   <circle cx="11.064" cy="147.474" r="11.250" fill="#9dda03"/>
   <circle cx="57.335" cy="147.500" r="11.000" fill="#04b4ed"/>
   <circle cx="103.522" cy="147.481" r="11.000" fill="#fb3d03"/>
-  <text x="188" y="101" fill="#3b3b3b" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="66" font-weight="700" letter-spacing="-1.6">WebRefurb</text>
 </svg>
 
-<h1><span class="headline">Helping businesses improve their web presence.</span></h1>
-
-<a class="cta" href="mailto:chris@webrefurb.com">
-  Get in touch
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-    <polyline points="22,6 12,13 2,6"/>
-  </svg>
-</a>
+    <h1 class="copy">
+      <span class="wordmark">WebRefurb</span>
+      <span class="headline"><span class="headline-text">Helping businesses improve their web presence.</span></span>
+    </h1>
+  </section>
 </main>
-
-<footer>www.webrefurb.com</footer>
 
 </body>
 </html>
