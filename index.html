@@ -33,6 +33,36 @@ body {
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.04));
 }
 
+.logo circle {
+  opacity: 0;
+  animation: dotFadeIn 1.8s ease-in-out forwards;
+}
+
+.logo circle:nth-of-type(1) { animation-delay: 0.00s; }
+.logo circle:nth-of-type(2) { animation-delay: 0.04s; }
+.logo circle:nth-of-type(3) { animation-delay: 0.08s; }
+.logo circle:nth-of-type(4) { animation-delay: 0.12s; }
+.logo circle:nth-of-type(5) { animation-delay: 0.16s; }
+.logo circle:nth-of-type(6) { animation-delay: 0.20s; }
+.logo circle:nth-of-type(7) { animation-delay: 0.24s; }
+.logo circle:nth-of-type(8) { animation-delay: 0.28s; }
+.logo circle:nth-of-type(9) { animation-delay: 0.32s; }
+.logo circle:nth-of-type(10) { animation-delay: 0.36s; }
+.logo circle:nth-of-type(11) { animation-delay: 0.40s; }
+.logo circle:nth-of-type(12) { animation-delay: 0.44s; }
+.logo circle:nth-of-type(13) { animation-delay: 0.48s; }
+.logo circle:nth-of-type(14) { animation-delay: 0.52s; }
+.logo circle:nth-of-type(15) { animation-delay: 0.56s; }
+.logo circle:nth-of-type(16) { animation-delay: 0.60s; }
+
+@keyframes dotFadeIn {
+  0% { opacity: 0; }
+  20% { opacity: 0.35; }
+  45% { opacity: 0.15; }
+  70% { opacity: 0.75; }
+  100% { opacity: 1; }
+}
+
 h1 {
   font-size: clamp(24px, 3vw, 34px);
   font-weight: 600;
@@ -91,6 +121,13 @@ footer {
 
   h1 {
     margin-bottom: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo circle {
+    animation: none;
+    opacity: 1;
   }
 }
 </style>
