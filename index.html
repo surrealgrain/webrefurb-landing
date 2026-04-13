@@ -1,13 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>WebRefurb</title>
-<meta name="description" content="Helping businesses improve their web presence.">
+<meta name="description" content="We show local businesses where revenue is leaking, and what to do next.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -15,32 +18,60 @@
   --bg: #FAFAF8;
   --bg-gradient-top: rgba(255, 255, 255, 0.96);
   --bg-gradient-mid: rgba(250, 250, 248, 0.95);
+  --surface: #F3F2EE;
+  --surface-hover: #EEEDF0;
+  --border: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.12);
   --text: #1A1A1A;
   --text-muted: #3B3B3B;
+  --text-faint: #6B6B6B;
   --cta-bg: #1A1A1A;
   --cta-text: #FAFAF8;
   --cta-hover: #3B3B3B;
   --toggle-bg: transparent;
   --toggle-fill: #3B3B3B;
   --toggle-hover-bg: rgba(0, 0, 0, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-blur: 24px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --neu-shadow-light: -5px -5px 14px rgba(255, 255, 255, 0.8);
+  --neu-shadow-dark: 5px 5px 14px rgba(180, 180, 176, 0.3);
+  --neu-hover-light: -7px -7px 18px rgba(255, 255, 255, 0.85);
+  --neu-hover-dark: 7px 7px 18px rgba(180, 180, 176, 0.35);
+  --backdrop: rgba(0, 0, 0, 0.18);
 }
 
 [data-theme="dark"] {
   --bg: #1A1A1A;
   --bg-gradient-top: rgba(26, 26, 26, 0.96);
   --bg-gradient-mid: rgba(26, 26, 26, 0.95);
+  --surface: #212121;
+  --surface-hover: #272727;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.14);
   --text: #FAFAF8;
-  --text-muted: #E0E0E0;
+  --text-muted: #D5D5D5;
+  --text-faint: #8A8A8A;
   --cta-bg: #FAFAF8;
   --cta-text: #1A1A1A;
   --cta-hover: #E0E0E0;
   --toggle-bg: transparent;
   --toggle-fill: #E0E0E0;
   --toggle-hover-bg: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(38, 38, 38, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 24px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  --neu-shadow-light: -5px -5px 14px rgba(38, 38, 38, 0.6);
+  --neu-shadow-dark: 5px 5px 14px rgba(0, 0, 0, 0.5);
+  --neu-hover-light: -7px -7px 18px rgba(38, 38, 38, 0.65);
+  --neu-hover-dark: 7px 7px 18px rgba(0, 0, 0, 0.55);
+  --backdrop: rgba(0, 0, 0, 0.4);
 }
 
 html {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   min-height: 100%;
   background: var(--bg);
   transition: background 0.3s ease;
@@ -48,18 +79,22 @@ html {
 
 body {
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top, var(--bg-gradient-top) 0%, var(--bg-gradient-mid) 42%, var(--bg) 100%);
   color: var(--text);
   transition: background 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ── Topbar ── */
 
 .topbar {
   position: fixed;
   top: 24px;
   right: 24px;
-  z-index: 2;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -79,9 +114,7 @@ body {
   transition: background 0.2s, border-color 0.3s ease;
 }
 
-.theme-toggle:hover {
-  background: var(--toggle-hover-bg);
-}
+.theme-toggle:hover { background: var(--toggle-hover-bg); }
 
 .theme-toggle svg {
   width: 18px;
@@ -100,41 +133,76 @@ body {
 [data-theme="light"] .theme-toggle .icon-sun,
 [data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: background 0.2s, transform 0.15s, color 0.3s ease;
+  line-height: 1;
+}
+
+.cta:hover {
+  background: var(--cta-hover);
+  transform: translateY(-1px);
+}
+
+.cta:active { transform: translateY(0); }
+
+.cta svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Stage ── */
+
 .stage {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 44px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 72px 24px 48px;
 }
+
+/* ── Hero ── */
 
 .hero {
   width: 100%;
-  max-width: 1160px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: clamp(24px, 3.5vw, 38px) clamp(30px, 4vw, 48px);
+  padding: clamp(20px, 3vw, 36px) clamp(28px, 4vw, 48px);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: clamp(14px, 2vw, 24px);
-  transform: translate(-8px, -52px);
+  padding-top: clamp(36px, 6vh, 72px);
+}
+
+/* ── Content wrapper ── */
+
+.content-wrap {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  text-align: left;
+  align-self: stretch;
 }
 
 .logo {
   display: block;
-  width: min(16.15vw, 173px);
-  min-width: 133px;
+  width: min(15vw, 160px);
+  min-width: 120px;
   height: auto;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.04));
   flex-shrink: 0;
-}
-
-.copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 5px;
-  min-width: 0;
 }
 
 .logo circle {
@@ -142,15 +210,15 @@ body {
   animation: dotFadeIn 1.8s ease-in-out forwards;
 }
 
-.logo circle:nth-of-type(1) { animation-delay: 0.00s; }
-.logo circle:nth-of-type(2) { animation-delay: 0.04s; }
-.logo circle:nth-of-type(3) { animation-delay: 0.08s; }
-.logo circle:nth-of-type(4) { animation-delay: 0.12s; }
-.logo circle:nth-of-type(5) { animation-delay: 0.16s; }
-.logo circle:nth-of-type(6) { animation-delay: 0.20s; }
-.logo circle:nth-of-type(7) { animation-delay: 0.24s; }
-.logo circle:nth-of-type(8) { animation-delay: 0.28s; }
-.logo circle:nth-of-type(9) { animation-delay: 0.32s; }
+.logo circle:nth-of-type(1)  { animation-delay: 0.00s; }
+.logo circle:nth-of-type(2)  { animation-delay: 0.04s; }
+.logo circle:nth-of-type(3)  { animation-delay: 0.08s; }
+.logo circle:nth-of-type(4)  { animation-delay: 0.12s; }
+.logo circle:nth-of-type(5)  { animation-delay: 0.16s; }
+.logo circle:nth-of-type(6)  { animation-delay: 0.20s; }
+.logo circle:nth-of-type(7)  { animation-delay: 0.24s; }
+.logo circle:nth-of-type(8)  { animation-delay: 0.28s; }
+.logo circle:nth-of-type(9)  { animation-delay: 0.32s; }
 .logo circle:nth-of-type(10) { animation-delay: 0.36s; }
 .logo circle:nth-of-type(11) { animation-delay: 0.40s; }
 .logo circle:nth-of-type(12) { animation-delay: 0.44s; }
@@ -160,85 +228,253 @@ body {
 .logo circle:nth-of-type(16) { animation-delay: 0.60s; }
 
 @keyframes dotFadeIn {
-  0% { opacity: 0.6; }
-  20% { opacity: 0.75; }
-  45% { opacity: 0.68; }
-  70% { opacity: 0.9; }
+  0%   { opacity: 0.6; }
+  20%  { opacity: 0.75; }
+  45%  { opacity: 0.68; }
+  70%  { opacity: 0.9; }
   100% { opacity: 1; }
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .wordmark {
   display: block;
-  font-size: clamp(38px, 4.5vw, 62px);
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: clamp(36px, 4.4vw, 60px);
   font-weight: 700;
   letter-spacing: -0.055em;
   line-height: 0.92;
   color: var(--text-muted);
-  opacity: 1;
-  animation: fadeUp 0.6s ease forwards 0.75s;
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards 0.5s;
 }
 
 .headline {
   display: block;
-  font-size: clamp(18px, 1.95vw, 23px);
-  font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.08;
+  font-size: clamp(17px, 1.8vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
   color: var(--text-muted);
-  max-width: 30ch;
+  max-width: 38ch;
   padding-left: 0.16em;
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards 1.0s;
 }
 
 .headline-text {
-  display: inline-block;
-  white-space: nowrap;
-}
-
-.mobile-break {
-  display: none;
+  display: inline;
 }
 
 @keyframes fadeUp {
-  from {
-    opacity: 0.85;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 28px;
-  background: var(--cta-bg);
-  color: var(--cta-text);
-  font-size: 15px;
+/* ── Divider ── */
+
+.divider {
+  width: 100%;
+  padding: 0;
+}
+
+.divider::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Bento  */
+
+.bento-section {
+  padding: clamp(20px, 3vw, 32px) 0 0;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.85s;
+}
+
+.bento-label {
+  font-size: 11px;
   font-weight: 600;
-  text-decoration: none;
-  border-radius: 999px;
-  transition: background 0.2s, transform 0.15s, color 0.3s ease;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 16px;
 }
 
-.cta:hover {
-  background: var(--cta-hover);
-  transform: translateY(-1px);
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
-.cta:active {
+.bento-tile {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 20px 18px;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  box-shadow:
+    var(--neu-shadow-light),
+    var(--neu-shadow-dark);
+}
+
+.bento-tile:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    var(--neu-hover-light),
+    var(--neu-hover-dark);
+  border-color: var(--border-hover);
+}
+
+.bento-tile:active {
   transform: translateY(0);
 }
 
-.cta svg {
-  width: 16px;
-  height: 16px;
+/* Pulsing dot — slightly larger */
+.bento-tile__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   flex-shrink: 0;
+  animation: dotPulse 2.4s ease-in-out infinite;
 }
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.6); }
+}
+
+.bento-tile[data-popover="trust-signals"] .bento-tile__dot {
+  background: #ffdc04;
+  animation-delay: 0s;
+}
+.bento-tile[data-popover="search-visibility"] .bento-tile__dot {
+  background: #04b3ec;
+  animation-delay: 0.2s;
+}
+.bento-tile[data-popover="lead-capture"] .bento-tile__dot {
+  background: #f93c04;
+  animation-delay: 0.4s;
+}
+.bento-tile[data-popover="mobile-web"] .bento-tile__dot {
+  background: #9ad700;
+  animation-delay: 0.6s;
+}
+.bento-tile[data-popover="competitor-analysis"] .bento-tile__dot {
+  background: #fc3b02;
+  animation-delay: 0.8s;
+}
+.bento-tile[data-popover="conversion-friction"] .bento-tile__dot {
+  background: #04b3ec;
+  animation-delay: 1.0s;
+}
+
+.bento-tile__title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+/* ── Glass Popover (centered, Apple liquid-glass style) ── */
+
+.glass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--backdrop);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  padding: 24px;
+}
+
+.glass-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.glass-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 26px 28px 24px;
+  box-shadow: var(--glass-shadow);
+  transform: translateY(6px) scale(0.97);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glass-overlay.active .glass-card {
+  transform: translateY(0) scale(1);
+}
+
+.glass-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.glass-card__body {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ── Focus styles ── */
+
+.bento-tile:focus-visible {
+  outline: 2px solid var(--cta-bg);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .logo circle,
+  .wordmark,
+  .bento-section,
+  .bento-tile__dot,
+  .glass-overlay,
+  .glass-card {
+    animation: none;
+    transition: none;
+    opacity: 1;
+  }
+  .wordmark { opacity: 1; }
+}
+
+/* ── Mobile ── */
 
 @media (max-width: 768px) {
   html { overflow-y: auto; }
-  
+
   body {
     overflow-y: auto;
     min-height: 100vh;
@@ -246,37 +482,38 @@ body {
   }
 
   .stage {
-    padding: 80px 16px 32px;
-    min-height: auto;
+    padding: 72px 16px 32px;
+  }
+
+  .content-wrap {
+    padding: 0;
   }
 
   .hero {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 16px;
+    gap: 14px;
     padding: 0;
-    transform: none;
-    max-width: 100%;
+    padding-top: 0;
   }
 
   .logo {
-    width: min(48vw, 170px);
+    width: min(44vw, 150px);
     min-width: 0;
-    max-width: 170px;
-    display: block;
+    max-width: 150px;
     margin-left: auto;
     margin-right: auto;
   }
 
   .copy {
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     width: 100%;
   }
 
   .wordmark {
-    font-size: clamp(28px, 9vw, 44px);
+    font-size: clamp(28px, 9vw, 42px);
     text-align: center;
   }
 
@@ -284,16 +521,8 @@ body {
     max-width: 100%;
     padding-left: 0;
     text-align: center;
-    font-size: clamp(14px, 4vw, 17px);
+    font-size: clamp(14px, 3.8vw, 16px);
     line-height: 1.35;
-  }
-
-  .headline-text {
-    white-space: normal;
-  }
-
-  .mobile-break {
-    display: inline;
   }
 
   .topbar {
@@ -302,16 +531,61 @@ body {
   }
 
   .cta {
-    padding: 10px 20px;
-    font-size: 14px;
+    padding: 10px 18px;
+    font-size: 13px;
+  }
+
+  .cta svg { width: 13px; height: 13px; }
+
+  .bento-section {
+    padding: 20px 0 0;
+  }
+
+  .bento-label {
+    font-size: 10px;
+    margin-bottom: 12px;
+  }
+
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .bento-tile {
+    padding: 16px 14px 14px;
+  }
+
+  .bento-tile__title {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .glass-overlay {
+    padding: 16px;
+  }
+
+  .glass-card {
+    padding: 22px 20px 20px;
+  }
+
+  .glass-card__title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .glass-card__body {
+    font-size: 13.5px;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .logo circle,
-  .wordmark {
-    animation: none;
-    opacity: 1;
+@media (max-width: 520px) {
+  .logo {
+    width: min(40vw, 130px);
+    max-width: 130px;
+  }
+
+  .bento-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
@@ -346,29 +620,158 @@ body {
 
 <main class="stage">
   <section class="hero" aria-label="WebRefurb">
-<img class="logo" src="logo.svg" alt="" aria-hidden="true">
-
+    <img class="logo" src="logo.svg" alt="" aria-hidden="true">
     <h1 class="copy">
       <span class="wordmark">WebRefurb</span>
       <span class="headline">
-        <span class="headline-text">Helping businesses improve <br class="mobile-break">their web presence.</span>
+        <span class="headline-text">We show local businesses where revenue is leaking,<br>and what to do next.</span>
       </span>
     </h1>
   </section>
+
+  <div class="content-wrap">
+    <div class="divider" aria-hidden="true"></div>
+
+    <section class="bento-section" aria-label="What we look at">
+      <p class="bento-label">What we look at</p>
+      <div class="bento-grid" role="list">
+
+        <button class="bento-tile" role="listitem" tabindex="0"
+          data-popover="trust-signals">
+          <span class="bento-tile__dot"></span>
+          <span class="bento-tile__title">Trust Signals</span>
+        </button>
+
+        <button class="bento-tile" role="listitem" tabindex="0"
+          data-popover="search-visibility">
+          <span class="bento-tile__dot"></span>
+          <span class="bento-tile__title">Search Visibility</span>
+        </button>
+
+        <button class="bento-tile" role="listitem" tabindex="0"
+          data-popover="lead-capture">
+          <span class="bento-tile__dot"></span>
+          <span class="bento-tile__title">Lead Capture</span>
+        </button>
+
+        <button class="bento-tile" role="listitem" tabindex="0"
+          data-popover="mobile-web">
+          <span class="bento-tile__dot"></span>
+          <span class="bento-tile__title">Mobile &amp; Web Experience</span>
+        </button>
+
+        <button class="bento-tile" role="listitem" tabindex="0"
+          data-popover="competitor-analysis">
+          <span class="bento-tile__dot"></span>
+          <span class="bento-tile__title">Competitor Analysis</span>
+        </button>
+
+        <button class="bento-tile" role="listitem" tabindex="0"
+          data-popover="conversion-friction">
+          <span class="bento-tile__dot"></span>
+          <span class="bento-tile__title">Conversion Friction</span>
+        </button>
+
+      </div>
+    </section>
+  </div>
 </main>
+
+<!-- Glass Popover -->
+<div class="glass-overlay" id="glassOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="glass-card">
+    <h2 class="glass-card__title" id="glassTitle"></h2>
+    <p class="glass-card__body" id="glassBody"></p>
+  </div>
+</div>
 
 <script>
 (function() {
-  const html = document.documentElement;
-  const stored = localStorage.getItem('theme');
-
-  html.setAttribute('data-theme', stored === 'dark' ? 'dark' : 'light');
+  /* ── Theme ─ */
+  var html = document.documentElement;
+  html.setAttribute('data-theme', 'light');
 
   document.getElementById('themeToggle').addEventListener('click', function() {
-    const current = html.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
+    var current = html.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
+  });
+
+  /* ── Glass Popover data ─ */
+  var descriptions = {
+    'trust-signals': {
+      title: 'Trust Signals',
+      body: 'Proof that your business looks real, credible, and worth contacting. We look at reviews, credentials, brand consistency, and the signals that build trust fast.'
+    },
+    'search-visibility': {
+      title: 'Search Visibility',
+      body: 'How easily people can find you when they search. We look at titles, local presence, structured data, and whether your business is showing up where it should.'
+    },
+    'lead-capture': {
+      title: 'Lead Capture',
+      body: 'Whether your site turns visits into real enquiries. We look at forms, contact paths, booking flow, and the points where potential customers drop off.'
+    },
+    'mobile-web': {
+      title: 'Mobile & Web Experience',
+      body: 'How your website feels to use across mobile and desktop. We look at usability, layout, speed, friction, and whether the site feels current or neglected.'
+    },
+    'competitor-analysis': {
+      title: 'Competitor Analysis',
+      body: 'How your web presence compares with the businesses around you. We look at nearby competitors, positioning, trust gaps, and where you may be losing ground.'
+    },
+    'conversion-friction': {
+      title: 'Conversion Friction',
+      body: 'The small problems that stop a visitor from taking action. This includes confusing copy, awkward layout, weak calls to action, and anything that makes contacting the business feel harder than it should.'
+    }
+  };
+
+  var overlay = document.getElementById('glassOverlay');
+  var glassTitle = document.getElementById('glassTitle');
+  var glassBody = document.getElementById('glassBody');
+  var activeKey = null;
+
+  function showGlass(key) {
+    if (activeKey === key) {
+      hideGlass();
+      return;
+    }
+    activeKey = key;
+    var data = descriptions[key];
+    if (!data) return;
+
+    glassTitle.textContent = data.title;
+    glassBody.textContent = data.body;
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideGlass() {
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    activeKey = null;
+  }
+
+  /* ── Tile clicks ─ */
+  document.querySelectorAll('.bento-tile').forEach(function(tile) {
+    tile.addEventListener('click', function() {
+      showGlass(this.getAttribute('data-popover'));
+    });
+    tile.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        showGlass(this.getAttribute('data-popover'));
+      }
+    });
+  });
+
+  /* ── Backdrop click to close ─ */
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) hideGlass();
+  });
+
+  /* ── Escape to close ─ */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && activeKey) hideGlass();
   });
 })();
 </script>
