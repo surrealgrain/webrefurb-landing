@@ -912,9 +912,16 @@ a:focus-visible {
         <span class="bento-tile__dot"></span>
         <span class="bento-tile__title">Trust Signals</span>
         <div class="bento-tile__visual" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" stroke="var(--accent-green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M24 6l2.5 5.1 5.6.8-4.1 4 1 5.6L24 19l-5 2.5 1-5.6-4.1-4 5.6-.8z"/>
-            <path d="M24 22l2.5 5.1 5.6.8-4.1 4 1 5.6L24 35l-5 2.5 1-5.6-4.1-4 5.6-.8z" opacity="0.3"/>
+          <svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+            <defs>
+              <linearGradient id="g1" x1="20" y1="10" x2="60" y2="50">
+                <stop offset="0%" stop-color="var(--accent-green)" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="var(--accent-green)" stop-opacity="0.15"/>
+              </linearGradient>
+            </defs>
+            <path d="M40 22l4.2 8.5 9.4 1.4-6.8 6.6 1.6 9.3L40 43.6l-8.4 4.2 1.6-9.3-6.8-6.6 9.4-1.4z" stroke="var(--accent-green)" fill="url(#g1)"/>
+            <path d="M62 44l3.2 6.5 7.2 1-5.2 5.1 1.2 7.1L62 59.7l-6.4 3.3 1.2-7.1-5.2-5.1 7.2-1z" stroke="var(--accent-green)" opacity="0.3"/>
+            <circle cx="40" cy="32" r="28" stroke="var(--accent-green)" stroke-width="1" opacity="0.12"/>
           </svg>
         </div>
         <span class="bento-tile__hint">Does your online reputation actually show up on your site</span>
@@ -924,13 +931,18 @@ a:focus-visible {
         <span class="bento-tile__dot"></span>
         <span class="bento-tile__title">Search Visibility</span>
         <div class="bento-tile__visual" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" stroke="var(--accent-blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="24" cy="10" r="6"/>
-            <line x1="28.2" y1="14.2" x2="34" y2="20"/>
-            <line x1="34" y1="20" x2="34" y2="24"/>
-            <rect x="6" y="28" rx="3" ry="3" width="36" height="14"/>
-            <line x1="12" y1="33" x2="28" y2="33" stroke-width="2"/>
-            <line x1="12" y1="37" x2="22" y2="37" stroke-width="1" opacity="0.4"/>
+          <svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+            <defs>
+              <linearGradient id="g2" x1="20" y1="20" x2="80" y2="80">
+                <stop offset="0%" stop-color="var(--accent-blue)" stop-opacity="0.08"/>
+                <stop offset="100%" stop-color="var(--accent-blue)" stop-opacity="0.02"/>
+              </linearGradient>
+            </defs>
+            <rect x="12" y="38" width="76" height="44" rx="10" stroke="var(--accent-blue)" stroke-width="1.6" fill="url(#g2)"/>
+            <line x1="24" y1="52" x2="62" y2="52" stroke="var(--accent-blue)" stroke-width="2.5"/>
+            <line x1="24" y1="60" x2="50" y2="60" stroke="var(--accent-blue)" stroke-width="1.2" opacity="0.35"/>
+            <circle cx="70" cy="28" r="12" stroke="var(--accent-blue)" stroke-width="1.6"/>
+            <line x1="78.5" y1="36.5" x2="88" y2="46" stroke="var(--accent-blue)" stroke-width="1.6"/>
           </svg>
         </div>
         <span class="bento-tile__hint">What people see when they search for your exact service</span>
@@ -940,11 +952,17 @@ a:focus-visible {
         <span class="bento-tile__dot"></span>
         <span class="bento-tile__title">Lead Capture</span>
         <div class="bento-tile__visual" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" stroke="var(--accent-amber)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 14c0-3.3 2.7-6 6-6h1c3.3 0 6 2.7 6 6v1c0 3.3-2.7 6-6 6h-1c-3.3 0-6-2.7-6-6z"/>
-            <path d="M8 30c0-6.6 5.4-12 12-12h8c6.6 0 12 5.4 12 12v4H8z"/>
-            <line x1="24" y1="30" x2="24" y2="35" stroke-width="1" opacity="0.4"/>
-            <circle cx="24" cy="38" r="2" fill="var(--accent-amber)" stroke="none" opacity="0.6"/>
+          <svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+            <defs>
+              <linearGradient id="g3" x1="10" y1="20" x2="90" y2="80">
+                <stop offset="0%" stop-color="var(--accent-amber)" stop-opacity="0.1"/>
+                <stop offset="100%" stop-color="var(--accent-amber)" stop-opacity="0.02"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 16c-10 0-18 7.2-18 16.5v4c0 2.2 1.8 4 4 4h28c2.2 0 4-1.8 4-4v-4C68 23.2 60 16 50 16z" stroke="var(--accent-amber)" fill="url(#g3)"/>
+            <path d="M28 76c0-8 5-14.5 11.5-14.5h21C67 61.5 72 68 72 76v4H28z" stroke="var(--accent-amber)" fill="url(#g3)" opacity="0.6"/>
+            <line x1="46" y1="68" x2="54" y2="68" stroke="var(--accent-amber)" stroke-width="2" opacity="0.5"/>
+            <circle cx="50" cy="86" r="4" fill="var(--accent-amber)" stroke="none" opacity="0.5"/>
           </svg>
         </div>
         <span class="bento-tile__hint">The number of clicks between a visitor and calling you</span>
@@ -954,14 +972,21 @@ a:focus-visible {
         <span class="bento-tile__dot"></span>
         <span class="bento-tile__title">Mobile &amp; Web Experience</span>
         <div class="bento-tile__visual" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="14" y="4" rx="4" ry="4" width="20" height="40"/>
-            <line x1="14" y1="12" x2="34" y2="12"/>
-            <line x1="14" y1="36" x2="34" y2="36"/>
-            <line x1="20" y1="40" x2="28" y2="40" stroke-width="2"/>
-            <line x1="18" y1="20" x2="30" y2="20" stroke-width="1" opacity="0.3"/>
-            <line x1="18" y1="25" x2="26" y2="25" stroke-width="1" opacity="0.2"/>
-            <line x1="18" y1="30" x2="22" y2="30" stroke-width="1" opacity="0.15"/>
+          <svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+            <defs>
+              <linearGradient id="g4" x1="30" y1="10" x2="70" y2="90">
+                <stop offset="0%" stop-color="var(--accent-cyan)" stop-opacity="0.08"/>
+                <stop offset="100%" stop-color="var(--accent-cyan)" stop-opacity="0.02"/>
+              </linearGradient>
+            </defs>
+            <rect x="28" y="8" width="44" height="84" rx="12" stroke="var(--accent-cyan)" stroke-width="1.6" fill="url(#g4)"/>
+            <line x1="28" y1="24" x2="72" y2="24" stroke="var(--accent-cyan)" stroke-width="1" opacity="0.3"/>
+            <line x1="28" y1="76" x2="72" y2="76" stroke="var(--accent-cyan)" stroke-width="1" opacity="0.3"/>
+            <line x1="40" y1="88" x2="60" y2="88" stroke="var(--accent-cyan)" stroke-width="2"/>
+            <line x1="36" y1="38" x2="64" y2="38" stroke="var(--accent-cyan)" stroke-width="1.2" opacity="0.25"/>
+            <line x1="36" y1="46" x2="56" y2="46" stroke="var(--accent-cyan)" stroke-width="1" opacity="0.18"/>
+            <line x1="36" y1="54" x2="48" y2="54" stroke="var(--accent-cyan)" stroke-width="1" opacity="0.12"/>
+            <line x1="36" y1="62" x2="52" y2="62" stroke="var(--accent-cyan)" stroke-width="1" opacity="0.15"/>
           </svg>
         </div>
         <span class="bento-tile__hint">What your site actually feels like on a phone</span>
@@ -971,15 +996,22 @@ a:focus-visible {
         <span class="bento-tile__dot"></span>
         <span class="bento-tile__title">Competitor Analysis</span>
         <div class="bento-tile__visual" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" stroke="var(--accent-indigo)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="6" y="20" rx="2" ry="2" width="14" height="20"/>
-            <rect x="28" y="8" rx="2" ry="2" width="14" height="32"/>
-            <line x1="6" y1="44" x2="42" y2="44" stroke-width="1" opacity="0.3"/>
-            <line x1="10" y1="28" x2="16" y2="28" stroke-width="1" opacity="0.2"/>
-            <line x1="10" y1="32" x2="14" y2="32" stroke-width="1" opacity="0.15"/>
-            <line x1="32" y1="16" x2="38" y2="16" stroke-width="1" opacity="0.2"/>
-            <line x1="32" y1="20" x2="36" y2="20" stroke-width="1" opacity="0.15"/>
-            <line x1="32" y1="24" x2="34" y2="24" stroke-width="1" opacity="0.1"/>
+          <svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+            <defs>
+              <linearGradient id="g5" x1="10" y1="20" x2="90" y2="80">
+                <stop offset="0%" stop-color="var(--accent-indigo)" stop-opacity="0.08"/>
+                <stop offset="100%" stop-color="var(--accent-indigo)" stop-opacity="0.02"/>
+              </linearGradient>
+            </defs>
+            <rect x="10" y="36" width="30" height="46" rx="6" stroke="var(--accent-indigo)" stroke-width="1.4" fill="url(#g5)" opacity="0.5"/>
+            <rect x="60" y="16" width="30" height="66" rx="6" stroke="var(--accent-indigo)" stroke-width="1.6" fill="url(#g5)"/>
+            <line x1="10" y1="88" x2="90" y2="88" stroke="var(--accent-indigo)" stroke-width="1" opacity="0.2"/>
+            <line x1="18" y1="52" x2="32" y2="52" stroke="var(--accent-indigo)" stroke-width="1.2" opacity="0.2"/>
+            <line x1="18" y1="60" x2="28" y2="60" stroke="var(--accent-indigo)" stroke-width="1" opacity="0.15"/>
+            <line x1="68" y1="32" x2="82" y2="32" stroke="var(--accent-indigo)" stroke-width="1.2" opacity="0.2"/>
+            <line x1="68" y1="40" x2="78" y2="40" stroke="var(--accent-indigo)" stroke-width="1" opacity="0.15"/>
+            <line x1="68" y1="48" x2="76" y2="48" stroke="var(--accent-indigo)" stroke-width="1" opacity="0.12"/>
+            <line x1="68" y1="56" x2="74" y2="56" stroke="var(--accent-indigo)" stroke-width="1" opacity="0.1"/>
           </svg>
         </div>
         <span class="bento-tile__hint">What the businesses winning your calls are doing differently</span>
@@ -989,11 +1021,18 @@ a:focus-visible {
         <span class="bento-tile__dot"></span>
         <span class="bento-tile__title">Conversion Friction</span>
         <div class="bento-tile__visual" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none" stroke="var(--accent-red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 8h32l-10 16v12l-6 4-6-4V24z"/>
-            <line x1="18" y1="36" x2="30" y2="36" stroke-width="1" opacity="0.3"/>
-            <path d="M20 28l4-4 4 4" stroke-width="1.2" opacity="0.6"/>
-            <line x1="24" y1="24" x2="24" y2="32" stroke-width="1" stroke-dasharray="2 2" opacity="0.4"/>
+          <svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8">
+            <defs>
+              <linearGradient id="g6" x1="20" y1="10" x2="80" y2="90">
+                <stop offset="0%" stop-color="var(--accent-red)" stop-opacity="0.12"/>
+                <stop offset="100%" stop-color="var(--accent-red)" stop-opacity="0.02"/>
+              </linearGradient>
+            </defs>
+            <path d="M22 20h56L60 48v22L40 82V48z" stroke="var(--accent-red)" fill="url(#g6)"/>
+            <line x1="34" y1="78" x2="66" y2="78" stroke="var(--accent-red)" stroke-width="1" opacity="0.2"/>
+            <path d="M40 40l8-8 8 8" stroke="var(--accent-red)" stroke-width="1.4" opacity="0.5"/>
+            <line x1="48" y1="32" x2="48" y2="64" stroke="var(--accent-red)" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+            <circle cx="48" cy="74" r="3" fill="var(--accent-red)" stroke="none" opacity="0.4"/>
           </svg>
         </div>
         <span class="bento-tile__hint">Where interested visitors give up and call someone else</span>
