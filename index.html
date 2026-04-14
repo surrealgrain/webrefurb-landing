@@ -290,7 +290,7 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 72px 40px 32px;
+  padding: 72px 40px 24px;
 }
 
 /* ── Hero Section ── */
@@ -299,18 +299,18 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(12px, 3vh, 28px) 0 clamp(16px, 2.5vh, 24px);
+  padding: clamp(8px, 2vh, 16px) 0 clamp(10px, 2vh, 16px);
   display: flex;
   align-items: center;
-  gap: clamp(20px, 3vw, 40px);
+  gap: clamp(16px, 2.5vw, 32px);
   opacity: 0;
   animation: slideUp 0.8s var(--ease-out) 0.15s forwards;
 }
 
 .logo {
   display: block;
-  width: min(18vw, 180px);
-  min-width: 130px;
+  width: min(15vw, 150px);
+  min-width: 110px;
   height: auto;
   flex-shrink: 0;
 }
@@ -346,13 +346,13 @@ body::before {
 .hero-copy {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .wordmark {
   font-family: 'Outfit', sans-serif;
-  font-size: clamp(44px, 5.5vw, 72px);
+  font-size: clamp(38px, 4.8vw, 60px);
   font-weight: 800;
   letter-spacing: -0.045em;
   line-height: 0.9;
@@ -362,10 +362,10 @@ body::before {
 }
 
 .headline {
-  font-size: clamp(17px, 1.8vw, 20px);
+  font-size: clamp(15px, 1.5vw, 18px);
   font-weight: 400;
   letter-spacing: -0.01em;
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--text-secondary);
   max-width: 44ch;
   opacity: 0;
@@ -394,19 +394,19 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(20px, 3vh, 32px) 0 0;
+  padding: clamp(14px, 2.5vh, 24px) 0 0;
   opacity: 0;
   animation: slideUp 0.8s var(--ease-out) 0.75s forwards;
 }
 
 .bento-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: clamp(18px, 2.2vw, 24px);
+  font-size: clamp(16px, 1.8vw, 20px);
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.2;
   color: var(--text);
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .bento-label strong {
@@ -416,7 +416,7 @@ body::before {
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .bento-tile {
@@ -424,8 +424,8 @@ body::before {
   background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 28px 24px 24px;
-  min-height: 190px;
+  padding: 24px 20px 20px;
+  min-height: 170px;
   cursor: pointer;
   transition: transform 350ms var(--ease-out), box-shadow 350ms var(--ease-out), border-color 350ms var(--ease-out);
   display: flex;
@@ -469,12 +469,12 @@ body::before {
 
 /* Pulsing dot */
 .bento-tile__dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
   position: relative;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .bento-tile__dot::after {
@@ -514,10 +514,10 @@ body::before {
 /* Icon area */
 .bento-tile__visual {
   position: absolute;
-  bottom: 24px;
-  right: 24px;
-  width: 48px;
-  height: 48px;
+  bottom: 20px;
+  right: 20px;
+  width: 42px;
+  height: 42px;
   opacity: 0.7;
   transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out);
 }
@@ -543,18 +543,18 @@ body::before {
 /* Title */
 .bento-tile__title {
   font-family: 'Outfit', sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
   color: var(--text);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 /* Hint text */
 .bento-tile__hint {
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text-muted);
   max-width: 85%;
 }
@@ -644,7 +644,7 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 0 0;
+  padding: 24px 0 0;
   opacity: 0;
   animation: fadeIn 0.8s var(--ease-out) 1s forwards;
 }
@@ -1020,7 +1020,6 @@ a:focus-visible {
     </button>
   </div>
   <div class="nav__right">
-    <a class="about-link" href="#about">About</a>
     <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
       Request a free report
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
