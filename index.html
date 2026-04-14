@@ -10,94 +10,169 @@
 <meta name="description" content="We show local businesses where revenue is leaking, and what to do next.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg: #FAFAF8;
-  --bg-gradient-top: rgba(255, 255, 255, 0.96);
-  --bg-gradient-mid: rgba(250, 250, 248, 0.95);
-  --surface: #F3F2EE;
-  --surface-hover: #EEEDF0;
-  --border: rgba(0, 0, 0, 0.06);
-  --border-hover: rgba(0, 0, 0, 0.12);
-  --text: #1A1A1A;
-  --text-muted: #3B3B3B;
-  --text-faint: #6B6B6B;
-  --cta-bg: #1A1A1A;
-  --cta-text: #FAFAF8;
-  --cta-hover: #3B3B3B;
-  --toggle-bg: transparent;
-  --toggle-fill: #3B3B3B;
-  --toggle-hover-bg: rgba(0, 0, 0, 0.06);
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-blur: 24px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-  --neu-shadow-light: -5px -5px 14px rgba(255, 255, 255, 0.8);
-  --neu-shadow-dark: 5px 5px 14px rgba(180, 180, 176, 0.3);
-  --neu-hover-light: -7px -7px 18px rgba(255, 255, 255, 0.85);
-  --neu-hover-dark: 7px 7px 18px rgba(180, 180, 176, 0.35);
-  --backdrop: rgba(0, 0, 0, 0.18);
+  /* Core palette */
+  --bg: #F9F8F5;
+  --surface: #F1F0ED;
+  --surface-elevated: #FEFDFB;
+  --text: #0C0C0B;
+  --text-secondary: #3A3935;
+  --text-tertiary: #6E6D68;
+  --text-muted: #9D9C97;
+  --border: rgba(12, 12, 11, 0.06);
+  --border-strong: rgba(12, 12, 11, 0.12);
+  
+  /* Accent colors */
+  --accent-green: #2D8A4E;
+  --accent-blue: #1A6FB5;
+  --accent-amber: #D4920B;
+  --accent-cyan: #0E7A8A;
+  --accent-red: #C74B3B;
+  --accent-gold: #C9A227;
+  
+  /* UI tokens */
+  --cta-bg: #0C0C0B;
+  --cta-text: #F9F8F5;
+  --cta-hover: #2C2C2A;
+  --glass-bg: rgba(254, 253, 251, 0.72);
+  --glass-border: rgba(12, 12, 11, 0.08);
+  --glass-blur: 20px;
+  --glass-shadow: 0 12px 40px rgba(12, 12, 11, 0.08), 0 4px 12px rgba(12, 12, 11, 0.04);
+  --tile-shadow: 0 2px 8px rgba(12, 12, 11, 0.04), 0 8px 24px rgba(12, 12, 11, 0.06);
+  --tile-shadow-hover: 0 4px 16px rgba(12, 12, 11, 0.06), 0 12px 32px rgba(12, 12, 11, 0.10);
+  --backdrop: rgba(12, 12, 11, 0.35);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+  
+  /* Transitions */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 150ms var(--ease-out);
+  --transition-med: 300ms var(--ease-out);
+  --transition-slow: 500ms var(--ease-out);
 }
 
 [data-theme="dark"] {
-  --bg: #1A1A1A;
-  --bg-gradient-top: rgba(26, 26, 26, 0.96);
-  --bg-gradient-mid: rgba(26, 26, 26, 0.95);
-  --surface: #212121;
-  --surface-hover: #272727;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.14);
-  --text: #FAFAF8;
-  --text-muted: #D5D5D5;
-  --text-faint: #8A8A8A;
-  --cta-bg: #FAFAF8;
-  --cta-text: #1A1A1A;
-  --cta-hover: #E0E0E0;
-  --toggle-bg: transparent;
-  --toggle-fill: #E0E0E0;
-  --toggle-hover-bg: rgba(255, 255, 255, 0.08);
-  --glass-bg: rgba(38, 38, 38, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: 24px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
-  --neu-shadow-light: -5px -5px 14px rgba(38, 38, 38, 0.6);
-  --neu-shadow-dark: 5px 5px 14px rgba(0, 0, 0, 0.5);
-  --neu-hover-light: -7px -7px 18px rgba(38, 38, 38, 0.65);
-  --neu-hover-dark: 7px 7px 18px rgba(0, 0, 0, 0.55);
-  --backdrop: rgba(0, 0, 0, 0.4);
+  --bg: #0C0C0B;
+  --surface: #151514;
+  --surface-elevated: #1A1A19;
+  --text: #F9F8F5;
+  --text-secondary: #D4D3CE;
+  --text-tertiary: #9D9C97;
+  --text-muted: #6E6D68;
+  --border: rgba(249, 248, 245, 0.08);
+  --border-strong: rgba(249, 248, 245, 0.14);
+  --cta-bg: #F9F8F5;
+  --cta-text: #0C0C0B;
+  --cta-hover: #E0DFDC;
+  --glass-bg: rgba(26, 26, 25, 0.72);
+  --glass-border: rgba(249, 248, 245, 0.08);
+  --glass-blur: 20px;
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+  --tile-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --tile-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+  --backdrop: rgba(0, 0, 0, 0.6);
 }
 
 html {
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   min-height: 100%;
   background: var(--bg);
-  transition: background 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at top, var(--bg-gradient-top) 0%, var(--bg-gradient-mid) 42%, var(--bg) 100%);
+  background: var(--bg);
   color: var(--text);
-  transition: background 0.3s ease, color 0.3s ease;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--transition-med), color var(--transition-med);
+  position: relative;
 }
 
-/* ── Topbar ── */
-
-.topbar {
+/* Subtle grain texture */
+body::before {
+  content: '';
   position: fixed;
-  top: 24px;
-  right: 24px;
-  z-index: 10;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* Ambient gradient blobs */
+.ambient-blob {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  opacity: 0.28;
+}
+
+.ambient-blob--1 {
+  width: 500px;
+  height: 500px;
+  top: -100px;
+  right: -100px;
+  background: var(--accent-cyan);
+  opacity: 0.07;
+}
+
+.ambient-blob--2 {
+  width: 400px;
+  height: 400px;
+  bottom: -50px;
+  left: -100px;
+  background: var(--accent-amber);
+  opacity: 0.05;
+}
+
+/* ── Navigation ── */
+
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 20px 32px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  opacity: 0;
+  animation: fadeIn 0.6s var(--ease-out) forwards;
+}
+
+.nav__left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav__logo-text {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-secondary);
+}
+
+.nav__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .theme-toggle {
@@ -106,25 +181,37 @@ body {
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: var(--toggle-bg);
-  border: 1.5px solid var(--text-muted);
-  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
   cursor: pointer;
   padding: 0;
-  transition: background 0.2s, border-color 0.3s ease;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
 }
 
-.theme-toggle:hover { background: var(--toggle-hover-bg); }
+.theme-toggle:hover {
+  background: var(--surface-elevated);
+  border-color: var(--border-strong);
+  transform: scale(1.05);
+}
+
+.theme-toggle:active {
+  transform: scale(0.96);
+}
 
 .theme-toggle svg {
   width: 18px;
   height: 18px;
   fill: none;
-  stroke: var(--toggle-fill);
-  stroke-width: 2;
+  stroke: var(--text-tertiary);
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke 0.3s ease;
+  transition: stroke var(--transition-fast);
+}
+
+.theme-toggle:hover svg {
+  stroke: var(--text-secondary);
 }
 
 .theme-toggle .icon-moon,
@@ -133,278 +220,304 @@ body {
 [data-theme="light"] .theme-toggle .icon-sun,
 [data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 
-.cta {
+.btn-cta {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 11px 24px;
+  padding: 10px 22px;
   background: var(--cta-bg);
   color: var(--cta-text);
-  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  border-radius: 999px;
-  transition: background 0.2s, transform 0.15s, color 0.3s ease;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
   line-height: 1;
+  box-shadow: 0 2px 8px rgba(12, 12, 11, 0.12);
 }
 
-.cta:hover {
+.btn-cta:hover {
   background: var(--cta-hover);
   transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(12, 12, 11, 0.16);
 }
 
-.cta:active { transform: translateY(0); }
+.btn-cta:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(12, 12, 11, 0.08);
+}
 
-.cta svg {
+.btn-cta svg {
   width: 14px;
   height: 14px;
-  flex-shrink: 0;
+  transition: transform var(--transition-fast);
 }
 
-/* ── Stage ── */
+.btn-cta:hover svg {
+  transform: translateX(1px);
+}
 
-.stage {
+/* ── Main Content ── */
+
+.main {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 72px 24px 48px;
+  padding: 100px 32px 64px;
 }
 
-/* ── Hero ── */
+/* ── Hero Section ── */
 
 .hero {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(20px, 3vw, 36px) clamp(28px, 4vw, 48px);
+  padding: clamp(40px, 8vh, 80px) 0 clamp(32px, 5vh, 56px);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: clamp(14px, 2vw, 24px);
-  padding-top: clamp(36px, 6vh, 72px);
-}
-
-/* ── Content wrapper ── */
-
-.content-wrap {
-  width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
-  text-align: left;
-  align-self: stretch;
+  gap: clamp(20px, 3vw, 40px);
+  opacity: 0;
+  animation: slideUp 0.8s var(--ease-out) 0.15s forwards;
 }
 
 .logo {
   display: block;
-  width: min(15vw, 160px);
-  min-width: 120px;
+  width: min(18vw, 180px);
+  min-width: 130px;
   height: auto;
-  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.04));
   flex-shrink: 0;
+  filter: drop-shadow(0 4px 20px rgba(12, 12, 11, 0.06));
 }
 
 .logo circle {
-  opacity: 1;
-  animation: dotFadeIn 1.8s ease-in-out forwards;
+  opacity: 0;
+  animation: dotPopIn 0.5s var(--ease-spring) forwards;
 }
 
-.logo circle:nth-of-type(1)  { animation-delay: 0.00s; }
-.logo circle:nth-of-type(2)  { animation-delay: 0.04s; }
-.logo circle:nth-of-type(3)  { animation-delay: 0.08s; }
-.logo circle:nth-of-type(4)  { animation-delay: 0.12s; }
-.logo circle:nth-of-type(5)  { animation-delay: 0.16s; }
-.logo circle:nth-of-type(6)  { animation-delay: 0.20s; }
-.logo circle:nth-of-type(7)  { animation-delay: 0.24s; }
-.logo circle:nth-of-type(8)  { animation-delay: 0.28s; }
-.logo circle:nth-of-type(9)  { animation-delay: 0.32s; }
-.logo circle:nth-of-type(10) { animation-delay: 0.36s; }
-.logo circle:nth-of-type(11) { animation-delay: 0.40s; }
-.logo circle:nth-of-type(12) { animation-delay: 0.44s; }
-.logo circle:nth-of-type(13) { animation-delay: 0.48s; }
-.logo circle:nth-of-type(14) { animation-delay: 0.52s; }
-.logo circle:nth-of-type(15) { animation-delay: 0.56s; }
-.logo circle:nth-of-type(16) { animation-delay: 0.60s; }
+.logo circle:nth-of-type(1)  { animation-delay: 0.25s; }
+.logo circle:nth-of-type(2)  { animation-delay: 0.29s; }
+.logo circle:nth-of-type(3)  { animation-delay: 0.33s; }
+.logo circle:nth-of-type(4)  { animation-delay: 0.37s; }
+.logo circle:nth-of-type(5)  { animation-delay: 0.41s; }
+.logo circle:nth-of-type(6)  { animation-delay: 0.45s; }
+.logo circle:nth-of-type(7)  { animation-delay: 0.49s; }
+.logo circle:nth-of-type(8)  { animation-delay: 0.53s; }
+.logo circle:nth-of-type(9)  { animation-delay: 0.57s; }
+.logo circle:nth-of-type(10) { animation-delay: 0.61s; }
+.logo circle:nth-of-type(11) { animation-delay: 0.65s; }
+.logo circle:nth-of-type(12) { animation-delay: 0.69s; }
+.logo circle:nth-of-type(13) { animation-delay: 0.73s; }
+.logo circle:nth-of-type(14) { animation-delay: 0.77s; }
+.logo circle:nth-of-type(15) { animation-delay: 0.81s; }
+.logo circle:nth-of-type(16) { animation-delay: 0.85s; }
 
-@keyframes dotFadeIn {
-  0%   { opacity: 0.6; }
-  20%  { opacity: 0.75; }
-  45%  { opacity: 0.68; }
-  70%  { opacity: 0.9; }
-  100% { opacity: 1; }
+@keyframes dotPopIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  60%  { transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-.copy {
+.hero-copy {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 
 .wordmark {
-  display: block;
-  font-family: 'Inter', -apple-system, sans-serif;
-  font-size: clamp(36px, 4.4vw, 60px);
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 0.92;
-  color: var(--text-muted);
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(40px, 5vw, 68px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  color: var(--text);
   opacity: 0;
-  animation: fadeUp 0.6s ease forwards 0.5s;
+  animation: slideUp 0.7s var(--ease-out) 0.4s forwards;
 }
 
 .headline {
-  display: block;
   font-size: clamp(17px, 1.8vw, 22px);
   font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
-  color: var(--text-muted);
-  max-width: 38ch;
-  padding-left: 0.16em;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  max-width: 40ch;
   opacity: 0;
-  animation: fadeUp 0.6s ease forwards 1.0s;
-}
-
-.headline-text {
-  display: inline;
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  animation: slideUp 0.7s var(--ease-out) 0.6s forwards;
 }
 
 /* ── Divider ── */
 
 .divider {
   width: 100%;
-  padding: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  opacity: 0;
+  animation: fadeIn 0.8s var(--ease-out) 0.7s forwards;
 }
 
-.divider::after {
-  content: '';
-  display: block;
+.divider__line {
+  width: 100%;
   height: 1px;
-  background: var(--border);
+  background: linear-gradient(to right, var(--border), var(--border-strong), var(--border));
 }
 
-/* ── Bento  */
+/* ── Bento Grid Section ── */
 
 .bento-section {
-  padding: clamp(20px, 3vw, 32px) 0 0;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: clamp(28px, 4vh, 48px) 0 0;
   opacity: 0;
-  animation: fadeUp 0.7s ease forwards 0.85s;
+  animation: slideUp 0.8s var(--ease-out) 0.75s forwards;
 }
 
 .bento-label {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-faint);
-  margin-bottom: 16px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
 }
 
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 
 .bento-tile {
   position: relative;
-  background: var(--surface);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 20px 18px;
+  border-radius: var(--radius-lg);
+  padding: 24px 24px 22px;
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform var(--transition-med), box-shadow var(--transition-med), border-color var(--transition-med);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
   text-align: left;
-  box-shadow:
-    var(--neu-shadow-light),
-    var(--neu-shadow-dark);
+  box-shadow: var(--tile-shadow);
+  overflow: hidden;
+}
+
+/* Hover gradient effect */
+.bento-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(12, 12, 11, 0.03), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-med);
+  pointer-events: none;
+}
+
+.bento-tile:hover::before {
+  opacity: 1;
 }
 
 .bento-tile:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    var(--neu-hover-light),
-    var(--neu-hover-dark);
-  border-color: var(--border-hover);
+  transform: translateY(-3px);
+  box-shadow: var(--tile-shadow-hover);
+  border-color: var(--border-strong);
 }
 
 .bento-tile:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
 }
 
-/* Pulsing dot — slightly larger */
+/* Pulsing dots */
 .bento-tile__dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  animation: dotPulse 2.4s ease-in-out infinite;
+  position: relative;
+}
+
+.bento-tile__dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.3;
+  animation: dotPulse 2s ease-in-out infinite;
 }
 
 @keyframes dotPulse {
-  0%, 100% { opacity: 0.45; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.6); }
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(1.5); }
 }
 
 .bento-tile[data-popover="trust-signals"] .bento-tile__dot {
-  background: #9ad700;
-  animation-delay: 0s;
+  background: var(--accent-green);
 }
 .bento-tile[data-popover="search-visibility"] .bento-tile__dot {
-  background: #04b3ec;
-  animation-delay: 0.2s;
+  background: var(--accent-blue);
 }
 .bento-tile[data-popover="lead-capture"] .bento-tile__dot {
-  background: #ffdc04;
-  animation-delay: 0.4s;
+  background: var(--accent-amber);
 }
 .bento-tile[data-popover="mobile-web"] .bento-tile__dot {
-  background: #00b3eb;
-  animation-delay: 0.6s;
+  background: var(--accent-cyan);
 }
 .bento-tile[data-popover="competitor-analysis"] .bento-tile__dot {
-  background: #fedc01;
-  animation-delay: 0.8s;
+  background: var(--accent-gold);
 }
 .bento-tile[data-popover="conversion-friction"] .bento-tile__dot {
-  background: #fc3b02;
-  animation-delay: 1.0s;
+  background: var(--accent-red);
 }
 
 .bento-tile__title {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
   color: var(--text);
 }
 
-/* ── Glass Popover (centered, Apple liquid-glass style) ── */
+.bento-tile__hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--transition-med), transform var(--transition-med);
+  max-width: 90%;
+}
+
+.bento-tile:hover .bento-tile__hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Glass Modal Overlay ── */
 
 .glass-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--backdrop);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition: opacity var(--transition-med), visibility var(--transition-med);
   padding: 24px;
 }
 
@@ -416,148 +529,250 @@ body {
 .glass-card {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  padding: 26px 28px 24px;
+  border-radius: var(--radius-xl);
+  padding: 32px 32px 28px;
   box-shadow: var(--glass-shadow);
-  transform: translateY(6px) scale(0.97);
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(12px) scale(0.96);
+  transition: transform var(--transition-med);
 }
 
 .glass-overlay.active .glass-card {
   transform: translateY(0) scale(1);
 }
 
+/* Colored accent bar at top */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 3px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--accent-cyan);
+  transition: background var(--transition-fast);
+}
+
+.glass-card__dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-bottom: 12px;
+}
+
 .glass-card__title {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
   color: var(--text);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .glass-card__body {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* ── Footer ── */
+
+.footer {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 0 0;
+  opacity: 0;
+  animation: fadeIn 0.8s var(--ease-out) 1s forwards;
+}
+
+.footer__line {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 20px;
+}
+
+.footer__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer__copy {
+  font-size: 12px;
   color: var(--text-muted);
+}
+
+.footer__links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.footer__link {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footer__link:hover {
+  color: var(--text-secondary);
+}
+
+/* ── Animations ── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Focus styles ── */
 
-.bento-tile:focus-visible {
-  outline: 2px solid var(--cta-bg);
-  outline-offset: 2px;
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
 }
 
 /* ── Reduced motion ── */
 
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
   .logo circle,
   .wordmark,
+  .headline,
   .bento-section,
   .bento-tile__dot,
+  .bento-tile__dot::after,
   .glass-overlay,
-  .glass-card {
-    animation: none;
-    transition: none;
+  .glass-card,
+  .nav,
+  .divider,
+  .footer {
     opacity: 1;
+    transform: none;
   }
-  .wordmark { opacity: 1; }
+}
+
+/* ── Tablet ── */
+
+@media (max-width: 900px) {
+  .nav {
+    padding: 16px 24px;
+  }
+  
+  .main {
+    padding: 90px 24px 48px;
+  }
+  
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ── Mobile ── */
 
-@media (max-width: 768px) {
-  html { overflow-y: auto; }
-
+@media (max-width: 640px) {
+  html {
+    overflow-x: hidden;
+  }
+  
   body {
-    overflow-y: auto;
-    min-height: 100vh;
-    min-height: 100dvh;
+    overflow-x: hidden;
   }
 
-  .stage {
-    padding: 72px 16px 32px;
+  .nav {
+    padding: 12px 16px;
+  }
+  
+  .nav__logo-text {
+    display: none;
   }
 
-  .content-wrap {
-    padding: 0;
+  .main {
+    padding: 80px 16px 32px;
   }
 
   .hero {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 14px;
-    padding: 0;
-    padding-top: 0;
+    gap: 18px;
+    padding: 0 0 8px;
   }
 
   .logo {
-    width: min(44vw, 150px);
+    width: min(38vw, 140px);
     min-width: 0;
-    max-width: 150px;
-    margin-left: auto;
-    margin-right: auto;
+    max-width: 140px;
+    margin: 0 auto;
   }
 
-  .copy {
+  .hero-copy {
     align-items: center;
-    gap: 5px;
+    gap: 8px;
     width: 100%;
   }
 
   .wordmark {
-    font-size: clamp(28px, 9vw, 42px);
+    font-size: clamp(32px, 10vw, 44px);
     text-align: center;
   }
 
   .headline {
     max-width: 100%;
-    padding-left: 0;
     text-align: center;
-    font-size: clamp(14px, 3.8vw, 16px);
-    line-height: 1.35;
+    font-size: clamp(15px, 4vw, 17px);
+    line-height: 1.4;
   }
 
-  .topbar {
-    top: 12px;
-    right: 12px;
-  }
-
-  .cta {
-    padding: 10px 18px;
+  .btn-cta {
+    padding: 9px 16px;
     font-size: 13px;
   }
 
-  .cta svg { width: 13px; height: 13px; }
+  .btn-cta svg { width: 13px; height: 13px; }
 
   .bento-section {
-    padding: 20px 0 0;
+    padding: 24px 0 0;
   }
 
   .bento-label {
     font-size: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
 
   .bento-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 10px;
   }
 
   .bento-tile {
-    padding: 16px 14px 14px;
+    padding: 18px 18px 16px;
   }
 
-  .bento-tile__title {
-    font-size: 13px;
-    font-weight: 700;
+  .bento-tile__hint {
+    display: none;
   }
 
   .glass-overlay {
@@ -565,121 +780,146 @@ body {
   }
 
   .glass-card {
-    padding: 22px 20px 20px;
+    padding: 26px 24px 24px;
+  }
+
+  .glass-card::before {
+    left: 24px;
+    right: 24px;
   }
 
   .glass-card__title {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 18px;
   }
 
   .glass-card__body {
-    font-size: 13.5px;
+    font-size: 14px;
   }
-}
-
-@media (max-width: 520px) {
-  .logo {
-    width: min(40vw, 130px);
-    max-width: 130px;
-  }
-
-  .bento-grid {
-    grid-template-columns: 1fr;
+  
+  .footer__content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 </style>
 </head>
 <body>
 
-<header class="topbar">
-  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-    <svg class="icon-sun" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="5"/>
-      <line x1="12" y1="1" x2="12" y2="3"/>
-      <line x1="12" y1="21" x2="12" y2="23"/>
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-      <line x1="1" y1="12" x2="3" y2="12"/>
-      <line x1="21" y1="12" x2="23" y2="12"/>
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-    </svg>
-    <svg class="icon-moon" viewBox="0 0 24 24">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  </button>
-  <a class="cta" href="mailto:chris@webrefurb.com">
-    Get in touch
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-      <polyline points="22,6 12,13 2,6"/>
-    </svg>
-  </a>
-</header>
+<!-- Ambient blobs -->
+<div class="ambient-blob ambient-blob--1" aria-hidden="true"></div>
+<div class="ambient-blob ambient-blob--2" aria-hidden="true"></div>
 
-<main class="stage">
+<!-- Navigation -->
+<nav class="nav" aria-label="Main navigation">
+  <div class="nav__left">
+    <span class="nav__logo-text">WebRefurb</span>
+  </div>
+  <div class="nav__right">
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+      <svg class="icon-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <a class="btn-cta" href="mailto:chris@webrefurb.com">
+      Get in touch
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+  
+  <!-- Hero Section -->
   <section class="hero" aria-label="WebRefurb">
     <img class="logo" src="logo.svg" alt="" aria-hidden="true">
-    <h1 class="copy">
+    <div class="hero-copy">
       <span class="wordmark">WebRefurb</span>
-      <span class="headline">
-        <span class="headline-text">We show local businesses where revenue is leaking,<br>and what to do next.</span>
-      </span>
-    </h1>
+      <p class="headline">We show local businesses where revenue is leaking, and what to do next.</p>
+    </div>
   </section>
 
-  <div class="content-wrap">
-    <div class="divider" aria-hidden="true"></div>
-
-    <section class="bento-section" aria-label="What we look at">
-      <p class="bento-label">What we look at</p>
-      <div class="bento-grid" role="list">
-
-        <button class="bento-tile" role="listitem" tabindex="0"
-          data-popover="trust-signals">
-          <span class="bento-tile__dot"></span>
-          <span class="bento-tile__title">Trust Signals</span>
-        </button>
-
-        <button class="bento-tile" role="listitem" tabindex="0"
-          data-popover="search-visibility">
-          <span class="bento-tile__dot"></span>
-          <span class="bento-tile__title">Search Visibility</span>
-        </button>
-
-        <button class="bento-tile" role="listitem" tabindex="0"
-          data-popover="lead-capture">
-          <span class="bento-tile__dot"></span>
-          <span class="bento-tile__title">Lead Capture</span>
-        </button>
-
-        <button class="bento-tile" role="listitem" tabindex="0"
-          data-popover="mobile-web">
-          <span class="bento-tile__dot"></span>
-          <span class="bento-tile__title">Mobile &amp; Web Experience</span>
-        </button>
-
-        <button class="bento-tile" role="listitem" tabindex="0"
-          data-popover="competitor-analysis">
-          <span class="bento-tile__dot"></span>
-          <span class="bento-tile__title">Competitor Analysis</span>
-        </button>
-
-        <button class="bento-tile" role="listitem" tabindex="0"
-          data-popover="conversion-friction">
-          <span class="bento-tile__dot"></span>
-          <span class="bento-tile__title">Conversion Friction</span>
-        </button>
-
-      </div>
-    </section>
+  <!-- Divider -->
+  <div class="divider" aria-hidden="true">
+    <div class="divider__line"></div>
   </div>
+
+  <!-- Bento Grid -->
+  <section class="bento-section" aria-label="What we look at">
+    <p class="bento-label">What we look at</p>
+    <div class="bento-grid" role="list">
+
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="trust-signals">
+        <span class="bento-tile__dot"></span>
+        <span class="bento-tile__title">Trust Signals</span>
+        <span class="bento-tile__hint">Reviews, credentials, credibility</span>
+      </button>
+
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="search-visibility">
+        <span class="bento-tile__dot"></span>
+        <span class="bento-tile__title">Search Visibility</span>
+        <span class="bento-tile__hint">Local presence, titles, data</span>
+      </button>
+
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="lead-capture">
+        <span class="bento-tile__dot"></span>
+        <span class="bento-tile__title">Lead Capture</span>
+        <span class="bento-tile__hint">Forms, contact paths, booking</span>
+      </button>
+
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="mobile-web">
+        <span class="bento-tile__dot"></span>
+        <span class="bento-tile__title">Mobile &amp; Web Experience</span>
+        <span class="bento-tile__hint">Usability, layout, speed, feel</span>
+      </button>
+
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="competitor-analysis">
+        <span class="bento-tile__dot"></span>
+        <span class="bento-tile__title">Competitor Analysis</span>
+        <span class="bento-tile__hint">Nearby gaps, positioning, trust</span>
+      </button>
+
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="conversion-friction">
+        <span class="bento-tile__dot"></span>
+        <span class="bento-tile__title">Conversion Friction</span>
+        <span class="bento-tile__hint">Copy, layout, calls to action</span>
+      </button>
+
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" aria-label="Footer">
+    <div class="footer__line"></div>
+    <div class="footer__content">
+      <p class="footer__copy">&copy; 2026 WebRefurb. All rights reserved.</p>
+      <div class="footer__links">
+        <a class="footer__link" href="mailto:chris@webrefurb.com">chris@webrefurb.com</a>
+        <a class="footer__link" href="https://www.webrefurb.com" target="_blank" rel="noopener">www.webrefurb.com</a>
+      </div>
+    </div>
+  </footer>
+
 </main>
 
-<!-- Glass Popover -->
+<!-- Glass Modal -->
 <div class="glass-overlay" id="glassOverlay" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="glass-card">
+    <span class="bento-tile__dot glass-card__dot" id="glassDot"></span>
     <h2 class="glass-card__title" id="glassTitle"></h2>
     <p class="glass-card__body" id="glassBody"></p>
   </div>
@@ -687,9 +927,10 @@ body {
 
 <script>
 (function() {
-  /* ── Theme ─ */
+  /* ── Theme toggle ─ */
   var html = document.documentElement;
-  html.setAttribute('data-theme', 'light');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  html.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
 
   document.getElementById('themeToggle').addEventListener('click', function() {
     var current = html.getAttribute('data-theme');
@@ -697,37 +938,53 @@ body {
     html.setAttribute('data-theme', next);
   });
 
-  /* ── Glass Popover data ─ */
+  /* ── Mouse tracking for tiles ─ */
+  document.querySelectorAll('.bento-tile').forEach(function(tile) {
+    tile.addEventListener('mousemove', function(e) {
+      var rect = tile.getBoundingClientRect();
+      tile.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
+      tile.style.setProperty('--mouse-y', (e.clientY - rect.top) + 'px');
+    });
+  });
+
+  /* ── Popover data ─ */
   var descriptions = {
     'trust-signals': {
       title: 'Trust Signals',
-      body: 'Proof that your business looks real, credible, and worth contacting. We look at reviews, credentials, brand consistency, and the signals that build trust fast.'
+      body: 'Proof that your business looks real, credible, and worth contacting. We look at reviews, credentials, brand consistency, and the signals that build trust fast.',
+      color: '#2D8A4E'
     },
     'search-visibility': {
       title: 'Search Visibility',
-      body: 'How easily people can find you when they search. We look at titles, local presence, structured data, and whether your business is showing up where it should.'
+      body: 'How easily people can find you when they search. We look at titles, local presence, structured data, and whether your business is showing up where it should.',
+      color: '#1A6FB5'
     },
     'lead-capture': {
       title: 'Lead Capture',
-      body: 'Whether your site turns visits into real enquiries. We look at forms, contact paths, booking flow, and the points where potential customers drop off.'
+      body: 'Whether your site turns visits into real enquiries. We look at forms, contact paths, booking flow, and the points where potential customers drop off.',
+      color: '#D4920B'
     },
     'mobile-web': {
       title: 'Mobile & Web Experience',
-      body: 'How your website feels to use across mobile and desktop. We look at usability, layout, speed, friction, and whether the site feels current or neglected.'
+      body: 'How your website feels to use across mobile and desktop. We look at usability, layout, speed, friction, and whether the site feels current or neglected.',
+      color: '#0E7A8A'
     },
     'competitor-analysis': {
       title: 'Competitor Analysis',
-      body: 'How your web presence compares with the businesses around you. We look at nearby competitors, positioning, trust gaps, and where you may be losing ground.'
+      body: 'How your web presence compares with the businesses around you. We look at nearby competitors, positioning, trust gaps, and where you may be losing ground.',
+      color: '#C9A227'
     },
     'conversion-friction': {
       title: 'Conversion Friction',
-      body: 'The small problems that stop a visitor from taking action. This includes confusing copy, awkward layout, weak calls to action, and anything that makes contacting the business feel harder than it should.'
+      body: 'The small problems that stop a visitor from taking action. This includes confusing copy, awkward layout, weak calls to action, and anything that makes contacting the business feel harder than it should.',
+      color: '#C74B3B'
     }
   };
 
   var overlay = document.getElementById('glassOverlay');
   var glassTitle = document.getElementById('glassTitle');
   var glassBody = document.getElementById('glassBody');
+  var glassDot = document.getElementById('glassDot');
   var activeKey = null;
 
   function showGlass(key) {
@@ -741,6 +998,25 @@ body {
 
     glassTitle.textContent = data.title;
     glassBody.textContent = data.body;
+    glassDot.style.background = data.color;
+    overlay.style.setProperty('--accent-current', data.color);
+    
+    // Update the accent bar color
+    var card = overlay.querySelector('.glass-card');
+    card.style.setProperty('--glass-accent', data.color);
+    overlay.querySelector('.glass-card').style.setProperty('box-shadow', 
+      '0 12px 40px rgba(12, 12, 11, 0.08), 0 4px 12px rgba(12, 12, 11, 0.04)');
+    
+    // Set the accent bar
+    var sheet = document.styleSheets[0];
+    var rules = sheet.cssRules || sheet.rules;
+    for (var i = 0; i < rules.length; i++) {
+      if (rules[i].selectorText === '.glass-card::before') {
+        rules[i].style.background = data.color;
+        break;
+      }
+    }
+    
     overlay.classList.add('active');
     overlay.setAttribute('aria-hidden', 'false');
   }
