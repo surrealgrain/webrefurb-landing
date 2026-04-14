@@ -702,14 +702,12 @@ body::before {
 
 .scroll-indicator {
   position: fixed;
-  bottom: 24px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
   opacity: 0;
   animation: fadeIn 0.8s var(--ease-out) 1.2s forwards, scrollBounce 2.4s ease-in-out 2s infinite;
   transition: opacity var(--transition-med);
@@ -722,18 +720,19 @@ body::before {
 }
 
 .scroll-indicator svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   stroke: var(--text-muted);
-  stroke-width: 2;
+  stroke-width: 1.5;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+  opacity: 0.4;
 }
 
 @keyframes scrollBounce {
   0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%      { transform: translateX(-50%) translateY(5px); }
+  50%      { transform: translateX(-50%) translateY(4px); }
 }
 
 /* ── About Section ── */
