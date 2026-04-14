@@ -698,6 +698,44 @@ body::before {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Scroll Indicator ── */
+
+.scroll-indicator {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  animation: fadeIn 0.8s var(--ease-out) 1.2s forwards, scrollBounce 2.4s ease-in-out 2s infinite;
+  transition: opacity var(--transition-med);
+  pointer-events: none;
+}
+
+.scroll-indicator.hidden {
+  opacity: 0 !important;
+  animation: none;
+}
+
+.scroll-indicator svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--text-muted);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(5px); }
+}
+
 /* ── About Section ── */
 
 .about-section {
@@ -820,6 +858,7 @@ a:focus-visible {
   .headline,
   .bento-section,
   .about-section,
+  .scroll-indicator,
   .bento-tile__dot,
   .bento-tile__dot::after,
   .glass-overlay,
@@ -1028,6 +1067,13 @@ a:focus-visible {
     </a>
   </div>
 </nav>
+
+<!-- Scroll Indicator -->
+<div class="scroll-indicator" id="scrollIndicator" aria-hidden="true">
+  <svg viewBox="0 0 24 24">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+</div>
 
 <!-- Main Content -->
 <main class="main">
@@ -1286,6 +1332,20 @@ a:focus-visible {
   /* ── Backdrop click to close ─ */
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) hideGlass();
+  });
+
+  /* ── Scroll indicator ─ */
+  var scrollIndicator = document.getElementById('scrollIndicator');
+  var scrolled = false;
+  window.addEventListener('scroll', function() {
+    if (!scrolled && window.scrollY > 60) {
+      scrolled = true;
+      scrollIndicator.classList.add('hidden');
+    }
+    if (scrolled && window.scrollY <= 60) {
+      scrolled = false;
+      scrollIndicator.classList.remove('hidden');
+    }
   });
 
   /* ── Escape to close ─ */
