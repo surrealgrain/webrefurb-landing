@@ -155,6 +155,11 @@ body::before {
   animation: fadeIn 0.6s var(--ease-out) forwards;
 }
 
+.nav__left {
+  display: flex;
+  align-items: center;
+}
+
 .nav__right {
   display: flex;
   align-items: center;
@@ -794,7 +799,7 @@ a:focus-visible {
 
 <!-- Navigation -->
 <nav class="nav" aria-label="Main navigation">
-  <div class="nav__right">
+  <div class="nav__left">
     <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
       <svg class="icon-sun" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="5"/>
@@ -811,6 +816,8 @@ a:focus-visible {
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
+  </div>
+  <div class="nav__right">
     <a class="btn-cta" href="mailto:chris@webrefurb.com">
       Get in touch
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -929,32 +936,32 @@ a:focus-visible {
   var descriptions = {
     'trust-signals': {
       title: 'Trust Signals',
-      body: 'Proof that your business looks real, credible, and worth contacting. We look at reviews, credentials, brand consistency, and the signals that build trust fast.',
+      body: 'Before someone calls or fills out a form, they need to know you\'re a real business. We look at your Google reviews, phone numbers, business hours, credentials, and brand consistency across the web. We flag things like missing contact info, inconsistent NAP data, or review profiles that look abandoned. We also check whether your site communicates credibility at a glance — or whether it raises questions a prospect will use as an excuse to call someone else.',
       color: '#2D8A4E'
     },
     'search-visibility': {
       title: 'Search Visibility',
-      body: 'How easily people can find you when they search. We look at titles, local presence, structured data, and whether your business is showing up where it should.',
+      body: 'People search for services with intent — "plumber near me," "emergency AC repair Phoenix." We check your title tags, meta descriptions, Google Business Profile, structured data markup, and whether your pages actually rank for the terms that matter. We look at how your business appears in search results compared to what a homeowner is looking for. If your title tag says "Home" instead of your service and location, you\'re invisible to the people actively searching for you.',
       color: '#1A6FB5'
     },
     'lead-capture': {
       title: 'Lead Capture',
-      body: 'Whether your site turns visits into real enquiries. We look at forms, contact paths, booking flow, and the points where potential customers drop off.',
+      body: 'Traffic that doesn\'t convert is just wasted time. We trace the path from landing on your site to actually contacting you. We check whether forms submit, phone numbers are clickable on mobile, contact buttons are visible without scrolling, and booking flows actually work. We look for the specific points where visitors give up — dead-end pages, buried contact info, forms with too many fields, or CTAs that disappear below the fold on mobile. We tell you exactly where the leak is.',
       color: '#D4920B'
     },
     'mobile-web': {
       title: 'Mobile & Web Experience',
-      body: 'How your website feels to use across mobile and desktop. We look at usability, layout, speed, friction, and whether the site feels current or neglected.',
+      body: 'Most homeowners searching for services are on their phones, often in a hurry. We look at page speed, responsive layout, broken elements on small screens, and whether your site feels current or neglected. A site that loads slowly, shifts layout on scroll, or shows a desktop-only experience on mobile tells the visitor this business doesn\'t care about the details. That impression carries into whether they trust you with a job inside their home.',
       color: '#0E7A8A'
     },
     'competitor-analysis': {
       title: 'Competitor Analysis',
-      body: 'How your web presence compares with the businesses around you. We look at nearby competitors, positioning, trust gaps, and where you may be losing ground.',
+      body: 'You\'re not being judged in a vacuum. Prospects look at three to five businesses side by side before picking one. We look at the top competitors in your area and compare your web presence directly against theirs — their titles, review counts, trust signals, page content, and calls to action. We identify where they\'re winning you on search results and where your site falls short on credibility. You don\'t need to beat everyone. You need to beat the ones your actual prospects are comparing you to.',
       color: '#6B7BD8'
     },
     'conversion-friction': {
       title: 'Conversion Friction',
-      body: 'The small problems that stop a visitor from taking action. This includes confusing copy, awkward layout, weak calls to action, and anything that makes contacting the business feel harder than it should.',
+      body: 'Conversion friction is everything that makes a visitor hesitate before taking action. Confusing copy that doesn\'t say what you do in the first five seconds. A phone number buried in the footer instead of visible in the header. Service pages that talk about features instead of solving the problem the visitor came with. Weak or missing calls to action. We identify every small thing that makes picking up the phone feel harder than it should, and we tell you what to fix first.',
       color: '#C74B3B'
     }
   };
