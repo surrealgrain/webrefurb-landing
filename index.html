@@ -947,19 +947,20 @@ a:focus-visible {
   }
 }
 
-/* ── Tablet ── */
+/* ── Tablet ─ */
 
 @media (max-width: 900px) {
   .nav {
     padding: 16px 24px;
   }
-  
+
   .main {
-    padding: 90px 24px 48px;
+    padding: 68px 24px 28px;
   }
-  
+
   .bento-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
   }
 }
 
@@ -976,11 +977,11 @@ a:focus-visible {
 
   .nav {
     padding: 12px 16px;
-    gap: 8px;
+    gap: 12px;
   }
 
   .nav__right {
-    gap: 8px;
+    gap: 12px;
   }
 
   .main {
@@ -1043,8 +1044,8 @@ a:focus-visible {
   }
 
   .bento-tile {
-    padding: 20px 14px 52px 14px;
-    min-height: 160px;
+    padding: 18px 14px 64px 14px;
+    min-height: 180px;
   }
 
   .bento-tile::before {
@@ -1064,7 +1065,9 @@ a:focus-visible {
   }
 
   .bento-tile__hint {
-    display: none;
+    display: block;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .glass-overlay {
@@ -1306,8 +1309,7 @@ a:focus-visible {
 (function() {
   /* ── Theme toggle ─ */
   var html = document.documentElement;
-  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  html.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  html.setAttribute('data-theme', 'light');
 
   document.getElementById('themeToggle').addEventListener('click', function() {
     var current = html.getAttribute('data-theme');
