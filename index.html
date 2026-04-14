@@ -147,12 +147,21 @@ body::before {
   left: 0;
   right: 0;
   z-index: 100;
-  padding: 20px 32px;
+  padding: 20px 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 20px;
   opacity: 0;
   animation: fadeIn 0.6s var(--ease-out) forwards;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(249, 248, 245, 0.7);
+  transition: background var(--transition-med);
+}
+
+[data-theme="dark"] .nav {
+  background: rgba(12, 12, 11, 0.7);
 }
 
 .nav__left {
@@ -211,6 +220,24 @@ body::before {
 [data-theme="light"] .theme-toggle .icon-moon,
 [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 
+/* About link */
+.about-link {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.about-link:hover {
+  color: var(--text);
+}
+
 .btn-cta {
   display: inline-flex;
   align-items: center;
@@ -262,7 +289,7 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 100px 32px 64px;
+  padding: 72px 40px 32px;
 }
 
 /* ── Hero Section ── */
@@ -271,7 +298,7 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(40px, 8vh, 80px) 0 clamp(32px, 5vh, 56px);
+  padding: clamp(12px, 3vh, 28px) 0 clamp(16px, 2.5vh, 24px);
   display: flex;
   align-items: center;
   gap: clamp(20px, 3vw, 40px);
@@ -319,13 +346,13 @@ body::before {
 .hero-copy {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
 .wordmark {
   font-family: 'Outfit', sans-serif;
-  font-size: clamp(40px, 5vw, 68px);
+  font-size: clamp(44px, 5.5vw, 72px);
   font-weight: 800;
   letter-spacing: -0.045em;
   line-height: 0.9;
@@ -335,12 +362,12 @@ body::before {
 }
 
 .headline {
-  font-size: clamp(17px, 1.8vw, 22px);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.4;
+  font-size: clamp(17px, 1.8vw, 20px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
   color: var(--text-secondary);
-  max-width: 40ch;
+  max-width: 44ch;
   opacity: 0;
   animation: slideUp 0.7s var(--ease-out) 0.6s forwards;
 }
@@ -367,25 +394,25 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(28px, 4vh, 48px) 0 0;
+  padding: clamp(20px, 3vh, 32px) 0 0;
   opacity: 0;
   animation: slideUp 0.8s var(--ease-out) 0.75s forwards;
 }
 
 .bento-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 14px;
 }
 
 .bento-tile {
@@ -393,8 +420,8 @@ body::before {
   background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 32px 28px 28px;
-  min-height: 220px;
+  padding: 28px 24px 24px;
+  min-height: 190px;
   cursor: pointer;
   transition: transform 350ms var(--ease-out), box-shadow 350ms var(--ease-out), border-color 350ms var(--ease-out);
   display: flex;
@@ -613,7 +640,7 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 48px 0 0;
+  padding: 32px 0 0;
   opacity: 0;
   animation: fadeIn 0.8s var(--ease-out) 1s forwards;
 }
@@ -622,7 +649,7 @@ body::before {
   width: 100%;
   height: 1px;
   background: var(--border);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .footer__content {
@@ -665,6 +692,227 @@ body::before {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── About Page Overlay ── */
+
+.about-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--bg);
+  overflow-y: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 400ms var(--ease-out), visibility 400ms var(--ease-out);
+}
+
+.about-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.about-overlay__inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+}
+
+.about-overlay__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 56px;
+}
+
+.about-overlay__brand {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-secondary);
+}
+
+.about-overlay__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.about-overlay__close:hover {
+  background: var(--surface-elevated);
+  border-color: var(--border-strong);
+}
+
+.about-overlay__close svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--text-tertiary);
+  transition: stroke var(--transition-fast);
+}
+
+.about-overlay__close:hover svg {
+  stroke: var(--text-secondary);
+}
+
+.about-overlay__intro {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  color: var(--text);
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 600ms var(--ease-out) 100ms, transform 600ms var(--ease-out) 100ms;
+}
+
+.about-overlay.active .about-overlay__intro {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.about-overlay__sub {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 48px;
+  max-width: 520px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 600ms var(--ease-out) 200ms, transform 600ms var(--ease-out) 200ms;
+}
+
+.about-overlay.active .about-overlay__sub {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.about-overlay__divider {
+  width: 48px;
+  height: 2px;
+  background: var(--border-strong);
+  border: none;
+  margin: 0 0 40px;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: opacity 600ms var(--ease-out) 300ms, transform 600ms var(--ease-out) 300ms;
+}
+
+.about-overlay.active .about-overlay__divider {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.about-overlay__questions {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.about-overlay__questions li {
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  padding-left: 20px;
+  position: relative;
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.about-overlay__questions li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+}
+
+.about-overlay.active .about-overlay__questions li {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.about-overlay.active .about-overlay__questions li:nth-child(1) { transition: opacity 500ms var(--ease-out) 350ms, transform 500ms var(--ease-out) 350ms; }
+.about-overlay.active .about-overlay__questions li:nth-child(2) { transition: opacity 500ms var(--ease-out) 420ms, transform 500ms var(--ease-out) 420ms; }
+.about-overlay.active .about-overlay__questions li:nth-child(3) { transition: opacity 500ms var(--ease-out) 490ms, transform 500ms var(--ease-out) 490ms; }
+.about-overlay.active .about-overlay__questions li:nth-child(4) { transition: opacity 500ms var(--ease-out) 560ms, transform 500ms var(--ease-out) 560ms; }
+.about-overlay.active .about-overlay__questions li:nth-child(5) { transition: opacity 500ms var(--ease-out) 630ms, transform 500ms var(--ease-out) 630ms; }
+
+.about-overlay__insight {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.about-overlay__insight--em {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.about-overlay.active .about-overlay__insight {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.about-overlay.active .about-overlay__insight:nth-of-type(1) { transition: opacity 500ms var(--ease-out) 700ms, transform 500ms var(--ease-out) 700ms; }
+.about-overlay.active .about-overlay__insight:nth-of-type(2) { transition: opacity 500ms var(--ease-out) 780ms, transform 500ms var(--ease-out) 780ms; }
+.about-overlay.active .about-overlay__insight:nth-of-type(3) { transition: opacity 500ms var(--ease-out) 860ms, transform 500ms var(--ease-out) 860ms; }
+
+.about-overlay__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 40px;
+  padding: 12px 28px;
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.about-overlay.active .about-overlay__cta {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 500ms var(--ease-out) 940ms, transform 500ms var(--ease-out) 940ms, background var(--transition-fast);
+}
+
+.about-overlay__cta:hover {
+  background: var(--cta-hover);
+  transform: translateY(-1px);
+}
+
+.about-overlay__cta svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* ── Focus styles ── */
@@ -736,15 +984,15 @@ a:focus-visible {
   }
 
   .main {
-    padding: 80px 16px 32px;
+    padding: 68px 16px 24px;
   }
 
   .hero {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 18px;
-    padding: 0 0 8px;
+    gap: 14px;
+    padding: 0 0 4px;
   }
 
   .logo {
@@ -781,21 +1029,21 @@ a:focus-visible {
   .btn-cta svg { width: 13px; height: 13px; }
 
   .bento-section {
-    padding: 24px 0 0;
+    padding: 20px 0 0;
   }
 
   .bento-label {
     font-size: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
 
   .bento-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 10px;
   }
 
   .bento-tile {
-    padding: 20px 16px 64px 16px;
+    padding: 20px 14px 52px 14px;
     min-height: 160px;
   }
 
@@ -884,6 +1132,7 @@ a:focus-visible {
     </button>
   </div>
   <div class="nav__right">
+    <button class="about-link" id="aboutBtn">About</button>
     <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
       Request a free report
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -892,6 +1141,48 @@ a:focus-visible {
     </a>
   </div>
 </nav>
+
+<!-- About Page Overlay -->
+<div class="about-overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-label="About WebRefurb">
+  <div class="about-overlay__inner">
+    <div class="about-overlay__topbar">
+      <span class="about-overlay__brand">WebRefurb</span>
+      <button class="about-overlay__close" id="aboutClose" aria-label="Close about page">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <h1 class="about-overlay__intro">WebRefurb helps local service businesses find the online problems that are costing them calls.</h1>
+
+    <p class="about-overlay__sub">We look at the things that decide who gets contacted and who gets skipped.</p>
+
+    <hr class="about-overlay__divider">
+
+    <ul class="about-overlay__questions">
+      <li>Does your reputation actually appear on your site, or is it stuck on Google?</li>
+      <li>What do people see when they search for your exact service?</li>
+      <li>How many steps does it take to call you?</li>
+      <li>What does your site feel like on a phone when someone needs help quickly?</li>
+      <li>Where does the experience create hesitation, and what are the businesses winning those calls doing better?</li>
+    </ul>
+
+    <p class="about-overlay__insight">That is usually where the loss happens. <span class="about-overlay__insight--em">Not because the business is bad</span>, but because the website, search presence, and customer path are weaker than they should be.</p>
+
+    <p class="about-overlay__insight">WebRefurb reviews your web presence the way a potential customer does: quickly, on mobile, with a clear problem and no patience. We show you where trust drops, where clicks get wasted, where people leave, and where competitors make the easier choice.</p>
+
+    <p class="about-overlay__insight"><span class="about-overlay__insight--em">This is not a generic audit.</span> It is a clear breakdown of the specific issues that are costing your business work.</p>
+
+    <a class="about-overlay__cta" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
+      Request a free report
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</div>
 
 <!-- Main Content -->
 <main class="main">
@@ -1134,7 +1425,28 @@ a:focus-visible {
   /* ── Escape to close ─ */
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && activeKey) hideGlass();
+    if (e.key === 'Escape' && document.getElementById('aboutOverlay').classList.contains('active')) hideAbout();
   });
+
+  /* ── About page ─ */
+  var aboutOverlay = document.getElementById('aboutOverlay');
+  var aboutBtn = document.getElementById('aboutBtn');
+  var aboutClose = document.getElementById('aboutClose');
+
+  function showAbout() {
+    aboutOverlay.classList.add('active');
+    aboutOverlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hideAbout() {
+    aboutOverlay.classList.remove('active');
+    aboutOverlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  aboutBtn.addEventListener('click', showAbout);
+  aboutClose.addEventListener('click', hideAbout);
 })();
 </script>
 
