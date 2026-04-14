@@ -32,7 +32,7 @@
   --accent-amber: #D4920B;
   --accent-cyan: #0E7A8A;
   --accent-red: #C74B3B;
-  --accent-gold: #C9A227;
+  --accent-indigo: #6B7BD8;
   
   /* UI tokens */
   --cta-bg: #0C0C0B;
@@ -155,20 +155,6 @@ body::before {
   animation: fadeIn 0.6s var(--ease-out) forwards;
 }
 
-.nav__left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.nav__logo-text {
-  font-family: 'Outfit', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--text-secondary);
-}
-
 .nav__right {
   display: flex;
   align-items: center;
@@ -217,8 +203,8 @@ body::before {
 .theme-toggle .icon-moon,
 .theme-toggle .icon-sun { display: none; }
 
-[data-theme="light"] .theme-toggle .icon-sun,
-[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+[data-theme="light"] .theme-toggle .icon-moon,
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 
 .btn-cta {
   display: inline-flex;
@@ -474,7 +460,7 @@ body::before {
   background: var(--accent-cyan);
 }
 .bento-tile[data-popover="competitor-analysis"] .bento-tile__dot {
-  background: var(--accent-gold);
+  background: var(--accent-indigo);
 }
 .bento-tile[data-popover="conversion-friction"] .bento-tile__dot {
   background: var(--accent-red);
@@ -704,10 +690,6 @@ a:focus-visible {
   .nav {
     padding: 12px 16px;
   }
-  
-  .nav__logo-text {
-    display: none;
-  }
 
   .main {
     padding: 80px 16px 32px;
@@ -812,9 +794,6 @@ a:focus-visible {
 
 <!-- Navigation -->
 <nav class="nav" aria-label="Main navigation">
-  <div class="nav__left">
-    <span class="nav__logo-text">WebRefurb</span>
-  </div>
   <div class="nav__right">
     <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
       <svg class="icon-sun" viewBox="0 0 24 24">
@@ -849,7 +828,7 @@ a:focus-visible {
     <img class="logo" src="logo.svg" alt="" aria-hidden="true">
     <div class="hero-copy">
       <span class="wordmark">WebRefurb</span>
-      <p class="headline">We show local businesses where revenue is leaking, and what to do next.</p>
+      <p class="headline">We show local businesses where revenue is leaking,<br>and what to do next.</p>
     </div>
   </section>
 
@@ -909,7 +888,6 @@ a:focus-visible {
       <p class="footer__copy">&copy; 2026 WebRefurb. All rights reserved.</p>
       <div class="footer__links">
         <a class="footer__link" href="mailto:chris@webrefurb.com">chris@webrefurb.com</a>
-        <a class="footer__link" href="https://www.webrefurb.com" target="_blank" rel="noopener">www.webrefurb.com</a>
       </div>
     </div>
   </footer>
@@ -972,7 +950,7 @@ a:focus-visible {
     'competitor-analysis': {
       title: 'Competitor Analysis',
       body: 'How your web presence compares with the businesses around you. We look at nearby competitors, positioning, trust gaps, and where you may be losing ground.',
-      color: '#C9A227'
+      color: '#6B7BD8'
     },
     'conversion-friction': {
       title: 'Conversion Friction',
