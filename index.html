@@ -399,13 +399,17 @@ body::before {
 }
 
 .bento-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(18px, 2.2vw, 24px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.bento-label strong {
+  font-weight: 800;
 }
 
 .bento-grid {
@@ -1033,8 +1037,8 @@ a:focus-visible {
   }
 
   .bento-label {
-    font-size: 10px;
-    margin-bottom: 12px;
+    font-size: clamp(15px, 4.5vw, 18px);
+    margin-bottom: 18px;
   }
 
   .bento-grid {
@@ -1157,9 +1161,7 @@ a:focus-visible {
       </button>
     </div>
 
-    <h1 class="about-overlay__intro">WebRefurb helps local service businesses find the online problems that are costing them calls.</h1>
-
-    <p class="about-overlay__sub">We look at the things that decide who gets contacted and who gets skipped.</p>
+    <h1 class="about-overlay__intro">Why WebRefurb exists</h1>
 
     <hr class="about-overlay__divider">
 
@@ -1194,7 +1196,7 @@ a:focus-visible {
     <img class="logo" src="logo.svg" alt="" aria-hidden="true">
     <div class="hero-copy">
       <span class="wordmark">WebRefurb</span>
-      <p class="headline">We show local businesses where revenue is leaking,<br>and what to do next.</p>
+      <p class="headline">We help local businesses find the online problems that are costing them calls.</p>
     </div>
   </section>
 
@@ -1204,8 +1206,8 @@ a:focus-visible {
   </div>
 
   <!-- Bento Grid -->
-  <section class="bento-section" aria-label="What we look at">
-    <p class="bento-label">What we look at</p>
+  <section class="bento-section" aria-label="We look at the things that decide who gets contacted and who gets skipped.">
+    <h2 class="bento-label"><strong>We look at the things that decide who gets contacted and who gets skipped.</strong></h2>
     <div class="bento-grid" role="list">
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="trust-signals">
