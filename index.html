@@ -88,6 +88,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
 body {
@@ -697,147 +698,57 @@ body::before {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── About Page Overlay ── */
+/* ── About Section ── */
 
-.about-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: var(--bg);
-  overflow-y: auto;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 400ms var(--ease-out), visibility 400ms var(--ease-out);
-}
-
-.about-overlay.active {
-  opacity: 1;
-  visibility: visible;
-}
-
-.about-overlay__inner {
-  max-width: 640px;
+.about-section {
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 32px 80px;
-}
-
-.about-overlay__topbar {
+  padding: clamp(48px, 6vh, 80px) 0 clamp(32px, 4vh, 56px);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 56px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  opacity: 0;
+  animation: slideUp 0.8s var(--ease-out) 0.9s forwards;
 }
 
-.about-overlay__brand {
-  font-family: 'Outfit', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--text-secondary);
-}
-
-.about-overlay__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  padding: 0;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-
-.about-overlay__close:hover {
-  background: var(--surface-elevated);
-  border-color: var(--border-strong);
-}
-
-.about-overlay__close svg {
-  width: 18px;
-  height: 18px;
-  stroke: var(--text-tertiary);
-  transition: stroke var(--transition-fast);
-}
-
-.about-overlay__close:hover svg {
-  stroke: var(--text-secondary);
-}
-
-.about-overlay__intro {
+.about-section__title {
   font-family: 'Outfit', sans-serif;
   font-size: clamp(28px, 4vw, 40px);
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1.15;
   color: var(--text);
-  margin-bottom: 24px;
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 600ms var(--ease-out) 100ms, transform 600ms var(--ease-out) 100ms;
-}
-
-.about-overlay.active .about-overlay__intro {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.about-overlay__sub {
-  font-size: 17px;
-  font-weight: 400;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  margin-bottom: 48px;
   max-width: 520px;
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 600ms var(--ease-out) 200ms, transform 600ms var(--ease-out) 200ms;
 }
 
-.about-overlay.active .about-overlay__sub {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.about-overlay__divider {
+.about-section__divider {
   width: 48px;
   height: 2px;
   background: var(--border-strong);
   border: none;
-  margin: 0 0 40px;
-  opacity: 0;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: opacity 600ms var(--ease-out) 300ms, transform 600ms var(--ease-out) 300ms;
+  margin: 0;
 }
 
-.about-overlay.active .about-overlay__divider {
-  opacity: 1;
-  transform: scaleX(1);
-}
-
-.about-overlay__questions {
+.about-section__questions {
   list-style: none;
   padding: 0;
-  margin: 0 0 48px;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-.about-overlay__questions li {
-  font-size: 15.5px;
+.about-section__questions li {
+  font-size: clamp(14px, 1.5vw, 15.5px);
   line-height: 1.6;
   color: var(--text-secondary);
   padding-left: 20px;
   position: relative;
-  opacity: 0;
-  transform: translateY(8px);
 }
 
-.about-overlay__questions li::before {
+.about-section__questions li::before {
   content: '';
   position: absolute;
   left: 0;
@@ -848,45 +759,23 @@ body::before {
   background: var(--accent-cyan);
 }
 
-.about-overlay.active .about-overlay__questions li {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.about-overlay.active .about-overlay__questions li:nth-child(1) { transition: opacity 500ms var(--ease-out) 350ms, transform 500ms var(--ease-out) 350ms; }
-.about-overlay.active .about-overlay__questions li:nth-child(2) { transition: opacity 500ms var(--ease-out) 420ms, transform 500ms var(--ease-out) 420ms; }
-.about-overlay.active .about-overlay__questions li:nth-child(3) { transition: opacity 500ms var(--ease-out) 490ms, transform 500ms var(--ease-out) 490ms; }
-.about-overlay.active .about-overlay__questions li:nth-child(4) { transition: opacity 500ms var(--ease-out) 560ms, transform 500ms var(--ease-out) 560ms; }
-.about-overlay.active .about-overlay__questions li:nth-child(5) { transition: opacity 500ms var(--ease-out) 630ms, transform 500ms var(--ease-out) 630ms; }
-
-.about-overlay__insight {
-  font-size: 16px;
+.about-section__insight {
+  font-size: clamp(14px, 1.5vw, 16px);
   line-height: 1.7;
   color: var(--text-secondary);
-  margin-bottom: 20px;
-  opacity: 0;
-  transform: translateY(8px);
+  max-width: 560px;
 }
 
-.about-overlay__insight--em {
+.about-section__insight--em {
   color: var(--text);
   font-weight: 500;
 }
 
-.about-overlay.active .about-overlay__insight {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.about-overlay.active .about-overlay__insight:nth-of-type(1) { transition: opacity 500ms var(--ease-out) 700ms, transform 500ms var(--ease-out) 700ms; }
-.about-overlay.active .about-overlay__insight:nth-of-type(2) { transition: opacity 500ms var(--ease-out) 780ms, transform 500ms var(--ease-out) 780ms; }
-.about-overlay.active .about-overlay__insight:nth-of-type(3) { transition: opacity 500ms var(--ease-out) 860ms, transform 500ms var(--ease-out) 860ms; }
-
-.about-overlay__cta {
+.about-section__cta {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 40px;
+  margin-top: 16px;
   padding: 12px 28px;
   background: var(--cta-bg);
   color: var(--cta-text);
@@ -898,22 +787,14 @@ body::before {
   border: none;
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
-  opacity: 0;
-  transform: translateY(8px);
 }
 
-.about-overlay.active .about-overlay__cta {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 500ms var(--ease-out) 940ms, transform 500ms var(--ease-out) 940ms, background var(--transition-fast);
-}
-
-.about-overlay__cta:hover {
+.about-section__cta:hover {
   background: var(--cta-hover);
   transform: translateY(-1px);
 }
 
-.about-overlay__cta svg {
+.about-section__cta svg {
   width: 16px;
   height: 16px;
 }
@@ -938,6 +819,7 @@ a:focus-visible {
   .wordmark,
   .headline,
   .bento-section,
+  .about-section,
   .bento-tile__dot,
   .bento-tile__dot::after,
   .glass-overlay,
@@ -1138,7 +1020,7 @@ a:focus-visible {
     </button>
   </div>
   <div class="nav__right">
-    <button class="about-link" id="aboutBtn">About</button>
+    <a class="about-link" href="#about">About</a>
     <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
       Request a free report
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1147,46 +1029,6 @@ a:focus-visible {
     </a>
   </div>
 </nav>
-
-<!-- About Page Overlay -->
-<div class="about-overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-label="About WebRefurb">
-  <div class="about-overlay__inner">
-    <div class="about-overlay__topbar">
-      <span class="about-overlay__brand">WebRefurb</span>
-      <button class="about-overlay__close" id="aboutClose" aria-label="Close about page">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-
-    <h1 class="about-overlay__intro">The questions that decide who gets the call</h1>
-
-    <hr class="about-overlay__divider">
-
-    <ul class="about-overlay__questions">
-      <li>Does your reputation actually appear on your site, or is it stuck on Google?</li>
-      <li>What do people see when they search for your exact service?</li>
-      <li>How many steps does it take to call you?</li>
-      <li>What does your site feel like on a phone when someone needs help quickly?</li>
-      <li>Where does the experience create hesitation, and what are the businesses winning those calls doing better?</li>
-    </ul>
-
-    <p class="about-overlay__insight">That is usually where the loss happens. <span class="about-overlay__insight--em">Not because the business is bad</span>, but because the website, search presence, and customer path are weaker than they should be.</p>
-
-    <p class="about-overlay__insight">WebRefurb reviews your web presence the way a potential customer does: quickly, on mobile, with a clear problem and no patience. We show you where trust drops, where clicks get wasted, where people leave, and where competitors make the easier choice.</p>
-
-    <p class="about-overlay__insight"><span class="about-overlay__insight--em">This is not a generic audit.</span> It is a clear breakdown of the specific issues that are costing your business work.</p>
-
-    <a class="about-overlay__cta" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
-      Request a free report
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
-      </svg>
-    </a>
-  </div>
-</div>
 
 <!-- Main Content -->
 <main class="main">
@@ -1282,6 +1124,28 @@ a:focus-visible {
       </button>
 
     </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="about-section" id="about" aria-label="About WebRefurb">
+    <h2 class="about-section__title">The questions that decide who gets the call</h2>
+    <hr class="about-section__divider">
+    <ul class="about-section__questions">
+      <li>Does your reputation actually appear on your site, or is it stuck on Google?</li>
+      <li>What do people see when they search for your exact service?</li>
+      <li>How many steps does it take to call you?</li>
+      <li>What does your site feel like on a phone when someone needs help quickly?</li>
+      <li>Where does the experience create hesitation, and what are the businesses winning those calls doing better?</li>
+    </ul>
+    <p class="about-section__insight">That is usually where the loss happens. <span class="about-section__insight--em">Not because the business is bad</span>, but because the website, search presence, and customer path are weaker than they should be.</p>
+    <p class="about-section__insight">WebRefurb reviews your web presence the way a potential customer does: quickly, on mobile, with a clear problem and no patience. We show you where trust drops, where clicks get wasted, where people leave, and where competitors make the easier choice.</p>
+    <p class="about-section__insight"><span class="about-section__insight--em">This is not a generic audit.</span> It is a clear breakdown of the specific issues that are costing your business work.</p>
+    <a class="about-section__cta" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
+      Request a free report
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
   </section>
 
   <!-- Footer -->
@@ -1428,28 +1292,7 @@ a:focus-visible {
   /* ── Escape to close ─ */
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && activeKey) hideGlass();
-    if (e.key === 'Escape' && document.getElementById('aboutOverlay').classList.contains('active')) hideAbout();
   });
-
-  /* ── About page ─ */
-  var aboutOverlay = document.getElementById('aboutOverlay');
-  var aboutBtn = document.getElementById('aboutBtn');
-  var aboutClose = document.getElementById('aboutClose');
-
-  function showAbout() {
-    aboutOverlay.classList.add('active');
-    aboutOverlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function hideAbout() {
-    aboutOverlay.classList.remove('active');
-    aboutOverlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  }
-
-  aboutBtn.addEventListener('click', showAbout);
-  aboutClose.addEventListener('click', hideAbout);
 })();
 </script>
 
