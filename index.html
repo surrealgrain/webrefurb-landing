@@ -385,73 +385,80 @@ body::before {
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 
 .bento-tile {
   position: relative;
   background: var(--surface-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 24px 24px 22px;
+  border-radius: 20px;
+  padding: 32px 28px 28px;
+  min-height: 220px;
   cursor: pointer;
-  transition: transform var(--transition-med), box-shadow var(--transition-med), border-color var(--transition-med);
+  transition: transform 350ms var(--ease-out), box-shadow 350ms var(--ease-out), border-color 350ms var(--ease-out);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
   text-align: left;
-  box-shadow: var(--tile-shadow);
   overflow: hidden;
 }
 
-/* Hover gradient effect */
+/* Subtle top-edge color accent */
 .bento-tile::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: radial-gradient(400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(12, 12, 11, 0.03), transparent);
-  opacity: 0;
-  transition: opacity var(--transition-med);
-  pointer-events: none;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--accent-green);
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
 }
 
-.bento-tile:hover::before {
-  opacity: 1;
-}
+.bento-tile:hover::before { opacity: 1; }
 
+.bento-tile[data-popover="trust-signals"]::before   { background: var(--accent-green); }
+.bento-tile[data-popover="search-visibility"]::before { background: var(--accent-blue); }
+.bento-tile[data-popover="lead-capture"]::before      { background: var(--accent-amber); }
+.bento-tile[data-popover="mobile-web"]::before        { background: var(--accent-cyan); }
+.bento-tile[data-popover="competitor-analysis"]::before { background: var(--accent-indigo); }
+.bento-tile[data-popover="conversion-friction"]::before { background: var(--accent-red); }
+
+/* Hover: subtle lift + shadow deepening */
 .bento-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--tile-shadow-hover);
+  transform: translateY(-4px);
   border-color: var(--border-strong);
 }
 
 .bento-tile:active {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
-/* Pulsing dots */
+/* Pulsing dot */
 .bento-tile__dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
   position: relative;
+  margin-bottom: 16px;
 }
 
 .bento-tile__dot::after {
   content: '';
   position: absolute;
-  inset: -3px;
+  inset: -4px;
   border-radius: 50%;
   background: inherit;
-  opacity: 0.3;
-  animation: dotPulse 2s ease-in-out infinite;
+  opacity: 0.2;
+  animation: dotPulse 2.5s ease-in-out infinite;
 }
 
 @keyframes dotPulse {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50%      { opacity: 0.6; transform: scale(1.5); }
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.4); }
 }
 
 .bento-tile[data-popover="trust-signals"] .bento-tile__dot {
@@ -473,21 +480,21 @@ body::before {
   background: var(--accent-red);
 }
 
-/* SVG visuals */
+/* Icon area */
 .bento-tile__visual {
-  width: 96px;
-  height: 96px;
-  flex-shrink: 0;
-  align-self: flex-end;
-  margin-top: auto;
-  margin-left: auto;
-  opacity: 0.4;
-  transition: opacity var(--transition-med), transform var(--transition-med);
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 100px;
+  height: 100px;
+  opacity: 0.12;
+  transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out);
+  transform: translateX(0);
 }
 
 .bento-tile:hover .bento-tile__visual {
-  opacity: 0.75;
-  transform: scale(1.05);
+  opacity: 0.22;
+  transform: translateX(-4px);
 }
 
 .bento-tile__visual svg {
@@ -495,27 +502,23 @@ body::before {
   height: 100%;
 }
 
+/* Title */
 .bento-tile__title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
   color: var(--text);
+  margin-bottom: 8px;
 }
 
+/* Hint text */
 .bento-tile__hint {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 13.5px;
+  line-height: 1.55;
   color: var(--text-muted);
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity var(--transition-med), transform var(--transition-med);
-  max-width: 90%;
-}
-
-.bento-tile:hover .bento-tile__hint {
-  opacity: 1;
-  transform: translateY(0);
+  max-width: 85%;
 }
 
 /* ── Glass Modal Overlay ── */
@@ -763,16 +766,12 @@ a:focus-visible {
   }
 
   .btn-cta {
-    padding: 9px 12px;
-    font-size: 11px;
+    padding: 9px 16px;
+    font-size: 12px;
     max-width: none;
-    flex: 1;
-    min-width: 0;
-    white-space: normal;
-    text-align: right;
   }
 
-  .btn-cta svg { display: none; }
+  .btn-cta svg { width: 13px; height: 13px; }
 
   .bento-section {
     padding: 24px 0 0;
@@ -784,12 +783,29 @@ a:focus-visible {
   }
 
   .bento-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .bento-tile {
-    padding: 18px 18px 16px;
+    padding: 24px 20px 20px;
+    min-height: 180px;
+  }
+
+  .bento-tile::before {
+    left: 20px;
+    right: 20px;
+  }
+
+  .bento-tile__visual {
+    width: 72px;
+    height: 72px;
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .bento-tile__title {
+    font-size: 20px;
   }
 
   .bento-tile__hint {
@@ -862,7 +878,7 @@ a:focus-visible {
   </div>
   <div class="nav__right">
     <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20report%20for%20my%20business&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20report%20for%20my%20business.%0A%0AMy%20website%20URL%3A%20%0ABusiness%20name%3A%20%0ACity%2Farea%3A%20%0A%0AThanks%2C">
-      Request a free report for your business
+      Request a free report
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 12h14M12 5l7 7-7 7"/>
       </svg>
