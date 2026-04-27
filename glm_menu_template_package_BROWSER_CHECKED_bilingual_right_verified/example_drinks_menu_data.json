@@ -1,0 +1,156 @@
+{
+  "menu_type": "drinks",
+  "title": "DRINKS MENU",
+  "sections": [
+    {
+      "title": "SAKE",
+      "items": [
+        {
+          "name": "Junmai Sake",
+          "japanese_name": "純米酒"
+        },
+        {
+          "name": "Ginjo Sake",
+          "japanese_name": "吟醸酒"
+        },
+        {
+          "name": "Daiginjo Sake",
+          "japanese_name": "大吟醸酒"
+        },
+        {
+          "name": "Nigori Sake",
+          "japanese_name": "にごり酒"
+        },
+        {
+          "name": "Sparkling Sake",
+          "japanese_name": "スパークリング日本酒"
+        },
+        {
+          "name": "Honjozo Sake",
+          "japanese_name": "本醸造酒"
+        },
+        {
+          "name": "Nama Sake",
+          "japanese_name": "生酒"
+        },
+        {
+          "name": "Umeshu (Plum Wine)",
+          "japanese_name": "梅酒"
+        }
+      ]
+    },
+    {
+      "title": "TEA",
+      "items": [
+        {
+          "name": "Sencha",
+          "japanese_name": "煎茶"
+        },
+        {
+          "name": "Genmaicha",
+          "japanese_name": "玄米茶"
+        },
+        {
+          "name": "Hojicha",
+          "japanese_name": "ほうじ茶"
+        },
+        {
+          "name": "Cold Brew Green Tea",
+          "japanese_name": "水出し緑茶"
+        },
+        {
+          "name": "Iced Oolong Tea",
+          "japanese_name": "アイスウーロン茶"
+        },
+        {
+          "name": "Jasmine Tea",
+          "japanese_name": "ジャスミン茶"
+        },
+        {
+          "name": "Matcha Latte",
+          "japanese_name": "抹茶ラテ"
+        },
+        {
+          "name": "Yuzu Green Tea",
+          "japanese_name": "ゆず緑茶"
+        }
+      ]
+    },
+    {
+      "title": "SOFT DRINKS",
+      "items": [
+        {
+          "name": "Yuzu Soda",
+          "japanese_name": "ゆずソーダ"
+        },
+        {
+          "name": "Ramune",
+          "japanese_name": "ラムネ"
+        },
+        {
+          "name": "Sparkling Water",
+          "japanese_name": "炭酸水"
+        },
+        {
+          "name": "House Lemonade",
+          "japanese_name": "自家製レモネード"
+        },
+        {
+          "name": "Ginger Ale",
+          "japanese_name": "ジンジャーエール"
+        },
+        {
+          "name": "Cola",
+          "japanese_name": "コーラ"
+        },
+        {
+          "name": "Calpico Soda",
+          "japanese_name": "カルピスソーダ"
+        },
+        {
+          "name": "Iced Matcha Lemonade",
+          "japanese_name": "アイス抹茶レモネード"
+        }
+      ]
+    },
+    {
+      "title": "BEER & HIGHBALLS",
+      "items": [
+        {
+          "name": "Japanese Lager",
+          "japanese_name": "国産ラガービール"
+        },
+        {
+          "name": "Asahi Super Dry",
+          "japanese_name": "アサヒスーパードライ"
+        },
+        {
+          "name": "Sapporo Premium",
+          "japanese_name": "サッポロプレミアム"
+        },
+        {
+          "name": "Whisky Highball",
+          "japanese_name": "ウイスキーハイボール"
+        },
+        {
+          "name": "Yuzu Highball",
+          "japanese_name": "ゆずハイボール"
+        },
+        {
+          "name": "Kirin Ichiban Shibori",
+          "japanese_name": "キリン一番搾り"
+        },
+        {
+          "name": "Ginger Highball",
+          "japanese_name": "ジンジャーハイボール"
+        },
+        {
+          "name": "Ume Highball",
+          "japanese_name": "梅ハイボール"
+        }
+      ]
+    }
+  ],
+  "show_prices": false,
+  "footer_note": "English translations provided for convenience. Please refer to the main menu for current prices."
+}
