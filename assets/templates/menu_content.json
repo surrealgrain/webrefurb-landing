@@ -1,0 +1,136 @@
+{
+  "food": {
+    "title": "Food Menu",
+    "subtitle": "Our Selection",
+    "footer": "Please Ask Your Server",
+    "sections": [
+      {
+        "data_section": "ramen",
+        "heading": "Ramen",
+        "sub": "Noodle Soups",
+        "items": [
+          "Shoyu Ramen",
+          "Miso Ramen",
+          "Spicy Tonkotsu Ramen",
+          "Vegetarian Ramen",
+          "Chicken Paitan Ramen",
+          "Shio Ramen",
+          "Tan Tan Ramen",
+          "Black Garlic Ramen"
+        ]
+      },
+      {
+        "data_section": "small-plates",
+        "heading": "Small Plates",
+        "sub": "Appetizers & Sides",
+        "items": [
+          "Gyoza",
+          "Edamame",
+          "Karaage",
+          "Seaweed Salad",
+          "Agedashi Tofu",
+          "Crispy Brussels Sprouts",
+          "Takoyaki",
+          "Cucumber Sunomono"
+        ]
+      },
+      {
+        "data_section": "skewers",
+        "heading": "Grilled Skewers",
+        "sub": "Yakitori & Kushiyaki",
+        "items": [
+          "Yakitori Chicken",
+          "Negima",
+          "Tsukune",
+          "Pork Belly",
+          "Mushroom",
+          "Shishito Peppers",
+          "Beef",
+          "Chicken Skin"
+        ]
+      },
+      {
+        "data_section": "rice-noodles",
+        "heading": "Rice & Noodles",
+        "sub": "Donburi & Stir-Fry",
+        "items": [
+          "Chicken Katsu Curry",
+          "Yakisoba",
+          "Garlic Fried Rice",
+          "Tempura Udon",
+          "Spicy Yaki Udon",
+          "Onigiri Plate",
+          "Omurice",
+          "Beef Curry"
+        ]
+      }
+    ]
+  },
+  "drinks": {
+    "title": "Drinks Menu",
+    "subtitle": "Beverages",
+    "footer": "Please Ask Your Server",
+    "sections": [
+      {
+        "data_section": "sake",
+        "heading": "Sake",
+        "sub": "Japanese Rice Wine",
+        "items": [
+          "Junmai",
+          "Ginjo",
+          "Daiginjo",
+          "Nigori",
+          "Sparkling",
+          "Honjozo",
+          "Nama",
+          "Plum"
+        ]
+      },
+      {
+        "data_section": "tea",
+        "heading": "Tea",
+        "sub": "Hot & Cold Brews",
+        "items": [
+          "Sencha",
+          "Genmaicha",
+          "Hojicha",
+          "Cold Brew",
+          "Iced Oolong",
+          "Jasmine",
+          "Matcha Latte",
+          "Yuzu Green"
+        ]
+      },
+      {
+        "data_section": "soft-drinks",
+        "heading": "Soft Drinks",
+        "sub": "Refreshments",
+        "items": [
+          "Yuzu Soda",
+          "Ramune",
+          "Sparkling Water",
+          "House Lemonade",
+          "Ginger Ale",
+          "Cola",
+          "Calpico Soda",
+          "Iced Matcha Lemonade"
+        ]
+      },
+      {
+        "data_section": "beer-highballs",
+        "heading": "Beer & Highballs",
+        "sub": "Draft & Mixed",
+        "items": [
+          "Japanese Lager",
+          "Asahi Super Dry",
+          "Sapporo Premium",
+          "Whisky Highball",
+          "Yuzu Highball",
+          "Kirin Ichiban",
+          "Ginger Highball",
+          "Ume Highball"
+        ]
+      }
+    ]
+  }
+}

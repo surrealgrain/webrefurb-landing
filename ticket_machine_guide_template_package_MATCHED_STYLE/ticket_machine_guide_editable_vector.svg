@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="100%" height="auto" viewBox="0 0 612 792"
+     preserveAspectRatio="xMinYMin meet"
+     data-print-width="8.5in" data-print-height="11in"
+     style="display:block;margin:0;padding:0;max-width:100%;height:auto;overflow:visible"
+     shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <defs>
+    <style><![CDATA[
+      /* Matched to the approved menu system */
+      .title,.section {
+        font-family: "Noto Serif", "Liberation Serif", Georgia, serif;
+        font-weight: 600;
+        fill: #0A2B57;
+      }
+      .item {
+        font-family: "Liberation Sans", Arial, sans-serif;
+        font-weight: 400;
+        fill: #0A2B57;
+      }
+      .stroke {
+        fill: none;
+        stroke: #0A2B57;
+        vector-effect: non-scaling-stroke;
+      }
+      @media print {
+        svg { width: 8.5in; height: 11in; }
+      }
+    ]]></style>
+  </defs>
+
+  <rect x="0" y="0" width="612" height="792" fill="#FBF7EE"/>
+  <rect class="stroke" x="16" y="16" width="580" height="760" stroke-width="1.45"/>
+  <rect class="stroke" x="23" y="23" width="566" height="746" stroke-width="0.75"/>
+
+  <text class="title" x="306" y="91" font-size="27.5" letter-spacing="1.35" text-anchor="middle">TICKET MACHINE GUIDE</text>
+  <line class="stroke" x1="242" y1="118" x2="370" y2="118" stroke-width="1.1"/>
+
+  <text class="section" x="306" y="157" font-size="17.0" letter-spacing="1.8" text-anchor="middle">HOW TO USE</text>
+  <line class="stroke" x1="278" y1="173" x2="334" y2="173" stroke-width="0.95"/>
+
+  <g id="how-to-use">
+    <text class="item" x="306" y="208" font-size="13.5" text-anchor="middle">1. Insert money</text>
+    <text class="item" x="306" y="232" font-size="13.5" text-anchor="middle">2. Select your item</text>
+    <text class="item" x="306" y="256" font-size="13.5" text-anchor="middle">3. Take your ticket</text>
+    <text class="item" x="306" y="280" font-size="13.5" text-anchor="middle">4. Give ticket to staff</text>
+  </g>
+
+  <g id="button-grid">
+
+    <rect class="stroke" x="58" y="352" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="114.0" y="394.0" font-size="13.5" text-anchor="middle">Shoyu Ramen</text>
+
+    <rect class="stroke" x="186" y="352" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="242.0" y="394.0" font-size="13.5" text-anchor="middle">Miso Ramen</text>
+
+    <rect class="stroke" x="314" y="352" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="370.0" y="385.0" font-size="13.0" text-anchor="middle">
+      <tspan x="370.0" dy="0">Spicy</tspan>
+      <tspan x="370.0" dy="16">Tonkotsu</tspan>
+    </text>
+
+    <rect class="stroke" x="442" y="352" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="498.0" y="385.0" font-size="13.0" text-anchor="middle">
+      <tspan x="498.0" dy="0">Vegetarian</tspan>
+      <tspan x="498.0" dy="16">Ramen</tspan>
+    </text>
+
+    <rect class="stroke" x="58" y="440" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="114.0" y="473.0" font-size="13.0" text-anchor="middle">
+      <tspan x="114.0" dy="0">Chicken</tspan>
+      <tspan x="114.0" dy="16">Paitan</tspan>
+    </text>
+
+    <rect class="stroke" x="186" y="440" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="242.0" y="482.0" font-size="13.5" text-anchor="middle">Shio Ramen</text>
+
+    <rect class="stroke" x="314" y="440" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="370.0" y="482.0" font-size="13.5" text-anchor="middle">Tantanmen</text>
+
+    <rect class="stroke" x="442" y="440" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="498.0" y="473.0" font-size="13.0" text-anchor="middle">
+      <tspan x="498.0" dy="0">Black Garlic</tspan>
+      <tspan x="498.0" dy="16">Ramen</tspan>
+    </text>
+
+    <rect class="stroke" x="58" y="528" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="114.0" y="570.0" font-size="13.5" text-anchor="middle">Gyoza</text>
+
+    <rect class="stroke" x="186" y="528" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="242.0" y="570.0" font-size="13.5" text-anchor="middle">Edamame</text>
+
+    <rect class="stroke" x="314" y="528" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="370.0" y="570.0" font-size="13.5" text-anchor="middle">Karaage</text>
+
+    <rect class="stroke" x="442" y="528" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="498.0" y="570.0" font-size="13.5" text-anchor="middle">Takoyaki</text>
+
+    <rect class="stroke" x="58" y="616" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="114.0" y="649.0" font-size="13.0" text-anchor="middle">
+      <tspan x="114.0" dy="0">Extra</tspan>
+      <tspan x="114.0" dy="16">Noodles</tspan>
+    </text>
+
+    <rect class="stroke" x="186" y="616" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="242.0" y="649.0" font-size="13.0" text-anchor="middle">
+      <tspan x="242.0" dy="0">Soft-Boiled</tspan>
+      <tspan x="242.0" dy="16">Egg</tspan>
+    </text>
+
+    <rect class="stroke" x="314" y="616" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="370.0" y="658.0" font-size="13.5" text-anchor="middle">Nori</text>
+
+    <rect class="stroke" x="442" y="616" width="112" height="74" rx="5.0" stroke-width="1.35"/>
+    <text class="item button-item" x="498.0" y="649.0" font-size="13.0" text-anchor="middle">
+      <tspan x="498.0" dy="0">Chashu</tspan>
+      <tspan x="498.0" dy="16">Pork</tspan>
+    </text>
+
+  </g>
+</svg>

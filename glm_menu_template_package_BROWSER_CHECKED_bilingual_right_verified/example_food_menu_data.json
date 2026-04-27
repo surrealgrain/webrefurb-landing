@@ -1,0 +1,156 @@
+{
+  "menu_type": "food",
+  "title": "FOOD MENU",
+  "sections": [
+    {
+      "title": "RAMEN",
+      "items": [
+        {
+          "name": "Shoyu Ramen",
+          "japanese_name": "醤油ラーメン"
+        },
+        {
+          "name": "Miso Ramen",
+          "japanese_name": "味噌ラーメン"
+        },
+        {
+          "name": "Spicy Tonkotsu Ramen",
+          "japanese_name": "辛味豚骨ラーメン"
+        },
+        {
+          "name": "Vegetarian Ramen",
+          "japanese_name": "ベジタリアンラーメン"
+        },
+        {
+          "name": "Chicken Paitan Ramen",
+          "japanese_name": "鶏白湯ラーメン"
+        },
+        {
+          "name": "Shio Ramen",
+          "japanese_name": "塩ラーメン"
+        },
+        {
+          "name": "Tantanmen",
+          "japanese_name": "担々麺"
+        },
+        {
+          "name": "Black Garlic Ramen",
+          "japanese_name": "黒にんにくラーメン"
+        }
+      ]
+    },
+    {
+      "title": "SMALL PLATES",
+      "items": [
+        {
+          "name": "Gyoza",
+          "japanese_name": "餃子"
+        },
+        {
+          "name": "Edamame",
+          "japanese_name": "枝豆"
+        },
+        {
+          "name": "Karaage",
+          "japanese_name": "唐揚げ"
+        },
+        {
+          "name": "Seaweed Salad",
+          "japanese_name": "海藻サラダ"
+        },
+        {
+          "name": "Agedashi Tofu",
+          "japanese_name": "揚げ出し豆腐"
+        },
+        {
+          "name": "Crispy Brussels Sprouts",
+          "japanese_name": "芽キャベツの唐揚げ"
+        },
+        {
+          "name": "Takoyaki",
+          "japanese_name": "たこ焼き"
+        },
+        {
+          "name": "Cucumber Sunomono",
+          "japanese_name": "きゅうりの酢の物"
+        }
+      ]
+    },
+    {
+      "title": "GRILLED SKEWERS",
+      "items": [
+        {
+          "name": "Yakitori",
+          "japanese_name": "焼き鳥"
+        },
+        {
+          "name": "Negima",
+          "japanese_name": "ねぎま"
+        },
+        {
+          "name": "Tsukune",
+          "japanese_name": "つくね"
+        },
+        {
+          "name": "Pork Belly Skewers",
+          "japanese_name": "豚バラ串"
+        },
+        {
+          "name": "Mushroom Skewers",
+          "japanese_name": "きのこ串"
+        },
+        {
+          "name": "Shishito Peppers",
+          "japanese_name": "ししとう"
+        },
+        {
+          "name": "Beef Skewers",
+          "japanese_name": "牛串"
+        },
+        {
+          "name": "Chicken Skin",
+          "japanese_name": "鶏皮"
+        }
+      ]
+    },
+    {
+      "title": "RICE & NOODLES",
+      "items": [
+        {
+          "name": "Chicken Katsu Curry Rice",
+          "japanese_name": "チキンカツカレーライス"
+        },
+        {
+          "name": "Yakisoba",
+          "japanese_name": "焼きそば"
+        },
+        {
+          "name": "Garlic Fried Rice",
+          "japanese_name": "ガーリックチャーハン"
+        },
+        {
+          "name": "Tempura Udon",
+          "japanese_name": "天ぷらうどん"
+        },
+        {
+          "name": "Spicy Yaki Udon",
+          "japanese_name": "辛口焼きうどん"
+        },
+        {
+          "name": "Onigiri Plate",
+          "japanese_name": "おにぎりプレート"
+        },
+        {
+          "name": "Omurice",
+          "japanese_name": "オムライス"
+        },
+        {
+          "name": "Beef Curry Rice",
+          "japanese_name": "ビーフカレーライス"
+        }
+      ]
+    }
+  ],
+  "show_prices": false,
+  "footer_note": "English translations provided for convenience. Please refer to the main menu for current prices."
+}

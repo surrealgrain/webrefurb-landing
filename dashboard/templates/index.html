@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebRefurbMenu — Operator Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --page-bg: #f7f7f5;
+  --text-primary: #1a1a1a;
+  --panel-dark: #03141D;
+  --panel-dark-alt: #0A2736;
+  --accent: #0E7490;
+  --accent-light: #8DE3F0;
+  --accent-border: #1B6078;
+  --success: #22C55E;
+  --error: #C43D2F;
+  --warning: #F59E0B;
+  --muted: #888;
+  --line: #E5E5E3;
+  --card-bg: #FAFCFC;
+  --input-bg: #F7FBFC;
+  --input-border: #D7E4E7;
+  --radius-card: 24px;
+  --radius-panel: 16px;
+  --radius-badge: 9999px;
+  --headline-tracking: -0.5px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--page-bg); color: var(--text-primary); }
+
+/* Sidebar */
+.sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+  background: rgba(3,20,29,0.96); backdrop-filter: blur(12px);
+  padding: 20px 0; display: flex; flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.1); z-index: 100;
+  overflow-y: auto;
+}
+.sidebar-logo { padding: 0 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.sidebar-logo .brand { font-family: 'Fira Code', monospace; font-size: 11px; color: #8DE3F0; letter-spacing: 0.24em; }
+.sidebar-logo .subtitle { font-family: 'Fira Sans', sans-serif; font-size: 18px; font-weight: 600; color: #fff; margin-top: 2px; }
+
+.sidebar-section { padding: 16px 12px; }
+.sidebar-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #74A8B7; margin-bottom: 8px; padding: 0 8px; }
+
+.sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 16px;
+  font-size: 13px; font-weight: 500; color: #A9D0D8;
+  cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+  min-height: 44px; text-decoration: none;
+}
+.nav-item:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: #fff; }
+.nav-item.active { border-color: var(--accent-border); background: var(--panel-dark-alt); color: #fff; box-shadow: 0 8px 30px rgba(2,12,18,0.2); }
+.nav-item.active .nav-icon { color: var(--accent-light); }
+.nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 9999px; font-size: 9px; font-weight: 700; color: #fff; padding: 0 4px; margin-left: auto; }
+.badge-red { background: var(--error); }
+.badge-green { background: var(--success); }
+
+/* Main content */
+.main { margin-left: 240px; padding: 24px 32px; min-height: 100vh; }
+
+/* Search section */
+.search-section { margin-bottom: 24px; }
+.search-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.search-input, .search-select {
+  height: 44px; border-radius: 16px; border: 1px solid var(--input-border);
+  background: var(--input-bg); padding: 0 16px; font-size: 14px; color: var(--text-primary);
+  outline: none; font-family: inherit;
+}
+.search-input:focus, .search-select:focus { border-color: #0891B2; box-shadow: 0 0 0 3px rgba(8,145,178,0.1); }
+.search-input { flex: 1; min-width: 200px; }
+.search-select { min-width: 140px; appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23888' fill='none' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 20px; height: 44px; border-radius: 9999px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: inherit; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #155E75; }
+.btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text-primary); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: #16A34A; }
+.btn-danger { background: var(--error); color: #fff; font-size: 12px; }
+.btn-danger:hover { background: #A52F24; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Tab content */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Lead cards */
+.lead-list { display: flex; flex-direction: column; gap: 12px; }
+.lead-card {
+  border-radius: var(--radius-card); border: 1px solid var(--line);
+  background: #fff; padding: 20px; display: flex; align-items: center; gap: 16px;
+  transition: border-color 0.15s;
+}
+.lead-card:hover { border-color: #d1d5db; }
+.lead-card.do-not-contact { opacity: 0.5; }
+.lead-card.do-not-contact .btn-success { pointer-events: none; }
+.lead-info { flex: 1; }
+.lead-name { font-size: 16px; font-weight: 600; letter-spacing: var(--headline-tracking); }
+.lead-meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.lead-badges { display: flex; gap: 6px; margin-top: 8px; }
+
+.status-badge {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+}
+.status-new { background: #ECFEFF; color: #0E7490; }
+.status-draft { background: #FFF7ED; color: #C2410C; }
+.status-sent { background: #EEF8F2; color: #15803D; }
+.status-replied { background: #ECFEFF; color: #0E7490; }
+.status-converted { background: #EEF8F2; color: #166534; }
+.status-rejected { background: #FFF8F6; color: #C43D2F; }
+.status-do-not-contact { background: #F3F4F6; color: #6B7280; }
+
+.classification-badge {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 10px; font-size: 10px; font-weight: 600;
+  background: #F7FBFC; border: 1px solid var(--input-border); color: #666;
+}
+
+.lead-actions { display: flex; gap: 8px; }
+.btn-dnc { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 0 10px; height: 32px; border-radius: 9999px; cursor: pointer; font-family: inherit; font-weight: 500; }
+.btn-dnc:hover { border-color: var(--error); color: var(--error); }
+.btn-dnc.active { background: #F3F4F6; border-color: #9CA3AF; color: #6B7280; }
+
+/* Score pill */
+.score-pill {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 48px; height: 48px; border-radius: 16px;
+  font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums;
+  background: #ECFEFF; color: #0E7490; border: 1px solid #BFE5EA;
+}
+
+/* Sent email list */
+.sent-list { display: flex; flex-direction: column; gap: 12px; }
+.sent-entry {
+  border-radius: var(--radius-card); border: 1px solid var(--line);
+  background: #fff; padding: 16px 20px;
+}
+.sent-entry-header { display: flex; justify-content: space-between; align-items: center; }
+.sent-entry-subject { font-weight: 600; }
+.sent-entry-date { font-size: 13px; color: var(--muted); }
+
+/* Modal */
+dialog {
+  width: 95vw; max-width: 900px; height: 85vh;
+  border-radius: 16px; border: 1px solid var(--line);
+  background: #fff; padding: 0; color: var(--text-primary);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+}
+dialog::backdrop { background: rgba(26,26,26,0.4); }
+.modal-header { border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+.modal-header h2 { font-size: 16px; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 8px; }
+.modal-close:hover { background: rgba(0,0,0,0.05); }
+.modal-body { flex: 1; overflow: auto; background: var(--page-bg); padding: 20px; }
+
+/* Preview modal — two columns */
+.preview-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: calc(85vh - 130px); }
+.preview-column { display: flex; flex-direction: column; }
+.preview-column h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 12px; }
+.preview-iframe { flex: 1; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+
+/* Editable English fields */
+.edit-fields { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; }
+.edit-field {
+  width: 100%; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--page-bg); padding: 8px 12px; font-size: 13px;
+  color: var(--text-primary); outline: none; resize: none; font-family: inherit;
+  line-height: 1.5;
+}
+.edit-field:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,116,144,0.1); }
+
+/* Controls bar */
+.controls-bar {
+  border-top: 1px solid var(--line); padding: 12px 20px;
+  display: flex; align-items: center; gap: 12px; background: #fff;
+}
+.toggle-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.toggle-label input { width: 16px; height: 16px; cursor: pointer; }
+
+/* Rate limit counter */
+.rate-limit { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+/* Asset selection panel */
+.asset-panel { display: flex; gap: 10px; margin-bottom: 16px; padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: 12px; align-items: center; }
+.asset-thumb { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; border: 1px solid var(--line); background: var(--input-bg); }
+.asset-thumb input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+
+/* Reply section in sent entries */
+.reply-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.reply-compose { display: none; margin-top: 8px; }
+.reply-compose.open { display: block; }
+.reply-textarea { width: 100%; border-radius: 8px; border: 1px solid var(--input-border); padding: 8px 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; outline: none; }
+.reply-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,116,144,0.1); }
+.reply-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+
+/* Build modal */
+.build-form { display: flex; flex-direction: column; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.form-input, .form-textarea, .form-file {
+  border-radius: 12px; border: 1px solid var(--input-border); background: #fff;
+  padding: 0 16px; height: 44px; font-size: 14px; color: var(--text-primary);
+  outline: none; font-family: inherit;
+}
+.form-textarea { height: auto; padding: 12px 16px; min-height: 120px; resize: vertical; }
+.form-file { padding: 8px 16px; height: auto; }
+.form-input:focus, .form-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,116,144,0.1); }
+
+/* Empty state */
+.empty-state {
+  border: 1px dashed var(--input-border); border-radius: 16px;
+  background: #fff; padding: 48px; text-align: center;
+}
+.empty-state svg { width: 32px; height: 32px; color: var(--muted); margin-bottom: 12px; }
+.empty-state p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">WEBREFURB</div>
+    <div class="subtitle">Operator dashboard</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Search</div>
+    <div style="padding: 0 4px;">
+      <input type="text" class="search-input" id="sidebar-search" placeholder="Restaurant name or keyword..." style="width:100%;height:38px;border-radius:12px;font-size:13px;margin-bottom:8px;" oninput="filterLeads()">
+      <select class="search-select" id="sidebar-category" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Categories</option>
+        <option value="ramen">Ramen</option>
+        <option value="izakaya">Izakaya</option>
+      </select>
+      <select class="search-select" id="sidebar-city" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
+        <option value="all">All Japan</option>
+        <option value="Tokyo">Tokyo</option>
+        <option value="Kyoto">Kyoto</option>
+        <option value="Osaka">Osaka</option>
+        <option value="Nara">Nara</option>
+        <option value="Kanazawa">Kanazawa</option>
+        <option value="Hakone">Hakone</option>
+        <option value="Sapporo">Sapporo</option>
+        <option value="Fukuoka">Fukuoka</option>
+        <option value="Hiroshima">Hiroshima</option>
+        <option value="Okinawa">Okinawa</option>
+        <option value="Kamakura">Kamakura</option>
+        <option value="Kobe">Kobe</option>
+        <option value="Nagoya">Nagoya</option>
+      </select>
+      <button class="btn btn-primary" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search</button>
+    </div>
+  </div>
+
+  <div class="sidebar-section" style="flex:1;">
+    <div class="sidebar-section-title">Navigate</div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" onclick="switchTab('leads')" id="nav-leads">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Leads
+        <span class="badge badge-green" id="leads-count">{{ leads|length }}</span>
+      </a>
+      <a class="nav-item" onclick="switchTab('sent')" id="nav-sent">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Sent
+        <span class="badge badge-red" id="sent-count">0</span>
+      </a>
+    </nav>
+  </div>
+</aside>
+
+<!-- Main content -->
+<div class="main">
+  <!-- Leads tab -->
+  <div class="tab-content active" id="tab-leads">
+    <h1 style="font-size:26px;font-weight:600;letter-spacing:var(--headline-tracking);margin-bottom:20px;">Leads</h1>
+    {% if leads %}
+    <div class="lead-list" id="lead-list">
+      {% for lead in leads %}
+      <div class="lead-card {{ 'do-not-contact' if lead.outreach_status == 'do_not_contact' else '' }}" data-lead-id="{{ lead.lead_id }}">
+        <div class="score-pill">{{ lead.lead_score_v1 }}</div>
+        <div class="lead-info">
+          <div class="lead-name">{{ lead.business_name }}</div>
+          <div class="lead-meta">{{ lead.primary_category_v1|capitalize }} · {{ lead.address|default('Unknown', true) }}</div>
+          <div class="lead-badges">
+            <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>
+            {% if lead.outreach_classification %}
+            <span class="classification-badge">{{ lead.outreach_classification }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="lead-actions">
+          <button class="btn btn-secondary" onclick="openPreview('{{ lead.lead_id }}')">Preview</button>
+          <button class="btn btn-primary" onclick="openBuild('{{ lead.lead_id }}')">Create Menu</button>
+          <button class="btn-dnc {{ 'active' if lead.outreach_status == 'do_not_contact' else '' }}" onclick="toggleDNC('{{ lead.lead_id }}', this)" title="Flag as Do Not Contact">DNC</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <p>No leads yet. Use the search panel to find qualifying businesses.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sent tab -->
+  <div class="tab-content" id="tab-sent">
+    <h1 style="font-size:26px;font-weight:600;letter-spacing:var(--headline-tracking);margin-bottom:20px;">Sent Emails</h1>
+    <div class="sent-list" id="sent-list">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <p>No emails sent yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<dialog id="preview-modal">
+  <div class="modal-header">
+    <h2 id="preview-modal-title">Email Preview</h2>
+    <button class="modal-close" onclick="document.getElementById('preview-modal').close()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <!-- Asset selection panel -->
+    <div class="asset-panel" id="asset-panel">
+      <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);">Attachments:</span>
+      <div id="asset-items"></div>
+    </div>
+    <div class="preview-columns">
+      <div class="preview-column">
+        <h3>Japanese Email (Live Preview)</h3>
+        <div class="preview-iframe" id="jp-preview" style="padding:16px;font-size:13px;line-height:1.8;white-space:pre-wrap;"></div>
+      </div>
+      <div class="preview-column">
+        <h3>Email Body (Editable)</h3>
+        <div class="edit-fields" id="en-fields"></div>
+      </div>
+    </div>
+  </div>
+  <div class="controls-bar">
+    <label class="toggle-label">
+      <input type="checkbox" id="inperson-toggle" checked onchange="toggleInperson()">
+      In-person delivery line
+    </label>
+    <input type="email" id="send-email" placeholder="Recipient email..." style="height:36px;border-radius:9999px;border:1px solid var(--input-border);padding:0 14px;font-size:13px;outline:none;min-width:200px;font-family:inherit;">
+    <button class="btn btn-secondary" onclick="resetToTemplate()">Reset to Template</button>
+    <span class="rate-limit" id="rate-limit"></span>
+    <button class="btn btn-success" id="send-btn" onclick="confirmSend()">Send</button>
+  </div>
+</dialog>
+
+<!-- Build Modal -->
+<dialog id="build-modal">
+  <div class="modal-header">
+    <h2>Create Menu</h2>
+    <button class="modal-close" onclick="document.getElementById('build-modal').close()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <form class="build-form" id="build-form" onsubmit="submitBuild(event)">
+      <div class="form-group">
+        <label class="form-label">Restaurant Name *</label>
+        <input type="text" class="form-input" id="build-name" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Menu Items (type or paste)</label>
+        <textarea class="form-textarea" id="build-menu-text" placeholder="Paste menu items here, one per line..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Menu Photos</label>
+        <input type="file" class="form-file" id="build-photos" multiple accept="image/*">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ticket Machine Photo (optional)</label>
+        <input type="file" class="form-file" id="build-ticket-photo" accept="image/*">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Additional Notes</label>
+        <textarea class="form-textarea" id="build-notes" style="min-height:60px;" placeholder="Dietary labels, pricing notes, specials..."></textarea>
+      </div>
+      <div id="build-status" style="display:none;font-size:14px;padding:12px;border-radius:12px;background:#EEF8F2;color:#166534;"></div>
+      <button type="submit" class="btn btn-primary" style="align-self:flex-start;">Build Custom Menu</button>
+    </form>
+  </div>
+</dialog>
+
+<!-- Confirmation Dialog -->
+<dialog id="confirm-dialog" style="max-width:420px;height:auto;">
+  <div style="padding:24px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Confirm Send</h3>
+    <p id="confirm-text" style="font-size:14px;color:#666;margin-bottom:20px;"></p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="document.getElementById('confirm-dialog').close()">Cancel</button>
+      <button class="btn btn-success" id="confirm-send-btn" onclick="executeSend()">Send Email</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+// --- State ---
+let currentLeadId = null;
+let currentEmail = null;
+let originalBody = null;
+let includeInperson = true;
+let debounceTimer = null;
+let selectedAssets = [];
+
+// --- Tab switching ---
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+  if (tab === 'sent') loadSentEmails();
+}
+
+// --- Search ---
+async function runSearch() {
+  const query = document.getElementById('sidebar-search').value.trim();
+  const category = document.getElementById('sidebar-category').value;
+  const city = document.getElementById('sidebar-city').value;
+  const btn = event.target.closest('button');
+  const origText = btn.textContent;
+
+  if (!query) return;
+
+  btn.textContent = 'Searching...';
+  btn.disabled = true;
+
+  try {
+    // Build search query with city if selected
+    let searchQuery = query;
+    if (city !== 'all') searchQuery += ' ' + city;
+
+    const res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: searchQuery, category: category === 'all' ? 'ramen' : category }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert('Search failed: ' + (err.detail || 'Unknown error'));
+      return;
+    }
+
+    const data = await res.json();
+    alert('Found ' + data.leads + ' qualifying leads from ' + data.total_candidates + ' candidates.');
+
+    // Reload page to refresh the leads list
+    location.reload();
+  } catch (err) {
+    alert('Search error: ' + err.message);
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
+function filterLeads() {
+  const query = document.getElementById('sidebar-search').value.toLowerCase().trim();
+  const category = document.getElementById('sidebar-category').value;
+  const city = document.getElementById('sidebar-city').value;
+
+  const cards = document.querySelectorAll('.lead-card');
+  if (!query && category === 'all' && city === 'all') {
+    cards.forEach(c => c.style.display = '');
+    return;
+  }
+
+  cards.forEach(card => {
+    const name = card.querySelector('.lead-name').textContent.toLowerCase();
+    const meta = card.querySelector('.lead-meta').textContent.toLowerCase();
+    const matchName = !query || name.includes(query) || meta.includes(query);
+    const matchCategory = category === 'all' || meta.includes(category);
+    const matchCity = city === 'all' || meta.includes(city.toLowerCase());
+    card.style.display = (matchName && matchCategory && matchCity) ? '' : 'none';
+  });
+}
+
+// --- Preview Modal ---
+async function openPreview(leadId) {
+  currentLeadId = leadId;
+  const modal = document.getElementById('preview-modal');
+  const jpPreview = document.getElementById('jp-preview');
+  const enFields = document.getElementById('en-fields');
+
+  jpPreview.textContent = 'Loading...';
+  enFields.innerHTML = '';
+
+  try {
+    const res = await fetch('/api/outreach/' + leadId);
+    const data = await res.json();
+    currentEmail = data;
+    originalBody = data.body;
+    includeInperson = data.include_inperson;
+    document.getElementById('inperson-toggle').checked = includeInperson;
+
+    // Populate asset selection panel
+    selectedAssets = data.assets || [];
+    const assetItems = document.getElementById('asset-items');
+    assetItems.innerHTML = '';
+    selectedAssets.forEach((asset, i) => {
+      const name = asset.split('/').pop().replace(/\.pdf$/i, '');
+      const label = name.includes('ticket') ? 'Ticket Machine Guide' : name.includes('combined') ? 'Menu (Combined)' : name.includes('drinks') ? 'Drinks Menu' : 'Food Menu';
+      const div = document.createElement('label');
+      div.className = 'asset-thumb';
+      div.innerHTML = `<input type="checkbox" checked data-asset-index="${i}"> ${label}`;
+      assetItems.appendChild(div);
+    });
+
+    // Show Japanese preview
+    jpPreview.textContent = data.body;
+
+    // Create editable English fields
+    const lines = data.body.split('\n').filter(l => l.trim());
+    enFields.innerHTML = '';
+    lines.forEach((line, i) => {
+      const textarea = document.createElement('textarea');
+      textarea.className = 'edit-field';
+      textarea.value = line;
+      textarea.rows = 1;
+      textarea.dataset.index = i;
+      textarea.addEventListener('input', () => debouncedTranslate(textarea, i));
+      enFields.appendChild(textarea);
+    });
+
+    // Update rate limit display
+    updateRateLimit();
+
+    modal.showModal();
+  } catch (err) {
+    jpPreview.textContent = 'Error: ' + err.message;
+  }
+}
+
+function debouncedTranslate(field, index) {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => translateLine(field, index), 600);
+}
+
+async function translateLine(field, index) {
+  // Update the Japanese preview column with current field values
+  const lines = [];
+  document.querySelectorAll('.edit-field').forEach(f => lines.push(f.value));
+  document.getElementById('jp-preview').textContent = lines.join('\n');
+  // Mark body as edited for send
+  if (currentEmail) currentEmail.body = lines.join('\n');
+}
+
+function toggleInperson() {
+  includeInperson = document.getElementById('inperson-toggle').checked;
+  // Re-render with/without in-person line
+  // Will be wired to actual template toggle in production
+}
+
+async function resetToTemplate() {
+  if (!currentLeadId) return;
+  // Re-fetch outreach to get fresh template
+  const res = await fetch('/api/outreach/' + currentLeadId);
+  const data = await res.json();
+  currentEmail = data;
+  originalBody = data.body;
+  document.getElementById('jp-preview').textContent = data.body;
+
+  const lines = data.body.split('\n').filter(l => l.trim());
+  const enFields = document.getElementById('en-fields');
+  enFields.innerHTML = '';
+  lines.forEach((line, i) => {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'edit-field';
+    textarea.value = line;
+    textarea.rows = 1;
+    textarea.dataset.index = i;
+    textarea.addEventListener('input', () => debouncedTranslate(textarea, i));
+    enFields.appendChild(textarea);
+  });
+}
+
+async function updateRateLimit() {
+  try {
+    const res = await fetch('/api/sent');
+    const sent = await res.json();
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' })).toISOString().split('T')[0];
+    const todayCount = sent.filter(s => s.sent_at && s.sent_at.startsWith(today)).length;
+    document.getElementById('rate-limit').textContent = todayCount + ' / 50 sent today (resets midnight JST)';
+    document.getElementById('send-btn').disabled = todayCount >= 50;
+  } catch {}
+}
+
+function confirmSend() {
+  if (!currentLeadId) return;
+  const email = document.getElementById('send-email').value.trim();
+  if (!email) {
+    document.getElementById('send-email').style.borderColor = '#C43D2F';
+    return;
+  }
+  document.getElementById('send-email').style.borderColor = '';
+  const dialog = document.getElementById('confirm-dialog');
+  document.getElementById('confirm-text').textContent =
+    'Send this email to ' + email + '? This cannot be undone.';
+  dialog.showModal();
+}
+
+async function executeSend() {
+  document.getElementById('confirm-dialog').close();
+  const email = document.getElementById('send-email').value.trim();
+  if (!email) { alert('Email address required'); return; }
+
+  // Collect checked assets
+  const assetChecks = document.querySelectorAll('#asset-items input[type=checkbox]');
+  const checkedAssets = [];
+  assetChecks.forEach((cb, i) => { if (cb.checked && selectedAssets[i]) checkedAssets.push(selectedAssets[i]); });
+
+  // Use edited body if fields exist, otherwise original
+  const editFields = document.querySelectorAll('.edit-field');
+  let bodyToSend = currentEmail.body;
+  if (editFields.length > 0) {
+    const lines = [];
+    editFields.forEach(f => lines.push(f.value));
+    bodyToSend = lines.join('\n');
+  }
+
+  try {
+    const res = await fetch('/api/send/' + currentLeadId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        subject: currentEmail.subject,
+        body: bodyToSend,
+        assets: checkedAssets,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('preview-modal').close();
+      location.reload();
+    } else {
+      alert('Send failed: ' + data.detail);
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+// --- Build Modal ---
+function openBuild(leadId) {
+  currentLeadId = leadId;
+  document.getElementById('build-form').reset();
+  document.getElementById('build-status').style.display = 'none';
+  document.getElementById('build-modal').showModal();
+}
+
+async function submitBuild(e) {
+  e.preventDefault();
+  const statusEl = document.getElementById('build-status');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Building...';
+  statusEl.style.background = '#ECFEFF';
+  statusEl.style.color = '#0E7490';
+
+  const form = new FormData();
+  form.append('name', document.getElementById('build-name').value);
+  form.append('menu_text', document.getElementById('build-menu-text').value);
+  form.append('notes', document.getElementById('build-notes').value);
+
+  const photos = document.getElementById('build-photos').files;
+  for (let i = 0; i < photos.length; i++) {
+    form.append('menu_photos', photos[i]);
+  }
+
+  const ticketPhoto = document.getElementById('build-ticket-photo').files[0];
+  if (ticketPhoto) form.append('ticket_photo', ticketPhoto);
+
+  try {
+    const res = await fetch('/api/build', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (res.ok) {
+      // Poll for completion
+      pollBuildStatus(data.job_id);
+    } else {
+      statusEl.textContent = 'Error: ' + (data.detail || 'Build failed');
+      statusEl.style.background = '#FFF8F6';
+      statusEl.style.color = '#C43D2F';
+    }
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    statusEl.style.background = '#FFF8F6';
+    statusEl.style.color = '#C43D2F';
+  }
+}
+
+async function pollBuildStatus(jobId) {
+  const statusEl = document.getElementById('build-status');
+  try {
+    const res = await fetch('/api/build/' + jobId + '/status');
+    const data = await res.json();
+
+    if (data.status === 'completed') {
+      statusEl.textContent = 'Build complete! Output: ' + data.output_dir;
+      statusEl.style.background = '#EEF8F2';
+      statusEl.style.color = '#166534';
+    } else if (data.status === 'failed') {
+      statusEl.textContent = 'Build failed: ' + (data.error || 'Unknown error');
+      statusEl.style.background = '#FFF8F6';
+      statusEl.style.color = '#C43D2F';
+    } else {
+      statusEl.textContent = 'Building... (status: ' + data.status + ')';
+      setTimeout(() => pollBuildStatus(jobId), 2000);
+    }
+  } catch (err) {
+    statusEl.textContent = 'Polling error: ' + err.message;
+    statusEl.style.background = '#FFF8F6';
+    statusEl.style.color = '#C43D2F';
+  }
+}
+
+// --- Sent Emails ---
+async function loadSentEmails() {
+  try {
+    const res = await fetch('/api/sent');
+    const sent = await res.json();
+    const list = document.getElementById('sent-list');
+    document.getElementById('sent-count').textContent = sent.length;
+
+    if (sent.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No emails sent yet.</p></div>';
+      return;
+    }
+
+    list.innerHTML = sent.map(s => {
+      const safeSubject = (s.subject || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+      const safeTo = (s.to || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+      const safeLeadId = (s.lead_id || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+      return `
+      <div class="sent-entry" data-to="${safeTo}" data-subject="${safeSubject}" data-lead-id="${safeLeadId}">
+        <div class="sent-entry-header">
+          <span class="sent-entry-subject">${safeSubject}</span>
+          <span class="sent-entry-date">${s.sent_at ? new Date(s.sent_at).toLocaleDateString() : ''}</span>
+        </div>
+        <div style="margin-top:8px;font-size:13px;color:#666;">To: ${safeTo} · Status: ${s.status}</div>
+        <div class="reply-section">
+          <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Reply</button>
+          <div class="reply-compose">
+            <textarea class="reply-textarea" placeholder="Type your reply..."></textarea>
+            <div class="reply-actions">
+              <button class="btn btn-primary" style="height:32px;font-size:12px;padding:0 14px;" onclick="sendReply(this)">Send Reply</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch {}
+}
+
+function toggleReply(btn) {
+  const compose = btn.parentElement.querySelector('.reply-compose');
+  compose.classList.toggle('open');
+}
+
+async function sendReply(btn) {
+  const entry = btn.closest('.sent-entry');
+  const compose = btn.closest('.reply-compose');
+  const textarea = compose.querySelector('.reply-textarea');
+  const body = textarea.value.trim();
+  if (!body) return;
+
+  const toEmail = entry.dataset.to;
+  const subject = entry.dataset.subject;
+  const leadId = entry.dataset.leadId;
+  if (!toEmail) { alert('No recipient email found'); return; }
+
+  try {
+    const res = await fetch('/api/reply/' + leadId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: toEmail, subject: subject, body: body }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      compose.classList.remove('open');
+      textarea.value = '';
+      alert('Reply sent!');
+    } else {
+      alert('Reply failed: ' + data.detail);
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+// --- Do Not Contact ---
+async function toggleDNC(leadId, btn) {
+  const isDNC = btn.classList.contains('active');
+  try {
+    const res = await fetch('/api/flag-dnc/' + leadId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flag: !isDNC }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const card = btn.closest('.lead-card');
+      if (!isDNC) {
+        btn.classList.add('active');
+        card.classList.add('do-not-contact');
+      } else {
+        btn.classList.remove('active');
+        card.classList.remove('do-not-contact');
+      }
+    }
+  } catch (err) {
+    console.error('DNC toggle error:', err);
+  }
+}
+
+// Init
+loadSentEmails();
+</script>
+
+</body>
+</html>

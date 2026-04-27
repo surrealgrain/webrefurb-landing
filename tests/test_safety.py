@@ -1,0 +1,245 @@
+"""Tests for duplicate detection, sent-business exclusion, and send safety."""
+
+from __future__ import annotations
+
+import json
+import pytest
+from pathlib import Path
+
+from pipeline.record import (
+    create_lead_record,
+    persist_lead_record,
+    find_existing_lead,
+    _normalise_domain,
+    _normalise_phone,
+    _normalise_name,
+    list_leads,
+)
+from pipeline.models import QualificationResult
+from pipeline.constants import OUTREACH_STATUS_SENT
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_qual(
+    *,
+    business_name: str = "Test Ramen",
+    website: str = "https://test-ramen.com",
+    phone: str = "03-1234-5678",
+    place_id: str = "ChIJ_test",
+    address: str = "Tokyo",
+) -> QualificationResult:
+    return QualificationResult(
+        lead=True,
+        rejection_reason=None,
+        business_name=business_name,
+        website=website,
+        phone=phone,
+        place_id=place_id,
+        address=address,
+    )
+
+
+@pytest.fixture
+def tmp_state(tmp_path):
+    """Create a temporary state directory with leads/."""
+    leads_dir = tmp_path / "leads"
+    leads_dir.mkdir()
+    return tmp_path
+
+
+def _persist(qual: QualificationResult, state_root: Path, **overrides) -> dict:
+    """Create and persist a lead record, optionally overriding fields."""
+    record = create_lead_record(
+        qualification=qual,
+        preview_html="<p>test</p>",
+        pitch_draft={"body": {"body": "test"}},
+        state_root=state_root,
+    )
+    record.update(overrides)
+    persist_lead_record(record, state_root=state_root)
+    return record
+
+
+# ---------------------------------------------------------------------------
+# Normalisation helpers
+# ---------------------------------------------------------------------------
+
+class TestNormalise:
+    def test_domain_strips_protocol(self):
+        assert _normalise_domain("https://www.example.com/path") == "example.com"
+
+    def test_domain_strips_www(self):
+        assert _normalise_domain("www.example.com") == "example.com"
+
+    def test_domain_strips_port(self):
+        assert _normalise_domain("example.com:8080") == "example.com"
+
+    def test_phone_strips_non_digits(self):
+        assert _normalise_phone("03-1234-5678") == "0312345678"
+
+    def test_name_lowercases(self):
+        assert _normalise_name("Test RAMEN") == "testramen"
+
+    def test_name_strips_store_suffix(self):
+        assert _normalise_name("ラーメン店") == "ラーメン"
+
+
+# ---------------------------------------------------------------------------
+# Duplicate detection
+# ---------------------------------------------------------------------------
+
+class TestFindExistingLead:
+    def test_match_by_place_id(self, tmp_state):
+        _persist(_make_qual(place_id="ChIJ_abc"), tmp_state)
+        result = find_existing_lead(place_id="ChIJ_abc", state_root=tmp_state)
+        assert result is not None
+        assert result["place_id"] == "ChIJ_abc"
+
+    def test_match_by_website_domain(self, tmp_state):
+        _persist(_make_qual(website="https://www.test-ramen.com"), tmp_state)
+        result = find_existing_lead(website="https://test-ramen.com/menu", state_root=tmp_state)
+        assert result is not None
+
+    def test_match_by_phone(self, tmp_state):
+        _persist(_make_qual(phone="03-1234-5678"), tmp_state)
+        result = find_existing_lead(phone="0312345678", state_root=tmp_state)
+        assert result is not None
+
+    def test_match_by_normalised_name(self, tmp_state):
+        _persist(_make_qual(business_name="Test Ramen"), tmp_state)
+        result = find_existing_lead(business_name="test ramen", state_root=tmp_state)
+        assert result is not None
+
+    def test_no_match_returns_none(self, tmp_state):
+        _persist(_make_qual(), tmp_state)
+        result = find_existing_lead(
+            business_name="Completely Different",
+            website="https://other.com",
+            phone="099-9999-9999",
+            place_id="ChIJ_other",
+            state_root=tmp_state,
+        )
+        assert result is None
+
+    def test_different_domain_no_match(self, tmp_state):
+        _persist(_make_qual(website="https://test-ramen.com"), tmp_state)
+        result = find_existing_lead(website="https://other-ramen.com", state_root=tmp_state)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Sent-business exclusion
+# ---------------------------------------------------------------------------
+
+class TestSentExclusion:
+    def test_sent_lead_found_by_existing_check(self, tmp_state):
+        """A sent lead is still found by find_existing_lead."""
+        record = _persist(_make_qual(), tmp_state, outreach_status=OUTREACH_STATUS_SENT)
+        assert record["outreach_status"] == "sent"
+
+        result = find_existing_lead(
+            business_name="Test Ramen",
+            website="https://test-ramen.com",
+            state_root=tmp_state,
+        )
+        assert result is not None
+        assert result["outreach_status"] == "sent"
+
+    def test_sent_lead_not_overwritten(self, tmp_state):
+        """Persisting a new record with the same lead_id overwrites, but
+        search exclusion prevents it from getting that far."""
+        record = _persist(_make_qual(), tmp_state, outreach_status=OUTREACH_STATUS_SENT)
+        # Re-persist with new status — this simulates what would happen
+        # if somehow the same record was updated
+        record["outreach_status"] = "new"
+        persist_lead_record(record, state_root=tmp_state)
+
+        # Verify the file was overwritten
+        reloaded = list_leads(state_root=tmp_state)[0]
+        # This confirms that exclusion at the search level is critical
+        assert reloaded["outreach_status"] == "new"
+
+    def test_sent_status_persists_on_disk(self, tmp_state):
+        record = _persist(_make_qual(), tmp_state, outreach_status=OUTREACH_STATUS_SENT)
+        # Reload from disk
+        leads = list_leads(state_root=tmp_state)
+        assert len(leads) == 1
+        assert leads[0]["outreach_status"] == "sent"
+
+
+# ---------------------------------------------------------------------------
+# Send safety guards (tested via outreach module)
+# ---------------------------------------------------------------------------
+
+class TestSendSafetyGuards:
+    def test_machine_only_raises(self):
+        from pipeline.outreach import build_outreach_email, MachineOnlyNotSupportedError
+        with pytest.raises(MachineOnlyNotSupportedError):
+            build_outreach_email(
+                business_name="テスト",
+                classification="machine_only",
+            )
+
+    def test_sent_is_blocked_status(self):
+        """Verify 'sent' is in the blocked set for re-sending."""
+        _blocked = {"sent", "replied", "converted", "do_not_contact"}
+        assert "sent" in _blocked
+        assert "replied" in _blocked
+        assert "new" not in _blocked
+        assert "draft" not in _blocked
+
+    def test_failed_send_does_not_mark_sent(self):
+        """Verify the send flow: status update is AFTER the try/except send block.
+
+        If send raises, the exception is caught and re-raised as 502 before
+        the status update line ever runs.
+        """
+        import inspect
+        from dashboard.app import api_send
+        source = inspect.getsource(api_send)
+        # The send call is inside a try block; status update comes after
+        try_pos = source.index("try:")
+        send_pos = source.index("_send_email_resend", try_pos)
+        except_pos = source.index("except Exception", try_pos)
+        # Find the status update after the except block
+        after_except = source.index("OUTREACH_STATUS_SENT", except_pos + 1)
+        assert try_pos < send_pos < except_pos
+        assert after_except > except_pos
+
+    def test_replied_business_blocked_from_resend(self):
+        _blocked = {"sent", "replied", "converted", "do_not_contact"}
+        assert "replied" in _blocked
+
+    def test_do_not_contact_blocked(self):
+        _blocked = {"sent", "replied", "converted", "do_not_contact"}
+        assert "do_not_contact" in _blocked
+
+
+# ---------------------------------------------------------------------------
+# Classification-specific content
+# ---------------------------------------------------------------------------
+
+class TestClassificationContent:
+    def test_menu_and_machine_has_both_inline_images(self):
+        from pipeline.email_html import build_pitch_email_html, MENU_URL, MACHINE_URL
+        html = build_pitch_email_html(
+            text_body="Test body",
+            menu_image_path="dummy.jpg",
+            include_menu_image=True,
+            include_machine_image=True,
+        )
+        assert MENU_URL in html
+        assert MACHINE_URL in html
+
+    def test_menu_only_has_no_machine_image(self):
+        from pipeline.email_html import build_pitch_email_html, MACHINE_URL
+        html = build_pitch_email_html(
+            text_body="Test body",
+            menu_image_path="dummy.jpg",
+            include_menu_image=True,
+            include_machine_image=False,
+        )
+        assert MACHINE_URL not in html

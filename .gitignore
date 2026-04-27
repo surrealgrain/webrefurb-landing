@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+state/
+!state/.gitkeep
+node_modules/
+.next/
+dashboard/.next/
+.env
+.DS_Store
+pipeline/_logo_cache.png
+*_browser_preview.jpg
