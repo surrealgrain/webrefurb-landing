@@ -79,29 +79,39 @@ def build_pitch_email_html(
     menu_image_path: str | Path | None = None,
     include_menu_image: bool = True,
     include_machine_image: bool = False,
+    locale: str = "en",
 ) -> str:
     """Build a full HTML email with header logo, body, images, and footer.
 
     Logo uses CID inline attachment. Menu and machine images are hosted on
     the web and referenced by URL — no attachments needed for those.
 
+    Args:
+        locale: "en" links to webrefurb.com, "ja" links to webrefurb.com/ja.
+            The visible footer text always shows "webrefurb.com".
+
     Returns:
         Complete HTML string (typically < 10 KB).
     """
     has_logo = _ensure_logo_png() is not None
+    site_url = "https://webrefurb.com/ja" if locale == "ja" else "https://webrefurb.com"
 
     lines = [l.strip() for l in text_body.strip().split("\n\n") if l.strip()]
 
     # -- Header (clean logo strip, hairline separator) --------------------
     if has_logo:
         header_logo = (
+            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer">'
             f'<img src="cid:{LOGO_CID}" alt="WebRefurb" width="180" '
-            f'style="display:block; width:180px; height:auto;" />'
+            f'style="display:block; width:180px; height:auto; border:0;" />'
+            f'</a>'
         )
     else:
         header_logo = (
+            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
+            'style="text-decoration:none; color:#111;">'
             '<span style="font-size:16px; font-weight:700; letter-spacing:-0.3px; color:#111;">'
-            'WebRefurb</span>'
+            'WebRefurb</span></a>'
         )
     header = (
         '<div style="padding-bottom:20px; margin-bottom:24px; border-bottom:1px solid #E8E8E5;">'
@@ -140,14 +150,24 @@ def build_pitch_email_html(
     if has_logo:
         footer = (
             '<div style="margin-top:40px; padding-top:20px; border-top:1px solid #E8E8E5;">'
+            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer">'
             f'<img src="cid:{LOGO_CID}" alt="WebRefurb" width="140" '
-            f'style="display:block; width:140px; height:auto; opacity:0.6; margin-bottom:12px;" />'
+            f'style="display:block; width:140px; height:auto; opacity:0.6; margin-bottom:8px; border:0;" />'
+            f'</a>'
+            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
+            'style="text-decoration:none; color:#999999; font-size:12px; line-height:1.4;">'
+            'webrefurb.com</a>'
             '</div>'
         )
     else:
         footer = (
             '<div style="margin-top:40px; padding-top:20px; border-top:1px solid #E8E8E5;">'
-            '<p style="margin:0 0 8px 0; font-size:13px; color:#aaa; line-height:1.6;">WebRefurb</p>'
+            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
+            'style="text-decoration:none; color:#aaaaaa; font-size:13px; line-height:1.6;">'
+            'WebRefurb</a><br/>'
+            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
+            'style="text-decoration:none; color:#999999; font-size:12px; line-height:1.4;">'
+            'webrefurb.com</a>'
             '</div>'
         )
 

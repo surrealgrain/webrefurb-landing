@@ -108,9 +108,27 @@ class TestFindExistingLead:
         result = find_existing_lead(phone="0312345678", state_root=tmp_state)
         assert result is not None
 
-    def test_match_by_normalised_name(self, tmp_state):
-        _persist(_make_qual(business_name="Test Ramen"), tmp_state)
+    def test_name_only_no_match(self, tmp_state):
+        """Name match without address should NOT exclude — skip silently."""
+        _persist(_make_qual(business_name="Test Ramen", address="Shibuya, Tokyo"), tmp_state)
+        # Candidate with same name but no address provided
         result = find_existing_lead(business_name="test ramen", state_root=tmp_state)
+        assert result is None
+
+    def test_name_different_area_no_match(self, tmp_state):
+        """Same name, different area — different business."""
+        _persist(_make_qual(business_name="Test Ramen", address="Shibuya, Tokyo"), tmp_state)
+        result = find_existing_lead(
+            business_name="test ramen", address="Shinjuku, Tokyo", state_root=tmp_state,
+        )
+        assert result is None
+
+    def test_name_same_area_matches(self, tmp_state):
+        """Same name + same area = duplicate."""
+        _persist(_make_qual(business_name="Test Ramen", address="Shibuya, Tokyo"), tmp_state)
+        result = find_existing_lead(
+            business_name="test ramen", address="Shibuya, Tokyo", state_root=tmp_state,
+        )
         assert result is not None
 
     def test_no_match_returns_none(self, tmp_state):
@@ -143,6 +161,7 @@ class TestSentExclusion:
         result = find_existing_lead(
             business_name="Test Ramen",
             website="https://test-ramen.com",
+            address="Tokyo",
             state_root=tmp_state,
         )
         assert result is not None
