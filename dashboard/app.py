@@ -552,11 +552,13 @@ async def _send_email_resend(
             )
 
     # Build HTML email body — all images via cid: references
+    # Japanese outreach → locale="ja" so footer/header links point to /ja
     html_body = build_pitch_email_html(
         text_body=body,
         menu_image_path=menu_image_path,
         include_menu_image=bool(menu_image_path),
         include_machine_image=include_machine_image,
+        locale="ja",
     )
 
     params: dict[str, Any] = {

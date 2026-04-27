@@ -195,3 +195,60 @@ class TestBuildOutreachEmail:
         # No blank paragraph between them
         between = email["body"][idx_anchor:idx_machine]
         assert between == "\n"
+
+
+# ---------------------------------------------------------------------------
+# Email HTML locale-aware links
+# ---------------------------------------------------------------------------
+
+class TestEmailLocaleLinks:
+    """Verify footer/header links route to the correct locale."""
+
+    def test_default_locale_links_to_root(self):
+        from pipeline.email_html import build_pitch_email_html
+
+        html = build_pitch_email_html(
+            text_body="テスト本文",
+            include_menu_image=False,
+            include_machine_image=False,
+        )
+        assert 'href="https://webrefurb.com"' in html
+        assert "webrefurb.com/ja" not in html
+
+    def test_ja_locale_links_to_ja(self):
+        from pipeline.email_html import build_pitch_email_html
+
+        html = build_pitch_email_html(
+            text_body="テスト本文",
+            include_menu_image=False,
+            include_machine_image=False,
+            locale="ja",
+        )
+        assert 'href="https://webrefurb.com/ja"' in html
+        # Visible text still shows plain domain
+        assert ">webrefurb.com</a>" in html
+
+    def test_ja_locale_header_logo_links_to_ja(self):
+        from pipeline.email_html import build_pitch_email_html
+
+        html = build_pitch_email_html(
+            text_body="テスト本文",
+            include_menu_image=False,
+            include_machine_image=False,
+            locale="ja",
+        )
+        # Header logo link
+        assert html.count('href="https://webrefurb.com/ja"') >= 2  # header + footer
+
+    def test_ja_locale_does_not_show_ja_in_visible_text(self):
+        from pipeline.email_html import build_pitch_email_html
+
+        html = build_pitch_email_html(
+            text_body="テスト本文",
+            include_menu_image=False,
+            include_machine_image=False,
+            locale="ja",
+        )
+        # The visible "webrefurb.com" text link should not contain /ja
+        assert ">webrefurb.com</a>" in html
+        assert ">webrefurb.com/ja</a>" not in html

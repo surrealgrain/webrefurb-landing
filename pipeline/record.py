@@ -44,6 +44,16 @@ def _normalise_name(name: str) -> str:
     return n
 
 
+def _extract_area(address: str) -> str:
+    """Extract the first meaningful area component from an address."""
+    import re
+    # Take the part before the first comma, strip whitespace
+    area = address.split(",")[0].strip()
+    # Normalise: lowercase, collapse whitespace
+    area = re.sub(r'\s+', '', area.lower())
+    return area
+
+
 def find_existing_lead(
     *,
     business_name: str = "",
@@ -81,11 +91,20 @@ def find_existing_lead(
             if _normalise_phone(lead_phone) == norm_phone and len(norm_phone) >= 7:
                 return lead
 
-        # Normalised business name + area
+        # Normalised business name + area (never name alone)
         lead_name = lead.get("business_name", "")
-        if norm_name and lead_name:
-            if _normalise_name(lead_name) == norm_name:
-                return lead
+        lead_address = lead.get("address", "")
+        if norm_name and lead_name and _normalise_name(lead_name) == norm_name:
+            if not address or not lead_address:
+                # Can't cross-check area — don't exclude on name alone
+                continue
+            # Both have addresses: compare the first address component (area)
+            cand_area = _extract_area(address)
+            lead_area = _extract_area(lead_address)
+            if not cand_area or not lead_area or cand_area != lead_area:
+                # Same name, different area — different business
+                continue
+            return lead
 
     return None
 
