@@ -37,6 +37,8 @@ def qualify_candidate(
     phone: str = "",
     place_id: str = "",
     map_url: str = "",
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> QualificationResult:
     """Main qualification entry point. Binary lead: true or false, never maybe."""
 
@@ -194,7 +196,7 @@ def qualify_candidate(
         lead_signals=lead_signals,
         image_locked=img_locked,
     )
-    tourist_exposure = compute_tourist_exposure_score(address=address, rating=rating, reviews=reviews)
+    tourist_exposure = compute_tourist_exposure_score(address=address, rating=rating, reviews=reviews, latitude=latitude, longitude=longitude)
     lead_score = compute_lead_score_v1(
         category=primary_category,
         english_menu_issue=english_menu_issue,

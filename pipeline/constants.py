@@ -228,6 +228,18 @@ TEMPLATE_PACKAGE_MACHINE = (
 )
 GENERIC_MENU_PDF = TEMPLATE_PACKAGE_MENU / "restaurant_menu_print_ready_combined.pdf"
 GENERIC_MACHINE_PDF = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide_print_ready.pdf"
+OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF = (
+    PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "restaurant_menu_print_ready_combined.pdf"
+)
+OUTREACH_SAMPLE_RAMEN_SIDES_PDF = (
+    PROJECT_ROOT / "state" / "builds" / "p1-two-section-layout" / "restaurant_menu_print_ready_combined.pdf"
+)
+OUTREACH_SAMPLE_RAMEN_DRINKS_PDF = (
+    PROJECT_ROOT / "state" / "builds" / "p1-smoke" / "restaurant_menu_print_ready_combined.pdf"
+)
+OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF = (
+    PROJECT_ROOT / "state" / "builds" / "p1-split-food-drinks-layout" / "restaurant_menu_print_ready_combined.pdf"
+)
 
 # ---------------------------------------------------------------------------
 # Contact details for email signatures

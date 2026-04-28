@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .business_name import business_name_is_suspicious, normalise_business_name
 from .utils import utc_now, write_json, read_json, ensure_dir, slugify, sha256_text
 from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
@@ -61,10 +62,47 @@ CONTACT_PRIORITY = {
     "instagram": 3,
     "phone": 4,
     "walk_in": 5,
-    "website": 6,
+    "map_url": 6,
+    "website": 7,
 }
 
 ACTIONABLE_CONTACT_TYPES = {"email", "contact_form", "line", "instagram", "phone", "walk_in"}
+
+
+def authoritative_business_name(lead: dict[str, Any]) -> str:
+    """Return the exact business name that should be reused downstream."""
+    locked = normalise_business_name(str(lead.get("locked_business_name") or ""))
+    if locked and not business_name_is_suspicious(locked):
+        return locked
+    return normalise_business_name(str(lead.get("business_name") or ""))
+
+
+def ensure_locked_business_name(lead: dict[str, Any]) -> dict[str, Any]:
+    """Promote a verified business name into the authoritative locked field."""
+    current = normalise_business_name(str(lead.get("business_name") or ""))
+    locked = normalise_business_name(str(lead.get("locked_business_name") or ""))
+    verified_by = [str(source or "").strip() for source in lead.get("business_name_verified_by") or [] if str(source or "").strip()]
+    locked_at = str(lead.get("business_name_locked_at") or "").strip()
+
+    if locked and not business_name_is_suspicious(locked):
+        lead["locked_business_name"] = locked
+        lead["business_name"] = locked
+        lead["business_name_locked"] = True
+        lead["business_name_locked_at"] = locked_at or str(lead.get("generated_at") or utc_now())
+        lead["business_name_lock_reason"] = str(lead.get("business_name_lock_reason") or "verified_name")
+        return lead
+
+    if current and len(verified_by) >= 2 and not business_name_is_suspicious(current):
+        lead["locked_business_name"] = current
+        lead["business_name"] = current
+        lead["business_name_locked"] = True
+        lead["business_name_locked_at"] = locked_at or str(lead.get("generated_at") or utc_now())
+        lead["business_name_lock_reason"] = "two_source_verification"
+        return lead
+
+    if current:
+        lead["business_name"] = current
+    return lead
 
 
 def _normalise_contact_value(contact_type: str, value: str) -> str:
@@ -84,13 +122,21 @@ def _build_contact_record(
     href: str = "",
     source: str = "",
     source_url: str = "",
+    confidence: str = "",
+    discovered_at: str = "",
+    status: str = "",
     actionable: bool | None = None,
 ) -> dict[str, Any]:
     cleaned_value = str(value or "").strip()
     cleaned_label = str(label or "").strip() or cleaned_value
     cleaned_href = str(href or "").strip()
+    cleaned_confidence = str(confidence or "").strip().lower()
+    if cleaned_confidence not in {"high", "medium", "low"}:
+        cleaned_confidence = "medium"
+    cleaned_discovered_at = str(discovered_at or "").strip()
     if actionable is None:
         actionable = contact_type in ACTIONABLE_CONTACT_TYPES
+    cleaned_status = str(status or "").strip() or ("discovered" if actionable else "reference_only")
     return {
         "type": contact_type,
         "value": cleaned_value,
@@ -98,6 +144,9 @@ def _build_contact_record(
         "href": cleaned_href,
         "source": str(source or "").strip(),
         "source_url": str(source_url or "").strip(),
+        "confidence": cleaned_confidence,
+        "discovered_at": cleaned_discovered_at,
+        "status": cleaned_status,
         "actionable": bool(actionable),
     }
 
@@ -112,6 +161,9 @@ def _append_contact(
     href: str = "",
     source: str = "",
     source_url: str = "",
+    confidence: str = "",
+    discovered_at: str = "",
+    status: str = "",
     actionable: bool | None = None,
 ) -> None:
     normalized_value = _normalise_contact_value(contact_type, value)
@@ -128,6 +180,9 @@ def _append_contact(
         href=href,
         source=source,
         source_url=source_url,
+        confidence=confidence,
+        discovered_at=discovered_at,
+        status=status,
         actionable=actionable,
     ))
 
@@ -135,6 +190,9 @@ def _append_contact(
 def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
     contacts: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
+    generated_at = str(lead.get("generated_at") or "").strip()
+    website = str(lead.get("website") or "").strip()
+    map_url = str(lead.get("map_url") or "").strip()
 
     for raw in lead.get("contacts") or []:
         contact_type = str(raw.get("type") or "").strip()
@@ -149,6 +207,9 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             href=str(raw.get("href") or ""),
             source=str(raw.get("source") or ""),
             source_url=str(raw.get("source_url") or ""),
+            confidence=str(raw.get("confidence") or ""),
+            discovered_at=str(raw.get("discovered_at") or generated_at),
+            status=str(raw.get("status") or ""),
             actionable=raw.get("actionable"),
         )
 
@@ -160,6 +221,9 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             value=str(lead.get("email") or ""),
             href=f"mailto:{str(lead.get('email') or '').strip()}",
             source="legacy_record",
+            source_url=website or map_url,
+            confidence="medium",
+            discovered_at=generated_at,
         )
     if lead.get("phone"):
         _append_contact(
@@ -169,6 +233,9 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             value=str(lead.get("phone") or ""),
             href=f"tel:{_normalise_phone(str(lead.get('phone') or ''))}",
             source="legacy_record",
+            source_url=map_url or website,
+            confidence="medium",
+            discovered_at=generated_at,
         )
     if lead.get("address"):
         _append_contact(
@@ -178,6 +245,9 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             value=str(lead.get("address") or ""),
             label="Walk-in route",
             source="legacy_record",
+            source_url=map_url or website,
+            confidence="medium",
+            discovered_at=generated_at,
         )
     if lead.get("website"):
         _append_contact(
@@ -188,6 +258,23 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             label="Official website",
             href=str(lead.get("website") or ""),
             source="legacy_record",
+            source_url=website,
+            confidence="medium",
+            discovered_at=generated_at,
+            actionable=False,
+        )
+    if map_url:
+        _append_contact(
+            contacts,
+            seen,
+            contact_type="map_url",
+            value=map_url,
+            label="Map listing",
+            href=map_url,
+            source="legacy_record",
+            source_url=map_url,
+            confidence="medium",
+            discovered_at=generated_at,
             actionable=False,
         )
 
@@ -299,10 +386,15 @@ def create_lead_record(
         "lead_id": lead_id,
         "generated_at": utc_now(),
         "business_name": business_name,
+        "locked_business_name": "",
+        "business_name_locked": False,
+        "business_name_locked_at": None,
+        "business_name_lock_reason": "",
         "website": qualification.website,
         "address": qualification.address,
         "phone": qualification.phone,
         "place_id": qualification.place_id,
+        "map_url": qualification.map_url,
         "rating": qualification.rating,
         "reviews": qualification.reviews,
 
@@ -386,6 +478,7 @@ def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) 
     leads_dir = state_root / "leads"
     ensure_dir(leads_dir)
 
+    ensure_locked_business_name(record)
     path = leads_dir / f"{record['lead_id']}.json"
     write_json(path, record)
     return path
@@ -395,7 +488,10 @@ def load_lead(lead_id: str, state_root: Path | None = None) -> dict[str, Any] | 
     if state_root is None:
         state_root = Path(__file__).resolve().parent.parent / "state"
     path = state_root / "leads" / f"{lead_id}.json"
-    return read_json(path)
+    record = read_json(path)
+    if record:
+        ensure_locked_business_name(record)
+    return record
 
 
 def list_leads(state_root: Path | None = None) -> list[dict[str, Any]]:
@@ -408,5 +504,6 @@ def list_leads(state_root: Path | None = None) -> list[dict[str, Any]]:
     for path in sorted(leads_dir.glob("wrm-*.json")):
         record = read_json(path)
         if record:
+            ensure_locked_business_name(record)
             results.append(record)
     return results

@@ -101,6 +101,9 @@ def _append_contact_route(
     href: str = "",
     source: str = "",
     source_url: str = "",
+    confidence: str = "medium",
+    discovered_at: str = "",
+    status: str = "",
     actionable: bool = True,
 ) -> None:
     cleaned = str(value or "").strip()
@@ -125,6 +128,9 @@ def _append_contact_route(
         "href": href.strip(),
         "source": source,
         "source_url": source_url,
+        "confidence": confidence if confidence in {"high", "medium", "low"} else "medium",
+        "discovered_at": str(discovered_at or "").strip(),
+        "status": str(status or "").strip() or ("discovered" if actionable else "reference_only"),
         "actionable": actionable,
     })
 
@@ -135,10 +141,12 @@ def discover_contact_routes(
     *,
     phone: str = "",
     address: str = "",
+    map_url: str = "",
     timeout_seconds: int = 8,
 ) -> list[dict[str, Any]]:
     contacts: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
+    discovered_at = utc_now()
 
     _append_contact_route(
         contacts,
@@ -149,6 +157,8 @@ def discover_contact_routes(
         href=website,
         source="homepage",
         source_url=website,
+        confidence="high",
+        discovered_at=discovered_at,
         actionable=False,
     )
     if phone:
@@ -160,6 +170,9 @@ def discover_contact_routes(
             value=phone,
             href=f"tel:{digits}" if digits else "",
             source="maps_listing",
+            source_url=map_url or website,
+            confidence="high",
+            discovered_at=discovered_at,
             actionable=True,
         )
     if address:
@@ -170,7 +183,24 @@ def discover_contact_routes(
             value=address,
             label="Walk-in route",
             source="maps_listing",
+            source_url=map_url or website,
+            confidence="high",
+            discovered_at=discovered_at,
             actionable=True,
+        )
+    if map_url:
+        _append_contact_route(
+            contacts,
+            seen,
+            contact_type="map_url",
+            value=map_url,
+            label="Map listing",
+            href=map_url,
+            source="maps_listing",
+            source_url=map_url,
+            confidence="high",
+            discovered_at=discovered_at,
+            actionable=False,
         )
 
     pages: list[tuple[str, str, str]] = [("homepage", website, html)]
@@ -191,6 +221,8 @@ def discover_contact_routes(
                 href=f"mailto:{email}",
                 source=source,
                 source_url=source_url,
+                confidence="high",
+                discovered_at=discovered_at,
                 actionable=True,
             )
         if signals.has_form:
@@ -203,6 +235,8 @@ def discover_contact_routes(
                 href=source_url,
                 source=source,
                 source_url=source_url,
+                confidence="medium",
+                discovered_at=discovered_at,
                 actionable=True,
             )
         for line_link in signals.line_links:
@@ -216,6 +250,8 @@ def discover_contact_routes(
                 href=href,
                 source=source,
                 source_url=source_url,
+                confidence="high",
+                discovered_at=discovered_at,
                 actionable=True,
             )
         for line_id in signals.line_ids:
@@ -227,6 +263,8 @@ def discover_contact_routes(
                 label=f"LINE {line_id}",
                 source=source,
                 source_url=source_url,
+                confidence="medium",
+                discovered_at=discovered_at,
                 actionable=True,
             )
         for handle in signals.instagram_handles:
@@ -239,6 +277,8 @@ def discover_contact_routes(
                 href=f"https://www.instagram.com/{handle}/",
                 source=source,
                 source_url=source_url,
+                confidence="high",
+                discovered_at=discovered_at,
                 actionable=True,
             )
 
@@ -249,7 +289,8 @@ def discover_contact_routes(
         "instagram": 3,
         "phone": 4,
         "walk_in": 5,
-        "website": 6,
+        "map_url": 6,
+        "website": 7,
     }
     contacts.sort(key=lambda contact: (priority.get(contact.get("type", ""), 99), str(contact.get("label") or "").lower()))
     return contacts
@@ -320,6 +361,55 @@ def _find_tabelog_candidate_url(
     return ""
 
 
+def _find_ramendb_candidate_url(
+    *,
+    business_name: str,
+    address: str,
+    api_key: str,
+    timeout_seconds: int = 10,
+) -> str:
+    """Find a RamenDB (ramendb.supleks.jp) listing for the business."""
+    query_parts = [f"site:ramendb.supleks.jp {business_name}"]
+    address_token = _address_search_token(address)
+    if address_token:
+        query_parts.append(address_token)
+    query = " ".join(part for part in query_parts if part).strip()
+    try:
+        data = run_web_search(query=query, api_key=api_key, timeout_seconds=timeout_seconds)
+    except Exception:
+        return ""
+
+    for result in data.get("organic") or []:
+        link = str(result.get("link") or "").strip()
+        if "ramendb.supleks.jp" in link:
+            return link
+    return ""
+
+
+def _google_confidence_override(place: dict[str, Any]) -> bool:
+    """Accept a place on Google Maps signals alone when no second source agrees.
+
+    Requires strong evidence: high rating, many reviews, phone, place ID, and a
+    working website.  This prevents tiny or dubious listings from slipping through
+    while rescuing legitimate shops that simply lack a Tabelog/official-site match.
+    """
+    try:
+        rating = float(place.get("rating") or 0)
+    except (TypeError, ValueError):
+        rating = 0.0
+    try:
+        reviews = int(place.get("ratingCount") or place.get("reviews") or 0)
+    except (TypeError, ValueError):
+        reviews = 0
+    return bool(
+        place.get("placeId")
+        and rating >= 4.0
+        and reviews >= 50
+        and place.get("phoneNumber")
+        and place.get("website")
+    )
+
+
 def verify_business_name(
     *,
     source_name: str,
@@ -328,6 +418,7 @@ def verify_business_name(
     address: str,
     serper_api_key: str,
     timeout_seconds: int = 8,
+    category: str = "",
 ) -> dict[str, Any]:
     resolved_name, resolved_source = resolve_business_name(source_name=source_name, html=html)
     source_candidate = str(source_name or "").strip()
@@ -353,6 +444,27 @@ def verify_business_name(
         except Exception:
             tabelog_name = ""
 
+    # RamenDB lookup (ramen category only)
+    ramendb_url = ""
+    ramendb_name = ""
+    if category == "ramen" and (resolved_name or source_candidate):
+        ramendb_url = _find_ramendb_candidate_url(
+            business_name=resolved_name or source_candidate,
+            address=address,
+            api_key=serper_api_key,
+            timeout_seconds=timeout_seconds,
+        )
+        if ramendb_url:
+            try:
+                ramendb_html = _fetch_page(ramendb_url, timeout_seconds=timeout_seconds)
+                ramendb_candidates = [
+                    candidate for candidate in extract_business_name_candidates(ramendb_html)
+                    if not business_name_is_suspicious(candidate)
+                ]
+                ramendb_name = ramendb_candidates[0] if ramendb_candidates else ""
+            except Exception:
+                ramendb_name = ""
+
     if tabelog_name:
         resolved_name = tabelog_name
         resolved_source = "tabelog"
@@ -360,6 +472,15 @@ def verify_business_name(
             verified_by = ["tabelog", "google"]
         elif official_name and business_names_match(official_name, tabelog_name):
             verified_by = ["tabelog", "official_site"]
+    elif ramendb_name:
+        if source_candidate and not business_name_is_suspicious(source_candidate) and business_names_match(source_candidate, ramendb_name):
+            verified_by = ["ramendb", "google"]
+            resolved_name = ramendb_name
+            resolved_source = "ramendb"
+        elif official_name and business_names_match(official_name, ramendb_name):
+            verified_by = ["ramendb", "official_site"]
+            resolved_name = ramendb_name
+            resolved_source = "ramendb"
     elif source_candidate and not business_name_is_suspicious(source_candidate) and official_name and business_names_match(source_candidate, official_name):
         verified_by = ["google", "official_site"]
         resolved_name = official_name
@@ -373,6 +494,8 @@ def verify_business_name(
         "verified_by": verified_by,
         "tabelog_url": tabelog_url,
         "tabelog_name": tabelog_name,
+        "ramendb_url": ramendb_url,
+        "ramendb_name": ramendb_name,
     }
 
 
@@ -400,6 +523,11 @@ def search_and_qualify(
         source_name = str(place.get("title") or place.get("name") or "").strip()
         if not website or not source_name:
             continue
+
+        # Extract coordinates from Serper Maps response
+        position = place.get("position") or {}
+        place_lat = position.get("lat") if isinstance(position, dict) else None
+        place_lng = position.get("lng") if isinstance(position, dict) else None
 
         # Skip if already tracked as a lead (any status)
         from .record import find_existing_lead
@@ -434,6 +562,7 @@ def search_and_qualify(
             html=website_html,
             address=str(place.get("address", "")),
             serper_api_key=serper_api_key,
+            category=category,
         )
         business_name = str(name_check.get("business_name") or "")
         business_name_source = str(name_check.get("business_name_source") or "")
@@ -447,14 +576,18 @@ def search_and_qualify(
             })
             continue
         if len(verified_by) < 2:
-            decisions.append({
-                "business_name": business_name or source_name,
-                "lead": False,
-                "reason": "business_name_unverified",
-                "business_name_source": business_name_source,
-                "business_name_verified_by": verified_by,
-            })
-            continue
+            # Allow through when Google Maps signals are strong enough on their own
+            if _google_confidence_override(place):
+                verified_by = verified_by + ["google_confidence_override"]
+            else:
+                decisions.append({
+                    "business_name": business_name or source_name,
+                    "lead": False,
+                    "reason": "business_name_unverified",
+                    "business_name_source": business_name_source,
+                    "business_name_verified_by": verified_by,
+                })
+                continue
 
         qualification = qualify_candidate(
             business_name=business_name,
@@ -467,6 +600,8 @@ def search_and_qualify(
             phone=place.get("phoneNumber", ""),
             place_id=place.get("placeId", ""),
             map_url=str(place.get("link") or place.get("mapUrl") or ""),
+            latitude=place_lat,
+            longitude=place_lng,
         )
 
         decision = qualification.to_dict()
@@ -479,6 +614,7 @@ def search_and_qualify(
                 website_html,
                 phone=str(place.get("phoneNumber", "")),
                 address=str(place.get("address", "")),
+                map_url=str(place.get("link") or place.get("mapUrl") or ""),
             )
             actionable_routes = [route for route in contact_routes if route.get("actionable")]
             email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
@@ -529,6 +665,8 @@ def search_and_qualify(
             record["business_name_verified_by"] = verified_by
             if name_check.get("tabelog_url"):
                 record["business_name_tabelog_url"] = name_check["tabelog_url"]
+            if name_check.get("ramendb_url"):
+                record["business_name_ramendb_url"] = name_check["ramendb_url"]
             persist_lead_record(record, state_root=state_root)
             results.append(record)
             decision["email_found"] = bool(email_contact)

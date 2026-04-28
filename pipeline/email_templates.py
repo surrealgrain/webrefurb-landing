@@ -9,6 +9,7 @@ The only variable is {店名} (business name).
 # ---------------------------------------------------------------------------
 
 SUBJECT = "英語メニュー制作のご提案（{店名}様）"
+MACHINE_ONLY_SUBJECT = "英語注文ガイド制作のご提案（{店名}様）"
 
 # ---------------------------------------------------------------------------
 # Body template
@@ -25,6 +26,26 @@ BODY = """{店名} ご担当者様
 実際に制作する際は、貴店のメニュー内容に合わせて作成いたします。
 
 ご興味がございましたら、現在お使いのメニューのお写真をお送りください。
+ご確認用のサンプルを作成し、お送りいたします。
+
+ラミネート加工および店舗への直接のお届けも承っております。
+
+ご検討いただけますと幸いです。
+どうぞよろしくお願いいたします。
+
+Chris（クリス）"""
+
+MACHINE_ONLY_BODY = """{店名} ご担当者様
+
+突然のご連絡にて失礼いたします。
+飲食店向けの英語メニューや注文ガイド制作を行っております、Chris（クリス）と申します。
+
+海外からのお客様が券売機や注文方法で迷わずご注文いただけるよう、英語の注文ガイド制作のお手伝いができればと思い、ご連絡いたしました。
+
+添付のサンプルは、券売機や注文案内の仕上がりイメージをご覧いただくためのものです。
+実際に制作する際は、貴店の券売機や注文方法に合わせて作成いたします。
+
+ご興味がございましたら、現在お使いの券売機や注文案内のお写真をお送りください。
 ご確認用のサンプルを作成し、お送りいたします。
 
 ラミネート加工および店舗への直接のお届けも承っております。
@@ -57,6 +78,26 @@ The attached sample is intended to show the design and finished style.
 When creating the actual version, I would prepare it to match your restaurant's menu content.
 
 If you are interested, please send photos of the menu you currently use.
+I will create and send a sample for your review.
+
+Lamination and direct delivery to your restaurant are also available.
+
+Thank you for your consideration.
+I look forward to hearing from you.
+
+Chris"""
+
+MACHINE_ONLY_ENGLISH_BODY = """Dear {store_name} team,
+
+I hope you do not mind my sudden message.
+My name is Chris, and I create English menu and ordering guides for restaurants.
+
+I am reaching out because I would be happy to help overseas customers use your ticket machine or ordering flow more smoothly with an English ordering guide.
+
+The attached sample is intended to show the finished style for a ticket machine or ordering guide.
+When creating the actual version, I would prepare it to match your restaurant's ticket machine and ordering process.
+
+If you are interested, please send photos of the ticket machine or ordering guide you currently use.
 I will create and send a sample for your review.
 
 Lamination and direct delivery to your restaurant are also available.

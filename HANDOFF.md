@@ -6,11 +6,42 @@ Updated: 2026-04-28
 
 - Branch: `main`
 - Active execution plan: `PLAN.md`
-- Active phase: `P3 - Fix Lead And Contact Reality`
+- Active phase: `P4 - Make Outreach Convert`
 - Phase status: in progress
+- Working tree is dirty
 - `P1` is complete and recorded in `PLAN.md`.
 - `P2` is complete and recorded in `PLAN.md`.
-- Current focus has moved to contact-route and establishment-profile hardening.
+- `P3` is complete and recorded in `PLAN.md`.
+- Current focus has moved to outreach conversion work, starting with the machine-only / ticket-machine path.
+
+## Working Tree Snapshot
+
+Uncommitted changes present right now:
+
+- `PLAN.md`: P3 completion recorded; P4 machine-only outreach progress recorded
+- `pipeline/record.py`: contact metadata normalization now persists `confidence`, `discovered_at`, `status`, and `map_url`
+- `pipeline/search.py`: discovered contacts now carry metadata and include first-class `map_url` contact support
+- `pipeline/email_templates.py`: added dedicated machine-only outreach subject/body copy
+- `pipeline/outreach.py`: machine-only outreach now builds a real draft and attaches the ticket-machine sample instead of failing
+- `pipeline/outreach.py`: outreach copy and asset selection are now profile-aware for ramen-only, ramen-with-sides, ramen-with-drinks, ramen-ticket-machine, and izakaya drink/course-heavy leads
+- `pipeline/record.py`: verified business names now promote into a locked authoritative field so downstream outreach/reply flows reuse the confirmed restaurant name instead of later drift
+- `pipeline/constants.py`: profile-specific outreach sample PDF paths now point at the browser-verified ramen and food/drinks sample artifacts
+- `dashboard/app.py`: outreach preview/send flow now supports machine-only drafts and menu-image-less preview sends
+- `dashboard/templates/index.html`: preview modal no longer hard-blocks machine-only leads and now shows profile-aware sample-strategy labels/notes
+- `tests/test_api.py`, `tests/test_outreach.py`, `tests/test_safety.py`, `tests/test_search.py`: updated regression coverage for contact metadata, machine-only outreach, and locked business-name precedence
+- `docs/index.html`: homepage hero heading `line-height` changed from `0.9` to `1`
+- `docs/ja/index.html`: Japanese homepage hero heading `line-height` changed from `0.9` to `1`
+- untracked generated QR draft artifacts exist under `docs/menus/_drafts/`
+- untracked `assets/templates_v3_original/` directory exists
+
+Notes:
+
+- the tracked homepage HTML edits still look like a small visual refinement, not product-logic work
+- the `docs/menus/_drafts/` files appear to be generated preview/output artifacts, not source files
+- `docs/menus/` is currently about `188K`
+- decide before committing whether those draft QR artifacts belong in version control or should stay ignored/generated-only
+- the new product-logic edits are concentrated in outreach/contact files, not the docs homepage files
+- the machine-only browser verification used a temporary lead fixture that has already been removed; no verification-only lead record remains in `state/leads`
 
 ## What Landed
 
@@ -58,6 +89,51 @@ Accepted menu-family constraints:
 - typography and spacing must dynamically scale to avoid dead space
 - sparse ramen menus should feel intentionally composed, not like a stretched four-box template
 
+## P3 Complete
+
+Lead/contact-route hardening now in the tree:
+
+- first-class normalized `contacts` support exists for email, contact form, LINE, Instagram, phone, walk-in, map URL, and website routes
+- contacts now persist `source_url`, `confidence`, `discovered_at`, and `status`
+- no-email leads with another supported route now stay actionable in the dashboard instead of being dropped
+- lead cards now show the primary saved contact route
+- outreach draft modal now shows the saved contact-route summary and disables dashboard email sending for non-email routes instead of pretending they are sendable
+- dashboard manual outreach copy + `mark contacted` flow now persists route-specific statuses for non-email channels
+- `QualificationResult` and persisted leads now carry `establishment_profile` plus evidence
+- dashboard establishment-profile override flow is live before outreach asset selection
+
+Business-name hardening now in the tree:
+
+- new helper file [pipeline/business_name.py](/Users/chrisparker/Desktop/WebRefurbMenu/pipeline/business_name.py) sanitizes suspicious names and compares cross-source name candidates
+- outreach drafting now blocks if the stored business name looks contact-derived or otherwise unsafe for customer-facing copy
+- search now resolves and verifies business names before persisting a lead
+- current rule is: require two-source agreement on the business name
+- preferred combination is `Tabelog + Google`
+- acceptable fallback is `Google + official site` when Tabelog is unavailable
+- this was intentionally relaxed from a too-strict `Tabelog required` version after browser/test verification
+- once a name is verified, `locked_business_name` is now the authoritative downstream value for outreach/reply usage even if a later mutable `business_name` field drifts
+
+## Current P4 Progress
+
+Machine-only / ticket-machine outreach hardening now in the tree:
+
+- `machine_only` leads no longer fail immediately in outreach preview
+- machine-only outreach now uses dedicated subject/body copy focused on ticket machines and ordering guidance
+- machine-only outreach now attaches the ticket-machine sample PDF instead of returning no assets
+- outreach preview/send flow now supports drafts with `include_menu_image = false` and `include_machine_image = true`
+- dashboard preview modal no longer swaps machine-only leads into the old “not implemented yet” blocker state
+- browser-rendered verification confirmed a machine-only lead now opens a normal outreach draft modal with ticket-machine copy and attachment
+
+Profile-aware outreach conversion work now in the tree:
+
+- e-mail plus manual-channel drafts are now segmented by `establishment_profile`, not only by menu/machine evidence
+- ramen-only leads now use ramen-focused copy plus a one-page ramen sample
+- ramen-with-sides and ramen-with-drinks leads now use matching copy/sample language instead of the generic menu pitch
+- drink-heavy and course-heavy izakaya leads now use drinks/course-focused copy and photo requests
+- outreach asset selection now chooses from the browser-verified ramen-only, ramen+sides, ramen+drinks, and split food/drinks sample PDFs instead of always defaulting to one generic menu PDF
+- the preview modal now shows operator-facing asset labels like `Ramen Menu Sample (One Page)` and `Drink-Forward Izakaya Sample`
+- the preview modal now shows a sample-strategy rationale block so operators can see why the chosen proof-of-value matches the lead profile
+
 ## Verified Today
 
 - `.venv/bin/python -m pytest tests/test_custom_build.py -q` => `39 passed`
@@ -66,6 +142,57 @@ Accepted menu-family constraints:
 - `.venv/bin/python -m pytest tests/test_api.py -q` => `74 passed`
 - `.venv/bin/python -m pytest tests/ -q` => `236 passed`
 - `git diff --check` => passing
+
+Fresh `P3` verification completed from the current code:
+
+- `.venv/bin/python -m pytest tests/test_api.py tests/test_search.py tests/test_search_scope.py -q` => `97 passed`
+- `.venv/bin/python -m py_compile pipeline/business_name.py pipeline/search.py dashboard/app.py` => passing
+- browser-rendered dashboard verification completed after the contact-route changes
+- browser-rendered outreach modal verification confirmed:
+  - non-email leads now show saved contact-route guidance and disable dashboard email sending
+  - email leads still prefill the recipient field and keep the normal send button flow
+- browser-rendered name-verification verification confirmed:
+  - a `Google + official site` lead can still open a draft
+  - a `Tabelog + Google` lead can open a draft with the corrected restaurant name instead of contact-route text
+
+Fresh contact-metadata verification completed after that:
+
+- `.venv/bin/python -m pytest tests/test_search.py -q` => `10 passed`
+- `.venv/bin/python -m pytest tests/test_api.py -q` => `88 passed`
+- contact normalization now preserves metadata for new records while safely backfilling sane defaults for legacy reads
+
+Fresh `P4` machine-only verification completed from the current code:
+
+- `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py tests/test_safety.py -q` => `142 passed`
+- `.venv/bin/python -m py_compile pipeline/outreach.py dashboard/app.py` => passing
+- browser-rendered dashboard verification on `http://127.0.0.1:8001` confirmed:
+  - a machine-only lead opens a normal outreach draft modal
+  - the modal shows machine-only subject/copy instead of the previous blocker warning
+  - the included-file panel shows the ticket-machine guide attachment
+  - the preview flow works with no menu image and a machine image only
+
+Fresh profile-aware outreach verification completed after that:
+
+- `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py tests/test_safety.py -q` => `163 passed`
+- `.venv/bin/python -m py_compile pipeline/outreach.py dashboard/app.py` => passing
+- `git diff --check` => passing
+- browser-rendered dashboard verification on `http://127.0.0.1:8001` confirmed:
+  - a ramen-only lead shows `Ramen Menu Sample (One Page)` plus a ramen-only sample-strategy note
+  - the ramen-only Japanese/English draft copy is explicitly ramen-focused instead of generic
+  - a drink-heavy izakaya lead shows `Drink-Forward Izakaya Sample` plus a drink/nomihodai-focused sample-strategy note
+  - the izakaya Japanese/English draft copy now requests food/drink/nomihodai materials instead of the generic menu-only ask
+
+Full-suite note:
+
+- the last full-suite run still failed in `tests/test_website.py`
+- that failure appears unrelated to the outreach/contact work and comes from a pre-existing mismatch between homepage assertions and the current `docs/index.html` / `docs/ja/index.html` contents
+- the homepage `line-height: 1` tweak is not the cause of that failure; even `HEAD` lacks the pricing-link/pricing-copy assertions those tests expect
+
+Fresh business-name lock verification completed after that:
+
+- `.venv/bin/python -m pytest tests/test_api.py tests/test_safety.py tests/test_outreach.py -q` => `156 passed`
+- `.venv/bin/python -m py_compile pipeline/record.py dashboard/app.py pipeline/outreach.py` => passing
+- browser-rendered dashboard verification confirmed a lead with a suspicious mutable `business_name` but a valid `locked_business_name` still renders and drafts with the locked restaurant name instead of the drifted value
 
 Fresh `P1` smoke verification completed from current code:
 
@@ -125,12 +252,20 @@ If the preview URL is not reachable in the next chat, restart the dashboard with
 
 ## Next Step
 
-Continue `P3 - Fix Lead And Contact Reality`:
+Continue `P4 - Make Outreach Convert`:
 
-1. add first-class `contacts` records so form, LINE, Instagram, phone, website, and walk-in routes are stored alongside email
-2. preserve qualified no-email leads when another contact route exists and expose them as actionable in the dashboard
-3. add evidence-backed `establishment_profile` classification before outreach asset selection
-4. keep duplicate prevention and current send safety rules intact while widening the outreach-ready definition
+1. decide whether the new two-source business-name rule should surface explicit source details in the dashboard/operator UI
+2. decide whether `business_name_verified_by` and related provenance should be backfilled/migrated for existing leads in `state/leads`
+3. generate a more truly shop-specific partial outreach preview from public evidence instead of relying mainly on profile-matched sample families
+4. reduce reliance on generic PDF attachments as the primary conversion asset; keep them secondary where helpful
+5. if outreach sample selection needs stronger source normalization later, extend the search/source pipeline beyond homepage + Serper/Tabelog heuristics
+
+Immediate practical follow-up from the current tree:
+
+1. either keep, revert, or browser-verify the `line-height: 1` homepage tweak in both language variants before it gets folded into unrelated phase work
+2. decide whether the QR draft files in `docs/menus/_drafts/` are intentional fixtures, temporary preview output, or cleanup candidates
+3. decide whether `assets/templates_v3_original/` is an intentional checked-in reference set or cleanup/ignore candidate
+4. if the next session touches name verification again, keep the current intent: `Tabelog + Google` is preferred as a double-check, but Tabelog is not a hard requirement when `Google + official site` already agrees
 
 ## Execution Freeze
 
