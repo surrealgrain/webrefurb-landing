@@ -103,6 +103,59 @@ class TestBinaryLead:
         assert result.rejection_reason is None
         assert result.primary_category_v1 == "izakaya"
 
+    def test_ramen_only_profile_classified_from_menu_evidence(self):
+        html = """
+        <html><body>
+        <h1>湯気ラーメン</h1>
+        <div class="menu">
+            <ul>
+                <li>醤油ラーメン ¥850</li>
+                <li>味噌ラーメン ¥900</li>
+                <li>塩ラーメン ¥800</li>
+            </ul>
+        </div>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="湯気ラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp/menu", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.establishment_profile == "ramen_only"
+        assert result.establishment_profile_confidence == "medium"
+        assert result.establishment_profile_source_urls == ["https://example.ramen.jp/menu"]
+
+    def test_ramen_ticket_machine_profile_classified_from_evidence(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="東京都渋谷区神南1-2-3",
+            phone="03-1234-5678",
+        )
+        assert result.lead is True
+        assert result.establishment_profile == "ramen_ticket_machine"
+        assert result.establishment_profile_confidence == "high"
+        assert "ticket_machine_evidence" in result.establishment_profile_evidence
+
+    def test_izakaya_drink_heavy_profile_classified_from_nomihodai_evidence(self):
+        result = qualify_candidate(
+            business_name="テスト居酒屋",
+            website="https://example.izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example.izakaya.jp/menu", "html": _izakaya_html()}],
+            address="東京都新宿区歌舞伎町1-2-3",
+        )
+        assert result.lead is True
+        assert result.establishment_profile == "izakaya_drink_heavy"
+        assert result.establishment_profile_confidence == "high"
+        assert "drink_focused_menu_evidence" in result.establishment_profile_evidence
+
     def test_no_physical_location_rejected(self):
         result = qualify_candidate(
             business_name="テストラーメン",

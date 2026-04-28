@@ -208,6 +208,15 @@ def qualify_candidate(
         tourist_exposure_score=tourist_exposure,
         lead_score_v1=lead_score,
     )
+    (
+        establishment_profile,
+        establishment_profile_evidence,
+        establishment_profile_confidence,
+        establishment_profile_source_urls,
+    ) = _establishment_profile(
+        primary_category=primary_category,
+        assessment=assessment,
+    )
 
     # --- Accept ---
     evidence_snippets = _unique_snippets([
@@ -239,6 +248,10 @@ def qualify_candidate(
         english_menu_issue_evidence=english_menu_issue_evidence,
         primary_category_v1=primary_category,
         lead_category=lead_category,
+        establishment_profile=establishment_profile,
+        establishment_profile_evidence=establishment_profile_evidence,
+        establishment_profile_confidence=establishment_profile_confidence,
+        establishment_profile_source_urls=establishment_profile_source_urls,
         tourist_exposure_score=tourist_exposure,
         lead_score_v1=lead_score,
         recommended_primary_package=package,
@@ -351,3 +364,44 @@ def _izakaya_lead_category(assessment: Any, english_availability: str, source_me
     if assessment.score >= 7 and (assessment.menu_evidence_found or source_menu_available):
         return LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION
     return LEAD_CATEGORY_NONE
+
+
+def _profile_urls(assessment: Any) -> list[str]:
+    urls = list(assessment.evidence_urls or [])
+    best = str(getattr(assessment, "best_evidence_url", "") or "").strip()
+    if best and best not in urls:
+        urls.insert(0, best)
+    return urls[:4]
+
+
+def _establishment_profile(*, primary_category: str, assessment: Any) -> tuple[str, list[str], str, list[str]]:
+    evidence: list[str] = []
+    source_urls = _profile_urls(assessment)
+    evidence_classes = set(getattr(assessment, "evidence_classes", []) or [])
+
+    if primary_category == "izakaya":
+        evidence.append("primary_category:izakaya")
+        if "nomihodai_menu" in evidence_classes or "drink_menu_photo" in evidence_classes:
+            evidence.append("drink_focused_menu_evidence")
+            return "izakaya_drink_heavy", evidence, "high", source_urls
+        if "course_menu" in evidence_classes:
+            evidence.append("course_or_drink_plan_evidence")
+            return "izakaya_course_heavy", evidence, "high", source_urls
+        if assessment.course_or_drink_plan_evidence_found:
+            evidence.append("course_or_drink_plan_evidence")
+            return "izakaya_food_and_drinks", evidence, "medium", source_urls
+        return "izakaya_food_and_drinks", evidence, "medium" if source_urls else "low", source_urls
+
+    if primary_category == "ramen":
+        evidence.append("primary_category:ramen")
+        if assessment.machine_evidence_found:
+            evidence.append("ticket_machine_evidence")
+            return "ramen_ticket_machine", evidence, "high", source_urls
+        drink_classes = {"drink_menu_photo", "course_menu", "nomihodai_menu"}
+        matched_classes = [cls for cls in assessment.evidence_classes if cls in drink_classes]
+        if assessment.course_or_drink_plan_evidence_found or matched_classes:
+            evidence.extend(matched_classes or ["course_or_drink_plan_evidence"])
+            return "ramen_with_drinks", evidence, "medium", source_urls
+        return "ramen_only", evidence, "medium" if source_urls else "low", source_urls
+
+    return "unknown", evidence, "low", source_urls

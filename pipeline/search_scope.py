@@ -63,6 +63,8 @@ def merge_search_results(results: list[dict[str, Any]], *, query: str, category:
         "total_candidates": sum(int(result.get("total_candidates") or 0) for result in results),
         "leads": sum(int(result.get("leads") or 0) for result in results),
         "qualified_without_email": sum(int(result.get("qualified_without_email") or 0) for result in results),
+        "qualified_with_non_email_contact": sum(int(result.get("qualified_with_non_email_contact") or 0) for result in results),
+        "qualified_without_supported_contact": sum(int(result.get("qualified_without_supported_contact") or 0) for result in results),
         "decisions": decisions,
         "searches": results,
     }

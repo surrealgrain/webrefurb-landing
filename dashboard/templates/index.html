@@ -149,6 +149,8 @@ button, input, select, textarea { font: inherit; }
 .lead-info { flex: 1; }
 .lead-name { font-size: 16px; font-weight: 600; letter-spacing: var(--headline-tracking); }
 .lead-meta { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
+.lead-contact { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.lead-profile { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
 .lead-badges { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
 
 .status-badge {
@@ -310,6 +312,20 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 #asset-items { display: flex; flex-wrap: wrap; gap: 8px; }
 .asset-thumb { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; border: 1px solid var(--input-border); background: var(--input-bg); min-height: 32px; }
 .asset-thumb input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+.contact-route-panel { margin-bottom: 10px; padding: 10px 12px; background: #FFFDF7; border: 1px solid rgba(194,133,34,0.18); border-radius: 14px; }
+.contact-route-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9A6700; margin-bottom: 6px; }
+.contact-route-summary { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.contact-route-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.contact-route-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9999px; background: rgba(194,133,34,0.08); color: #7A4A00; font-size: 12px; }
+.profile-panel { margin-bottom: 10px; padding: 12px; background: #F7FBFD; border: 1px solid rgba(54,111,145,0.18); border-radius: 14px; }
+.profile-panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #245B78; margin-bottom: 6px; }
+.profile-panel-summary { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.profile-evidence-list, .profile-source-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.profile-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9999px; background: rgba(54,111,145,0.08); color: #245B78; font-size: 12px; }
+.profile-override-controls { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.profile-select, .profile-note-input { height: 38px; border-radius: 12px; border: 1px solid var(--input-border); padding: 0 12px; font-size: 13px; background: #fff; font-family: inherit; }
+.profile-select { min-width: 220px; }
+.profile-note-input { min-width: 260px; flex: 1; }
 
 /* Reply section in sent entries */
 .reply-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
@@ -435,6 +451,15 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Kobe">Kobe</option>
         <option value="Nagoya">Nagoya</option>
       </select>
+      <select class="search-select" id="sidebar-route" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
+        <option value="all">All Contact Routes</option>
+        <option value="email">Email</option>
+        <option value="contact_form">Contact Form</option>
+        <option value="line">LINE</option>
+        <option value="instagram">Instagram</option>
+        <option value="phone">Phone</option>
+        <option value="walk_in">Walk-in</option>
+      </select>
       <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search</button>
     </div>
   </div>
@@ -495,19 +520,25 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <div class="page-header">
       <div>
         <h1 class="page-title">Leads</h1>
-        <p class="page-kicker">Qualified restaurants ready for review and outreach.</p>
+        <p class="page-kicker">Qualified restaurants ready for review and outreach across e-mail and alternate contact routes.</p>
       </div>
     </div>
     {% if leads %}
     <div class="lead-list" id="lead-list">
       {% for lead in leads %}
-      <div class="lead-card {{ 'status-' + lead.outreach_status|default('new', true) if lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted'] else '' }}" data-lead-id="{{ lead.lead_id }}">
+      <div class="lead-card {{ 'status-' + lead.outreach_status|default('new', true) if lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted'] else '' }}" data-lead-id="{{ lead.lead_id }}" data-contact-type="{{ lead.primary_contact_type|default('none', true) }}">
         <div class="score-pill">{{ lead.lead_score_v1 }}</div>
         <div class="lead-info">
           <div class="lead-name">{{ lead.business_name }}</div>
           <div class="lead-meta">{{ lead.primary_category_v1|capitalize }} &middot; {{ lead.address|default('Unknown', true) }}</div>
+          <div class="lead-contact">Primary route: {{ lead.primary_contact_label }}</div>
+          <div class="lead-profile" data-role="profile-summary">Profile: {{ lead.establishment_profile_label }}{% if lead.establishment_profile_mode == 'operator_override' %} · Operator override{% endif %}</div>
           <div class="lead-badges">
             <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>
+            {% if lead.primary_contact_type %}
+            <span class="classification-badge">{{ lead.primary_contact_type|replace('_', ' ')|title }}</span>
+            {% endif %}
+            <span class="classification-badge establishment-profile-badge" data-role="profile-badge">{{ lead.establishment_profile_label }}</span>
             {% if lead.menu_evidence_found %}
             <span class="evidence-pill evidence-pill-menu">Menu</span>
             {% endif %}
@@ -620,8 +651,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <dialog id="preview-modal">
   <div class="modal-header">
     <div class="modal-heading">
-      <h2 id="preview-modal-title">Email Preview</h2>
-      <div class="modal-subtitle">Left side is the Japanese email. Edit the English draft on the right, then save.</div>
+      <h2 id="preview-modal-title">Outreach Draft</h2>
+      <div class="modal-subtitle">Left side is the Japanese draft. Edit the English draft on the right, then save.</div>
     </div>
     <button class="modal-close" onclick="closePreviewModal()" aria-label="Close preview">&times;</button>
   </div>
@@ -639,6 +670,32 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <div class="asset-panel" id="asset-panel">
       <span class="asset-panel-label">Included files</span>
       <div id="asset-items"></div>
+    </div>
+    <div class="contact-route-panel" id="contact-route-panel" style="display:none;">
+      <div class="contact-route-title">Contact route</div>
+      <div class="contact-route-summary" id="contact-route-summary"></div>
+      <div class="contact-route-list" id="contact-route-list"></div>
+    </div>
+    <div class="profile-panel" id="establishment-profile-panel">
+      <div class="profile-panel-title">Establishment profile</div>
+      <div class="profile-panel-summary" id="establishment-profile-summary"></div>
+      <div class="profile-evidence-list" id="establishment-profile-evidence"></div>
+      <div class="profile-source-list" id="establishment-profile-sources"></div>
+      <div class="profile-override-controls">
+        <select class="profile-select" id="establishment-profile-select">
+          <option value="unknown">Manual Review</option>
+          <option value="ramen_only">Ramen Only</option>
+          <option value="ramen_with_drinks">Ramen With Drinks</option>
+          <option value="ramen_ticket_machine">Ramen With Ticket Machine</option>
+          <option value="ramen_with_sides_add_ons">Ramen With Sides / Add-ons</option>
+          <option value="izakaya_food_and_drinks">Izakaya Food And Drinks</option>
+          <option value="izakaya_drink_heavy">Izakaya Drink Heavy</option>
+          <option value="izakaya_course_heavy">Izakaya Course Heavy</option>
+        </select>
+        <input class="profile-note-input" id="establishment-profile-note" type="text" placeholder="Optional override note">
+        <button class="btn btn-secondary" id="save-profile-btn" onclick="saveEstablishmentProfileOverride()">Save Profile Override</button>
+        <button class="btn btn-secondary" id="clear-profile-btn" onclick="clearEstablishmentProfileOverride()">Clear Override</button>
+      </div>
     </div>
     <div class="preview-columns">
       <div class="preview-column">
@@ -662,6 +719,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
     <div class="control-group control-spacer">
       <span class="rate-limit" id="rate-limit"></span>
+      <button class="btn btn-secondary" id="copy-draft-btn" style="display:none;" onclick="copyDraftForManualOutreach()">Copy Draft</button>
       <input type="email" id="send-email" class="recipient-input" placeholder="Recipient email...">
       <button class="btn btn-success" id="send-btn" onclick="confirmSend()">Send Email</button>
     </div>
@@ -789,6 +847,17 @@ let searchActivityTimers = [];
 let pendingDeleteLead = null;
 let replyCountsSeen = false;
 let lastReplyUnreadTotal = 0;
+let currentContactAction = 'send_email';
+const ESTABLISHMENT_PROFILE_LABELS = {
+  unknown: 'Manual Review',
+  ramen_only: 'Ramen Only',
+  ramen_with_drinks: 'Ramen With Drinks',
+  ramen_ticket_machine: 'Ramen With Ticket Machine',
+  ramen_with_sides_add_ons: 'Ramen With Sides / Add-ons',
+  izakaya_food_and_drinks: 'Izakaya Food And Drinks',
+  izakaya_drink_heavy: 'Izakaya Drink Heavy',
+  izakaya_course_heavy: 'Izakaya Course Heavy',
+};
 
 function escapeHtml(value) {
   return String(value || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
@@ -796,6 +865,27 @@ function escapeHtml(value) {
 
 function plural(value, singular, pluralLabel) {
   return Number(value) === 1 ? singular : (pluralLabel || singular + 's');
+}
+
+function contactTypeLabel(type) {
+  if (!type) return 'Contact';
+  if (type === 'contact_form') return 'Contact Form';
+  if (type === 'walk_in') return 'Walk-in';
+  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function manualContactButtonLabel(contactType) {
+  if (contactType === 'contact_form') return 'Mark Form Contacted';
+  if (contactType === 'line') return 'Mark LINE Contacted';
+  if (contactType === 'instagram') return 'Mark Instagram Contacted';
+  if (contactType === 'phone') return 'Mark Called';
+  if (contactType === 'walk_in') return 'Mark Visited';
+  return 'Mark Contacted';
+}
+
+function establishmentProfileLabel(profile) {
+  if (!profile) return 'Manual Review';
+  return ESTABLISHMENT_PROFILE_LABELS[profile] || profile.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function clearSearchActivityTimers() {
@@ -859,13 +949,134 @@ function scheduleSearchStep(delay, text) {
   }, delay));
 }
 
+function renderContactRoutes(data) {
+  const panel = document.getElementById('contact-route-panel');
+  const summary = document.getElementById('contact-route-summary');
+  const list = document.getElementById('contact-route-list');
+  const contacts = Array.isArray(data.contacts) ? data.contacts : [];
+  if (!panel || !summary || !list) return;
+  if (!contacts.length) {
+    panel.style.display = 'none';
+    summary.textContent = '';
+    list.innerHTML = '';
+    return;
+  }
+  panel.style.display = '';
+  const primary = data.primary_contact || contacts[0] || null;
+  const primaryLabel = primary ? (primary.label || primary.value || contactTypeLabel(primary.type)) : 'No saved route';
+  summary.textContent = 'Primary route: ' + primaryLabel + '. ' + (data.contact_action_note || '');
+  list.innerHTML = contacts.map(contact => {
+    const label = contact.label || contact.value || contactTypeLabel(contact.type);
+    return '<span class="contact-route-chip">' + escapeHtml(contactTypeLabel(contact.type)) + ': ' + escapeHtml(label) + '</span>';
+  }).join('');
+}
+
+function renderEstablishmentProfile(data) {
+  const summary = document.getElementById('establishment-profile-summary');
+  const evidence = document.getElementById('establishment-profile-evidence');
+  const sources = document.getElementById('establishment-profile-sources');
+  const select = document.getElementById('establishment-profile-select');
+  const note = document.getElementById('establishment-profile-note');
+  if (!summary || !evidence || !sources || !select || !note) return;
+
+  const label = data.establishment_profile_label || establishmentProfileLabel(data.establishment_profile);
+  const mode = data.establishment_profile_mode === 'operator_override' ? 'Operator override' : 'Evidence-backed';
+  const confidence = data.establishment_profile_confidence || 'low';
+  const evidenceItems = Array.isArray(data.establishment_profile_evidence) ? data.establishment_profile_evidence : [];
+  const sourceUrls = Array.isArray(data.establishment_profile_source_urls) ? data.establishment_profile_source_urls : [];
+  const effectiveProfile = data.establishment_profile_override || data.establishment_profile || 'unknown';
+
+  summary.textContent = label + ' · ' + mode + ' · ' + confidence.replace(/_/g, ' ') + ' confidence';
+  evidence.innerHTML = evidenceItems.length
+    ? evidenceItems.map(item => '<span class="profile-chip">' + escapeHtml(item) + '</span>').join('')
+    : '<span class="profile-chip">No saved evidence yet</span>';
+  sources.innerHTML = sourceUrls.length
+    ? sourceUrls.map(url => '<a class="profile-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Source</a>').join('')
+    : '';
+  select.value = effectiveProfile;
+  note.value = data.establishment_profile_override_note || '';
+}
+
+function updateLeadCardProfile(data) {
+  const card = document.querySelector('[data-lead-id="' + (currentLeadId || '') + '"]');
+  if (!card) return;
+  const summary = card.querySelector('[data-role="profile-summary"]');
+  const badge = card.querySelector('[data-role="profile-badge"]');
+  const label = data.establishment_profile_label || establishmentProfileLabel(data.establishment_profile);
+  const summaryText = 'Profile: ' + label + (data.establishment_profile_mode === 'operator_override' ? ' · Operator override' : '');
+  if (summary) summary.textContent = summaryText;
+  if (badge) badge.textContent = label;
+}
+
+async function saveEstablishmentProfileOverride() {
+  if (!currentLeadId) return;
+  const profile = document.getElementById('establishment-profile-select').value;
+  const note = document.getElementById('establishment-profile-note').value.trim();
+  const saveBtn = document.getElementById('save-profile-btn');
+  const clearBtn = document.getElementById('clear-profile-btn');
+  const originalText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  clearBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+  try {
+    const res = await fetch('/api/leads/' + encodeURIComponent(currentLeadId) + '/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile, note }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Save failed');
+    if (currentEmail) Object.assign(currentEmail, data);
+    renderEstablishmentProfile(data);
+    updateLeadCardProfile(data);
+    showToast('Establishment profile override saved', 'success');
+  } catch (err) {
+    showToast('Profile save failed: ' + err.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    clearBtn.disabled = false;
+    saveBtn.textContent = originalText;
+  }
+}
+
+async function clearEstablishmentProfileOverride() {
+  if (!currentLeadId) return;
+  const saveBtn = document.getElementById('save-profile-btn');
+  const clearBtn = document.getElementById('clear-profile-btn');
+  const originalText = clearBtn.textContent;
+  saveBtn.disabled = true;
+  clearBtn.disabled = true;
+  clearBtn.textContent = 'Clearing...';
+  try {
+    const res = await fetch('/api/leads/' + encodeURIComponent(currentLeadId) + '/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clear_override: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Clear failed');
+    if (currentEmail) Object.assign(currentEmail, data);
+    renderEstablishmentProfile(data);
+    updateLeadCardProfile(data);
+    showToast('Establishment profile override cleared', 'success');
+  } catch (err) {
+    showToast('Profile clear failed: ' + err.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    clearBtn.disabled = false;
+    clearBtn.textContent = originalText;
+  }
+}
+
 function summarizeSearchResult(data, categoryLabel, cityLabel) {
   const decisions = data.decisions || [];
   const candidateCount = data.total_candidates || 0;
   const reviewedCount = decisions.filter(d => d.reason !== 'already_tracked').length;
   const machineCount = decisions.filter(d => d.machine_evidence_found).length;
   const duplicateCount = decisions.filter(d => d.reason === 'already_tracked').length;
-  const noEmailCount = data.qualified_without_email || decisions.filter(d => d.reason === 'no_business_email_found').length;
+  const noEmailCount = data.qualified_without_email || 0;
+  const alternateRouteCount = data.qualified_with_non_email_contact || 0;
+  const unsupportedRouteCount = data.qualified_without_supported_contact || decisions.filter(d => d.reason === 'no_supported_contact_route_found').length;
   const addedCount = data.leads || 0;
   const placeLabel = cityLabel === 'Japan' ? 'Japan' : cityLabel;
   const steps = [
@@ -877,10 +1088,16 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
     steps.push({ text: 'Skipped ' + duplicateCount + ' already tracked ' + plural(duplicateCount, 'business', 'businesses') + '.', state: 'done' });
   }
   if (noEmailCount) {
-    steps.push({ text: 'Found ' + noEmailCount + ' qualified ' + plural(noEmailCount, 'restaurant') + ' that still need a supported contact route.', state: 'done' });
+    steps.push({ text: 'Found ' + noEmailCount + ' qualified ' + plural(noEmailCount, 'restaurant') + ' without e-mail.', state: 'done' });
   }
-  if (data.email_reachability_mismatch) {
-    steps.push({ text: 'Saved lead email check disagreed with the scraper result; no outreach-ready card was counted.', state: 'done' });
+  if (alternateRouteCount) {
+    steps.push({ text: alternateRouteCount + ' qualified ' + plural(alternateRouteCount, 'restaurant') + ' stayed actionable through non-e-mail contact routes.', state: 'done' });
+  }
+  if (unsupportedRouteCount) {
+    steps.push({ text: unsupportedRouteCount + ' qualified ' + plural(unsupportedRouteCount, 'restaurant') + ' still had no supported contact route and were not added.', state: 'done' });
+  }
+  if (data.contact_route_mismatch) {
+    steps.push({ text: 'Saved lead contact-route checks disagreed with the scraper result; no actionable card was counted.', state: 'done' });
   }
   if (addedCount > 0) {
     steps.push({ text: addedCount + ' qualified ' + plural(addedCount, 'lead') + ' added to Leads for the current outreach flow.', state: 'done' });
@@ -896,7 +1113,7 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
   return {
     state: 'warning',
     title: 'No lead added',
-    summary: noEmailCount ? 'Qualified restaurants were found, but the current workflow could not route them into an outreach-ready lead.' : 'No new qualified restaurant matched the lead rules.',
+    summary: unsupportedRouteCount ? 'Qualified restaurants were found, but none had a supported contact route.' : 'No new qualified restaurant matched the lead rules.',
     steps,
   };
 }
@@ -1026,9 +1243,10 @@ async function runSearch() {
 function filterLeads() {
   const category = document.getElementById('sidebar-category').value;
   const city = document.getElementById('sidebar-city').value;
+  const route = document.getElementById('sidebar-route').value;
 
   const cards = document.querySelectorAll('.lead-card');
-  if (category === 'all' && city === 'all') {
+  if (category === 'all' && city === 'all' && route === 'all') {
     cards.forEach(c => c.style.display = '');
     return;
   }
@@ -1037,7 +1255,9 @@ function filterLeads() {
     const meta = card.querySelector('.lead-meta').textContent.toLowerCase();
     const matchCategory = category === 'all' || meta.includes(category);
     const matchCity = city === 'all' || meta.includes(city.toLowerCase());
-    card.style.display = (matchCategory && matchCity) ? '' : 'none';
+    const cardRoute = (card.dataset.contactType || '').toLowerCase();
+    const matchRoute = route === 'all' || cardRoute === route;
+    card.style.display = (matchCategory && matchCity && matchRoute) ? '' : 'none';
   });
 }
 
@@ -1231,6 +1451,8 @@ async function openPreview(leadId) {
   document.getElementById('preview-recipient').textContent = '';
   document.getElementById('send-email').value = '';
   document.getElementById('send-email').style.borderColor = '';
+  document.getElementById('send-email').style.display = '';
+  document.getElementById('copy-draft-btn').style.display = 'none';
   setSaveState('Loading draft...', '');
 
   // Disable send button while loading
@@ -1256,6 +1478,7 @@ async function openPreview(leadId) {
 
     // Check if there's a saved draft to load instead
     currentEmail = data;
+    currentContactAction = data.contact_action || 'send_email';
     originalBody = data.body;
     const englishBodyForEdit = data.english_body || data.body;
     includeInperson = englishBodyForEdit.includes(ENGLISH_INPERSON_LINE) || (data.body || '').includes('ラミネート加工および店舗への直接のお届けも承っております。');
@@ -1263,13 +1486,15 @@ async function openPreview(leadId) {
 
     // Update modal title with business name
     document.getElementById('preview-modal-title').textContent =
-      'Email Preview — ' + (data.business_name || leadId);
+      'Outreach Draft — ' + (data.business_name || leadId);
 
     // Show subject and recipient
     document.getElementById('preview-subject').textContent = data.subject;
     document.getElementById('preview-recipient').textContent =
-      'To: ' + (data.email || 'No email on file');
+      data.primary_contact ? ('Primary route: ' + (data.primary_contact.label || data.primary_contact.value || contactTypeLabel(data.primary_contact.type))) : 'No contact route on file';
     setSaveState(data.has_saved_draft ? 'Saved draft loaded' : 'Template loaded', data.has_saved_draft ? 'saved' : '');
+    renderContactRoutes(data);
+    renderEstablishmentProfile(data);
 
     // Pre-fill recipient email
     if (data.email) {
@@ -1320,9 +1545,19 @@ async function openPreview(leadId) {
     if (data.send_blocked || blockedByStatus.includes(leadStatus.replaceAll(' ', '_'))) {
       sendBtn.disabled = true;
       sendBtn.textContent = 'Sending Blocked';
+      document.getElementById('send-email').style.display = '';
+      document.getElementById('copy-draft-btn').style.display = 'none';
+    } else if (!data.send_enabled) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = manualContactButtonLabel((data.primary_contact || {}).type || '');
+      document.getElementById('send-email').style.display = 'none';
+      document.getElementById('copy-draft-btn').style.display = '';
+      document.getElementById('rate-limit').textContent = '';
     } else {
       sendBtn.disabled = false;
       sendBtn.textContent = 'Send Email';
+      document.getElementById('send-email').style.display = '';
+      document.getElementById('copy-draft-btn').style.display = 'none';
     }
 
     modal.showModal();
@@ -1446,6 +1681,10 @@ async function resetToTemplate() {
 }
 
 async function updateRateLimit() {
+  if (currentContactAction !== 'send_email') {
+    document.getElementById('rate-limit').textContent = '';
+    return;
+  }
   try {
     const res = await fetch('/api/sent');
     const sent = await res.json();
@@ -1469,6 +1708,10 @@ async function updateRateLimit() {
 
 function confirmSend() {
   if (!currentLeadId || sendInProgress) return;
+  if (currentContactAction !== 'send_email') {
+    markManualContacted();
+    return;
+  }
   const email = document.getElementById('send-email').value.trim();
   if (!email) {
     document.getElementById('send-email').style.borderColor = '#C43D2F';
@@ -1482,8 +1725,71 @@ function confirmSend() {
   dialog.showModal();
 }
 
+async function syncDraftForManualAction() {
+  if (!draftDirty) return;
+  clearTimeout(draftTranslateTimer);
+  await translateDraftFromEnglish(true);
+}
+
+async function copyDraftForManualOutreach() {
+  if (!currentEmail) return;
+  try {
+    await syncDraftForManualAction();
+  } catch (err) {
+    showToast('Copy blocked until draft translation succeeds', 'error');
+    return;
+  }
+
+  const payload = (currentEmail.subject ? ('件名: ' + currentEmail.subject + '\n\n') : '') + (currentEmail.body || '');
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(payload);
+    } else {
+      const area = document.createElement('textarea');
+      area.value = payload;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    showToast('Draft copied for manual outreach', 'success');
+  } catch (err) {
+    showToast('Copy failed: ' + err.message, 'error');
+  }
+}
+
+async function markManualContacted() {
+  if (!currentLeadId || sendInProgress) return;
+  sendInProgress = true;
+  const sendBtn = document.getElementById('send-btn');
+  const originalText = sendBtn.textContent;
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Saving...';
+
+  try {
+    await syncDraftForManualAction();
+    const res = await fetch('/api/leads/' + encodeURIComponent(currentLeadId) + '/contacted', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: 'Marked contacted from dashboard manual outreach flow' }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Mark contacted failed');
+    showToast('Lead marked contacted for ' + contactTypeLabel(data.contact_type), 'success');
+    document.getElementById('preview-modal').close();
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('Mark contacted failed: ' + err.message, 'error');
+    sendBtn.disabled = false;
+    sendBtn.textContent = originalText;
+  } finally {
+    sendInProgress = false;
+  }
+}
+
 async function executeSend() {
   if (sendInProgress) return;
+  if (currentContactAction !== 'send_email') return;
   sendInProgress = true;
 
   const confirmBtn = document.getElementById('confirm-send-btn');

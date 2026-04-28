@@ -111,7 +111,7 @@ class TestAPIEndpoints:
         assert "Sent Ramen" not in response.text
         assert "DNC Ramen" not in response.text
 
-    def test_main_page_hides_leads_without_email(self, tmp_path):
+    def test_main_page_keeps_non_email_leads_with_supported_contact_routes(self, tmp_path):
         with_email = {
             "lead_id": "wrm-test-email",
             "business_name": "Email Ramen",
@@ -122,8 +122,28 @@ class TestAPIEndpoints:
             "menu_evidence_found": True,
             "machine_evidence_found": False,
         }
-        no_email = {**with_email, "lead_id": "wrm-test-no-email", "business_name": "No Email Ramen", "email": ""}
-        for lead in (with_email, no_email):
+        no_email_supported = {
+            **with_email,
+            "lead_id": "wrm-test-no-email-supported",
+            "business_name": "No Email Ramen",
+            "email": "",
+            "contacts": [
+                {"type": "contact_form", "value": "https://no-email-ramen.test/contact", "label": "Contact form", "href": "https://no-email-ramen.test/contact", "actionable": True},
+                {"type": "website", "value": "https://no-email-ramen.test", "label": "Official website", "href": "https://no-email-ramen.test", "actionable": False},
+            ],
+        }
+        no_email_unsupported = {
+            **with_email,
+            "lead_id": "wrm-test-no-email-unsupported",
+            "business_name": "Website Only Ramen",
+            "email": "",
+            "phone": "",
+            "address": "",
+            "contacts": [
+                {"type": "website", "value": "https://website-only-ramen.test", "label": "Official website", "href": "https://website-only-ramen.test", "actionable": False},
+            ],
+        }
+        for lead in (with_email, no_email_supported, no_email_unsupported):
             (tmp_path / "leads" / f"{lead['lead_id']}.json").write_text(
                 json.dumps(lead), encoding="utf-8"
             )
@@ -131,7 +151,135 @@ class TestAPIEndpoints:
         response = self.client.get("/")
         assert response.status_code == 200
         assert "Email Ramen" in response.text
-        assert "No Email Ramen" not in response.text
+        assert "No Email Ramen" in response.text
+        assert "Website Only Ramen" not in response.text
+
+    def test_main_page_renders_establishment_profile_summary(self, tmp_path):
+        lead = {
+            "lead_id": "wrm-test-profile",
+            "business_name": "Profile Ramen",
+            "lead": True,
+            "email": "owner@profile-ramen.test",
+            "lead_score_v1": 75,
+            "outreach_status": "new",
+            "menu_evidence_found": True,
+            "machine_evidence_found": False,
+            "establishment_profile": "ramen_ticket_machine",
+            "establishment_profile_confidence": "high",
+            "establishment_profile_evidence": ["ticket_machine_evidence"],
+            "establishment_profile_source_urls": ["https://profile-ramen.test/menu"],
+        }
+        (tmp_path / "leads" / "wrm-test-profile.json").write_text(
+            json.dumps(lead), encoding="utf-8"
+        )
+
+        response = self.client.get("/")
+        assert response.status_code == 200
+        assert "Ramen With Ticket Machine" in response.text
+
+    def test_profile_override_endpoint_persists_override(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-profile-override",
+            establishment_profile="ramen_only",
+            establishment_profile_confidence="medium",
+            establishment_profile_evidence=["primary_category:ramen"],
+            establishment_profile_source_urls=["https://example.test/menu"],
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-profile-override/profile",
+            json={"profile": "ramen_with_sides_add_ons", "note": "Sides visible on official menu"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["establishment_profile_effective"] == "ramen_with_sides_add_ons"
+        assert data["establishment_profile_mode"] == "operator_override"
+        assert data["establishment_profile_override_note"] == "Sides visible on official menu"
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-profile-override.json").read_text(encoding="utf-8"))
+        assert stored["establishment_profile_override"] == "ramen_with_sides_add_ons"
+        assert stored["establishment_profile_override_note"] == "Sides visible on official menu"
+
+    def test_profile_override_endpoint_clears_override(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-profile-clear",
+            establishment_profile="ramen_only",
+            establishment_profile_override="ramen_with_sides_add_ons",
+            establishment_profile_override_note="Operator correction",
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-profile-clear/profile",
+            json={"clear_override": True},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["establishment_profile_effective"] == "ramen_only"
+        assert data["establishment_profile_mode"] == "evidence"
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-profile-clear.json").read_text(encoding="utf-8"))
+        assert stored["establishment_profile_override"] == ""
+        assert stored["establishment_profile_override_note"] == ""
+
+    def test_outreach_preview_marks_non_email_route_as_manual(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-form-route",
+            email="",
+            contacts=[
+                {"type": "contact_form", "value": "https://form-route.test/contact", "label": "Contact form", "href": "https://form-route.test/contact", "actionable": True},
+                {"type": "website", "value": "https://form-route.test", "label": "Official website", "href": "https://form-route.test", "actionable": False},
+            ],
+        )
+
+        response = self.client.get("/api/outreach/wrm-test-form-route")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["send_enabled"] is False
+        assert data["contact_action"] == "use_contact_form"
+        assert data["primary_contact"]["type"] == "contact_form"
+
+    def test_mark_manual_contacted_sets_route_specific_status(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-manual-contact",
+            email="",
+            contacts=[
+                {"type": "contact_form", "value": "https://form-route.test/contact", "label": "Contact form", "href": "https://form-route.test/contact", "actionable": True},
+            ],
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-manual-contact/contacted",
+            json={"note": "Submitted contact form"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["outreach_status"] == "contacted_form"
+        assert data["contact_type"] == "contact_form"
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-manual-contact.json").read_text(encoding="utf-8"))
+        assert stored["outreach_status"] == "contacted_form"
+        assert stored["outreach_contacted_via"] == "contact_form"
+        assert stored["status_history"][-1]["status"] == "contacted_form"
+
+    def test_mark_manual_contacted_rejects_email_only_lead(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-email-only",
+            email="owner@email-only.test",
+            contacts=[
+                {"type": "email", "value": "owner@email-only.test", "label": "owner@email-only.test", "href": "mailto:owner@email-only.test", "actionable": True},
+            ],
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-email-only/contacted",
+            json={},
+        )
+        assert response.status_code == 400
 
     def test_outreach_lead_not_found(self):
         response = self.client.post("/api/outreach/nonexistent")
@@ -206,6 +354,10 @@ class TestAPIEndpoints:
             "menu_evidence_found": True,
             "machine_evidence_found": False,
             "primary_category_v1": "ramen",
+            "establishment_profile": "ramen_only",
+            "establishment_profile_confidence": "medium",
+            "establishment_profile_evidence": ["primary_category:ramen"],
+            "establishment_profile_source_urls": ["https://example.test/menu"],
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -680,6 +832,10 @@ class TestDraftSaveAndLoad:
             "menu_evidence_found": True,
             "machine_evidence_found": False,
             "primary_category_v1": "ramen",
+            "establishment_profile": "ramen_only",
+            "establishment_profile_confidence": "medium",
+            "establishment_profile_evidence": ["primary_category:ramen"],
+            "establishment_profile_source_urls": ["https://example.test/menu"],
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -831,6 +987,10 @@ class TestSendSafety:
             "menu_evidence_found": True,
             "machine_evidence_found": False,
             "primary_category_v1": "ramen",
+            "establishment_profile": "ramen_only",
+            "establishment_profile_confidence": "medium",
+            "establishment_profile_evidence": ["primary_category:ramen"],
+            "establishment_profile_source_urls": ["https://example.test/menu"],
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -864,7 +1024,7 @@ class TestSendSafety:
         )
         assert response.status_code == 409
 
-    @pytest.mark.parametrize("status", ["bounced", "invalid", "skipped", "rejected", "needs_review"])
+    @pytest.mark.parametrize("status", ["bounced", "invalid", "skipped", "rejected", "needs_review", "contacted_form", "contacted_line", "contacted_instagram", "called", "visited"])
     def test_send_blocked_for_non_sendable_statuses(self, status):
         self._create_lead(outreach_status=status)
         response = self.client.post(
@@ -1067,6 +1227,10 @@ class TestClassificationSpecificBehavior:
             "menu_evidence_found": True,
             "machine_evidence_found": False,
             "primary_category_v1": "ramen",
+            "establishment_profile": "ramen_only",
+            "establishment_profile_confidence": "medium",
+            "establishment_profile_evidence": ["primary_category:ramen"],
+            "establishment_profile_source_urls": ["https://example.test/menu"],
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -1161,6 +1325,10 @@ class TestStatusPersistence:
             "menu_evidence_found": True,
             "machine_evidence_found": False,
             "primary_category_v1": "ramen",
+            "establishment_profile": "ramen_only",
+            "establishment_profile_confidence": "medium",
+            "establishment_profile_evidence": ["primary_category:ramen"],
+            "establishment_profile_source_urls": ["https://example.test/menu"],
             "rejection_reason": None,
         }
         lead.update(overrides)
