@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    TEMPLATE: ticket-machine-guide v4c
+    STYLE: izakaya — dark warm surface, light text, red vermillion accent
+    LAYOUT: mirrors real 食券機 (Glory VT-B) — 5-col grid, top-left = best seller,
+            main dishes standard buttons, toppings mini buttons, no section labels
+  -->
+  <title>Ticket Machine Guide — v4c Style</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Shippori+Mincho:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --color-bg: #0f0d0b;
+      --color-surface: #1c1917;
+      --color-text: #f0ebe3;
+      --color-text-secondary: rgba(240, 235, 227, 0.45);
+      --color-kanji: rgba(240, 235, 227, 0.55);
+      --color-rule: rgba(240, 235, 227, 0.1);
+      --color-accent: #c53d43;
+
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Outfit', sans-serif;
+      --font-kanji: 'Shippori Mincho', serif;
+
+      --title-size: 22px;
+      --title-weight: 600;
+      --title-spacing: 7px;
+
+      --panel-pad: 24px 28px 28px;
+
+      /* Button grid */
+      --btn-bg: rgba(240, 235, 227, 0.07);
+      --btn-border: rgba(240, 235, 227, 0.18);
+      --btn-highlight: rgba(240, 235, 227, 0.10);
+      --btn-radius: 3px;
+      --btn-gap: 8px;
+
+      --max-width: 520px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: var(--color-bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .guide-wrapper {
+      max-width: var(--max-width);
+      width: 100%;
+      background-color: var(--color-surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Film grain texture */
+    .guide-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.12;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    /* Warm glow from top */
+    .guide-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(200, 160, 100, 0.06) 0%, transparent 60%);
+    }
+
+    .guide-panel {
+      padding: var(--panel-pad);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       HEADER — seal + title + steps strip
+       ═══════════════════════════════════════════ */
+    .panel-header {
+      text-align: center;
+      padding-bottom: 20px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--color-rule);
+    }
+
+    .seal-mark {
+      display: flex;
+      justify-content: center;
+      padding-bottom: 14px;
+    }
+
+    .seal-stamp {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.8px solid var(--color-accent);
+      border-radius: 2px;
+      padding: 5px 8px;
+      opacity: 0.65;
+      white-space: nowrap;
+      line-height: 1;
+      font-size: 9.5px;
+    }
+
+    .seal-stamp[data-length="1"] { padding: 8px 10px; font-size: 16px; }
+    .seal-stamp[data-length="2"] { padding: 7px 10px; font-size: 14px; }
+    .seal-stamp[data-length="3"] { padding: 6px 10px; font-size: 12px; }
+    .seal-stamp[data-length="4"] { padding: 6px 9px; font-size: 11px; }
+    .seal-stamp[data-length="5"] { padding: 5px 8px; font-size: 10px; }
+    .seal-stamp[data-length="6"] { padding: 5px 8px; font-size: 9.5px; }
+
+    .seal-text {
+      font-family: var(--font-kanji);
+      font-weight: 700;
+      color: var(--color-accent);
+      letter-spacing: 1px;
+    }
+
+    .guide-title {
+      font-family: var(--font-heading);
+      font-size: var(--title-size);
+      font-weight: var(--title-weight);
+      color: var(--color-text);
+      letter-spacing: var(--title-spacing);
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       STEPS STRIP — inline in header
+       ═══════════════════════════════════════════ */
+    .steps-flow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      list-style: none;
+      padding-top: 16px;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+
+    .step-num {
+      font-family: var(--font-heading);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--color-accent);
+      line-height: 1;
+    }
+
+    .step-label {
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      letter-spacing: 0.2px;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .step-arrow {
+      color: var(--color-rule);
+      font-size: 11px;
+      flex-shrink: 0;
+      padding: 0 4px;
+      line-height: 1;
+      margin-top: 3px;
+    }
+
+    /* ═══════════════════════════════════════════
+       MACHINE BUTTON GRID
+       Mirrors real 食券機 (Glory VT-B):
+       - 5 columns wide
+       - Top rows: main dishes (standard buttons)
+       - Bottom row: toppings (mini buttons)
+       - Size differentiation creates visual sections
+       - No text labels — matches real machine layout
+       ═══════════════════════════════════════════ */
+    .machine-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--btn-gap);
+    }
+
+    /* Spacer row — mirrors blank/block buttons on real machines */
+    .grid-spacer {
+      height: 1px;
+      background-color: var(--color-rule);
+      margin: 4px 0;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--btn-gap);
+    }
+
+    /* Standard buttons — main dishes */
+    .machine-btn {
+      background-color: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      border-radius: var(--btn-radius);
+      padding: 12px 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 72px;
+    }
+
+    /* Best seller — top-left */
+    .machine-btn[data-best] {
+      background-color: var(--btn-highlight);
+      border-color: rgba(240, 235, 227, 0.25);
+    }
+
+    .best-tag {
+      font-family: var(--font-heading);
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--color-accent);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+      opacity: 0.8;
+    }
+
+    .btn-en {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text);
+      letter-spacing: 0.15px;
+      line-height: 1.3;
+    }
+
+    .btn-jp {
+      font-family: var(--font-kanji);
+      font-size: 11.5px;
+      font-weight: 300;
+      color: var(--color-kanji);
+      margin-top: 3px;
+    }
+
+    /* Mini buttons — toppings (mirrors 3連ミニ on real machines) */
+    .toppings-row .machine-btn {
+      padding: 8px 4px;
+      min-height: 56px;
+    }
+
+    .toppings-row .btn-en {
+      font-size: 12.5px;
+    }
+
+    .toppings-row .btn-jp {
+      font-size: 10.5px;
+    }
+
+    @media print {
+      @page { size: 148mm 210mm; margin: 0; }
+      body { padding: 0; min-height: auto; background: none; }
+      .guide-wrapper { max-width: none; width: 100%; height: 100vh; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="guide-wrapper">
+  <div class="guide-panel">
+
+    <div class="panel-header">
+      <div class="seal-mark" aria-hidden="true">
+        <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">博多らーめん亭</span></span>
+      </div>
+      <h1 class="guide-title" data-slot="panel-title">Ticket Machine Guide</h1>
+      <ol class="steps-flow" data-slot="steps">
+        <li class="step"><span class="step-num">1</span><span class="step-label">Insert money</span></li>
+        <li class="step-arrow" aria-hidden="true">›</li>
+        <li class="step"><span class="step-num">2</span><span class="step-label">Press button</span></li>
+        <li class="step-arrow" aria-hidden="true">›</li>
+        <li class="step"><span class="step-num">3</span><span class="step-label">Take ticket</span></li>
+        <li class="step-arrow" aria-hidden="true">›</li>
+        <li class="step"><span class="step-num">4</span><span class="step-label">Give to staff</span></li>
+      </ol>
+    </div>
+
+    <div class="machine-grid" data-slot="button-grid">
+
+      <!-- Row 1: Main ramen (standard buttons) -->
+      <div class="btn-row">
+        <div class="machine-btn" data-slot="button" data-best>
+          <span class="best-tag">Popular</span>
+          <span class="btn-en">Soy Sauce Ramen</span>
+          <span class="btn-jp">醤油ラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Miso Ramen</span>
+          <span class="btn-jp">味噌ラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Pork Bone Ramen</span>
+          <span class="btn-jp">豚骨ラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Spicy Pork Ramen</span>
+          <span class="btn-jp">辛味豚骨ラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Salt Ramen</span>
+          <span class="btn-jp">塩ラーメン</span>
+        </div>
+      </div>
+
+      <!-- Row 2: More ramen (standard buttons) -->
+      <div class="btn-row">
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Vegetable Ramen</span>
+          <span class="btn-jp">野菜ラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Chicken Broth Ramen</span>
+          <span class="btn-jp">鶏白湯ラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Spicy Sesame Ramen</span>
+          <span class="btn-jp">担々麺</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Black Garlic Ramen</span>
+          <span class="btn-jp">黒にんにくラーメン</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Dipping Noodles</span>
+          <span class="btn-jp">つけ麺</span>
+        </div>
+      </div>
+
+      <!-- Spacer — mirrors blank block buttons on real machines -->
+      <div class="grid-spacer"></div>
+
+      <!-- Row 3: Sides (standard buttons) -->
+      <div class="btn-row">
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Dumplings</span>
+          <span class="btn-jp">餃子</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Fried Chicken</span>
+          <span class="btn-jp">唐揚げ</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Soybeans</span>
+          <span class="btn-jp">枝豆</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Octopus Balls</span>
+          <span class="btn-jp">たこ焼き</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Rice</span>
+          <span class="btn-jp">ごはん</span>
+        </div>
+      </div>
+
+      <!-- Spacer -->
+      <div class="grid-spacer"></div>
+
+      <!-- Row 4: Drinks (standard buttons) -->
+      <div class="btn-row">
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Beer</span>
+          <span class="btn-jp">ビール</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Highball</span>
+          <span class="btn-jp">ハイボール</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Green Tea</span>
+          <span class="btn-jp">緑茶</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Cola</span>
+          <span class="btn-jp">コーラ</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Water</span>
+          <span class="btn-jp">水</span>
+        </div>
+      </div>
+
+      <!-- Spacer -->
+      <div class="grid-spacer"></div>
+
+      <!-- Row 5: Toppings (mini buttons — mirrors 3連ミニ) -->
+      <div class="btn-row toppings-row">
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Extra Noodles</span>
+          <span class="btn-jp">替え玉</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Flavoured Egg</span>
+          <span class="btn-jp">味玉</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Seaweed</span>
+          <span class="btn-jp">海苔</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Braised Pork</span>
+          <span class="btn-jp">チャーシュー</span>
+        </div>
+        <div class="machine-btn" data-slot="button">
+          <span class="btn-en">Bamboo Shoots</span>
+          <span class="btn-jp">メンマ</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

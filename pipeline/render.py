@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "assets" / "templates"
-MASTER_TEMPLATE = TEMPLATES_DIR / "master_menu.html"
+MASTER_TEMPLATE = TEMPLATES_DIR / "izakaya_food_menu.html"
 DEFAULT_CONTENT = TEMPLATES_DIR / "menu_content.json"
 
 
@@ -122,7 +122,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Render menu from template + JSON")
     parser.add_argument("--content", default=None, help="Path to menu_content.json")
-    parser.add_argument("--template", default=None, help="Path to master_menu.html")
+    parser.add_argument("--template", default=None, help="Path to template HTML")
     parser.add_argument("--output", default=None, help="Output HTML path (default: stdout)")
     args = parser.parse_args()
 
