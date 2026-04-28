@@ -7,6 +7,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree as ET
 
 from .constants import (
     PACKAGE_1_KEY,
@@ -16,6 +17,7 @@ from .constants import (
     PACKAGE_2_LABEL,
     PACKAGE_2_PRICE_YEN,
     PACKAGE_REGISTRY,
+    TEMPLATE_PACKAGE_MENU,
 )
 from .export import PrintProfile, html_to_pdf_sync, is_valid_pdf
 from .utils import ensure_dir, write_json, write_text
@@ -106,6 +108,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
         delivery_details=job.get("delivery_details") if package_key == PACKAGE_2_KEY else None,
     )
     package = PACKAGE_REGISTRY[package_key]
+    menu_data = _load_menu_data(output_dir, [])
     return {
         "job_id": job_id,
         "package_key": package_key,
@@ -121,6 +124,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
         "final_export_path": job.get("final_export_path", ""),
         "validation": validation,
         "print_profile": validation.get("print_profile"),
+        "review_checklist": (menu_data or {}).get("review_checklist", {}),
         "artifacts": _artifact_report(output_dir, package_key=package_key),
     }
 
@@ -142,6 +146,9 @@ def validate_package_output(
     _validate_remote_assets(output_dir, errors)
     _validate_preview_assets(output_dir, errors)
     menu_data = _load_menu_data(output_dir, errors)
+    if menu_data:
+        _validate_menu_schema(menu_data, errors)
+        _validate_rendered_outputs(output_dir=output_dir, menu_data=menu_data, errors=errors)
 
     result: dict[str, Any] = {}
     if package_key == PACKAGE_2_KEY:
@@ -315,7 +322,123 @@ def _load_menu_data(output_dir: Path, errors: list[str]) -> dict[str, Any] | Non
         errors.append("menu_sections_missing")
     elif not any(section.get("items") for section in sections if isinstance(section, dict)):
         errors.append("menu_items_missing")
+    if data.get("approval_blockers"):
+        errors.append("approval_blockers_present")
     return data
+
+
+def _validate_menu_schema(menu_data: dict[str, Any], errors: list[str]) -> None:
+    for panel_key in ("food", "drinks"):
+        panel = menu_data.get(panel_key) or {}
+        for section in panel.get("sections") or []:
+            if not str(section.get("title") or "").strip():
+                errors.append(f"{panel_key}_section_title_missing")
+            for item in section.get("items") or []:
+                if not isinstance(item, dict):
+                    errors.append(f"{panel_key}_item_invalid")
+                    return
+                required = (
+                    item.get("japanese_name") or item.get("source_text"),
+                    item.get("english_name") or item.get("name"),
+                    item.get("section"),
+                    item.get("price_status"),
+                    item.get("source_provenance"),
+                    item.get("approval_status"),
+                )
+                if not all(str(value or "").strip() for value in required):
+                    errors.append(f"{panel_key}_item_schema_incomplete")
+                    return
+                # Block bracket fallback translations from reaching export
+                english_name = str(item.get("english_name") or item.get("name") or "").strip()
+                if english_name.startswith("[") and english_name.endswith("]"):
+                    errors.append(
+                        f"{panel_key}_unresolved_translation:{english_name}"
+                    )
+
+
+def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], errors: list[str]) -> None:
+    show_prices = bool(menu_data.get("show_prices"))
+    for panel_key, file_name in (("food", "food_menu_editable_vector.svg"), ("drinks", "drinks_menu_editable_vector.svg")):
+        svg_path = output_dir / file_name
+        if not svg_path.exists():
+            continue
+        template_path = TEMPLATE_PACKAGE_MENU / file_name
+        expected_panel = menu_data.get(panel_key) or {}
+        opposite_panel = menu_data.get("drinks" if panel_key == "food" else "food") or {}
+        expected_items = [item for section in expected_panel.get("sections") or [] for item in section.get("items") or []]
+        opposite_names = {
+            str(item.get("english_name") or item.get("name") or "").strip()
+            for section in opposite_panel.get("sections") or []
+            for item in section.get("items") or []
+            if str(item.get("english_name") or item.get("name") or "").strip()
+        }
+        rendered = _svg_text_report(svg_path)
+        template_text = _template_item_texts(template_path)
+        expected_english = {_customer_visible_english(item, show_prices=show_prices) for item in expected_items}
+        expected_japanese = {
+            str(item.get("japanese_name") or item.get("source_text") or "").strip()
+            for item in expected_items
+            if str(item.get("japanese_name") or item.get("source_text") or "").strip()
+        }
+        expected_sections = {
+            str(section.get("title") or "").strip()
+            for section in expected_panel.get("sections") or []
+            if str(section.get("title") or "").strip()
+        }
+
+        for item in expected_items:
+            english = _customer_visible_english(item, show_prices=show_prices)
+            japanese = str(item.get("japanese_name") or item.get("source_text") or "").strip()
+            price = str(item.get("price") or "").strip()
+            if english and english not in rendered["item_en"]:
+                errors.append(f"{panel_key}_output_missing_item:{english}")
+            if japanese and japanese not in rendered["item_jp"]:
+                errors.append(f"{panel_key}_output_missing_source_text:{japanese}")
+            if show_prices and item.get("price_status") == "confirmed" and price and not any(price in line for line in rendered["item_en"]):
+                errors.append(f"{panel_key}_price_missing:{price}")
+        for title in expected_sections:
+            if title not in rendered["all"]:
+                errors.append(f"{panel_key}_section_title_missing_in_output:{title}")
+
+        stale = [
+            text for text in rendered["all"]
+            if text in template_text and text not in _allowed_static_svg_text(panel_key)
+            and text not in expected_english
+            and text not in expected_japanese
+            and text not in expected_sections
+        ]
+        if stale:
+            errors.append(f"{panel_key}_stale_template_text_present")
+
+        if any("[" in text and "]" in text for text in rendered["item_en"]):
+            errors.append(f"{panel_key}_placeholder_translation_present")
+        if any(name and any(name in line for line in rendered["item_en"]) for name in opposite_names):
+            errors.append(f"{panel_key}_wrong_section_bleed")
+
+    _validate_preview_html_links(output_dir=output_dir, menu_data=menu_data, errors=errors)
+
+
+def _validate_preview_html_links(*, output_dir: Path, menu_data: dict[str, Any], errors: list[str]) -> None:
+    expected = {
+        "food_menu_browser_preview.html": "food_menu_editable_vector.svg",
+        "drinks_menu_browser_preview.html": "drinks_menu_editable_vector.svg",
+        "restaurant_menu_print_master.html": "food_menu_editable_vector.svg",
+    }
+    for file_name, required_ref in expected.items():
+        path = output_dir / file_name
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8", errors="ignore")
+        if "<img" not in content:
+            continue
+        if required_ref not in content:
+            errors.append(f"preview_reference_missing:{file_name}")
+    combined = output_dir / "restaurant_menu_print_master.html"
+    if combined.exists():
+        content = combined.read_text(encoding="utf-8", errors="ignore")
+        drinks_sections = (menu_data.get("drinks") or {}).get("sections") or []
+        if drinks_sections and "<img" in content and "drinks_menu_editable_vector.svg" not in content:
+            errors.append("preview_reference_missing:combined_drinks")
 
 
 def _write_package2_print_pack(
@@ -459,6 +582,44 @@ def _check_html_markers(path: Path, errors: list[str]) -> None:
             errors.append(f"internal_marker_present:{marker}")
 
 
+def _svg_text_report(path: Path) -> dict[str, list[str]]:
+    root = ET.parse(str(path)).getroot()
+    svg_text = "{http://www.w3.org/2000/svg}text"
+    item_en: list[str] = []
+    item_jp: list[str] = []
+    all_text: list[str] = []
+    for elem in root.iter(svg_text):
+        text = " ".join(part.strip() for part in elem.itertext()).strip()
+        if not text:
+            continue
+        all_text.append(text)
+        classes = elem.get("class", "").split()
+        if "item-en" in classes:
+            item_en.append(text)
+        elif "item-jp" in classes:
+            item_jp.append(text)
+    return {"all": all_text, "item_en": item_en, "item_jp": item_jp}
+
+
+def _template_item_texts(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    report = _svg_text_report(path)
+    return set(report["all"])
+
+
+def _allowed_static_svg_text(panel_key: str) -> set[str]:
+    return {"FOOD MENU" if panel_key == "food" else "DRINKS MENU"}
+
+
+def _customer_visible_english(item: dict[str, Any], *, show_prices: bool = False) -> str:
+    english = str(item.get("english_name") or item.get("name") or "").strip()
+    price = str(item.get("price") or "").strip()
+    if show_prices and item.get("price_status") == "confirmed" and price:
+        return f"{english}  {price}"
+    return english
+
+
 def _final_manifest(
     *,
     job: dict[str, Any],
@@ -513,7 +674,10 @@ def _validation_result(*, errors: list[str], warnings: list[str], **extra: Any) 
 
 def _menu_item_count(menu_data: dict[str, Any]) -> int:
     count = 0
-    for section in menu_data.get("sections") or []:
+    sections = menu_data.get("sections")
+    if not sections:
+        sections = [*(menu_data.get("food", {}).get("sections") or []), *(menu_data.get("drinks", {}).get("sections") or [])]
+    for section in sections or []:
         if isinstance(section, dict):
             count += len(section.get("items") or [])
     return count

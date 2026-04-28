@@ -19,7 +19,10 @@ _SECTION_HEADER_RE = re.compile(
     r"^♦\s*(.+?)\s*$|"
     r"^——\s*(.+?)\s*——$|"
     r"^■\s+(.+?)\s*$|"
-    r"^[◆◇★☆▶▸►]\s+(.+?)\s*$",
+    r"^[◆◇★☆▶▸►●○※▼▽]\s*(.+?)\s*$|"
+    r"^・(.+?)\s*$|"
+    r"^[①②③④⑤⑥⑦⑧⑨⑩]\s*(.+?)\s*$|"
+    r"^(\d+)[\.、．]\s*(.+?)\s*$",
     re.MULTILINE,
 )
 
@@ -46,7 +49,10 @@ def extract_from_text(raw_text: str) -> list[ExtractedItem]:
         # Check if this is a section header
         header_match = _SECTION_HEADER_RE.match(line)
         if header_match:
-            current_section = header_match.group(1) or header_match.group(2) or header_match.group(3) or header_match.group(4) or line
+            current_section = next(
+                (g for g in header_match.groups() if g),
+                line,
+            )
             continue
 
         # Extract price from end of line
@@ -66,6 +72,8 @@ def extract_from_text(raw_text: str) -> list[ExtractedItem]:
             price=price,
             section_hint=current_section,
             japanese_name=name,  # Will be set properly in translation step
+            source_text=name,
+            source_provenance="owner_text",
         ))
 
     return items
@@ -102,6 +110,8 @@ def extract_from_photo(photo_path: str) -> list[ExtractedItem]:
                     price=entry.get("price", ""),
                     section_hint=entry.get("section", ""),
                     japanese_name=entry.get("name", ""),
+                    source_text=entry.get("name", ""),
+                    source_provenance=f"owner_photo:{path.name}",
                 ))
         return items
     except Exception:
@@ -186,4 +196,6 @@ def _fallback_extract_from_filename(photo_path: str) -> list[ExtractedItem]:
     return [ExtractedItem(
         name="[menu image detected — OCR required]",
         section_hint="",
+        source_text="[menu image detected — OCR required]",
+        source_provenance=f"owner_photo:{Path(photo_path).name}",
     )]
