@@ -1532,7 +1532,7 @@ class TestStatusPersistence:
     def test_build_review_reports_validation_errors(self):
         output_dir = self.tmp_path / "builds" / "job123"
         output_dir.mkdir(parents=True)
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text("<html>preview</html>", encoding="utf-8")
         (self.tmp_path / "jobs" / "job123.json").write_text(
             json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
             encoding="utf-8",
@@ -1544,43 +1544,32 @@ class TestStatusPersistence:
         data = response.json()
         assert data["package_key"] == "package_1_remote_30k"
         assert data["validation"]["ok"] is False
-        assert "restaurant_menu_print_ready_combined.pdf_missing" in data["validation"]["errors"]
+        assert "food_menu_print_ready.pdf_missing" in data["validation"]["errors"]
 
     def test_build_review_derives_current_price_checklist_from_menu_data(self):
         output_dir = self.tmp_path / "builds" / "job123"
         output_dir.mkdir(parents=True)
         for name in (
-            "restaurant_menu_print_ready_combined.pdf",
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
             (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
+        (output_dir / "food_menu.html").write_text(
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen  ¥900</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div></div></div></div></body></html>',
             encoding="utf-8",
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">RAMEN MENU</text>'
-            '<text class="item-en">Shoyu Ramen  ¥900</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '<text class="item-en">Draft Beer  ¥600</text>'
-            '<text class="item-jp">生ビール</text>'
-            '</svg>',
+        (output_dir / "drinks_menu.html").write_text(
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="drinks">'
+            '<div class="section-header"><span class="section-title">DRINKS</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Draft Beer  ¥600</span><span class="item-jp">生ビール</span></li>'
+            '</ul></div></div></div></div></body></html>',
             encoding="utf-8",
         )
         (output_dir / "menu_data.json").write_text(
@@ -1695,14 +1684,20 @@ class TestStatusPersistence:
         output_dir = self.tmp_path / "builds" / "job123"
         output_dir.mkdir(parents=True)
         for name in (
-            "restaurant_menu_print_ready_combined.pdf",
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
             (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "food_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "drinks_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text(
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu</span></li>'
+            '</ul></div></div></div></div></body></html>',
+            encoding="utf-8",
+        )
+        (output_dir / "drinks_menu.html").write_text("<html>drinks</html>", encoding="utf-8")
         (output_dir / "menu_data.json").write_text(
             json.dumps({"sections": [{"title": "RAMEN", "items": [{"name": "Shoyu"}]}]}),
             encoding="utf-8",

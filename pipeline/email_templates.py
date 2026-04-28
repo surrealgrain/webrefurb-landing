@@ -37,7 +37,7 @@ ENGLISH_LINE_MACHINE = "I can also create an English guide for your ticket machi
 
 CONTACT_FORM_BODY = """突然のご連絡にて失礼いたします。
 
-飲食店向けに英語メニューや注文ガイドの制作を行っております、WebRefurbのChris（クリス）と申します。
+飲食店向けに英語メニューや注文ガイドの制作を行っております、Chris（クリス）と申します。
 
 海外からのお客様へのご案内やご注文が少しでもスムーズになるよう、英語メニュー、券売機ガイド、QRコード付き英語メニューページなどの制作を行っております。
 

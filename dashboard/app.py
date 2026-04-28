@@ -947,22 +947,22 @@ async def api_send(lead_id: str, request: Request):
 
     _log("send_attempted", f"to={to_email}", lead_id=lead_id)
 
-    # Send via Resend with inline menu preview
-    from pipeline.constants import TEMPLATE_PACKAGE_MENU, TEMPLATE_PACKAGE_MACHINE
+    # Pick v4c dark template based on establishment profile
+    V4C_TEMPLATES = PROJECT_ROOT / "assets" / "templates"
 
     menu_html = None
     if include_menu_image:
-        menu_html = TEMPLATE_PACKAGE_MENU / "restaurant_menu_print_master.html"
-        if not menu_html.exists():
-            menu_html = TEMPLATE_PACKAGE_MENU / "food_menu_browser_preview.html"
+        ep = profile["effective"]
+        if "izakaya" in ep:
+            menu_html = V4C_TEMPLATES / "izakaya_food_menu.html"
+        else:
+            menu_html = V4C_TEMPLATES / "ramen_food_menu.html"
         if not menu_html.exists():
             raise HTTPException(status_code=400, detail="Required menu preview image source file not found")
 
     machine_html = None
     if include_machine_image:
-        machine_html = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide_browser_preview.html"
-        if not machine_html.exists():
-            machine_html = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide_print_master.html"
+        machine_html = V4C_TEMPLATES / "ticket_machine_guide.html"
 
     try:
         result = await _send_email_resend(
@@ -1447,9 +1447,9 @@ async def api_build(
     ticket_photo: UploadFile | None = File(default=None),
 ):
     """Accept custom build form data and start build job."""
-    from pipeline.constants import PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_REGISTRY
+    from pipeline.constants import PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY, PACKAGE_REGISTRY
 
-    if package_key not in {PACKAGE_1_KEY, PACKAGE_2_KEY}:
+    if package_key not in {PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY}:
         raise HTTPException(status_code=422, detail="Unsupported custom build package")
 
     job_id = str(uuid.uuid4())[:8]
@@ -1932,21 +1932,13 @@ async def _send_email_resend(
     if in_reply_to:
         params["headers"] = {"In-Reply-To": in_reply_to}
 
-    # CID inline attachments (logo + menu + machine) + PDF file attachments
+    # CID inline attachments only (logo + menu + machine) — no file attachments
+    # Cold outreach with PDF attachments looks scammy; inline images are sufficient.
+    # PDFs can be sent in follow-up replies after the business expresses interest.
     all_attachments = build_inline_attachments(
         menu_jpeg_path=menu_jpeg,
         machine_jpeg_path=machine_jpeg,
     )
-
-    if attachments:
-        for file_path in attachments:
-            p = Path(file_path)
-            if p.exists():
-                all_attachments.append({
-                    "filename": _professional_attachment_name(p),
-                    "content": base64.b64encode(p.read_bytes()).decode("ascii"),
-                    "disposition": "attachment",
-                })
 
     if all_attachments:
         params["attachments"] = all_attachments

@@ -141,23 +141,55 @@ def populate_menu_html(
     output_path: Path,
     business_name: str | None = None,
 ) -> Path:
-    from .render import replace_seal_text
+    from .render import replace_seal_text, _replace_section, _replace_panel_title
 
     html = template_path.read_text(encoding="utf-8")
-    if template_path.name == "restaurant_menu_print_master.html" and not (data.get("drinks") or {}).get("sections"):
-        html = re.sub(
-            r'\s*<section class="page"><img src="drinks_menu_editable_vector\.svg" alt="Drinks Menu"></section>\s*',
-            "\n",
-            html,
-            count=1,
-        )
+
+    # Replace panel title
     for panel_key in ("food", "drinks"):
         panel_id = f"{panel_key}-panel"
         panel_data = data.get(panel_key)
         if panel_data:
-            html = _replace_html_panel_title(html, panel_id, panel_data.get("title", ""))
+            html = _replace_panel_title(html, panel_id, panel_data.get("title", ""))
+
+    # Replace section content (headings + items) — handles v1/v2/v3 templates
+    for panel_key in ("food", "drinks"):
+        panel_data = data.get(panel_key)
+        if not panel_data:
+            continue
+        for section in panel_data.get("sections", []):
+            html = _replace_section(
+                html,
+                section.get("data_section", ""),
+                section.get("heading", "") or section.get("title", ""),
+                section.get("items", []),
+                sub=section.get("sub", ""),
+            )
+
+    # Also handle flat top-level sections (when data has sections but not food/drinks)
+    if not data.get("food") and not data.get("drinks"):
+        for section in data.get("sections", []):
+            html = _replace_section(
+                html,
+                section.get("data_section", ""),
+                section.get("heading", "") or section.get("title", ""),
+                section.get("items", []),
+                sub=section.get("sub", ""),
+            )
+
+    # Remove unused sections — hide drinks-panel if no drinks data
+    if not (data.get("drinks") or {}).get("sections"):
+        html = re.sub(
+            r'<div\s+class="menu-panel"\s+id="drinks-panel">.*?</div>\s*</div>',
+            "",
+            html,
+            count=1,
+            flags=re.DOTALL,
+        )
+
     if business_name:
         html = replace_seal_text(html, business_name)
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     return output_path
