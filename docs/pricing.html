@@ -418,6 +418,17 @@ body::before {
   color: var(--text-secondary);
 }
 
+.pricing-card__list {
+  margin: 2px 0 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+}
+
+.pricing-card__list li + li {
+  margin-top: 4px;
+}
+
 .pricing-section__note {
   font-size: 13px;
   line-height: 1.5;
@@ -651,7 +662,7 @@ a:focus-visible {
   <section class="pricing-section" aria-label="Pricing">
     <div class="pricing-section__header">
       <h1 class="pricing-section__title">Pricing</h1>
-      <p class="pricing-section__sub">Simple packages for English menus and ordering support.</p>
+      <p class="pricing-section__sub">Three fixed-price packages available, with clear scope and straightforward delivery.</p>
     </div>
     <div class="pricing-grid">
       <div class="pricing-card pricing-card--online">
@@ -668,6 +679,12 @@ a:focus-visible {
         <span class="pricing-card__name">QR Menu System</span>
         <span class="pricing-card__price">&#165;65,000</span>
         <p class="pricing-card__desc">A hosted English menu page with item descriptions, photos if provided, ingredients when confirmed by the restaurant, QR code, and "Scan for English Menu" sign.</p>
+        <ul class="pricing-card__list">
+          <li>Hosting is included for 12 months from launch.</li>
+          <li>One bundled content update round is included in the first 30 days.</li>
+          <li>Basic support covers QR link issues, page-loading failures, and minor approved text fixes during the hosting term.</li>
+          <li>After 12 months, the page can be renewed or retired after export handoff and notice.</li>
+        </ul>
       </div>
     </div>
     <p class="pricing-section__note">Larger menus, extra pages, additional copies, or combined packages can be quoted separately.</p>

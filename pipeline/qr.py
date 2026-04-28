@@ -53,6 +53,22 @@ _INTERNAL_MARKERS = (
     "pending review",
 )
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"}
+_CONTENT_CONFIRMATION_STATUSES = {
+    "pending_owner_confirmation",
+    "confirmed_by_owner",
+    "not_provided",
+    "not_required",
+}
+_DEFAULT_CONTENT_REQUIREMENTS = {
+    "descriptions_required": True,
+    "ingredient_allergen_required": True,
+}
+_QR_PACKAGE_PROMISE = {
+    "hosting_term": "12 months of hosting from the publish date",
+    "update_policy": "One bundled content update round in the first 30 days; later updates are handled as paid update work.",
+    "support": "Basic support during the hosting term covers QR link issues, page-loading failures, and minor approved text fixes.",
+    "after_term": "After 12 months the restaurant can renew hosting or let the page retire after export handoff and notice.",
+}
 
 
 class QRMenuError(ValueError):
@@ -160,7 +176,15 @@ def get_qr_review(*, state_root: Path, docs_root: Path, job_id: str) -> dict[str
         raise QRMenuError("QR job not found")
     draft_dir = docs_root / "menus" / "_drafts" / job_id
     source = _read_state_source(state_root, job["menu_id"], job["version_id"])
-    job["validation"] = validate_source_for_publish(source=source, public_dir=draft_dir, draft=True)
+    if job.get("status") == "needs_extraction":
+        validation = {
+            "ok": False,
+            "errors": ["structured_menu_items_required"],
+            "warnings": [],
+        }
+    else:
+        validation = validate_source_for_publish(source=source, public_dir=draft_dir, draft=True)
+    job["validation"] = validation
     _write_qr_job(state_root, job)
     return {
         **job,
@@ -172,7 +196,17 @@ def get_qr_review(*, state_root: Path, docs_root: Path, job_id: str) -> dict[str
         "download_url": f"/api/qr/{job_id}/download" if job.get("final_export_path") else "",
         "source": source,
         "completeness": _completeness_report(source),
+        "content_requirements": _content_requirements(source),
+        "owner_confirmation": _owner_confirmation_summary(source),
+        "package_promise": _QR_PACKAGE_PROMISE,
         "publish_validation": validate_source_for_publish(source=source, public_dir=None, draft=False),
+        "draft_url": job.get("draft_url", ""),
+        "qr_asset_url": job.get("qr_asset_url", ""),
+        "extraction_required": job.get("status") == "needs_extraction",
+        "next_step": (
+            "Run QR extraction from the stored menu photos or submit structured menu items before review."
+            if job.get("status") == "needs_extraction" else ""
+        ),
     }
 
 
@@ -339,6 +373,7 @@ def approve_qr_package(
         **job,
         "download_url": f"/api/qr/{job_id}/download",
         "health": health,
+        "package_promise": _QR_PACKAGE_PROMISE,
     }
 
 
@@ -359,7 +394,7 @@ def create_edit_draft(
     job_id = f"qr-{uuid.uuid4().hex[:8]}"
     draft_source = {**source, "version_id": version_id, "job_id": job_id, "status": "draft"}
     if "items" in payload:
-        draft_source["items"] = payload["items"]
+        draft_source["items"] = _items_from_payload({"items": payload["items"]})
     _write_state_version(state_root, menu_id, version_id, draft_source, status="draft")
     draft_dir = docs_root / "menus" / "_drafts" / job_id
     _write_public_version(draft_dir, source=draft_source, public_url=_draft_url(job_id), draft=True)
@@ -376,6 +411,136 @@ def create_edit_draft(
     }
     _write_qr_job(state_root, job)
     _append_audit(state_root, menu_id, "edit_draft_created", {"job_id": job_id, "from_version": current})
+    return job
+
+
+def confirm_qr_content(
+    *,
+    state_root: Path,
+    docs_root: Path,
+    job_id: str,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload = payload or {}
+    job = get_qr_job(state_root=state_root, job_id=job_id)
+    if not job:
+        raise QRMenuError("QR job not found")
+    if job.get("status") == "needs_extraction":
+        raise QRMenuError("QR content cannot be confirmed before structured extraction is complete")
+
+    source = _read_state_source(state_root, job["menu_id"], job["version_id"])
+    confirm_descriptions = bool(payload.get("confirm_descriptions", True))
+    confirm_ingredient_allergen = bool(payload.get("confirm_ingredient_allergen", True))
+    confirmed_by = str(payload.get("confirmed_by") or "operator")
+    confirmation_source = str(payload.get("confirmation_source") or _default_confirmation_source(source))
+    notes = str(payload.get("notes") or "")
+    confirmed_at = datetime.now(timezone.utc).isoformat()
+
+    updated_items = []
+    any_changes = False
+    for item in source.get("items") or []:
+        updated_item = dict(item)
+        if confirm_descriptions and str(item.get("description") or "").strip():
+            updated_item["description_confirmation"] = _confirmed_content_record(
+                kind="description",
+                source=confirmation_source,
+                confirmed_by=confirmed_by,
+                confirmed_at=confirmed_at,
+                notes=notes,
+            )
+            any_changes = True
+        if confirm_ingredient_allergen and _item_has_ingredient_allergen_content(item):
+            updated_item["ingredient_allergen_confirmation"] = _confirmed_content_record(
+                kind="ingredient_allergen",
+                source=confirmation_source,
+                confirmed_by=confirmed_by,
+                confirmed_at=confirmed_at,
+                notes=notes,
+            )
+            any_changes = True
+        updated_items.append(updated_item)
+
+    if not any_changes:
+        raise QRMenuError("No owner-provided description or ingredient/allergen content was available to confirm")
+
+    updated_source = {
+        **source,
+        "items": updated_items,
+        "last_content_confirmation_at": confirmed_at,
+    }
+    _write_state_version(state_root, job["menu_id"], job["version_id"], updated_source, status="draft")
+    draft_dir = docs_root / "menus" / "_drafts" / job_id
+    if draft_dir.exists():
+        _write_public_version(draft_dir, source=updated_source, public_url=_draft_url(job_id), draft=True)
+    job["validation"] = validate_source_for_publish(source=updated_source, public_dir=draft_dir if draft_dir.exists() else None, draft=True)
+    _write_qr_job(state_root, job)
+    _append_audit(
+        state_root,
+        job["menu_id"],
+        "content_confirmed",
+        {
+            "job_id": job_id,
+            "version_id": job["version_id"],
+            "confirmed_by": confirmed_by,
+            "confirmation_source": confirmation_source,
+            "confirm_descriptions": confirm_descriptions,
+            "confirm_ingredient_allergen": confirm_ingredient_allergen,
+        },
+    )
+    return job
+
+
+def complete_qr_extraction(
+    *,
+    state_root: Path,
+    docs_root: Path,
+    job_id: str,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload = payload or {}
+    job = get_qr_job(state_root=state_root, job_id=job_id)
+    if not job:
+        raise QRMenuError("QR job not found")
+    if job.get("status") != "needs_extraction":
+        raise QRMenuError("QR extraction step is only available for needs_extraction jobs")
+
+    source = _read_state_source(state_root, job["menu_id"], job["version_id"])
+    items = _items_from_payload(payload)
+    extraction_method = "structured_payload"
+    if not items:
+        items = _items_from_photo_assets(source.get("photo_assets") or [])
+        extraction_method = "stored_menu_photos"
+    if not items:
+        raise QRMenuError("QR extraction needs structured items, menu_data, raw_text, or extractable menu photos")
+
+    updated_source = {
+        **source,
+        "status": "draft",
+        "items": items,
+        "restaurant_name": str(payload.get("restaurant_name") or source.get("restaurant_name") or job["menu_id"]),
+        "extraction_method": extraction_method,
+        "extraction_completed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _write_state_version(state_root, job["menu_id"], job["version_id"], updated_source, status="draft")
+    draft_dir = docs_root / "menus" / "_drafts" / job_id
+    _write_public_version(draft_dir, source=updated_source, public_url=_draft_url(job_id), draft=True)
+    validation = validate_source_for_publish(source=updated_source, public_dir=draft_dir, draft=True)
+    job.update({
+        "status": "ready_for_review",
+        "draft_url": f"/menus/_drafts/{job_id}/",
+        "qr_asset_url": f"/menus/_drafts/{job_id}/qr.svg",
+        "validation": validation,
+        "extraction_required": False,
+        "extraction_completed_at": updated_source["extraction_completed_at"],
+        "extraction_method": extraction_method,
+    })
+    _write_qr_job(state_root, job)
+    _append_audit(
+        state_root,
+        job["menu_id"],
+        "extraction_completed",
+        {"job_id": job_id, "version_id": job["version_id"], "item_count": len(items), "method": extraction_method},
+    )
     return job
 
 
@@ -400,27 +565,52 @@ def rollback_qr_menu(*, state_root: Path, docs_root: Path, menu_id: str, version
 
 def check_qr_health(*, state_root: Path, docs_root: Path, menu_id: str) -> dict[str, Any]:
     errors: list[str] = []
+    menu_root = docs_root / "menus" / menu_id
+    manifest_path = menu_root / "manifest.json"
     live = _read_live_manifest(docs_root, menu_id)
     current = live.get("current_version", "")
-    version_dir = docs_root / "menus" / menu_id / "versions" / current
-    shell = docs_root / "menus" / menu_id / "index.html"
+    version_dir = menu_root / "versions" / current
+    shell = menu_root / "index.html"
+    if not manifest_path.exists():
+        errors.append("live_manifest_missing")
     if not current:
         errors.append("manifest_missing_current_version")
     if not shell.exists():
         errors.append("live_shell_missing")
     if not version_dir.exists():
         errors.append("current_version_missing")
+    publish_manifest = state_root / "qr_menus" / menu_id / "versions" / current / "publish_manifest.json"
+    if current and not publish_manifest.exists():
+        errors.append("publish_manifest_missing")
+    source_path = state_root / "qr_menus" / menu_id / "versions" / current / "source.json"
+    if current and not source_path.exists():
+        errors.append("source_data_missing")
+
+    required_docs = ("index.html", "menu.json", "qr.svg")
+    for rel in required_docs:
+        if current and not (version_dir / rel).exists():
+            errors.append(f"asset_missing:{rel}")
 
     expected = live.get("checksums") or {}
+    if current and not expected:
+        errors.append("manifest_checksums_missing")
     drift: list[str] = []
     for rel, checksum in expected.items():
         path = version_dir / rel
         if not path.exists():
-            errors.append(f"asset_missing:{rel}")
             continue
         actual = _sha256_file(path)
         if actual != checksum:
             drift.append(rel)
+
+    approved_jobs = _approved_qr_jobs_for_menu(state_root=state_root, menu_id=menu_id, version_id=current)
+    for approved_job in approved_jobs:
+        sign_pdf = Path(str(approved_job.get("qr_sign_print_ready_pdf") or ""))
+        export_zip = Path(str(approved_job.get("final_export_path") or ""))
+        if not sign_pdf.exists():
+            errors.append("sign_pdf_missing")
+        if not export_zip.exists():
+            errors.append("package_export_missing")
 
     ok = not errors and not drift
     report = {
@@ -442,6 +632,7 @@ def validate_source_for_publish(*, source: dict[str, Any], public_dir: Path | No
     warnings: list[str] = []
     if not source.get("restaurant_name"):
         errors.append("restaurant_name_missing")
+    requirements = _content_requirements(source)
     items = source.get("items") or []
     if not items:
         errors.append("menu_items_missing")
@@ -450,10 +641,14 @@ def validate_source_for_publish(*, source: dict[str, Any], public_dir: Path | No
             errors.append(f"item_{idx}_english_name_missing")
         if not item.get("japanese_name"):
             errors.append(f"item_{idx}_japanese_name_missing")
-        if not item.get("description"):
+        if requirements["descriptions_required"] and not item.get("description"):
             (warnings if draft else errors).append(f"item_{idx}_description_missing")
-        if not item.get("ingredients"):
-            (warnings if draft else errors).append(f"item_{idx}_ingredients_missing")
+        if item.get("description") and not _content_is_owner_confirmed(item.get("description_confirmation")):
+            (warnings if draft else errors).append(f"item_{idx}_description_owner_confirmation_required")
+        if requirements["ingredient_allergen_required"] and not _item_has_ingredient_allergen_content(item):
+            (warnings if draft else errors).append(f"item_{idx}_ingredient_allergen_missing")
+        if _item_has_ingredient_allergen_content(item) and not _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation")):
+            (warnings if draft else errors).append(f"item_{idx}_ingredient_allergen_owner_confirmation_required")
         if str(item.get("name") or "").startswith("["):
             errors.append(f"item_{idx}_unresolved_translation")
     if public_dir:
@@ -478,7 +673,7 @@ def _source_from_reply(
     job_id: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    items = payload.get("items") or _items_from_payload_menu_data(payload.get("menu_data"))
+    items = _items_from_payload(payload)
     return {
         "menu_id": menu_id,
         "version_id": version_id,
@@ -490,6 +685,7 @@ def _source_from_reply(
         "items": items,
         "photo_assets": _stored_photo_assets(reply),
         "ticket_machine": payload.get("ticket_machine") or None,
+        "content_requirements": _content_requirements_from_payload(payload),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -537,19 +733,105 @@ def _items_from_payload_menu_data(menu_data: Any) -> list[dict[str, Any]]:
     return items
 
 
+def _items_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    items = payload.get("items") or _items_from_payload_menu_data(payload.get("menu_data"))
+    if items:
+        return _dedupe_qr_items([_normalise_qr_item(item) for item in items if isinstance(item, dict)])
+
+    raw_text = str(payload.get("raw_text") or payload.get("menu_text") or "").strip()
+    if raw_text:
+        from .extract import extract_from_text
+
+        return _items_from_extracted_items(extract_from_text(raw_text))
+
+    return []
+
+
+def _items_from_photo_assets(photo_assets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from .extract import extract_from_file
+
+    extracted = []
+    for asset in photo_assets:
+        stored_path = str(asset.get("stored_path") or "")
+        if not stored_path:
+            continue
+        extracted.extend(extract_from_file(stored_path))
+    return _items_from_extracted_items(extracted)
+
+
+def _items_from_extracted_items(extracted_items: list[Any]) -> list[dict[str, Any]]:
+    if not extracted_items:
+        return []
+
+    from .translate import translate_items
+
+    translated_items = translate_items(extracted_items)
+    items = []
+    for extracted, translated in zip(extracted_items, translated_items):
+        items.append(_normalise_qr_item({
+            "name": translated.name or extracted.name,
+            "japanese_name": translated.japanese_name or extracted.japanese_name or extracted.name,
+            "price": translated.price or extracted.price,
+            "description": translated.description or "",
+            "ingredients": [],
+            "section": translated.section or extracted.section_hint or "Menu",
+            "source_text": translated.source_text or extracted.source_text or extracted.name,
+            "source_provenance": translated.source_provenance or extracted.source_provenance or "",
+            "approval_status": translated.approval_status or extracted.approval_status or "pending_review",
+        }))
+    return _dedupe_qr_items(items)
+
+
 def _normalise_qr_item(item: dict[str, Any], *, section_title: str = "") -> dict[str, Any]:
     ingredients = item.get("ingredients") or []
     if isinstance(ingredients, str):
         ingredients = [part.strip() for part in re.split(r"[,、]", ingredients) if part.strip()]
+    allergens = item.get("allergens") or []
+    if isinstance(allergens, str):
+        allergens = [part.strip() for part in re.split(r"[,、]", allergens) if part.strip()]
+    description = str(item.get("description") or "")
     return {
         "name": str(item.get("name") or ""),
         "japanese_name": str(item.get("japanese_name") or item.get("ja") or ""),
         "price": str(item.get("price") or ""),
-        "description": str(item.get("description") or ""),
+        "description": description,
         "ingredients": ingredients,
+        "allergens": allergens,
         "section": str(item.get("section") or section_title or "Menu"),
         "photo": str(item.get("photo") or ""),
+        "source_text": str(item.get("source_text") or item.get("japanese_name") or item.get("name") or ""),
+        "source_provenance": str(item.get("source_provenance") or ""),
+        "approval_status": str(item.get("approval_status") or "pending_review"),
+        "description_confirmation": _normalise_content_confirmation(
+            item.get("description_confirmation"),
+            content_present=bool(description.strip()),
+            content_kind="description",
+            default_source=str(item.get("source_provenance") or ""),
+        ),
+        "ingredient_allergen_confirmation": _normalise_content_confirmation(
+            item.get("ingredient_allergen_confirmation") or item.get("ingredients_confirmation"),
+            content_present=bool(ingredients or allergens),
+            content_kind="ingredient_allergen",
+            default_source=str(item.get("source_provenance") or ""),
+        ),
     }
+
+
+def _dedupe_qr_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str, str, str]] = set()
+    deduped: list[dict[str, Any]] = []
+    for item in items:
+        key = (
+            str(item.get("japanese_name") or "").strip(),
+            str(item.get("name") or "").strip(),
+            str(item.get("section") or "").strip(),
+            str(item.get("price") or "").strip(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
 
 
 def _stored_photo_assets(reply: dict[str, Any]) -> list[dict[str, str]]:
@@ -633,6 +915,7 @@ def _public_menu_json(source: dict[str, Any], *, public_url: str, draft: bool) -
         "draft": draft,
         "items": source.get("items") or [],
         "ticket_machine": source.get("ticket_machine"),
+        "content_requirements": _content_requirements(source),
     }
 
 
@@ -650,23 +933,27 @@ def _render_mobile_menu_html(source: dict[str, Any], *, public_url: str, draft: 
         for item in section_items:
             desc = html.escape(str(item.get("description") or ""))
             ingredients = item.get("ingredients") or []
+            allergens = item.get("allergens") or []
             gaps = []
             if not desc:
                 gaps.append("Missing description")
-            if not ingredients:
-                gaps.append("Missing ingredients")
+            if not ingredients and not allergens:
+                gaps.append("Missing ingredients or allergens")
             gap_html = ""
             if draft and gaps:
                 gap_html = f'<div class="review-gap" data-review-gap="true">{" · ".join(gaps)}</div>'
             ingredient_html = ""
             if ingredients:
                 ingredient_html = '<p class="ingredients">Ingredients: ' + html.escape(", ".join(map(str, ingredients))) + "</p>"
+            allergen_html = ""
+            if allergens:
+                allergen_html = '<p class="ingredients">Allergens: ' + html.escape(", ".join(map(str, allergens))) + "</p>"
             cards.append(
                 '<article class="dish-card">'
                 f'<div><h3>{html.escape(str(item.get("name") or ""))}</h3>'
                 f'<p class="jp">{html.escape(str(item.get("japanese_name") or ""))}</p></div>'
                 f'<span class="price">{html.escape(str(item.get("price") or ""))}</span>'
-                f'{f"<p>{desc}</p>" if desc else ""}{ingredient_html}{gap_html}'
+                f'{f"<p>{desc}</p>" if desc else ""}{ingredient_html}{allergen_html}{gap_html}'
                 '</article>'
             )
         cards.append("</section>")
@@ -795,6 +1082,7 @@ def _qr_package_manifest(*, job: dict[str, Any], health: dict[str, Any], sign_pd
         "package_key": PACKAGE_3_KEY,
         "package_label": PACKAGE_3_LABEL,
         "price_yen": PACKAGE_3_PRICE_YEN,
+        "package_promise": _QR_PACKAGE_PROMISE,
         "job_id": job.get("job_id", ""),
         "menu_id": job.get("menu_id", ""),
         "restaurant_name": job.get("restaurant_name", ""),
@@ -811,6 +1099,7 @@ def _qr_package_manifest(*, job: dict[str, Any], health: dict[str, Any], sign_pd
             "QR_HEALTH_REPORT.json",
         ],
         "health": health,
+        "package_promise": _QR_PACKAGE_PROMISE,
     }
 
 
@@ -904,6 +1193,22 @@ def _read_state_source(state_root: Path, menu_id: str, version_id: str) -> dict[
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _approved_qr_jobs_for_menu(*, state_root: Path, menu_id: str, version_id: str) -> list[dict[str, Any]]:
+    jobs = []
+    jobs_root = state_root / "qr_jobs"
+    if not jobs_root.exists():
+        return jobs
+    for path in jobs_root.glob("*.json"):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("menu_id") != menu_id:
+            continue
+        if version_id and data.get("published_version_id") != version_id:
+            continue
+        if data.get("review_status") == "approved":
+            jobs.append(data)
+    return jobs
+
+
 def _write_qr_job(state_root: Path, job: dict[str, Any]) -> None:
     write_json(state_root / "qr_jobs" / f"{job['job_id']}.json", job)
 
@@ -935,16 +1240,124 @@ def _sha256_file(path: Path) -> str:
 
 def _completeness_report(source: dict[str, Any]) -> dict[str, Any]:
     missing_descriptions = []
-    missing_ingredients = []
+    missing_ingredient_allergen = []
     for idx, item in enumerate(source.get("items") or []):
         label = item.get("japanese_name") or item.get("name") or f"item_{idx}"
         if not item.get("description"):
             missing_descriptions.append(label)
-        if not item.get("ingredients"):
-            missing_ingredients.append(label)
+        if not _item_has_ingredient_allergen_content(item):
+            missing_ingredient_allergen.append(label)
     return {
         "missing_descriptions": missing_descriptions,
-        "missing_ingredients": missing_ingredients,
+        "missing_ingredient_allergen": missing_ingredient_allergen,
         "item_count": len(source.get("items") or []),
         "photo_count": len(source.get("photo_assets") or []),
+    }
+
+
+def _content_requirements(source: dict[str, Any]) -> dict[str, bool]:
+    raw = source.get("content_requirements") or {}
+    return {
+        "descriptions_required": bool(raw.get("descriptions_required", _DEFAULT_CONTENT_REQUIREMENTS["descriptions_required"])),
+        "ingredient_allergen_required": bool(raw.get("ingredient_allergen_required", _DEFAULT_CONTENT_REQUIREMENTS["ingredient_allergen_required"])),
+    }
+
+
+def _content_requirements_from_payload(payload: dict[str, Any]) -> dict[str, bool]:
+    raw = payload.get("content_requirements") or payload.get("package_promise") or {}
+    return {
+        "descriptions_required": bool(raw.get("descriptions_required", _DEFAULT_CONTENT_REQUIREMENTS["descriptions_required"])),
+        "ingredient_allergen_required": bool(raw.get("ingredient_allergen_required", _DEFAULT_CONTENT_REQUIREMENTS["ingredient_allergen_required"])),
+    }
+
+
+def _normalise_content_confirmation(
+    value: Any,
+    *,
+    content_present: bool,
+    content_kind: str,
+    default_source: str,
+) -> dict[str, Any]:
+    if isinstance(value, dict):
+        status = str(value.get("status") or "")
+        if status not in _CONTENT_CONFIRMATION_STATUSES:
+            status = "confirmed_by_owner" if value.get("confirmed") else ""
+        if not status:
+            status = "pending_owner_confirmation" if content_present else "not_provided"
+        return {
+            "kind": content_kind,
+            "status": status,
+            "source": str(value.get("source") or default_source or ""),
+            "confirmed_by": str(value.get("confirmed_by") or ""),
+            "confirmed_at": str(value.get("confirmed_at") or ""),
+            "notes": str(value.get("notes") or ""),
+        }
+    if value is True:
+        return _confirmed_content_record(
+            kind=content_kind,
+            source=default_source,
+            confirmed_by="operator",
+            confirmed_at="",
+            notes="",
+        )
+    status = "pending_owner_confirmation" if content_present else "not_provided"
+    return {
+        "kind": content_kind,
+        "status": status,
+        "source": default_source,
+        "confirmed_by": "",
+        "confirmed_at": "",
+        "notes": "",
+    }
+
+
+def _confirmed_content_record(*, kind: str, source: str, confirmed_by: str, confirmed_at: str, notes: str) -> dict[str, Any]:
+    return {
+        "kind": kind,
+        "status": "confirmed_by_owner",
+        "source": source,
+        "confirmed_by": confirmed_by,
+        "confirmed_at": confirmed_at,
+        "notes": notes,
+    }
+
+
+def _content_is_owner_confirmed(value: Any) -> bool:
+    return isinstance(value, dict) and str(value.get("status") or "") == "confirmed_by_owner"
+
+
+def _default_confirmation_source(source: dict[str, Any]) -> str:
+    reply_id = str(source.get("reply_id") or "")
+    if reply_id:
+        return f"reply:{reply_id}"
+    if source.get("photo_assets"):
+        return "owner_menu_photos"
+    return "owner_material"
+
+
+def _item_has_ingredient_allergen_content(item: dict[str, Any]) -> bool:
+    return bool((item.get("ingredients") or []) or (item.get("allergens") or []))
+
+
+def _owner_confirmation_summary(source: dict[str, Any]) -> dict[str, Any]:
+    description_required = 0
+    description_confirmed = 0
+    ingredient_allergen_required = 0
+    ingredient_allergen_confirmed = 0
+    for item in source.get("items") or []:
+        if item.get("description"):
+            description_required += 1
+            if _content_is_owner_confirmed(item.get("description_confirmation")):
+                description_confirmed += 1
+        if _item_has_ingredient_allergen_content(item):
+            ingredient_allergen_required += 1
+            if _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation")):
+                ingredient_allergen_confirmed += 1
+    return {
+        "description_required_count": description_required,
+        "description_confirmed_count": description_confirmed,
+        "description_pending_count": max(description_required - description_confirmed, 0),
+        "ingredient_allergen_required_count": ingredient_allergen_required,
+        "ingredient_allergen_confirmed_count": ingredient_allergen_confirmed,
+        "ingredient_allergen_pending_count": max(ingredient_allergen_required - ingredient_allergen_confirmed, 0),
     }

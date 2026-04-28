@@ -9,8 +9,11 @@ import pytest
 
 from pipeline.qr import (
     QRMenuError,
+    approve_qr_package,
     assess_reply_qr_readiness,
     check_qr_health,
+    complete_qr_extraction,
+    confirm_qr_content,
     create_edit_draft,
     create_qr_draft,
     create_qr_sign,
@@ -54,6 +57,8 @@ def _complete_payload() -> dict:
                 "price": "¥900",
                 "description": "Classic soy sauce ramen with a clear, savory broth.",
                 "ingredients": ["noodles", "soy sauce broth", "pork chashu", "green onion"],
+                "description_confirmation": True,
+                "ingredient_allergen_confirmation": True,
                 "section": "Ramen",
             }
         ]
@@ -118,6 +123,63 @@ def test_photo_only_reply_becomes_needs_extraction_not_reviewable_draft(tmp_path
     source = json.loads((state_root / "qr_menus" / "hinode-ramen" / "versions" / job["version_id"] / "source.json").read_text())
     assert source["status"] == "needs_extraction"
     assert source["items"] == []
+
+
+def test_complete_qr_extraction_turns_needs_extraction_job_into_reviewable_draft(tmp_path):
+    state_root = tmp_path / "state"
+    docs_root = tmp_path / "docs"
+
+    job = create_qr_draft(
+        reply=_reply(tmp_path),
+        state_root=state_root,
+        docs_root=docs_root,
+        payload={},
+    )
+
+    extracted = complete_qr_extraction(
+        state_root=state_root,
+        docs_root=docs_root,
+        job_id=job["job_id"],
+        payload={"raw_text": "醤油ラーメン ¥900\n餃子 ¥450"},
+    )
+
+    assert extracted["status"] == "ready_for_review"
+    assert extracted["extraction_method"] == "structured_payload"
+    assert (docs_root / "menus" / "_drafts" / job["job_id"] / "index.html").exists()
+    source = json.loads((state_root / "qr_menus" / "hinode-ramen" / "versions" / job["version_id"] / "source.json").read_text())
+    assert source["status"] == "draft"
+    assert len(source["items"]) == 2
+    assert source["items"][0]["japanese_name"] == "醤油ラーメン"
+    assert source["items"][0]["name"] == "Shoyu Ramen"
+
+
+def test_publish_blocks_unconfirmed_owner_content_until_confirmed(tmp_path):
+    state_root = tmp_path / "state"
+    docs_root = tmp_path / "docs"
+    job = create_qr_draft(
+        reply=_reply(tmp_path),
+        state_root=state_root,
+        docs_root=docs_root,
+        payload={
+            "items": [
+                {
+                    "name": "Shoyu Ramen",
+                    "japanese_name": "醤油ラーメン",
+                    "price": "¥900",
+                    "description": "Classic soy sauce ramen with a clear, savory broth.",
+                    "ingredients": ["noodles", "soy sauce broth"],
+                    "section": "Ramen",
+                }
+            ]
+        },
+    )
+
+    with pytest.raises(QRMenuError, match="description_owner_confirmation_required"):
+        publish_qr_job(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+
+    confirm_qr_content(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+    published = publish_qr_job(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+    assert published["status"] == "published"
 
 
 def test_publish_creates_immutable_version_and_stable_live_url(tmp_path):
@@ -206,6 +268,8 @@ def test_edit_draft_does_not_change_live_and_rollback_restores_previous(tmp_path
                     "japanese_name": "味噌ラーメン",
                     "description": "Rich miso ramen.",
                     "ingredients": ["noodles", "miso broth"],
+                    "description_confirmation": True,
+                    "ingredient_allergen_confirmation": True,
                     "section": "Ramen",
                 }
             ]
@@ -243,3 +307,44 @@ def test_health_detects_checksum_drift(tmp_path):
     health = check_qr_health(state_root=state_root, docs_root=docs_root, menu_id="hinode-ramen")
     assert health["ok"] is False
     assert "index.html" in health["checksum_drift"]
+
+
+def test_health_detects_missing_source_data(tmp_path):
+    state_root = tmp_path / "state"
+    docs_root = tmp_path / "docs"
+    job = create_qr_draft(
+        reply=_reply(tmp_path),
+        state_root=state_root,
+        docs_root=docs_root,
+        payload=_complete_payload(),
+    )
+    published = publish_qr_job(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+    source_path = state_root / "qr_menus" / "hinode-ramen" / "versions" / published["published_version_id"] / "source.json"
+    source_path.unlink()
+
+    health = check_qr_health(state_root=state_root, docs_root=docs_root, menu_id="hinode-ramen")
+    assert health["ok"] is False
+    assert "source_data_missing" in health["errors"]
+
+
+def test_health_detects_missing_sign_pdf_for_approved_package(tmp_path, monkeypatch):
+    def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
+        pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
+        return pdf_path
+
+    monkeypatch.setattr("pipeline.qr.html_to_pdf_sync", fake_html_to_pdf_sync)
+    state_root = tmp_path / "state"
+    docs_root = tmp_path / "docs"
+    job = create_qr_draft(
+        reply=_reply(tmp_path),
+        state_root=state_root,
+        docs_root=docs_root,
+        payload=_complete_payload(),
+    )
+    create_qr_sign(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+    approved = approve_qr_package(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+    Path(approved["qr_sign_print_ready_pdf"]).unlink()
+
+    health = check_qr_health(state_root=state_root, docs_root=docs_root, menu_id="hinode-ramen")
+    assert health["ok"] is False
+    assert "sign_pdf_missing" in health["errors"]

@@ -1940,7 +1940,7 @@ async function createQrFromReply(btn) {
     if (!reviewRes.ok) throw new Error(review.detail || 'Could not load QR review');
     renderQrReview(review);
     document.getElementById('qr-modal').showModal();
-    showToast('QR draft created', 'success');
+    showToast(data.status === 'needs_extraction' ? 'QR extraction required before draft review' : 'QR draft created', data.status === 'needs_extraction' ? 'info' : 'success');
   } catch (err) {
     showToast('QR failed: ' + err.message, 'error');
   } finally {
@@ -1953,15 +1953,46 @@ function renderQrReview(review) {
   const content = document.getElementById('qr-review-content');
   const validation = review.publish_validation || review.validation || {};
   const completeness = review.completeness || {};
+  const confirmation = review.owner_confirmation || {};
+  const requirements = review.content_requirements || {};
+  const packagePromise = review.package_promise || {};
   const errors = validation.errors || [];
   const warnings = validation.warnings || [];
   const draftUrl = review.draft_url || '';
   const qrUrl = review.qr_asset_url || '';
   const signUrl = review.qr_sign_url || '';
+  if (review.extraction_required) {
+    content.innerHTML = `
+      <div class="qr-review-card">
+        <div class="qr-review-label">Status</div>
+        <div><strong>Needs extraction</strong></div>
+        <p class="reply-entry-body">${escapeHtml(review.next_step || 'Structured menu extraction is required before this QR draft can be reviewed.')}</p>
+      </div>
+      <div class="qr-review-card">
+        <div class="qr-review-label">Available source</div>
+        <ul class="qr-check-list">
+          <li>${Number(completeness.photo_count || 0)} stored ${plural(completeness.photo_count || 0, 'photo')}</li>
+          <li>${Number(completeness.item_count || 0)} structured ${plural(completeness.item_count || 0, 'item')}</li>
+          <li class="is-warning">${escapeHtml((review.validation && review.validation.errors && review.validation.errors[0]) || 'structured_menu_items_required')}</li>
+        </ul>
+      </div>
+      <div class="qr-review-card">
+        <div class="qr-review-label">Next step</div>
+        <p class="reply-entry-body">Run extraction from the stored menu photos to generate a reviewable draft. If the result needs cleanup, we can refine the extracted items before approval.</p>
+        <div class="qr-actions">
+          <button class="btn btn-secondary" onclick="closeQrModal()">Close</button>
+          <button class="btn btn-success" onclick="runQrExtraction('${escapeHtml(review.job_id || '')}', this)">Run Photo Extraction</button>
+        </div>
+      </div>`;
+    return;
+  }
   const publishDisabled = errors.length ? 'disabled' : '';
   const publishTitle = errors.length ? 'Resolve validation errors before approval' : 'Approve QR Menu System';
   const missingDescriptions = completeness.missing_descriptions || [];
-  const missingIngredients = completeness.missing_ingredients || [];
+  const missingIngredientAllergen = completeness.missing_ingredient_allergen || completeness.missing_ingredients || [];
+  const descriptionPending = Number(confirmation.description_pending_count || 0);
+  const ingredientPending = Number(confirmation.ingredient_allergen_pending_count || 0);
+  const canConfirmOwnerContent = descriptionPending > 0 || ingredientPending > 0;
   content.innerHTML = `
     <div class="qr-review-card">
       <div class="qr-review-label">Package</div>
@@ -1978,7 +2009,25 @@ function renderQrReview(review) {
         <li>${Number(completeness.item_count || 0)} menu ${plural(completeness.item_count || 0, 'item')}</li>
         <li>${Number(completeness.photo_count || 0)} stored ${plural(completeness.photo_count || 0, 'photo')}</li>
         <li class="${missingDescriptions.length ? 'is-warning' : ''}">${missingDescriptions.length ? missingDescriptions.length + ' missing descriptions' : 'Descriptions complete'}</li>
-        <li class="${missingIngredients.length ? 'is-warning' : ''}">${missingIngredients.length ? missingIngredients.length + ' missing ingredient lists' : 'Ingredients complete'}</li>
+        <li class="${missingIngredientAllergen.length ? 'is-warning' : ''}">${missingIngredientAllergen.length ? missingIngredientAllergen.length + ' missing ingredient/allergen details' : 'Ingredient/allergen details complete'}</li>
+      </ul>
+    </div>
+    <div class="qr-review-card">
+      <div class="qr-review-label">Owner confirmation</div>
+      <ul class="qr-check-list">
+        <li class="${requirements.descriptions_required ? '' : 'is-warning'}">Descriptions required: ${requirements.descriptions_required ? 'Yes' : 'No'}</li>
+        <li class="${descriptionPending ? 'is-warning' : ''}">Descriptions confirmed: ${Number(confirmation.description_confirmed_count || 0)} of ${Number(confirmation.description_required_count || 0)}</li>
+        <li class="${requirements.ingredient_allergen_required ? '' : 'is-warning'}">Ingredient/allergen details required: ${requirements.ingredient_allergen_required ? 'Yes' : 'No'}</li>
+        <li class="${ingredientPending ? 'is-warning' : ''}">Ingredient/allergen details confirmed: ${Number(confirmation.ingredient_allergen_confirmed_count || 0)} of ${Number(confirmation.ingredient_allergen_required_count || 0)}</li>
+      </ul>
+    </div>
+    <div class="qr-review-card">
+      <div class="qr-review-label">Package 3 promise</div>
+      <ul class="qr-check-list">
+        <li>${escapeHtml(packagePromise.hosting_term || 'Hosting term not defined')}</li>
+        <li>${escapeHtml(packagePromise.update_policy || 'Update policy not defined')}</li>
+        <li>${escapeHtml(packagePromise.support || 'Support expectations not defined')}</li>
+        <li>${escapeHtml(packagePromise.after_term || 'End-of-term path not defined')}</li>
       </ul>
     </div>
     <div class="qr-review-card">
@@ -1989,10 +2038,61 @@ function renderQrReview(review) {
       </ul>
       <div class="qr-actions">
         <button class="btn btn-secondary" onclick="closeQrModal()">Close</button>
+        <button class="btn btn-secondary" ${canConfirmOwnerContent ? '' : 'disabled aria-disabled="true"'} onclick="confirmQrOwnerContent('${escapeHtml(review.job_id || '')}', this)">Confirm Owner Content</button>
         <button class="btn btn-secondary" onclick="createQrSign('${escapeHtml(review.job_id || '')}', this)">Create QR Sign</button>
         <button class="btn btn-success" title="${publishTitle}" ${publishDisabled} onclick="approveQrPackage('${escapeHtml(review.job_id || '')}', this)">Approve Package 3</button>
       </div>
     </div>`;
+}
+
+async function runQrExtraction(jobId, btn) {
+  if (!jobId || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Extracting...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Extraction failed');
+    const reviewRes = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/review');
+    const review = await reviewRes.json();
+    if (!reviewRes.ok) throw new Error(review.detail || 'Could not load QR review');
+    renderQrReview(review);
+    showToast('QR draft extracted for review', 'success');
+  } catch (err) {
+    showToast('QR extraction failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function confirmQrOwnerContent(jobId, btn) {
+  if (!jobId || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Confirming...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Owner confirmation failed');
+    const reviewRes = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/review');
+    const review = await reviewRes.json();
+    if (!reviewRes.ok) throw new Error(review.detail || 'Could not load QR review');
+    renderQrReview(review);
+    showToast('Owner-provided content confirmed for review', 'success');
+  } catch (err) {
+    showToast('Owner confirmation failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 }
 
 async function createQrSign(jobId, btn) {

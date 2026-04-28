@@ -6,10 +6,11 @@ Updated: 2026-04-28
 
 - Branch: `main`
 - Active execution plan: `PLAN.md`
-- Active phase: `P2 - Harden QR Product`
+- Active phase: `P3 - Fix Lead And Contact Reality`
 - Phase status: in progress
 - `P1` is complete and recorded in `PLAN.md`.
-- Current focus has moved to QR draft/publish hardening.
+- `P2` is complete and recorded in `PLAN.md`.
+- Current focus has moved to contact-route and establishment-profile hardening.
 
 ## What Landed
 
@@ -103,26 +104,37 @@ If the preview URL is not reachable in the next chat, restart the dashboard with
 
 - `.venv/bin/python -m uvicorn dashboard.app:app --host 127.0.0.1 --port 8001`
 
-First `P2` QR hardening landed today too:
+`P2` QR hardening is now complete:
 
 - `create_qr_draft()` no longer falls back to reply-body parsing as a route into a QR review draft
 - photo-only QR requests with no structured payload now return a persisted `needs_extraction` job instead of creating a reviewable QR draft
 - no public draft HTML/QR files are written for that `needs_extraction` state
 - QR/API regression coverage now includes the photo-only `needs_extraction` path
+- `complete_qr_extraction()` now converts a `needs_extraction` QR job into a real reviewable draft once structured items exist
+- structured QR extraction can now come from direct `items`, `menu_data`, pasted raw text, or extraction from stored menu photos
+- dashboard QR review now shows an explicit `Needs extraction` state until a real draft exists, then transitions into the normal review flow
+- browser-rendered verification confirmed the `Needs extraction -> Run Photo Extraction -> reviewable draft` modal flow
+- browser-rendered verification confirmed the generated extracted draft page loads and shows review-only gaps instead of pretending it is publishable
+- QR items now carry explicit owner-confirmation provenance for descriptions and ingredient/allergen content
+- QR publish now blocks when description or ingredient/allergen content exists without recorded owner confirmation
+- dashboard QR review now shows owner-confirmation counts plus a Package 3 promise block in the modal
+- Package 3 promise is now defined in code and pricing docs: 12 months of hosting, one bundled update round in the first 30 days, basic support scope, and a renew-or-retire path after the term
+- browser-rendered verification confirmed the updated QR review modal plus the English and Japanese pricing pages
+- QR health now fails loudly when the live manifest, checksums, current version docs output, publish manifest, source data, or approved-package sign PDF/export is missing
+- Package 3 is now positioned as a standalone `¥65,000` hosted service with one bundled 30-day update round; later updates move into paid update work while combined-package deals remain quote-only
 
 ## Next Step
 
-Continue `P2 - Harden QR Product`:
+Continue `P3 - Fix Lead And Contact Reality`:
 
-1. add the actual structured extraction/review step that turns a `needs_extraction` QR job into a real reviewable draft once structured items exist
-2. harden owner-confirmation provenance for descriptions and ingredients/allergens before publish
-3. define the Package 3 hosting/update/support promise in code/docs before treating QR as sellable
-4. render and inspect the QR menu page plus dashboard QR review modal after those changes
+1. add first-class `contacts` records so form, LINE, Instagram, phone, website, and walk-in routes are stored alongside email
+2. preserve qualified no-email leads when another contact route exists and expose them as actionable in the dashboard
+3. add evidence-backed `establishment_profile` classification before outreach asset selection
+4. keep duplicate prevention and current send safety rules intact while widening the outreach-ready definition
 
 ## Execution Freeze
 
-Until `P2` gate evidence is truly satisfied:
+Until `P5` gate evidence is truly satisfied:
 
 - do not approve real customer packages
-- do not move on to `P3`
 - do not send real outreach

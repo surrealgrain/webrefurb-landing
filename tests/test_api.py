@@ -371,6 +371,8 @@ class TestAPIEndpoints:
                         "price": "¥900",
                         "description": "Classic soy sauce ramen.",
                         "ingredients": ["noodles", "soy sauce broth"],
+                        "description_confirmation": True,
+                        "ingredient_allergen_confirmation": True,
                         "section": "Ramen",
                     }
                 ]
@@ -415,6 +417,8 @@ class TestAPIEndpoints:
                         "japanese_name": "醤油ラーメン",
                         "description": "Classic soy sauce ramen.",
                         "ingredients": ["noodles", "soy sauce broth"],
+                        "description_confirmation": True,
+                        "ingredient_allergen_confirmation": True,
                         "section": "Ramen",
                     }
                 ]
@@ -458,6 +462,88 @@ class TestAPIEndpoints:
         assert data["validation"]["errors"] == ["structured_menu_items_required"]
         assert not (tmp_path / "docs" / "menus" / "_drafts" / data["job_id"] / "index.html").exists()
 
+    def test_qr_extract_endpoint_turns_needs_extraction_job_into_reviewable_draft(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QR menu",
+                "body": "Please make the hosted QR menu.",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+        create = self.client.post(f"/api/qr/{reply_id}", json={}).json()
+
+        extract = self.client.post(
+            f"/api/qr/{create['job_id']}/extract",
+            json={"raw_text": "醤油ラーメン ¥900\n餃子 ¥450"},
+        )
+
+        assert extract.status_code == 200
+        data = extract.json()
+        assert data["status"] == "ready_for_review"
+        assert data["extraction_method"] == "structured_payload"
+        assert (tmp_path / "docs" / "menus" / "_drafts" / create["job_id"] / "index.html").exists()
+
+        review = self.client.get(f"/api/qr/{create['job_id']}/review")
+        assert review.status_code == 200
+        assert review.json()["extraction_required"] is False
+        assert review.json()["completeness"]["item_count"] == 2
+
+    def test_qr_confirm_endpoint_unlocks_publish(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QR menu",
+                "body": "Please make the hosted QR menu.",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+        create = self.client.post(
+            f"/api/qr/{reply_id}",
+            json={
+                "items": [
+                    {
+                        "name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "description": "Classic soy sauce ramen.",
+                        "ingredients": ["noodles", "soy sauce broth"],
+                        "section": "Ramen",
+                    }
+                ]
+            },
+        ).json()
+
+        blocked = self.client.post(f"/api/qr/{create['job_id']}/publish")
+        assert blocked.status_code == 422
+        assert "description_owner_confirmation_required" in blocked.json()["detail"]
+
+        confirmed = self.client.post(f"/api/qr/{create['job_id']}/confirm", json={})
+        assert confirmed.status_code == 200
+
+        published = self.client.post(f"/api/qr/{create['job_id']}/publish")
+        assert published.status_code == 200
+        assert published.json()["status"] == "published"
+
     def test_qr_package_approve_and_download(self, tmp_path, monkeypatch):
         def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
             pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
@@ -491,6 +577,8 @@ class TestAPIEndpoints:
                         "japanese_name": "醤油ラーメン",
                         "description": "Classic soy sauce ramen.",
                         "ingredients": ["noodles", "soy sauce broth"],
+                        "description_confirmation": True,
+                        "ingredient_allergen_confirmation": True,
                         "section": "Ramen",
                     }
                 ]
@@ -506,6 +594,55 @@ class TestAPIEndpoints:
         download = self.client.get(f"/api/qr/{create['job_id']}/download")
         assert download.status_code == 200
         assert download.headers["content-type"] == "application/zip"
+
+    def test_qr_health_endpoint_flags_missing_sign_pdf_after_approval(self, tmp_path, monkeypatch):
+        def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
+            pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
+            return pdf_path
+
+        monkeypatch.setattr("pipeline.qr.html_to_pdf_sync", fake_html_to_pdf_sync)
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QR menu",
+                "body": "Please make the hosted QR menu.",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+        create = self.client.post(
+            f"/api/qr/{reply_id}",
+            json={
+                "items": [
+                    {
+                        "name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "description": "Classic soy sauce ramen.",
+                        "ingredients": ["noodles", "soy sauce broth"],
+                        "description_confirmation": True,
+                        "ingredient_allergen_confirmation": True,
+                        "section": "Ramen",
+                    }
+                ]
+            },
+        ).json()
+        self.client.post(f"/api/qr/{create['job_id']}/sign")
+        approved = self.client.post(f"/api/qr/{create['job_id']}/approve").json()
+        Path(approved["qr_sign_print_ready_pdf"]).unlink()
+
+        health = self.client.get("/api/qr/qr-ramen/health")
+        assert health.status_code == 200
+        assert health.json()["ok"] is False
+        assert "sign_pdf_missing" in health.json()["errors"]
 
 
 # ---------------------------------------------------------------------------
