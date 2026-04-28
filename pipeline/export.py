@@ -198,9 +198,9 @@ async def build_custom_package(
         shutil.copy2(food_html_src, food_html_out)
 
     # Populate with restaurant data
-    if food_svg_out.exists() and menu_data.get("sections"):
+    if food_svg_out.exists():
         populate_menu_svg(template_path=food_svg_out, data=menu_data, output_path=food_svg_out)
-    if food_html_out.exists() and menu_data.get("sections"):
+    if food_html_out.exists():
         populate_menu_html(template_path=food_html_out, data=menu_data, output_path=food_html_out)
 
     # Generate PDF from the populated HTML
@@ -216,8 +216,7 @@ async def build_custom_package(
 
     if drinks_svg_src.exists():
         shutil.copy2(drinks_svg_src, drinks_svg_out)
-        if menu_data.get("sections"):
-            populate_menu_svg(template_path=drinks_svg_out, data=menu_data, output_path=drinks_svg_out)
+        populate_menu_svg(template_path=drinks_svg_out, data=menu_data, output_path=drinks_svg_out)
     if drinks_html_src.exists():
         shutil.copy2(drinks_html_src, drinks_html_out)
         populate_menu_html(template_path=drinks_html_out, data=menu_data, output_path=drinks_html_out)

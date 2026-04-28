@@ -3,8 +3,15 @@ from __future__ import annotations
 import base64
 import json
 import os
+import socket
+import time
 import urllib.request
+from urllib.error import HTTPError, URLError
 from typing import Any
+
+
+class LLMClientError(RuntimeError):
+    """Raised when an LLM request fails after retrying."""
 
 
 def call_llm(
@@ -17,7 +24,6 @@ def call_llm(
     timeout_seconds: int = 30,
 ) -> str:
     """Thin OpenRouter HTTP wrapper. Returns the text response."""
-    url = "https://openrouter.ai/api/v1/chat/completions"
     payload = json.dumps({
         "model": model,
         "messages": [
@@ -26,22 +32,13 @@ def call_llm(
         ],
         "max_tokens": max_tokens,
     }).encode("utf-8")
-
-    request = urllib.request.Request(url, data=payload, headers={
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-        "HTTP-Referer": "https://webrefurb-menu.local",
-    })
-
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        data = json.loads(response.read().decode("utf-8"))
-
-    choices = data.get("choices") or []
-    if not choices:
-        return ""
-
-    message = choices[0].get("message") or {}
-    return str(message.get("content") or "")
+    return _extract_text(
+        _request_openrouter(
+            payload=payload,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+        )
+    )
 
 
 def call_vision(
@@ -60,7 +57,7 @@ def call_vision(
     """
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY not set")
+        raise LLMClientError("OPENROUTER_API_KEY not set")
 
     # Read and encode the image
     with open(image_path, "rb") as f:
@@ -75,7 +72,6 @@ def call_vision(
     }
     mime_type = mime_map.get(ext, "image/jpeg")
 
-    url = "https://openrouter.ai/api/v1/chat/completions"
     payload = json.dumps({
         "model": model,
         "messages": [
@@ -95,19 +91,64 @@ def call_vision(
         ],
         "max_tokens": max_tokens,
     }).encode("utf-8")
+    return _extract_text(
+        _request_openrouter(
+            payload=payload,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+        )
+    )
 
+
+def _request_openrouter(*, payload: bytes, api_key: str, timeout_seconds: int) -> dict[str, Any]:
+    url = "https://openrouter.ai/api/v1/chat/completions"
     request = urllib.request.Request(url, data=payload, headers={
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
         "HTTP-Referer": "https://webrefurb-menu.local",
     })
 
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        data = json.loads(response.read().decode("utf-8"))
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            if attempt < attempts and exc.code in {408, 409, 425, 429, 500, 502, 503, 504}:
+                _sleep_before_retry(attempt)
+                continue
+            raise LLMClientError(f"OpenRouter request failed with HTTP {exc.code}") from exc
+        except (URLError, TimeoutError, socket.timeout) as exc:
+            if attempt < attempts:
+                _sleep_before_retry(attempt)
+                continue
+            raise LLMClientError("OpenRouter request failed after retries") from exc
+        except json.JSONDecodeError as exc:
+            raise LLMClientError("OpenRouter returned invalid JSON") from exc
 
+    raise LLMClientError("OpenRouter request failed after retries")
+
+
+def _extract_text(data: dict[str, Any]) -> str:
     choices = data.get("choices") or []
     if not choices:
-        return ""
+        raise LLMClientError("OpenRouter returned no choices")
 
     message = choices[0].get("message") or {}
-    return str(message.get("content") or "")
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = [
+            str(part.get("text") or "")
+            for part in content
+            if isinstance(part, dict)
+        ]
+        joined = "".join(parts).strip()
+        if joined:
+            return joined
+    raise LLMClientError("OpenRouter returned empty content")
+
+
+def _sleep_before_retry(attempt: int) -> None:
+    time.sleep(0.5 * (2 ** (attempt - 1)))

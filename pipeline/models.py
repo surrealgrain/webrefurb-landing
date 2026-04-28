@@ -195,6 +195,9 @@ class ExtractedItem:
     price: str = ""
     section_hint: str = ""
     japanese_name: str = ""
+    source_text: str = ""
+    source_provenance: str = ""
+    approval_status: str = "pending_review"
 
 
 @dataclass(frozen=True)
@@ -218,6 +221,10 @@ class TranslatedItem:
     price: str = ""
     description: str = ""
     section: str = ""
+    source_text: str = ""
+    source_provenance: str = ""
+    approval_status: str = "pending_review"
+    item_type: str = ""
 
 
 # ---------------------------------------------------------------------------

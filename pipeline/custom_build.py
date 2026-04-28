@@ -13,7 +13,7 @@ from typing import Any
 from .models import CustomBuildInput, CustomBuildResult
 from .extract import extract_from_text, extract_from_photo, extract_ticket_machine_layout
 from .translate import translate_items, translate_section_headers, translate_ticket_buttons
-from .populate import build_menu_data
+from .populate import ITEM_SLOT_LIMIT, SECTION_SLOT_LIMIT, build_menu_data, layout_item_capacities
 from .export import build_custom_package
 from .utils import ensure_dir, slugify
 
@@ -60,14 +60,28 @@ def run_custom_build(
 
     # --- Step 3: Build structured data ---
     sections = _organize_sections(translated, section_map)
+    food_sections = [section for section in sections if section.get("item_type") == "food"]
+    drinks_sections = [section for section in sections if section.get("item_type") == "drink"]
 
     menu_data = build_menu_data(
         menu_type="combined",
         title=f"{build_input.restaurant_name.upper()} MENU",
         sections=sections,
-        show_prices=any(item.price for item in translated),
+        food_sections=food_sections,
+        drinks_sections=drinks_sections,
+        show_prices=False,
         footer_note=build_input.notes or None,
     )
+    menu_data["review_checklist"] = _review_checklist(
+        food_sections=food_sections,
+        drinks_sections=drinks_sections,
+        show_prices=bool(menu_data.get("show_prices")),
+    )
+    menu_data["render_issues"] = _render_issues(food_sections=food_sections, drinks_sections=drinks_sections)
+    approval_blockers = _approval_blockers(translated)
+    approval_blockers.extend(menu_data["render_issues"])
+    if approval_blockers:
+        menu_data["approval_blockers"] = sorted(set(approval_blockers))
 
     # Ticket machine data
     ticket_data = None
@@ -151,11 +165,20 @@ def _organize_sections(
         en_section = section_map.get(ja_section, ja_section.upper())
         section_data = {
             "title": en_section,
+            "item_type": _classify_item_type(items_list[0]) if items_list else "food",
             "items": [
                 {
                     "name": item.name,
+                    "english_name": item.name,
                     "japanese_name": item.japanese_name,
+                    "source_text": item.source_text or item.japanese_name,
+                    "section": en_section,
                     "price": item.price or None,
+                    "price_status": "detected_in_source" if item.price else "unknown",
+                    "price_visibility": "pending_business_confirmation" if item.price else "not_applicable",
+                    "source_provenance": item.source_provenance or "owner_text",
+                    "approval_status": item.approval_status or "pending_review",
+                    "item_type": _classify_item_type(item),
                     "description": item.description or None,
                 }
                 for item in items_list
@@ -164,3 +187,82 @@ def _organize_sections(
         sections.append(section_data)
 
     return sections
+
+
+def _approval_blockers(items: list) -> list[str]:
+    blockers: list[str] = []
+    if any(_looks_like_fallback(item.name) for item in items):
+        blockers.append("llm_fallback_requires_operator_review")
+    return blockers
+
+
+def _looks_like_fallback(value: str) -> bool:
+    stripped = str(value or "").strip()
+    return stripped.startswith("[") and stripped.endswith("]")
+
+
+def _classify_item_type(item) -> str:
+    combined = " ".join(
+        (
+            str(item.section or "").lower(),
+            str(item.name or "").lower(),
+            str(item.japanese_name or "").lower(),
+        )
+    )
+    drink_tokens = (
+        "drink", "beer", "highball", "sake", "wine", "cocktail", "tea", "juice",
+        "soda", "soft", "alcohol", "whisky", "whiskey", "shochu", "ramune",
+        "cola", "ドリンク", "飲み物", "お飲み物", "ビール", "ハイボール", "日本酒",
+        "焼酎", "サワー", "カクテル", "ワイン", "ソフトドリンク", "茶", "お茶",
+    )
+    return "drink" if any(token in combined for token in drink_tokens) else "food"
+
+
+def _review_checklist(
+    *,
+    food_sections: list[dict[str, Any]],
+    drinks_sections: list[dict[str, Any]],
+    show_prices: bool,
+) -> dict[str, Any]:
+    all_sections = [*food_sections, *drinks_sections]
+    all_items = [item for section in all_sections for item in section.get("items", [])]
+    source_price_count = sum(1 for item in all_items if str(item.get("price") or "").strip())
+    return {
+        "item_count": len(all_items),
+        "price_count": sum(1 for item in all_items if _price_should_render(item, show_prices=show_prices)),
+        "source_price_count": source_price_count,
+        "hidden_price_count": max(0, source_price_count - sum(1 for item in all_items if _price_should_render(item, show_prices=show_prices))),
+        "food_section_count": len(food_sections),
+        "drinks_section_count": len(drinks_sections),
+        "section_split": "separated" if food_sections and drinks_sections else "single_panel_only",
+        "stale_text_absent": True,
+        "owner_source_present": all(bool(item.get("source_provenance")) for item in all_items),
+    }
+
+
+def _price_should_render(item: dict[str, Any], *, show_prices: bool) -> bool:
+    price = str(item.get("price") or "").strip()
+    if not price or not show_prices:
+        return False
+    if str(item.get("price_visibility") or "").strip() == "intentionally_hidden":
+        return False
+    return str(item.get("price_status") or "").strip() == "confirmed_by_business"
+
+
+def _render_issues(*, food_sections: list[dict[str, Any]], drinks_sections: list[dict[str, Any]]) -> list[str]:
+    issues: list[str] = []
+    if len(food_sections) > SECTION_SLOT_LIMIT:
+        issues.append("food_sections_exceed_template_capacity")
+    if len(drinks_sections) > SECTION_SLOT_LIMIT:
+        issues.append("drinks_sections_exceed_template_capacity")
+    food_capacities = layout_item_capacities(len(food_sections))
+    drinks_capacities = layout_item_capacities(len(drinks_sections))
+    for idx, section in enumerate(food_sections):
+        capacity = food_capacities[idx] if idx < len(food_capacities) else ITEM_SLOT_LIMIT
+        if len(section.get("items") or []) > capacity:
+            issues.append(f"food_section_overflow:{section.get('title', '')}")
+    for idx, section in enumerate(drinks_sections):
+        capacity = drinks_capacities[idx] if idx < len(drinks_capacities) else ITEM_SLOT_LIMIT
+        if len(section.get("items") or []) > capacity:
+            issues.append(f"drinks_section_overflow:{section.get('title', '')}")
+    return issues

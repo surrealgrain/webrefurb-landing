@@ -100,6 +100,26 @@ def test_create_draft_writes_source_and_public_artifacts(tmp_path):
     assert not (docs_root / "menus" / "_drafts" / job["job_id"] / "qr_sign.html").exists()
 
 
+def test_photo_only_reply_becomes_needs_extraction_not_reviewable_draft(tmp_path):
+    state_root = tmp_path / "state"
+    docs_root = tmp_path / "docs"
+
+    job = create_qr_draft(
+        reply=_reply(tmp_path),
+        state_root=state_root,
+        docs_root=docs_root,
+        payload={},
+    )
+
+    assert job["status"] == "needs_extraction"
+    assert job["extraction_required"] is True
+    assert job["validation"]["errors"] == ["structured_menu_items_required"]
+    assert not (docs_root / "menus" / "_drafts" / job["job_id"] / "index.html").exists()
+    source = json.loads((state_root / "qr_menus" / "hinode-ramen" / "versions" / job["version_id"] / "source.json").read_text())
+    assert source["status"] == "needs_extraction"
+    assert source["items"] == []
+
+
 def test_publish_creates_immutable_version_and_stable_live_url(tmp_path):
     state_root = tmp_path / "state"
     docs_root = tmp_path / "docs"

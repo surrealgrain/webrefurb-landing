@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -48,3 +50,16 @@ def slugify(value: str) -> str:
     lowered = value.strip().lower()
     cleaned = re.sub(r"[^a-z0-9]+", "-", lowered)
     return cleaned.strip("-") or "lead"
+
+
+def load_project_env(env_path: Path | None = None) -> bool:
+    """Load the project's .env file when python-dotenv is available."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return False
+
+    target = env_path or (PROJECT_ROOT / ".env")
+    if not target.exists():
+        return False
+    return bool(load_dotenv(target))

@@ -5,8 +5,12 @@ import json
 import sys
 from pathlib import Path
 
+from .utils import load_project_env, slugify
+
 
 def main() -> None:
+    load_project_env()
+
     parser = argparse.ArgumentParser(description="WebRefurbMenu pipeline CLI")
     sub = parser.add_subparsers(dest="command")
 
@@ -68,6 +72,10 @@ def main() -> None:
     build_cmd.add_argument("--ticket-photo", default=None, help="Ticket machine photo path")
     build_cmd.add_argument("--notes", default="", help="Additional notes")
     build_cmd.add_argument("--output", default=None, help="Output directory")
+
+    backup_cmd = sub.add_parser("backup-state", help="Archive operational state directories")
+    backup_cmd.add_argument("--state-root", default=None, help="Override state root")
+    backup_cmd.add_argument("--output", default=None, help="Write backup ZIP to this path")
 
     args = parser.parse_args()
 
@@ -248,7 +256,6 @@ def main() -> None:
 
     elif args.command == "build":
         from .custom_build import run_custom_build, CustomBuildInput
-        from .utils import ensure_dir
         from pathlib import Path as _P
 
         output_dir = _P(args.output) if args.output else _P("state/builds") / slugify(args.name)
@@ -275,6 +282,17 @@ def main() -> None:
         except Exception as exc:
             print(json.dumps({"error": str(exc)}, indent=2, ensure_ascii=False))
             sys.exit(1)
+
+    elif args.command == "backup-state":
+        from pathlib import Path as _P
+
+        from .backup import backup_state
+
+        result = backup_state(
+            state_root=_P(args.state_root) if args.state_root else None,
+            output_path=_P(args.output) if args.output else None,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
 
     else:
         parser.print_help()

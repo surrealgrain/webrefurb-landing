@@ -5,8 +5,8 @@ Japan only. Ramen + izakaya only. Three fixed-price packages.
 
 ## Quick Commands
 
-- `python -m pytest tests/ -v` — run pipeline tests
-- `python -m pipeline.cli <command>` — CLI entry point
+- `.venv/bin/python -m pytest tests/ -v` — run pipeline tests
+- `.venv/bin/python -m pipeline.cli <command>` — CLI entry point
 
 ## Scope
 
@@ -20,3 +20,4 @@ Japan only. Ramen + izakaya only. Three fixed-price packages.
 - Binary lead semantics: `lead: true|false`, never "maybe"
 - Customer-facing copy never mentions AI, automation, or internal tools
 - Preview is illustrative only — production uses owner's photos
+- Follow `PLAN.md` exactly for product hardening work. Do not skip phase gates or begin real outreach before the plan allows it.

@@ -1,5 +1,7 @@
 # WebRefurb Outreach Launch Checklist
 
+Real outreach remains frozen until the `P6` exit gate in `PLAN.md` is complete. Treat this checklist as the send-day procedure for later, not permission to start early.
+
 ## Pre-Send Checks
 
 - Confirm `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_FROM_NAME`, and optional `RESEND_REPLY_TO_EMAIL` are set.
@@ -7,7 +9,7 @@
 - Confirm the recipient email, restaurant name, website, address, menu evidence URLs, and status.
 - Send one test email to your own inbox and check subject, sender name, reply-to, footer link, inline images, and PDF attachment names.
 - Confirm the email footer visibly shows `webrefurb.com` and links to `https://webrefurb.com/ja`.
-- Do not send machine-only leads. Leave them as `needs_review`.
+- Do not force machine-only or no-email leads into the email flow. Keep them in the appropriate review/manual-contact state until the matching outreach path is ready.
 
 ## First 5 To 10 Email Batch
 
@@ -51,6 +53,7 @@
 ## Backup And Export
 
 - Back up the `state/` directory before the first real batch and after every outreach session.
+- Run `.venv/bin/python -m pipeline.cli backup-state` before the first real batch and after every outreach session.
 - Keep copies of `state/leads/`, `state/sent/`, `state/jobs/`, and `state/uploads/` if custom builds were created.
 - Export lead and sent records before any large cleanup.
 - Keep `.env` out of git and never share it in screenshots or logs.
