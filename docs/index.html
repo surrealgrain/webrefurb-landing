@@ -350,7 +350,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 16px;
+  padding: 9px 14px;
   background: transparent;
   color: var(--text-secondary);
   font-family: 'DM Sans', sans-serif;
@@ -1385,6 +1385,27 @@ a:focus-visible {
   .glass-card__body {
     font-size: 14px;
   }
+
+  .pricing-modal {
+    padding: 12px;
+  }
+
+  .pricing-modal__panel {
+    max-height: calc(100vh - 24px);
+  }
+
+  .pricing-modal__header {
+    padding: 22px 20px 16px;
+    flex-direction: column;
+  }
+
+  .pricing-modal__body {
+    padding: 18px 20px 22px;
+  }
+
+  .pricing-modal__grid {
+    grid-template-columns: 1fr;
+  }
   
   .footer__content {
     flex-direction: column;
@@ -1436,7 +1457,6 @@ a:focus-visible {
       </svg>
     </button>
     <div class="cta-stack">
-      <a class="btn-outline" href="/pricing.html">Pricing</a>
       <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20sample&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20sample%20English%20menu.%0A%0ARestaurant%20name%3A%20%0ALocation%3A%20%0A%0AThanks%2C">
         Request a free sample
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1444,7 +1464,7 @@ a:focus-visible {
         </svg>
       </a>
       <button class="btn-pricing-modal" id="pricingModalBtn" type="button">
-        View pricing packages
+        Pricing
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>

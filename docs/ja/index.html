@@ -332,7 +332,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 16px;
+  padding: 9px 14px;
   background: transparent;
   color: var(--text-secondary);
   font-family: 'Noto Sans JP', 'DM Sans', sans-serif;
@@ -1368,6 +1368,27 @@ a:focus-visible {
     font-size: 14px;
   }
 
+  .pricing-modal {
+    padding: 12px;
+  }
+
+  .pricing-modal__panel {
+    max-height: calc(100vh - 24px);
+  }
+
+  .pricing-modal__header {
+    padding: 22px 20px 16px;
+    flex-direction: column;
+  }
+
+  .pricing-modal__body {
+    padding: 18px 20px 22px;
+  }
+
+  .pricing-modal__grid {
+    grid-template-columns: 1fr;
+  }
+  
   .footer__content {
     flex-direction: column;
     align-items: flex-start;
@@ -1418,9 +1439,8 @@ a:focus-visible {
       </svg>
     </button>
     <div class="cta-stack">
-      <a class="btn-outline" href="/ja/pricing.html">料金</a>
       <button class="btn-pricing-modal" id="pricingModalBtn" type="button">
-        料金を見る
+        料金
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
