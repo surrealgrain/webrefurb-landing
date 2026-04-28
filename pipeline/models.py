@@ -92,6 +92,8 @@ class QualificationResult:
             "lead_score_v1": self.lead_score_v1,
             "recommended_primary_package": self.recommended_primary_package,
             "evidence_classes": self.evidence_classes,
+            "evidence_urls": self.evidence_urls,
+            "evidence_snippets": self.evidence_snippets,
             "menu_evidence_found": self.menu_evidence_found,
             "machine_evidence_found": self.machine_evidence_found,
             "evidence_strength_score": self.evidence_strength_score,

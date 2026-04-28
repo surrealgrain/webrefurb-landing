@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .constants import PACKAGE_A_PRICE_YEN, PACKAGE_B_PRICE_YEN
+from .constants import PACKAGE_1_PRICE_YEN, PACKAGE_2_PRICE_YEN, PACKAGE_3_PRICE_YEN
 
 
 # ---------------------------------------------------------------------------
@@ -11,8 +11,9 @@ SHORT_VERSION = (
     "so foreign customers can order with confidence. "
     "We translate your food menu, drink menu, and ticket-machine buttons into English, "
     "keeping the same layout and structure you already use. "
-    f"Two options: ¥{PACKAGE_B_PRICE_YEN:,} for print-ready digital files, "
-    f"or ¥{PACKAGE_A_PRICE_YEN:,} where we print, laminate, and deliver everything to your shop. "
+    f"Packages start at ¥{PACKAGE_1_PRICE_YEN:,} for online delivery, "
+    f"¥{PACKAGE_2_PRICE_YEN:,} for printed and delivered menus, "
+    f"or ¥{PACKAGE_3_PRICE_YEN:,} for a hosted QR menu system. "
     "You just send us photos of your current menu."
 )
 
@@ -30,19 +31,18 @@ What we deliver:
 - English guide for your ticket machine (if you have one), matching the exact button layout
 - Layout that follows your original Japanese menu structure — not a redesign, just a clear English version
 
-Two packages:
+Three packages:
 
-|  | Remote | In-Person |
-|---|---|---|
-| Price | ¥{PACKAGE_B_PRICE_YEN:,} | ¥{PACKAGE_A_PRICE_YEN:,} |
-| Translation | Yes | Yes |
-| Ticket-machine guide | Yes | Yes |
-| Layout matching original | Yes | Yes |
-| Print-ready PDF + images | Yes | Yes |
-| Printed + laminated | — | Yes |
-| Delivered to your shop | — | Yes |
+|  | Online Delivery | Printed and Delivered | QR Menu System |
+|---|---|---|---|
+| Price | ¥{PACKAGE_1_PRICE_YEN:,} | ¥{PACKAGE_2_PRICE_YEN:,} | ¥{PACKAGE_3_PRICE_YEN:,} |
+| Translation | Yes | Yes | Yes |
+| Layout matching original | Yes | Yes | Hosted page |
+| Print-ready PDF + images | Yes | Yes | QR sign |
+| Printed + laminated | — | Yes | — |
+| Delivered to your shop | — | Yes | — |
 
-What's included in the base price: One food menu, one drink menu, one ticket-machine guide. For very large menus or multiple menu sets, we'll provide a separate quote. Future menu updates are handled as separate work.
+What's included in the base price: One food menu, one drink menu, one ticket-machine guide where applicable, or one hosted QR menu. Very large menus, multiple menu sets, or oversized print needs are quoted separately. Future menu updates are handled as separate work.
 
 How it works: You send us photos or PDFs of your current menu and ticket machine. We do the rest."""
 
@@ -70,20 +70,25 @@ What we do NOT do:
 
 Packages:
 
-Remote Package — ¥{PACKAGE_B_PRICE_YEN:,}:
+Online Delivery — ¥{PACKAGE_1_PRICE_YEN:,}:
 - All translations and layout work listed above
 - Delivered as print-ready PDF and image files (PNG/JPEG)
 - The shop is responsible for printing and laminating
 
-In-Person Package — ¥{PACKAGE_A_PRICE_YEN:,}:
-- Everything in the Remote package, plus:
+Printed and Delivered — ¥{PACKAGE_2_PRICE_YEN:,}:
+- Everything in the Online Delivery package, plus:
 - Professional printing of all materials
 - Lamination for durability
 - Local delivery directly to the shop
 - Materials arrive ready to use
 
+QR Menu System — ¥{PACKAGE_3_PRICE_YEN:,}:
+- Hosted English menu page
+- QR code and printable QR sign
+- Published only after restaurant details are reviewed
+
 Scope boundaries:
-- Base price covers: one food menu, one drink menu, one ticket-machine guide
+- Base price covers: one food menu, one drink menu, one ticket-machine guide where applicable, or one hosted QR menu
 - Very large menus, multiple menu sets, or additional materials may require a separate quote — handled case by case
 - Menu updates after initial delivery are separate paid work
 - No subscriptions, no revision entitlements, no ongoing commitments

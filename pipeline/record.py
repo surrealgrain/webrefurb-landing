@@ -144,7 +144,11 @@ def create_lead_record(
 
         # Source tracking
         "source_query": source_query,
-        "source_urls": {},
+        "source_urls": {
+            "website": qualification.website,
+            "map_url": qualification.map_url,
+            "evidence_urls": qualification.evidence_urls,
+        },
 
         # Binary lead decision
         "lead": qualification.lead,
@@ -160,6 +164,9 @@ def create_lead_record(
 
         # Evidence
         "evidence_classes": qualification.evidence_classes,
+        "evidence_urls": qualification.evidence_urls,
+        "evidence_snippets": qualification.evidence_snippets,
+        "image_locked_evidence": qualification.image_locked_evidence,
         "menu_evidence_found": qualification.menu_evidence_found,
         "machine_evidence_found": qualification.machine_evidence_found,
         "evidence_strength_score": qualification.evidence_strength_score,

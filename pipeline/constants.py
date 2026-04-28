@@ -34,12 +34,52 @@ EXCLUDED_BUSINESS_TOKENS = (
 # ---------------------------------------------------------------------------
 # Packages
 # ---------------------------------------------------------------------------
-PACKAGE_A_KEY = "package_A_in_person_48k"
-PACKAGE_B_KEY = "package_B_remote_30k"
-PACKAGE_A_PRICE_YEN = 48000
-PACKAGE_B_PRICE_YEN = 30000
-PACKAGE_A_LABEL = "In-Person Delivery (printed + laminated)"
-PACKAGE_B_LABEL = "Remote Delivery (print-ready PDF + images)"
+PACKAGE_1_KEY = "package_1_remote_30k"
+PACKAGE_2_KEY = "package_2_printed_delivered_45k"
+PACKAGE_3_KEY = "package_3_qr_menu_65k"
+
+PACKAGE_1_PRICE_YEN = 30000
+PACKAGE_2_PRICE_YEN = 45000
+PACKAGE_3_PRICE_YEN = 65000
+
+PACKAGE_1_LABEL = "Online Delivery"
+PACKAGE_2_LABEL = "Printed and Delivered"
+PACKAGE_3_LABEL = "QR Menu System"
+
+PACKAGE_REGISTRY: dict[str, dict[str, Any]] = {
+    PACKAGE_1_KEY: {
+        "key": PACKAGE_1_KEY,
+        "number": 1,
+        "label": PACKAGE_1_LABEL,
+        "price_yen": PACKAGE_1_PRICE_YEN,
+        "workflow": "remote_delivery",
+        "description": "Print-ready English menu files delivered online.",
+    },
+    PACKAGE_2_KEY: {
+        "key": PACKAGE_2_KEY,
+        "number": 2,
+        "label": PACKAGE_2_LABEL,
+        "price_yen": PACKAGE_2_PRICE_YEN,
+        "workflow": "printed_delivered",
+        "description": "Printed and laminated menus delivered to the restaurant.",
+    },
+    PACKAGE_3_KEY: {
+        "key": PACKAGE_3_KEY,
+        "number": 3,
+        "label": PACKAGE_3_LABEL,
+        "price_yen": PACKAGE_3_PRICE_YEN,
+        "workflow": "qr_menu",
+        "description": "Hosted English menu page with QR code and printable QR sign.",
+    },
+}
+
+# Backward-compatible aliases for older scoring/outreach modules.
+PACKAGE_A_KEY = PACKAGE_2_KEY
+PACKAGE_B_KEY = PACKAGE_1_KEY
+PACKAGE_A_PRICE_YEN = PACKAGE_2_PRICE_YEN
+PACKAGE_B_PRICE_YEN = PACKAGE_1_PRICE_YEN
+PACKAGE_A_LABEL = PACKAGE_2_LABEL
+PACKAGE_B_LABEL = PACKAGE_1_LABEL
 
 # ---------------------------------------------------------------------------
 # Lead categories (ramen + izakaya only)

@@ -188,6 +188,16 @@ class TestSentExclusion:
         assert len(leads) == 1
         assert leads[0]["outreach_status"] == "sent"
 
+    def test_evidence_urls_are_persisted_for_review(self, tmp_state):
+        qual = _make_qual()
+        object.__setattr__(qual, "evidence_urls", ["https://test-ramen.com/menu"])
+        object.__setattr__(qual, "evidence_snippets", ["メニュー 醤油ラーメン 900円"])
+        record = _persist(qual, tmp_state)
+
+        assert record["evidence_urls"] == ["https://test-ramen.com/menu"]
+        assert record["source_urls"]["evidence_urls"] == ["https://test-ramen.com/menu"]
+        assert record["evidence_snippets"] == ["メニュー 醤油ラーメン 900円"]
+
 
 # ---------------------------------------------------------------------------
 # Send safety guards (tested via outreach module)
@@ -217,6 +227,7 @@ class TestSendSafetyGuards:
         the status update line ever runs.
         """
         import inspect
+        pytest.importorskip("fastapi")
         from dashboard.app import api_send
         source = inspect.getsource(api_send)
         # The send call is inside a try block; status update comes after

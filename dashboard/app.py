@@ -7,6 +7,7 @@ outreach generation, and custom build workflow.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -95,6 +96,7 @@ def _normalise_body(text: str) -> str:
 DASHBOARD_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = DASHBOARD_ROOT.parent
 STATE_ROOT = PROJECT_ROOT / "state"
+QR_DOCS_ROOT = PROJECT_ROOT / "docs"
 
 # Load .env
 from dotenv import load_dotenv
@@ -125,6 +127,22 @@ async def dashboard_email_logo():
     if not logo.exists():
         raise HTTPException(status_code=404, detail="Logo asset not found")
     return FileResponse(str(logo), media_type="image/svg+xml")
+
+
+@app.get("/menus/{asset_path:path}", include_in_schema=False)
+async def dashboard_qr_menu_asset(asset_path: str):
+    """Serve generated QR menu draft/live files during local dashboard review."""
+    root = (QR_DOCS_ROOT / "menus").resolve()
+    path = (root / asset_path).resolve()
+    if path.is_dir():
+        path = path / "index.html"
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="QR menu asset not found")
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="QR menu asset not found")
+    return FileResponse(str(path))
 
 # ---------------------------------------------------------------------------
 # Build job tracking (in-memory)
@@ -229,30 +247,64 @@ async def api_delete_lead(lead_id: str):
 async def api_search(request: Request):
     """Search for businesses, qualify them, and add leads."""
     body = await request.json()
-    query = body.get("query", "").strip()
     category = body.get("category", "ramen")
-    if not query:
-        raise HTTPException(status_code=400, detail="Query required")
+    city = body.get("city", "").strip()
 
     serper_api_key = os.environ.get("SERPER_API_KEY", "")
     if not serper_api_key:
         raise HTTPException(status_code=500, detail="SERPER_API_KEY not configured")
 
+    from pipeline.search_scope import search_query_for_scope, search_jobs_for_scope, merge_search_results
+
+    query = search_query_for_scope(category=category, city=city)
     _log("search_started", f"query={query[:80]} category={category}")
+
+    from pipeline.record import list_leads
+    existing_actionable_ids = {
+        lead.get("lead_id")
+        for lead in list_leads(state_root=STATE_ROOT)
+        if lead.get("lead") is True and _has_business_email(lead)
+    }
 
     from pipeline.search import search_and_qualify
     import concurrent.futures
     loop = asyncio.get_running_loop()
+
+    search_jobs = search_jobs_for_scope(category=category, city=city, query=query)
     with concurrent.futures.ThreadPoolExecutor() as pool:
-        result = await loop.run_in_executor(
-            pool,
-            lambda: search_and_qualify(
-                query=query,
-                serper_api_key=serper_api_key,
-                category=category,
-                state_root=STATE_ROOT,
-            ),
-        )
+        raw_results = await asyncio.gather(*[
+            loop.run_in_executor(
+                pool,
+                lambda job=job: search_and_qualify(
+                    query=job["query"],
+                    serper_api_key=serper_api_key,
+                    category=job["category"],
+                    state_root=STATE_ROOT,
+                ),
+            )
+            for job in search_jobs
+        ])
+
+    result = merge_search_results(raw_results, query=query, category=category)
+
+    actionable_leads = [
+        lead for lead in list_leads(state_root=STATE_ROOT)
+        if lead.get("lead") is True and _has_business_email(lead)
+    ]
+    new_actionable_ids = [
+        lead.get("lead_id")
+        for lead in actionable_leads
+        if lead.get("lead_id") not in existing_actionable_ids
+    ]
+    pipeline_added_count = int(result.get("leads") or 0)
+    result["pipeline_reported_leads"] = pipeline_added_count
+    result["leads"] = len(new_actionable_ids)
+    result["added_lead_ids"] = new_actionable_ids
+    if pipeline_added_count != result["leads"]:
+        result["email_reachability_mismatch"] = {
+            "pipeline_reported_leads": pipeline_added_count,
+            "saved_email_reachable_leads": result["leads"],
+        }
 
     duplicate_count = sum(
         1 for decision in result.get("decisions", [])
@@ -697,6 +749,16 @@ async def api_incoming_reply(lead_id: str, request: Request):
 
     body = await request.json()
     reply_text = body.get("body", "")
+    channel = _normalise_reply_channel(body.get("channel") or body.get("source") or "email")
+    incoming = _save_incoming_reply(
+        lead_id=lead_id,
+        channel=channel,
+        body=reply_text,
+        from_email=body.get("from", "") or body.get("from_email", ""),
+        subject=body.get("subject", ""),
+        business_name=record.get("business_name", ""),
+        attachments=body.get("attachments") or body.get("files") or body.get("images"),
+    )
 
     # Check for opt-out tokens in the reply
     opted_out = False
@@ -716,9 +778,108 @@ async def api_incoming_reply(lead_id: str, request: Request):
         })
         persist_lead_record(record, state_root=STATE_ROOT)
         _log("opt_out_detected", lead_id=lead_id)
-        return {"status": "opted_out", "outreach_status": OUTREACH_STATUS_DO_NOT_CONTACT}
+        return {
+            "status": "opted_out",
+            "outreach_status": OUTREACH_STATUS_DO_NOT_CONTACT,
+            "reply_id": incoming["reply_id"],
+            "channel": channel,
+        }
 
-    return {"status": "ok", "outreach_status": record.get("outreach_status")}
+    return {
+        "status": "ok",
+        "outreach_status": record.get("outreach_status"),
+        "reply_id": incoming["reply_id"],
+        "channel": channel,
+    }
+
+
+@app.get("/api/replies")
+async def api_replies(channel: str | None = None):
+    """Return incoming replies, grouped by e-mail or contact form."""
+    selected_channel = _normalise_reply_channel(channel) if channel else ""
+    replies = _list_incoming_replies(channel=selected_channel)
+    all_replies = _list_incoming_replies()
+    counts = {
+        "email_unread": sum(1 for reply in all_replies if reply.get("channel") == "email" and not reply.get("read_at")),
+        "form_unread": sum(1 for reply in all_replies if reply.get("channel") == "form" and not reply.get("read_at")),
+        "email_total": sum(1 for reply in all_replies if reply.get("channel") == "email"),
+        "form_total": sum(1 for reply in all_replies if reply.get("channel") == "form"),
+    }
+    return {"replies": replies, "counts": counts}
+
+
+@app.get("/api/qr-menus")
+async def api_qr_menus():
+    """List live/draft QR menus for the operator dashboard."""
+    records: list[dict[str, Any]] = []
+    root = STATE_ROOT / "qr_menus"
+    if not root.exists():
+        return {"menus": []}
+
+    for record_path in sorted(root.glob("*/menu_record.json")):
+        try:
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        menu_id = str(record.get("menu_id") or record_path.parent.name)
+        manifest_path = QR_DOCS_ROOT / "menus" / menu_id / "manifest.json"
+        manifest: dict[str, Any] = {}
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                manifest = {}
+        health_path = STATE_ROOT / "qr_health" / f"{menu_id}.json"
+        health: dict[str, Any] = {}
+        if health_path.exists():
+            try:
+                health = json.loads(health_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                health = {}
+        audit_path = STATE_ROOT / "qr_menus" / menu_id / "audit_log.jsonl"
+        audit: list[dict[str, Any]] = []
+        if audit_path.exists():
+            for line in audit_path.read_text(encoding="utf-8").splitlines()[-8:]:
+                try:
+                    audit.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        records.append({
+            **record,
+            "menu_id": menu_id,
+            "live_url": f"https://webrefurb.com/menus/{menu_id}/" if manifest.get("current_version") else "",
+            "current_version": manifest.get("current_version", ""),
+            "versions": manifest.get("versions", record.get("versions", [])),
+            "status": manifest.get("status", "draft"),
+            "health": health,
+            "audit": audit,
+        })
+    return {"menus": records}
+
+
+@app.get("/api/packages")
+async def api_packages():
+    """Return the finalized paid package registry."""
+    from pipeline.package_export import package_registry
+
+    return {"packages": package_registry()}
+
+
+@app.get("/api/builds")
+async def api_builds():
+    """Return custom build history for package review."""
+    from pipeline.package_export import get_build_history
+
+    return get_build_history(state_root=STATE_ROOT)
+
+
+@app.post("/api/replies/mark-read")
+async def api_mark_replies_read(request: Request):
+    """Mark incoming replies read for one channel."""
+    body = await request.json()
+    channel = _normalise_reply_channel(body.get("channel", "email"))
+    updated = _mark_replies_read(channel)
+    return {"status": "ok", "channel": channel, "updated": updated}
 
 
 @app.post("/api/flag-dnc/{lead_id}")
@@ -776,10 +937,19 @@ async def api_build(
     name: str = Form(...),
     menu_text: str = Form(""),
     notes: str = Form(""),
+    lead_id: str = Form(""),
+    reply_id: str = Form(""),
+    source: str = Form(""),
+    package_key: str = Form("package_1_remote_30k"),
     menu_photos: list[UploadFile] = File(default=[]),
     ticket_photo: UploadFile | None = File(default=None),
 ):
     """Accept custom build form data and start build job."""
+    from pipeline.constants import PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_REGISTRY
+
+    if package_key not in {PACKAGE_1_KEY, PACKAGE_2_KEY}:
+        raise HTTPException(status_code=422, detail="Unsupported custom build package")
+
     job_id = str(uuid.uuid4())[:8]
     job_dir = STATE_ROOT / "uploads" / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -792,6 +962,17 @@ async def api_build(
             content = await photo.read()
             dest.write_bytes(content)
             photo_paths.append(str(dest))
+
+    if reply_id:
+        for stored_path in _stored_reply_photo_paths(reply_id):
+            if stored_path not in photo_paths:
+                photo_paths.append(stored_path)
+
+    if reply_id and not photo_paths:
+        raise HTTPException(
+            status_code=400,
+            detail="No stored reply photos were available for this build.",
+        )
 
     ticket_path: str | None = None
     if ticket_photo and ticket_photo.filename:
@@ -806,6 +987,12 @@ async def api_build(
         "restaurant_name": name,
         "menu_text": menu_text,
         "notes": notes,
+        "lead_id": lead_id,
+        "reply_id": reply_id,
+        "source": source,
+        "package_key": package_key,
+        "package_label": PACKAGE_REGISTRY[package_key]["label"],
+        "price_yen": PACKAGE_REGISTRY[package_key]["price_yen"],
         "photo_paths": photo_paths,
         "ticket_path": ticket_path,
         "status": "pending",
@@ -845,7 +1032,7 @@ async def api_build_preview(job_id: str):
         meta_path = STATE_ROOT / "jobs" / f"{job_id}.json"
         if meta_path.exists():
             job = json.loads(meta_path.read_text(encoding="utf-8"))
-    if not job or job.get("status") != "completed":
+    if not job or job.get("status") not in {"ready_for_review", "completed"}:
         raise HTTPException(status_code=404, detail="Preview not available")
 
     output_dir = Path(job.get("output_dir", ""))
@@ -856,6 +1043,227 @@ async def api_build_preview(job_id: str):
         raise HTTPException(status_code=404, detail="Preview file not found")
 
     return FileResponse(str(preview_path), media_type="text/html")
+
+
+@app.get("/api/build/{job_id}/review")
+async def api_build_review(job_id: str):
+    """Return package review metadata and validation for a build."""
+    from pipeline.package_export import PackageExportError, get_package_review
+
+    try:
+        return get_package_review(state_root=STATE_ROOT, job_id=job_id)
+    except PackageExportError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/api/build/{job_id}/approve")
+async def api_build_approve(job_id: str, request: Request):
+    """Approve package review and create the final customer export."""
+    from pipeline.package_export import PackageExportError, approve_package_export
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    try:
+        result = approve_package_export(
+            state_root=STATE_ROOT,
+            job_id=job_id,
+            package_key=str((body or {}).get("package_key") or ""),
+            delivery_details=body if isinstance(body, dict) else {},
+        )
+    except PackageExportError as exc:
+        status_code = 404 if "not found" in str(exc).lower() else 422
+        raise HTTPException(status_code=status_code, detail=str(exc))
+
+    meta_path = STATE_ROOT / "jobs" / f"{job_id}.json"
+    if meta_path.exists():
+        _build_jobs[job_id] = json.loads(meta_path.read_text(encoding="utf-8"))
+    _log(f"{result.get('package_key', 'package')}_approved", lead_id=job_id)
+    return result
+
+
+@app.get("/api/build/{job_id}/download")
+async def api_build_download(job_id: str):
+    """Download the approved Package 1 final export."""
+    job = _build_jobs.get(job_id)
+    if not job:
+        meta_path = STATE_ROOT / "jobs" / f"{job_id}.json"
+        if meta_path.exists():
+            job = json.loads(meta_path.read_text(encoding="utf-8"))
+    if not job:
+        raise HTTPException(status_code=404, detail="Build job not found")
+    if job.get("review_status") != "approved" or job.get("final_export_status") != "ready":
+        raise HTTPException(status_code=409, detail="Package export is not approved yet")
+    export_path = Path(str(job.get("final_export_path") or ""))
+    if not export_path.exists() or not export_path.is_file():
+        raise HTTPException(status_code=404, detail="Final export file not found")
+    return FileResponse(
+        str(export_path),
+        media_type="application/zip",
+        filename=export_path.name,
+    )
+
+
+@app.get("/api/build/{job_id}/{asset_path:path}", include_in_schema=False)
+async def api_build_asset(job_id: str, asset_path: str):
+    """Serve generated build assets referenced by the preview HTML."""
+    job = _build_jobs.get(job_id)
+    if not job:
+        meta_path = STATE_ROOT / "jobs" / f"{job_id}.json"
+        if meta_path.exists():
+            job = json.loads(meta_path.read_text(encoding="utf-8"))
+    if not job or job.get("status") not in {"ready_for_review", "completed"}:
+        raise HTTPException(status_code=404, detail="Build asset not available")
+
+    output_dir = Path(job.get("output_dir", "")).resolve()
+    path = (output_dir / asset_path).resolve()
+    try:
+        path.relative_to(output_dir)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Build asset not found")
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Build asset not found")
+    return FileResponse(str(path))
+
+
+@app.post("/api/qr/{reply_id}")
+async def api_create_qr(reply_id: str, request: Request):
+    """Create a versioned QR menu draft from a QR-ready reply."""
+    from pipeline.qr import QRMenuError, create_qr_draft
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    reply = _load_incoming_reply(reply_id)
+    if not reply:
+        raise HTTPException(status_code=404, detail="Reply not found")
+    try:
+        return create_qr_draft(
+            reply=reply,
+            state_root=STATE_ROOT,
+            docs_root=QR_DOCS_ROOT,
+            payload=body if isinstance(body, dict) else {},
+        )
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.get("/api/qr/{job_id}/status")
+async def api_qr_status(job_id: str):
+    from pipeline.qr import get_qr_job
+
+    job = get_qr_job(state_root=STATE_ROOT, job_id=job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="QR job not found")
+    return job
+
+
+@app.get("/api/qr/{job_id}/review")
+async def api_qr_review(job_id: str):
+    from pipeline.qr import QRMenuError, get_qr_review
+
+    try:
+        return get_qr_review(state_root=STATE_ROOT, docs_root=QR_DOCS_ROOT, job_id=job_id)
+    except QRMenuError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/api/qr/{job_id}/sign")
+async def api_qr_sign(job_id: str):
+    from pipeline.qr import QRMenuError, create_qr_sign
+
+    try:
+        return create_qr_sign(state_root=STATE_ROOT, docs_root=QR_DOCS_ROOT, job_id=job_id)
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/api/qr/{job_id}/publish")
+async def api_qr_publish(job_id: str):
+    from pipeline.qr import QRMenuError, publish_qr_job
+
+    try:
+        return publish_qr_job(state_root=STATE_ROOT, docs_root=QR_DOCS_ROOT, job_id=job_id)
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/api/qr/{job_id}/approve")
+async def api_qr_approve(job_id: str):
+    from pipeline.qr import QRMenuError, approve_qr_package
+
+    try:
+        return approve_qr_package(state_root=STATE_ROOT, docs_root=QR_DOCS_ROOT, job_id=job_id)
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.get("/api/qr/{job_id}/download")
+async def api_qr_download(job_id: str):
+    from pipeline.qr import get_qr_job
+
+    job = get_qr_job(state_root=STATE_ROOT, job_id=job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="QR job not found")
+    if job.get("review_status") != "approved" or job.get("final_export_status") != "ready":
+        raise HTTPException(status_code=409, detail="QR package export is not approved yet")
+    export_path = Path(str(job.get("final_export_path") or ""))
+    if not export_path.exists() or not export_path.is_file():
+        raise HTTPException(status_code=404, detail="Final export file not found")
+    return FileResponse(
+        str(export_path),
+        media_type="application/zip",
+        filename=export_path.name,
+    )
+
+
+@app.post("/api/qr/{menu_id}/draft")
+async def api_qr_edit_draft(menu_id: str, request: Request):
+    from pipeline.qr import QRMenuError, create_edit_draft
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    try:
+        return create_edit_draft(
+            state_root=STATE_ROOT,
+            docs_root=QR_DOCS_ROOT,
+            menu_id=menu_id,
+            payload=body if isinstance(body, dict) else {},
+        )
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/api/qr/{menu_id}/rollback")
+async def api_qr_rollback(menu_id: str, request: Request):
+    from pipeline.qr import QRMenuError, rollback_qr_menu
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    try:
+        return rollback_qr_menu(
+            state_root=STATE_ROOT,
+            docs_root=QR_DOCS_ROOT,
+            menu_id=menu_id,
+            version_id=str((body or {}).get("version_id") or ""),
+        )
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.get("/api/qr/{menu_id}/health")
+async def api_qr_health(menu_id: str):
+    from pipeline.qr import check_qr_health
+
+    return check_qr_health(state_root=STATE_ROOT, docs_root=QR_DOCS_ROOT, menu_id=menu_id)
 
 
 # ---------------------------------------------------------------------------
@@ -888,10 +1296,32 @@ async def _run_build_job(job_id: str, meta: dict[str, Any]) -> None:
                 lambda: run_custom_build(build_input, output_dir=output_dir),
             )
 
-        meta["status"] = "completed"
+        from pipeline.package_export import (
+            REVIEW_STATUS_PENDING,
+            validate_package_output,
+        )
+
+        meta["status"] = "ready_for_review"
+        meta["review_status"] = REVIEW_STATUS_PENDING
+        meta["final_export_status"] = ""
         meta["output_dir"] = str(result.output_dir)
+        meta["artifacts"] = {
+            "food_pdf": str(result.food_pdf) if result.food_pdf else "",
+            "drinks_pdf": str(result.drinks_pdf) if result.drinks_pdf else "",
+            "combined_pdf": str(result.combined_pdf) if result.combined_pdf else "",
+            "ticket_machine_pdf": str(result.ticket_machine_pdf) if result.ticket_machine_pdf else "",
+            "menu_json": str(result.menu_json) if result.menu_json else "",
+        }
+        meta["package_validation"] = validate_package_output(
+            output_dir=result.output_dir,
+            package_key=meta.get("package_key", ""),
+        )
         meta["completed_at"] = datetime.now(timezone.utc).isoformat()
-        _log("build_completed", lead_id=job_id)
+        meta.setdefault("status_history", []).append({
+            "status": "ready_for_review",
+            "timestamp": meta["completed_at"],
+        })
+        _log("build_ready_for_review", lead_id=job_id)
 
     except Exception as exc:
         meta["status"] = "failed"
@@ -1049,3 +1479,255 @@ def _save_sent_email(
     path = sent_dir / f"{lead_id}_{ts}.json"
     from pipeline.utils import write_json
     write_json(path, record)
+
+
+def _normalise_reply_channel(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    if raw in {"form", "forms", "contact_form", "contact-form", "webform", "website_form"}:
+        return "form"
+    return "email"
+
+
+def _attachment_is_image(attachment: dict[str, str]) -> bool:
+    image_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"}
+    content_type = str(attachment.get("content_type") or "").lower()
+    filename = str(attachment.get("filename") or "").lower()
+    return content_type.startswith("image/") or Path(filename).suffix in image_extensions
+
+
+def _decode_attachment_content(item: dict[str, Any], fallback_content_type: str) -> tuple[bytes, str]:
+    raw_content = item.get("content") or item.get("data") or item.get("body")
+    if not raw_content:
+        return b"", fallback_content_type
+    if isinstance(raw_content, list):
+        try:
+            return bytes(raw_content), fallback_content_type
+        except ValueError:
+            return b"", fallback_content_type
+    if not isinstance(raw_content, str):
+        return b"", fallback_content_type
+
+    content = raw_content.strip()
+    content_type = fallback_content_type
+    if content.startswith("data:") and "," in content:
+        header, content = content.split(",", 1)
+        content_type = header[5:].split(";", 1)[0] or fallback_content_type
+    try:
+        return base64.b64decode(content, validate=False), content_type
+    except Exception:
+        return b"", fallback_content_type
+
+
+def _normalise_reply_attachments(raw_attachments: Any, *, reply_id: str = "") -> list[dict[str, str]]:
+    """Keep safe inbound attachment metadata and store image content when provided."""
+    if not raw_attachments:
+        return []
+    if isinstance(raw_attachments, dict):
+        raw_items = [raw_attachments]
+    elif isinstance(raw_attachments, list):
+        raw_items = raw_attachments
+    else:
+        return []
+
+    normalised: list[dict[str, str]] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        filename = str(item.get("filename") or item.get("name") or "").strip()
+        content_type = str(item.get("content_type") or item.get("contentType") or item.get("mime_type") or "").strip()
+        url = str(item.get("url") or item.get("href") or "").strip()
+        if not filename and url:
+            filename = Path(url.split("?", 1)[0]).name
+        stored_path = str(item.get("stored_path") or "").strip()
+        stored_url = str(item.get("stored_url") or "").strip()
+        record = {
+            "filename": _safe_upload_name(filename) if filename else "",
+            "content_type": content_type,
+            "url": url,
+            "stored_path": stored_path,
+            "stored_url": stored_url,
+        }
+        if not filename and not content_type and not stored_path:
+            continue
+        if reply_id and not stored_path:
+            content_bytes, decoded_content_type = _decode_attachment_content(item, content_type)
+            if decoded_content_type:
+                record["content_type"] = decoded_content_type
+            if content_bytes and _attachment_is_image(record):
+                attachment_dir = STATE_ROOT / "uploads" / "reply-attachments" / reply_id
+                attachment_dir.mkdir(parents=True, exist_ok=True)
+                safe_name = record["filename"] or f"reply-photo-{uuid.uuid4().hex[:8]}.jpg"
+                dest = attachment_dir / safe_name
+                dest.write_bytes(content_bytes)
+                record["stored_path"] = str(dest)
+                record["stored_url"] = f"/uploads/reply-attachments/{reply_id}/{safe_name}"
+        normalised.append(record)
+    return normalised
+
+
+def _reply_has_photo_evidence(body: str, attachments: list[dict[str, str]]) -> bool:
+    for attachment in attachments:
+        if _attachment_is_image(attachment):
+            return True
+
+    text = str(body or "")
+    has_photo_word = bool(re.search(r"(?i)\b(photo|photos|image|images|menu\s+pics?)\b", text)) or "写真" in text or "画像" in text
+    has_sent_intent = bool(re.search(r"(?i)\b(attached|attachment|sent|uploaded|shared)\b", text)) or any(
+        token in text for token in ("添付", "送付", "送り", "共有", "アップロード")
+    )
+    has_image_reference = bool(re.search(r"(?i)\.(jpe?g|png|webp|gif|heic|heif)(?:\b|\?)", text))
+    return (has_photo_word and has_sent_intent) or (has_image_reference and (has_photo_word or "メニュー" in text))
+
+
+def _stored_reply_photo_paths(reply_id: str) -> list[str]:
+    if not reply_id:
+        return []
+    path = STATE_ROOT / "replies" / f"{reply_id}.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+    paths: list[str] = []
+    for attachment in _normalise_reply_attachments(data.get("attachments")):
+        stored_path = str(attachment.get("stored_path") or "")
+        if stored_path and _attachment_is_image(attachment) and Path(stored_path).exists():
+            paths.append(stored_path)
+    return paths
+
+
+def _save_incoming_reply(
+    *,
+    lead_id: str,
+    channel: str,
+    body: str,
+    from_email: str = "",
+    subject: str = "",
+    business_name: str = "",
+    attachments: Any = None,
+) -> dict[str, Any]:
+    replies_dir = STATE_ROOT / "replies"
+    replies_dir.mkdir(parents=True, exist_ok=True)
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    reply_id = f"reply-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    attachment_meta = _normalise_reply_attachments(attachments, reply_id=reply_id)
+    has_photos = _reply_has_photo_evidence(body, attachment_meta)
+    photo_count = sum(1 for attachment in attachment_meta if _attachment_is_image(attachment))
+    stored_photo_count = sum(
+        1
+        for attachment in attachment_meta
+        if _attachment_is_image(attachment) and attachment.get("stored_path") and Path(attachment["stored_path"]).exists()
+    )
+    record = {
+        "reply_id": reply_id,
+        "lead_id": lead_id,
+        "business_name": str(business_name or ""),
+        "channel": _normalise_reply_channel(channel),
+        "from": str(from_email or ""),
+        "subject": str(subject or ""),
+        "body": str(body or ""),
+        "attachments": attachment_meta,
+        "photo_count": photo_count,
+        "stored_photo_count": stored_photo_count,
+        "has_photos": has_photos,
+        "received_at": created_at,
+        "read_at": None,
+    }
+
+    from pipeline.utils import write_json
+    write_json(replies_dir / f"{reply_id}.json", record)
+    return record
+
+
+def _list_incoming_replies(*, channel: str = "") -> list[dict[str, Any]]:
+    replies_dir = STATE_ROOT / "replies"
+    if not replies_dir.exists():
+        return []
+
+    results: list[dict[str, Any]] = []
+    for path in sorted(replies_dir.glob("reply-*.json"), reverse=True):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        data["channel"] = _normalise_reply_channel(data.get("channel", "email"))
+        data["attachments"] = _normalise_reply_attachments(data.get("attachments"))
+        data["photo_count"] = int(data.get("photo_count") or 0)
+        data["stored_photo_count"] = sum(
+            1
+            for attachment in data["attachments"]
+            if _attachment_is_image(attachment)
+            and attachment.get("stored_path")
+            and Path(attachment["stored_path"]).exists()
+        )
+        data["has_photos"] = bool(data.get("has_photos")) or _reply_has_photo_evidence(
+            str(data.get("body") or ""),
+            data["attachments"],
+        )
+        data["business_name"] = str(data.get("business_name") or "")
+        try:
+            from pipeline.qr import assess_reply_qr_readiness
+            data.update(assess_reply_qr_readiness(data))
+        except Exception:
+            data.update({
+                "qr_requested": False,
+                "qr_ready": False,
+                "qr_missing_fields": ["qr_readiness_unavailable"],
+                "qr_ready_reason": "",
+            })
+        if channel and data.get("channel") != channel:
+            continue
+        results.append(data)
+    return results
+
+
+def _load_incoming_reply(reply_id: str) -> dict[str, Any] | None:
+    reply_id = Path(str(reply_id or "")).name
+    if not reply_id.startswith("reply-"):
+        return None
+    path = STATE_ROOT / "replies" / f"{reply_id}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    data["attachments"] = _normalise_reply_attachments(data.get("attachments"))
+    data["stored_photo_count"] = sum(
+        1
+        for attachment in data["attachments"]
+        if _attachment_is_image(attachment)
+        and attachment.get("stored_path")
+        and Path(attachment["stored_path"]).exists()
+    )
+    data["photo_count"] = int(data.get("photo_count") or 0)
+    data["has_photos"] = bool(data.get("has_photos")) or _reply_has_photo_evidence(str(data.get("body") or ""), data["attachments"])
+    from pipeline.qr import assess_reply_qr_readiness
+    data.update(assess_reply_qr_readiness(data))
+    return data
+
+
+def _mark_replies_read(channel: str) -> int:
+    replies_dir = STATE_ROOT / "replies"
+    if not replies_dir.exists():
+        return 0
+
+    from pipeline.utils import write_json
+
+    updated = 0
+    read_at = datetime.now(timezone.utc).isoformat()
+    selected_channel = _normalise_reply_channel(channel)
+    for path in replies_dir.glob("reply-*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if _normalise_reply_channel(data.get("channel", "email")) != selected_channel or data.get("read_at"):
+            continue
+        data["read_at"] = read_at
+        write_json(path, data)
+        updated += 1
+    return updated
