@@ -266,9 +266,42 @@ def _populate_ticket_machine_html(
         from .render import replace_seal_text
         html = replace_seal_text(html, restaurant_name)
 
+    # Replace guide title
+    title = str(data.get("title") or "").strip()
+    if title:
+        html = re.sub(
+            r'(<h1\s+class="guide-title"[^>]*>)(.*?)(</h1>)',
+            rf'\g<1>{esc(title)}\3',
+            html,
+            count=1,
+        )
+
+    # Replace step labels
+    steps = data.get("steps") or []
+    if steps:
+        step_pattern = re.compile(
+            r'(<li\s+class="step">\s*<span\s+class="step-num">.*?</span>)'
+            r'(<span\s+class="step-label">)(.*?)(</span>)',
+        )
+        step_matches = list(step_pattern.finditer(html))
+        for idx, match in enumerate(step_matches):
+            if idx < len(steps):
+                replacement = rf'\g<1>\g<2>{esc(steps[idx])}\4'
+                html = html[:match.start()] + step_pattern.sub(
+                    replacement, html[match.start():], count=1,
+                )
+
     # Replace button labels — find all machine-btn elements and update text
-    buttons = data.get("buttons", [])
-    if buttons:
+    # Flatten buttons from rows
+    all_buttons: list[dict[str, str]] = []
+    for row in data.get("rows") or []:
+        for btn in row.get("buttons") or []:
+            if isinstance(btn, dict):
+                all_buttons.append(btn)
+            else:
+                all_buttons.append({"en": str(btn), "jp": ""})
+
+    if all_buttons:
         # Find existing button slots
         btn_pattern = re.compile(
             r'(<div\s+class="machine-btn"[^>]*>\s*)'
@@ -278,8 +311,8 @@ def _populate_ticket_machine_html(
         )
         existing = list(btn_pattern.finditer(html))
         for idx, match in enumerate(existing):
-            if idx < len(buttons):
-                btn = buttons[idx] if isinstance(buttons[idx], dict) else {"en": str(buttons[idx]), "jp": ""}
+            if idx < len(all_buttons):
+                btn = all_buttons[idx]
                 en = btn.get("en", btn.get("english_name", ""))
                 jp = btn.get("jp", btn.get("japanese_name", ""))
                 # Keep best-tag if present

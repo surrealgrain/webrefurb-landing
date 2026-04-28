@@ -17,6 +17,69 @@ from .populate import ITEM_SLOT_LIMIT, SECTION_SLOT_LIMIT, build_menu_data, layo
 from .export import build_custom_package
 from .utils import ensure_dir, slugify
 
+# Mapping from English section titles (lowercased) to v4c template data-section keys
+_RAMEN_DATA_SECTIONS = {
+    "ramen": "ramen",
+    "noodles": "ramen",
+    "ramen menu": "ramen",
+    "sides": "sides-add-ons",
+    "sides & add-ons": "sides-add-ons",
+    "sides and add-ons": "sides-add-ons",
+    "add-ons": "sides-add-ons",
+    "extras": "sides-add-ons",
+    "toppings": "sides-add-ons",
+}
+_IZAKAYA_DATA_SECTIONS = {
+    "ramen": "ramen",
+    "noodles": "ramen",
+    "small plates": "small-plates",
+    "appetizers": "small-plates",
+    "starters": "small-plates",
+    "skewers": "skewers",
+    "grilled skewers": "skewers",
+    "yakitori": "skewers",
+    "rice": "rice-noodles",
+    "rice & noodles": "rice-noodles",
+    "noodle dishes": "rice-noodles",
+    "rice dishes": "rice-noodles",
+}
+_DRINKS_DATA_SECTIONS = {
+    "beer": "beer-highballs",
+    "beers": "beer-highballs",
+    "beer & highballs": "beer-highballs",
+    "beer and highballs": "beer-highballs",
+    "drinks": "beer-highballs",
+    "beverages": "beer-highballs",
+    "alcohol": "beer-highballs",
+    "cocktails": "beer-highballs",
+    "soft drinks": "soft-drinks-tea",
+    "soft drinks & tea": "soft-drinks-tea",
+    "tea": "soft-drinks-tea",
+    "non-alcoholic": "soft-drinks-tea",
+}
+
+_DRINK_TOKENS = frozenset({
+    "drink", "beer", "highball", "sake", "wine", "cocktail", "tea", "juice",
+    "soda", "soft", "alcohol", "whisky", "whiskey", "shochu", "ramune",
+    "cola", "ドリンク", "飲み物", "お飲み物", "ビール", "ハイボール", "日本酒",
+    "焼酎", "サワー", "カクテル", "ワイン", "ソフトドリンク", "茶", "お茶",
+})
+
+
+def _resolve_data_section(title: str, is_drink: bool) -> str:
+    """Map an English section title to a v4c template data-section key."""
+    normalized = title.strip().lower().replace("&", "and")
+    lookup = _DRINKS_DATA_SECTIONS if is_drink else _RAMEN_DATA_SECTIONS
+    # Exact match
+    if normalized in lookup:
+        return lookup[normalized]
+    # Partial match
+    for key, value in lookup.items():
+        if key in normalized or normalized in key:
+            return value
+    # Fallback: use the title slug
+    return slugify(title)
+
 
 def run_custom_build(
     build_input: CustomBuildInput,
@@ -63,8 +126,19 @@ def run_custom_build(
     food_sections = [section for section in sections if section.get("item_type") == "food"]
     drinks_sections = [section for section in sections if section.get("item_type") == "drink"]
 
+    # Determine menu_type from section classification
+    has_drinks_sections = bool(drinks_sections)
+    izakaya_sections = {"small-plates", "skewers", "rice-noodles"}
+    has_izakaya_food = any(
+        s.get("data_section", "") in izakaya_sections for s in food_sections
+    )
+    if has_izakaya_food:
+        menu_type = "izakaya"
+    else:
+        menu_type = "ramen"
+
     menu_data = build_menu_data(
-        menu_type="combined",
+        menu_type=menu_type,
         title=f"{build_input.restaurant_name.upper()} MENU",
         sections=sections,
         food_sections=food_sections,
@@ -138,7 +212,7 @@ async def _populate_and_export(
         output_dir=pkg_dir,
         food_pdf=pkg_dir / "food_menu_print_ready.pdf" if (pkg_dir / "food_menu_print_ready.pdf").exists() else None,
         drinks_pdf=pkg_dir / "drinks_menu_print_ready.pdf" if (pkg_dir / "drinks_menu_print_ready.pdf").exists() else None,
-        combined_pdf=pkg_dir / "restaurant_menu_print_ready_combined.pdf" if (pkg_dir / "restaurant_menu_print_ready_combined.pdf").exists() else None,
+        combined_pdf=None,  # v4c pipeline produces separate food/drinks PDFs
         ticket_machine_pdf=pkg_dir / "ticket_machine_guide_print_ready.pdf" if (pkg_dir / "ticket_machine_guide_print_ready.pdf").exists() else None,
         menu_json=pkg_dir / "menu_data.json",
     )
@@ -163,9 +237,12 @@ def _organize_sections(
     sections: list[dict[str, Any]] = []
     for ja_section, items_list in section_items.items():
         en_section = section_map.get(ja_section, ja_section.upper())
+        is_drink = _classify_item_type(items_list[0]) == "drink" if items_list else False
+        data_section = _resolve_data_section(en_section, is_drink=is_drink)
         section_data = {
             "title": en_section,
-            "item_type": _classify_item_type(items_list[0]) if items_list else "food",
+            "data_section": data_section,
+            "item_type": "drink" if is_drink else "food",
             "items": [
                 {
                     "name": item.name,
@@ -209,13 +286,7 @@ def _classify_item_type(item) -> str:
             str(item.japanese_name or "").lower(),
         )
     )
-    drink_tokens = (
-        "drink", "beer", "highball", "sake", "wine", "cocktail", "tea", "juice",
-        "soda", "soft", "alcohol", "whisky", "whiskey", "shochu", "ramune",
-        "cola", "ドリンク", "飲み物", "お飲み物", "ビール", "ハイボール", "日本酒",
-        "焼酎", "サワー", "カクテル", "ワイン", "ソフトドリンク", "茶", "お茶",
-    )
-    return "drink" if any(token in combined for token in drink_tokens) else "food"
+    return "drink" if any(token in combined for token in _DRINK_TOKENS) else "food"
 
 
 def _review_checklist(

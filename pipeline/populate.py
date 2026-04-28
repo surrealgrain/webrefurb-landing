@@ -153,6 +153,7 @@ def populate_menu_html(
             html = _replace_panel_title(html, panel_id, panel_data.get("title", ""))
 
     # Replace section content (headings + items) — handles v1/v2/v3 templates
+    show_prices = bool(data.get("show_prices"))
     for panel_key in ("food", "drinks"):
         panel_data = data.get(panel_key)
         if not panel_data:
@@ -164,6 +165,7 @@ def populate_menu_html(
                 section.get("heading", "") or section.get("title", ""),
                 section.get("items", []),
                 sub=section.get("sub", ""),
+                show_prices=show_prices,
             )
 
     # Also handle flat top-level sections (when data has sections but not food/drinks)
@@ -175,9 +177,40 @@ def populate_menu_html(
                 section.get("heading", "") or section.get("title", ""),
                 section.get("items", []),
                 sub=section.get("sub", ""),
+                show_prices=show_prices,
             )
 
-    # Remove unused sections — hide drinks-panel if no drinks data
+    # Collect all data_section keys that were provided (for matched-section removal)
+    provided_sections: set[str] = set()
+    for panel_key in ("food", "drinks"):
+        panel_data = data.get(panel_key)
+        if panel_data:
+            for section in panel_data.get("sections", []):
+                ds = section.get("data_section", "")
+                if ds:
+                    provided_sections.add(ds)
+    if not data.get("food") and not data.get("drinks"):
+        for section in data.get("sections", []):
+            ds = section.get("data_section", "")
+            if ds:
+                provided_sections.add(ds)
+
+    # Remove section divs whose data-section was NOT provided
+    all_section_divs = re.findall(
+        r'<div\s+class="section"\s+data-section="([^"]+)"',
+        html,
+    )
+    for ds in all_section_divs:
+        if ds not in provided_sections:
+            html = re.sub(
+                rf'<div\s+class="section"\s+data-section="{re.escape(ds)}">.*?</div>\s*</div>',
+                "",
+                html,
+                count=1,
+                flags=re.DOTALL,
+            )
+
+    # Remove unused drinks-panel if no drinks data
     if not (data.get("drinks") or {}).get("sections"):
         html = re.sub(
             r'<div\s+class="menu-panel"\s+id="drinks-panel">.*?</div>\s*</div>',

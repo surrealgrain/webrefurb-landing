@@ -17,6 +17,7 @@ from .constants import (
     PACKAGE_2_KEY,
     PACKAGE_2_LABEL,
     PACKAGE_2_PRICE_YEN,
+    PACKAGE_3_KEY,
     PACKAGE_REGISTRY,
     TEMPLATE_PACKAGE_MENU,
 )
@@ -28,12 +29,15 @@ REVIEW_STATUS_PENDING = "pending_review"
 REVIEW_STATUS_APPROVED = "approved"
 FINAL_EXPORT_READY = "ready"
 
-PACKAGE_1_FILES = (
+PACKAGE_1_CORE_FILES = (
     "food_menu_print_ready.pdf",
-    "drinks_menu_print_ready.pdf",
     "food_menu.html",
-    "drinks_menu.html",
     "menu_data.json",
+)
+
+PACKAGE_1_OPTIONAL_DRINKS_FILES = (
+    "drinks_menu_print_ready.pdf",
+    "drinks_menu.html",
 )
 
 OPTIONAL_PACKAGE_FILES = (
@@ -296,7 +300,8 @@ def approve_package1_export(*, state_root: Path, job_id: str, reviewer: str = "o
 
 
 def _validate_remote_assets(output_dir: Path, errors: list[str]) -> None:
-    for name in PACKAGE_1_FILES:
+    # Core files (always required)
+    for name in PACKAGE_1_CORE_FILES:
         path = output_dir / name
         if not path.exists():
             errors.append(f"{name}_missing")
@@ -305,6 +310,18 @@ def _validate_remote_assets(output_dir: Path, errors: list[str]) -> None:
             errors.append(f"{name}_empty")
         if path.suffix.lower() == ".pdf" and not is_valid_pdf(path):
             errors.append(f"{name}_not_pdf")
+    # Drinks files (required only if drinks_menu.html exists — some shops have no drinks)
+    drinks_html = output_dir / "drinks_menu.html"
+    if drinks_html.exists():
+        for name in PACKAGE_1_OPTIONAL_DRINKS_FILES:
+            path = output_dir / name
+            if not path.exists():
+                errors.append(f"{name}_missing")
+                continue
+            if path.stat().st_size == 0:
+                errors.append(f"{name}_empty")
+            if path.suffix.lower() == ".pdf" and not is_valid_pdf(path):
+                errors.append(f"{name}_not_pdf")
     for name in OPTIONAL_PACKAGE_FILES:
         path = output_dir / name
         if path.exists() and path.suffix.lower() == ".pdf" and not is_valid_pdf(path):
@@ -537,7 +554,10 @@ def _delivery_checklist(print_order: dict[str, Any]) -> str:
 
 
 def _package_files(output_dir: Path, *, package_key: str) -> list[str]:
-    files = [name for name in PACKAGE_1_FILES if (output_dir / name).exists()]
+    files = [name for name in PACKAGE_1_CORE_FILES if (output_dir / name).exists()]
+    for name in PACKAGE_1_OPTIONAL_DRINKS_FILES:
+        if (output_dir / name).exists():
+            files.append(name)
     for name in OPTIONAL_PACKAGE_FILES:
         if (output_dir / name).exists():
             files.append(name)
@@ -559,7 +579,7 @@ def _artifact_report(output_dir: Path, *, package_key: str) -> list[dict[str, An
     artifacts: list[dict[str, Any]] = []
     if not output_dir or not output_dir.exists():
         return artifacts
-    names = list(PACKAGE_1_FILES) + list(OPTIONAL_PACKAGE_FILES) + list(PREVIEW_FILES)
+    names = list(PACKAGE_1_CORE_FILES) + list(PACKAGE_1_OPTIONAL_DRINKS_FILES) + list(OPTIONAL_PACKAGE_FILES) + list(PREVIEW_FILES)
     if package_key == PACKAGE_2_KEY:
         names += list(PACKAGE_2_PRINT_FILES)
     seen: set[str] = set()
@@ -572,7 +592,7 @@ def _artifact_report(output_dir: Path, *, package_key: str) -> list[dict[str, An
             "name": name,
             "exists": path.exists(),
             "bytes": path.stat().st_size if path.exists() else 0,
-            "required": name in PACKAGE_1_FILES,
+            "required": name in PACKAGE_1_CORE_FILES or name in PACKAGE_1_OPTIONAL_DRINKS_FILES,
         })
     return artifacts
 
@@ -605,15 +625,18 @@ def _svg_text_report(path: Path) -> dict[str, list[str]]:
 
 def _html_text_report(path: Path) -> dict[str, list[str]]:
     """Extract text content from a v4c HTML template for validation."""
-    html = path.read_text(encoding="utf-8", errors="ignore")
+    import html as html_lib
+
+    raw = path.read_text(encoding="utf-8", errors="ignore")
     item_en: list[str] = []
     item_jp: list[str] = []
     all_text: list[str] = []
 
     # Extract text from <span class="item-en"> and <span class="item-jp">
-    for match in re.finditer(r'<span\s+class="([^"]*)"[^>]*>(.*?)</span>', html, re.DOTALL):
+    for match in re.finditer(r'<span\s+class="([^"]*)"[^>]*>(.*?)</span>', raw, re.DOTALL):
         classes = match.group(1).split()
         text = re.sub(r'<[^>]+>', '', match.group(2)).strip()
+        text = html_lib.unescape(text)
         if not text:
             continue
         if "item-en" in classes:
@@ -624,14 +647,16 @@ def _html_text_report(path: Path) -> dict[str, list[str]]:
             all_text.append(text)
 
     # Extract section titles
-    for match in re.finditer(r'<span\s+class="section-title"[^>]*>(.*?)</span>', html, re.DOTALL):
+    for match in re.finditer(r'<span\s+class="section-title"[^>]*>(.*?)</span>', raw, re.DOTALL):
         text = re.sub(r'<[^>]+>', '', match.group(1)).strip()
+        text = html_lib.unescape(text)
         if text:
             all_text.append(text)
 
     # Extract menu title
-    for match in re.finditer(r'<h1\s+class="menu-title"[^>]*>(.*?)</h1>', html, re.DOTALL):
+    for match in re.finditer(r'<h1\s+class="menu-title"[^>]*>(.*?)</h1>', raw, re.DOTALL):
         text = re.sub(r'<[^>]+>', '', match.group(1)).strip()
+        text = html_lib.unescape(text)
         if text:
             all_text.append(text)
 
@@ -784,12 +809,14 @@ def _append_history(job: dict[str, Any], status: str, timestamp: str, reviewer: 
 
 def _normalise_build_package(package_key: Any) -> str:
     value = str(package_key or PACKAGE_1_KEY)
-    if value in {PACKAGE_1_KEY, PACKAGE_2_KEY}:
+    if value in {PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY}:
         return value
     if value in {"package_B_remote_30k", "package_1"}:
         return PACKAGE_1_KEY
     if value in {"package_A_printed_delivered_45k", "package_2"}:
         return PACKAGE_2_KEY
+    if value in {"package_3"}:
+        return PACKAGE_3_KEY
     raise PackageExportError(f"Unsupported build package: {value}")
 
 

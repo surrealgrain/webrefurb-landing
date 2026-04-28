@@ -21,26 +21,38 @@ def _esc(text: str) -> str:
 
 
 def _replace_section(html: str, data_section: str, heading: str,
-                     items: list, sub: str = "") -> str:
+                     items: list, sub: str = "", *,
+                     show_prices: bool = False) -> str:
     """Replace header + items content inside a section matched by data-section.
 
     Handles v3 (v4c dark: div.section-header + span.section-title),
     v2 (section-header-group wrapper), and v1 (bare h2 + ul) layouts.
     Items can be strings or dicts with english_name/japanese_name keys.
     """
-    items_html = _build_v4c_items_html(items)
+    items_html = _build_v4c_items_html(items, show_prices=show_prices)
 
-    # v3: v4c dark template — div.section-header + span.section-title
+    # v3: v4c dark template — div.section-header + span.section-title + span.section-kanji
     pattern_v3 = re.compile(
         rf'(<div\s+class="section"\s+data-section="{re.escape(data_section)}"\s*>\s*)'
-        r'(<div\s+class="section-header">).*?(</div>\s*)'
+        r'(<div\s+class="section-header">)'
+        r'(.*?)'
+        r'(</div>\s*)'
         r'(<ul\s+class="menu-items"[^>]*>).*?(</ul>)',
         re.DOTALL,
     )
+    # Try to extract existing kanji span to preserve it
+    kanji_span = ""
+    v3_match = pattern_v3.search(html)
+    if v3_match:
+        header_content = v3_match.group(3)
+        kanji_match = re.search(r'(<span\s+class="section-kanji"[^>]*>.*?</span>)', header_content, re.DOTALL)
+        if kanji_match:
+            kanji_span = f'\n          {kanji_match.group(1)}'
+
     replacement_v3 = (
         rf'\g<1>'
         rf'<div class="section-header">\n'
-        rf'          <span class="section-title" data-slot="section-title">{_esc(heading)}</span>\n'
+        rf'          <span class="section-title" data-slot="section-title">{_esc(heading)}</span>{kanji_span}\n'
         rf'        </div>\n'
         rf'        <ul class="menu-items" data-slot="section-items">\n'
         f'{items_html}\n'
@@ -100,24 +112,33 @@ def _replace_section(html: str, data_section: str, heading: str,
     return result
 
 
-def _build_v4c_items_html(items: list) -> str:
+def _build_v4c_items_html(items: list, *, show_prices: bool = False) -> str:
     """Build bilingual <li> items HTML for v4c templates.
 
     Items can be strings or dicts with english_name/japanese_name keys.
+    When show_prices is True and item has confirmed price, appends price span.
     """
     parts = []
     for item in items:
         if isinstance(item, dict):
             en = str(item.get("english_name") or item.get("name") or "")
             jp = str(item.get("japanese_name") or item.get("source_text") or "")
+            price = str(item.get("price") or "").strip()
+            render_price = (
+                show_prices
+                and price
+                and str(item.get("price_visibility") or "").strip() != "intentionally_hidden"
+                and str(item.get("price_status") or "").strip() == "confirmed_by_business"
+            )
+            price_span = f'<span class="item-price">{_esc(price)}</span>' if render_price else ""
             if jp:
                 parts.append(
                     f'<li data-slot="item"><span class="item-en">{_esc(en)}</span>'
-                    f'<span class="item-jp">{_esc(jp)}</span></li>'
+                    f'{price_span}<span class="item-jp">{_esc(jp)}</span></li>'
                 )
             else:
                 parts.append(
-                    f'<li data-slot="item"><span class="item-en">{_esc(en)}</span></li>'
+                    f'<li data-slot="item"><span class="item-en">{_esc(en)}</span>{price_span}</li>'
                 )
         else:
             parts.append(
