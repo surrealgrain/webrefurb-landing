@@ -91,7 +91,34 @@ def _replace_panel_title(html: str, panel_id: str, title: str) -> str:
     return result
 
 
-def render(content_path: str | None = None, template_path: str | None = None) -> str:
+def replace_seal_text(html: str, business_name: str) -> str:
+    """Replace the seal stamp placeholder with the locked business name.
+
+    Updates both the ``data-length`` attribute (for auto-sizing) and the
+    visible seal text.  This must be called with ``locked_business_name``,
+    never the mutable ``business_name``.
+    """
+    length = min(len(business_name), 12)
+    # Replace data-length attribute
+    html = re.sub(
+        r'data-length="\d+"',
+        f'data-length="{length}"',
+        html,
+    )
+    # Replace seal text content
+    html = re.sub(
+        r'(<span\s+class="seal-text"\s+data-slot="seal-text">)(.*?)(</span>)',
+        rf'\g<1>{_esc(business_name)}\3',
+        html,
+    )
+    return html
+
+
+def render(
+    content_path: str | None = None,
+    template_path: str | None = None,
+    business_name: str | None = None,
+) -> str:
     """Render the master template with JSON content. Returns final HTML string."""
     tpl_path = Path(template_path) if template_path else MASTER_TEMPLATE
     with open(tpl_path, encoding="utf-8") as f:
@@ -113,6 +140,9 @@ def render(content_path: str | None = None, template_path: str | None = None) ->
                 section["items"],
                 sub=section.get("sub", ""),
             )
+
+    if business_name:
+        html = replace_seal_text(html, business_name)
 
     return html
 

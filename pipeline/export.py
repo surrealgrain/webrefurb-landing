@@ -201,7 +201,7 @@ async def build_custom_package(
     if food_svg_out.exists():
         populate_menu_svg(template_path=food_svg_out, data=menu_data, output_path=food_svg_out)
     if food_html_out.exists():
-        populate_menu_html(template_path=food_html_out, data=menu_data, output_path=food_html_out)
+        populate_menu_html(template_path=food_html_out, data=menu_data, output_path=food_html_out, business_name=restaurant_name or None)
 
     # Generate PDF from the populated HTML
     if food_html_out.exists():
@@ -219,7 +219,7 @@ async def build_custom_package(
         populate_menu_svg(template_path=drinks_svg_out, data=menu_data, output_path=drinks_svg_out)
     if drinks_html_src.exists():
         shutil.copy2(drinks_html_src, drinks_html_out)
-        populate_menu_html(template_path=drinks_html_out, data=menu_data, output_path=drinks_html_out)
+        populate_menu_html(template_path=drinks_html_out, data=menu_data, output_path=drinks_html_out, business_name=restaurant_name or None)
         await html_to_pdf(drinks_html_out, drinks_pdf_out)
 
     # --- Combined menu ---
@@ -230,7 +230,7 @@ async def build_custom_package(
     if combined_html_src.exists():
         shutil.copy2(combined_html_src, combined_html_out)
         if menu_data.get("sections"):
-            populate_menu_html(template_path=combined_html_out, data=menu_data, output_path=combined_html_out)
+            populate_menu_html(template_path=combined_html_out, data=menu_data, output_path=combined_html_out, business_name=restaurant_name or None)
         await html_to_pdf(combined_html_out, combined_pdf_out)
 
     # --- Ticket machine guide ---

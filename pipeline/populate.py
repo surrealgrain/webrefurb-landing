@@ -139,7 +139,10 @@ def populate_menu_html(
     template_path: Path,
     data: dict[str, Any],
     output_path: Path,
+    business_name: str | None = None,
 ) -> Path:
+    from .render import replace_seal_text
+
     html = template_path.read_text(encoding="utf-8")
     if template_path.name == "restaurant_menu_print_master.html" and not (data.get("drinks") or {}).get("sections"):
         html = re.sub(
@@ -153,6 +156,8 @@ def populate_menu_html(
         panel_data = data.get(panel_key)
         if panel_data:
             html = _replace_html_panel_title(html, panel_id, panel_data.get("title", ""))
+    if business_name:
+        html = replace_seal_text(html, business_name)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     return output_path
