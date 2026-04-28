@@ -142,9 +142,9 @@ def build_preview_html(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(business_name)} — English Menu Preview</title>
 <style>
-:root {{ --ink:#171717; --muted:#525252; --paper:#fffaf3; --line:#ddd3c3; --accent:#0f766e; --soft:#f5efe4; }}
+:root {{ --ink:#f0ebe3; --muted:#a8a29e; --paper:#0f0d0b; --surface:#1c1917; --line:#292524; --accent:#c53d43; --soft:#1c1917; }}
 * {{ box-sizing:border-box; }}
-body {{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background:var(--paper); color:var(--ink); font-size:12pt; }}
+body {{ margin:0; font-family:'Outfit',ui-sans-serif,system-ui,-apple-system,sans-serif; background:var(--paper); color:var(--ink); font-size:12pt; }}
 main {{ max-width:720px; margin:0 auto; padding:28px 20px 56px; }}
 h1 {{ font-size:24pt; margin:0 0 4px; }}
 h2 {{ font-size:16pt; color:var(--accent); margin:24px 0 12px; }}
@@ -156,13 +156,13 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
 .preview-table .en {{ width:40%; }}
 .preview-table .price {{ text-align:right; white-space:nowrap; }}
 .machine-grid {{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }}
-.machine-btn {{ border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--soft); }}
+.machine-btn {{ border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--surface); }}
 .machine-btn strong {{ display:block; }}
 .machine-btn span {{ display:block; color:var(--muted); font-size:10pt; }}
 .machine-btn .price {{ color:var(--accent); font-weight:600; }}
-.disclaimer {{ margin-top:24px; padding:16px; background:var(--soft); border-radius:8px; color:var(--muted); font-size:10pt; line-height:1.6; }}
+.disclaimer {{ margin-top:24px; padding:16px; background:var(--surface); border-radius:8px; color:var(--muted); font-size:10pt; line-height:1.6; border:1px solid var(--line); }}
 .packages {{ margin-top:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }}
-.pkg {{ border:1px solid var(--line); border-radius:8px; padding:14px; background:#fff; }}
+.pkg {{ border:1px solid var(--line); border-radius:8px; padding:14px; background:var(--surface); }}
 .pkg h4 {{ margin:0 0 8px; color:var(--accent); }}
 .pkg .price {{ font-size:16pt; font-weight:700; }}
 .pkg ul {{ margin:6px 0 0; padding-left:16px; color:var(--muted); font-size:10pt; }}
@@ -215,3 +215,45 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
 </main>
 </body>
 </html>"""
+
+
+def build_shop_preview_from_record(
+    *,
+    record: dict[str, Any],
+) -> str | None:
+    """Build a shop-specific preview HTML from a lead record's evidence.
+
+    Returns None if there are no evidence snippets to build from.
+    The preview is clearly marked as illustrative and partial — production
+    always uses owner-provided photos and confirmation.
+    """
+    snippets: list[str] = record.get("evidence_snippets") or []
+    business_name = record.get("business_name") or ""
+    if not snippets or not business_name:
+        return None
+
+    from .models import EvidenceAssessment
+
+    assessment = EvidenceAssessment(
+        is_ramen_candidate=record.get("establishment_profile", "").startswith("ramen"),
+        is_izakaya_candidate=record.get("establishment_profile", "").startswith("izakaya"),
+        evidence_classes=record.get("evidence_classes") or [],
+        menu_evidence_found=record.get("menu_evidence_found", False),
+        machine_evidence_found=record.get("machine_evidence_found", False),
+    )
+
+    preview_menu = build_preview_menu(
+        assessment=assessment,
+        snippets=snippets,
+        business_name=business_name,
+    )
+
+    ticket_hint: TicketMachineHint | None = None
+    if assessment.machine_evidence_found:
+        ticket_hint = TicketMachineHint(has_ticket_machine=True)
+
+    return build_preview_html(
+        preview_menu=preview_menu,
+        ticket_machine_hint=ticket_hint,
+        business_name=business_name,
+    )

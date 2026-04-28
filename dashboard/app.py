@@ -671,6 +671,10 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     action = "draft_generated" if regenerate else "email_previewed"
     _log(action, f"classification={classification}", lead_id=lead_id)
 
+    # Build shop-specific preview from lead evidence
+    from pipeline.preview import build_shop_preview_from_record
+    shop_preview_html = build_shop_preview_from_record(record=record)
+
     return {
         "classification": classification,
         "assets": [str(p) for p in assets],
@@ -685,6 +689,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             include_menu_image=draft["include_menu_image"],
             include_machine_image=record.get("outreach_include_machine_image", draft["include_machine_image"]),
         ),
+        "shop_preview_html": shop_preview_html,
         "include_inperson": include_inperson,
         "include_menu_image": draft["include_menu_image"],
         "include_machine_image": record.get("outreach_include_machine_image", draft["include_machine_image"]),
@@ -1147,6 +1152,152 @@ async def api_replies(channel: str | None = None):
         "form_total": sum(1 for reply in all_replies if reply.get("channel") == "form"),
     }
     return {"replies": replies, "counts": counts}
+
+
+# ---------------------------------------------------------------------------
+# Resend webhook — bounce, complaint, delivery events
+# ---------------------------------------------------------------------------
+
+@app.post("/api/webhooks/resend")
+async def api_resend_webhook(request: Request):
+    """Handle inbound webhook events from Resend.
+
+    Processes: email.bounced, email.complained, email.delivered.
+    Bounced emails mark the lead as bounced. Complaints mark as do_not_contact.
+    """
+    import hmac
+    import hashlib
+
+    from pipeline.record import load_lead, persist_lead_record
+    from pipeline.constants import (
+        OUTREACH_STATUS_BOUNCED,
+        OUTREACH_STATUS_DO_NOT_CONTACT,
+    )
+
+    body = await request.body()
+    payload = await request.json()
+
+    # Optional signature verification
+    webhook_secret = os.environ.get("RESEND_WEBHOOK_SECRET", "")
+    if webhook_secret:
+        signature = request.headers.get("svix-signature", "")
+        if signature:
+            expected = hmac.new(
+                webhook_secret.encode(), body, hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(f"sha256={expected}", signature):
+                raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    event_type = payload.get("type", "")
+    data = payload.get("data", {})
+
+    if event_type == "email.bounced":
+        to_email = str(data.get("to", "")).strip().lower()
+        bounce_type = data.get("bounce_type", "permanent")
+        _handle_email_bounce(
+            to_email=to_email,
+            bounce_type=bounce_type,
+            details=data,
+        )
+        _log("email_bounced", f"to={to_email} type={bounce_type}")
+        return {"status": "bounced", "email": to_email}
+
+    if event_type == "email.complained":
+        to_email = str(data.get("to", "")).strip().lower()
+        _handle_email_complaint(to_email=to_email, details=data)
+        _log("email_complaint", f"to={to_email}")
+        return {"status": "complaint", "email": to_email}
+
+    if event_type == "email.delivered":
+        to_email = str(data.get("to", "")).strip().lower()
+        _log("email_delivered", f"to={to_email}")
+        return {"status": "delivered", "email": to_email}
+
+    return {"status": "ignored", "type": event_type}
+
+
+def _find_lead_by_email(to_email: str) -> dict[str, Any] | None:
+    """Find a lead record by its saved email address."""
+    from pipeline.record import list_leads
+    leads = list_leads(state_root=STATE_ROOT)
+    for record in leads:
+        if (record.get("email") or "").strip().lower() == to_email:
+            return record
+    return None
+
+
+def _handle_email_bounce(
+    *,
+    to_email: str,
+    bounce_type: str,
+    details: dict[str, Any],
+) -> None:
+    """Mark a lead as bounced when an email bounces."""
+    from pipeline.record import load_lead, persist_lead_record
+    from pipeline.constants import OUTREACH_STATUS_BOUNCED, OUTREACH_STATUS_INVALID
+
+    record = _find_lead_by_email(to_email)
+    if not record:
+        return
+
+    status = OUTREACH_STATUS_INVALID if bounce_type == "invalid" else OUTREACH_STATUS_BOUNCED
+    record["outreach_status"] = status
+    record["status_history"].append({
+        "status": status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "note": f"Email bounced: {bounce_type}",
+        "bounce_details": details,
+    })
+    persist_lead_record(record, state_root=STATE_ROOT)
+
+
+def _handle_email_complaint(
+    *,
+    to_email: str,
+    details: dict[str, Any],
+) -> None:
+    """Mark a lead as do_not_contact when a spam complaint is received."""
+    from pipeline.record import load_lead, persist_lead_record
+    from pipeline.constants import OUTREACH_STATUS_DO_NOT_CONTACT
+
+    record = _find_lead_by_email(to_email)
+    if not record:
+        return
+
+    record["outreach_status"] = OUTREACH_STATUS_DO_NOT_CONTACT
+    record["status_history"].append({
+        "status": OUTREACH_STATUS_DO_NOT_CONTACT,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "note": "Spam complaint received via Resend webhook",
+        "complaint_details": details,
+    })
+    persist_lead_record(record, state_root=STATE_ROOT)
+
+
+@app.post("/api/leads/{lead_id}/mark-unreachable")
+async def api_mark_unreachable(lead_id: str, request: Request):
+    """Operator marks a lead as bounced/invalid/unreachable for non-email channels."""
+    from pipeline.record import load_lead, persist_lead_record
+    from pipeline.constants import OUTREACH_STATUS_BOUNCED, OUTREACH_STATUS_INVALID
+
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    body = await request.json()
+    reason = str(body.get("reason") or "bounced").strip()
+    note = str(body.get("note") or "").strip()
+
+    status = OUTREACH_STATUS_INVALID if reason == "invalid" else OUTREACH_STATUS_BOUNCED
+    record["outreach_status"] = status
+    record["status_history"].append({
+        "status": status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "note": note or f"Operator marked as {reason}",
+    })
+    persist_lead_record(record, state_root=STATE_ROOT)
+    _log("marked_unreachable", f"reason={reason}", lead_id=lead_id)
+    return {"status": status, "lead_id": lead_id}
 
 
 @app.get("/api/qr-menus")
