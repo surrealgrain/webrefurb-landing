@@ -15,7 +15,7 @@ _COMMON_TRANSLATIONS: dict[str, str] = {
     "塩ラーメン": "Shio Ramen",
     "豚骨ラーメン": "Tonkotsu Ramen",
     "味玉ラーメン": "Ajitama Ramen (Flavored Egg)",
-    "唐揚げ": "Fried Chicken (Karaage)",
+    "唐揚げ": "Fried Chicken",
     "餃子": "Gyoza Dumplings",
     "チャーシュー": "Chashu Pork",
     "替玉": "Extra Noodles (Kaedama)",

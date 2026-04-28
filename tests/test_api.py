@@ -429,6 +429,35 @@ class TestAPIEndpoints:
         assert health.status_code == 200
         assert health.json()["ok"] is True
 
+    def test_qr_photo_only_reply_returns_needs_extraction_job(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QR menu",
+                "body": "Please make the hosted QR menu.",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+
+        response = self.client.post(f"/api/qr/{reply_id}", json={})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "needs_extraction"
+        assert data["extraction_required"] is True
+        assert data["validation"]["errors"] == ["structured_menu_items_required"]
+        assert not (tmp_path / "docs" / "menus" / "_drafts" / data["job_id"] / "index.html").exists()
+
     def test_qr_package_approve_and_download(self, tmp_path, monkeypatch):
         def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
             pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
@@ -1109,6 +1138,110 @@ class TestStatusPersistence:
         assert data["package_key"] == "package_1_remote_30k"
         assert data["validation"]["ok"] is False
         assert "restaurant_menu_print_ready_combined.pdf_missing" in data["validation"]["errors"]
+
+    def test_build_review_derives_current_price_checklist_from_menu_data(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        for name in (
+            "restaurant_menu_print_ready_combined.pdf",
+            "food_menu_print_ready.pdf",
+            "drinks_menu_print_ready.pdf",
+        ):
+            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+        (output_dir / "restaurant_menu_print_master.html").write_text(
+            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
+            encoding="utf-8",
+        )
+        (output_dir / "food_menu_browser_preview.html").write_text(
+            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
+            encoding="utf-8",
+        )
+        (output_dir / "drinks_menu_browser_preview.html").write_text(
+            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
+            encoding="utf-8",
+        )
+        (output_dir / "food_menu_editable_vector.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<text class="title">RAMEN MENU</text>'
+            '<text class="item-en">Shoyu Ramen  ¥900</text>'
+            '<text class="item-jp">醤油ラーメン</text>'
+            '</svg>',
+            encoding="utf-8",
+        )
+        (output_dir / "drinks_menu_editable_vector.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<text class="title">DRINKS MENU</text>'
+            '<text class="item-en">Draft Beer  ¥600</text>'
+            '<text class="item-jp">生ビール</text>'
+            '</svg>',
+            encoding="utf-8",
+        )
+        (output_dir / "menu_data.json").write_text(
+            json.dumps({
+                "food": {
+                    "title": "FOOD MENU",
+                    "sections": [{
+                        "title": "RAMEN",
+                        "items": [{
+                            "name": "Shoyu Ramen",
+                            "english_name": "Shoyu Ramen",
+                            "japanese_name": "醤油ラーメン",
+                            "source_text": "醤油ラーメン",
+                            "section": "RAMEN",
+                            "price": "¥900",
+                            "price_status": "confirmed_by_business",
+                            "price_visibility": "customer_visible",
+                            "source_provenance": "owner_text",
+                            "approval_status": "pending_review",
+                        }],
+                    }],
+                },
+                "drinks": {
+                    "title": "DRINKS MENU",
+                    "sections": [{
+                        "title": "DRINKS",
+                        "items": [{
+                            "name": "Draft Beer",
+                            "english_name": "Draft Beer",
+                            "japanese_name": "生ビール",
+                            "source_text": "生ビール",
+                            "section": "DRINKS",
+                            "price": "¥600",
+                            "price_status": "confirmed_by_business",
+                            "price_visibility": "customer_visible",
+                            "source_provenance": "owner_text",
+                            "approval_status": "pending_review",
+                        }],
+                    }],
+                },
+                "show_prices": True,
+                "review_checklist": {"price_count": 0, "source_price_count": 2},
+                "sections": [{
+                    "title": "RAMEN",
+                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                }, {
+                    "title": "DRINKS",
+                    "items": [{"name": "Draft Beer", "japanese_name": "生ビール"}],
+                }],
+            }),
+            encoding="utf-8",
+        )
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({
+                "job_id": "job123",
+                "status": "ready_for_review",
+                "output_dir": str(output_dir),
+            }),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/build/job123/review")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["validation"]["ok"] is True
+        assert data["review_checklist"]["price_count"] == 2
+        assert data["review_checklist"]["source_price_count"] == 2
 
     def test_build_preview_serves_relative_assets(self):
         output_dir = self.tmp_path / "builds" / "job123"

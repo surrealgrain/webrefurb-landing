@@ -23,6 +23,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from pipeline.utils import load_project_env
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -99,8 +101,7 @@ STATE_ROOT = PROJECT_ROOT / "state"
 QR_DOCS_ROOT = PROJECT_ROOT / "docs"
 
 # Load .env
-from dotenv import load_dotenv
-load_dotenv(PROJECT_ROOT / ".env")
+load_project_env(PROJECT_ROOT / ".env")
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -165,7 +166,7 @@ BLOCKED_REGENERATE_STATUSES = BLOCKED_SEND_STATUSES - {"rejected", "needs_review
 
 
 def _has_business_email(lead: dict[str, Any]) -> bool:
-    """Dashboard Leads are actionable only when a business email is present."""
+    """Current send flow requires a valid email even though later phases add other contact routes."""
     return _valid_email(str(lead.get("email") or ""))
 
 

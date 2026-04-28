@@ -25,6 +25,7 @@ from .utils import ensure_dir, slugify, write_json, write_text
 PUBLIC_BASE_URL = "https://webrefurb.com"
 QR_STATES = {
     "draft",
+    "needs_extraction",
     "ready_for_review",
     "published",
     "superseded",
@@ -114,6 +115,15 @@ def create_qr_draft(
     job_id = f"qr-{uuid.uuid4().hex[:8]}"
     version_id = f"draft-{utc_compact()}-{uuid.uuid4().hex[:6]}"
     source = _source_from_reply(reply, menu_id=menu_id, version_id=version_id, job_id=job_id, payload=payload)
+    if not source.get("items"):
+        return _create_needs_extraction_job(
+            reply=reply,
+            state_root=state_root,
+            menu_id=menu_id,
+            job_id=job_id,
+            version_id=version_id,
+            source=source,
+        )
 
     _write_state_version(state_root, menu_id, version_id, source, status="draft")
     draft_dir = docs_root / "menus" / "_drafts" / job_id
@@ -468,7 +478,7 @@ def _source_from_reply(
     job_id: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    items = payload.get("items") or _items_from_payload_menu_data(payload.get("menu_data")) or _items_from_reply_text(reply)
+    items = payload.get("items") or _items_from_payload_menu_data(payload.get("menu_data"))
     return {
         "menu_id": menu_id,
         "version_id": version_id,
@@ -484,6 +494,38 @@ def _source_from_reply(
     }
 
 
+def _create_needs_extraction_job(
+    *,
+    reply: dict[str, Any],
+    state_root: Path,
+    menu_id: str,
+    job_id: str,
+    version_id: str,
+    source: dict[str, Any],
+) -> dict[str, Any]:
+    source = {**source, "status": "needs_extraction"}
+    _write_state_version(state_root, menu_id, version_id, source, status="needs_extraction")
+    job = {
+        "job_id": job_id,
+        "menu_id": menu_id,
+        "version_id": version_id,
+        "status": "needs_extraction",
+        "reply_id": reply.get("reply_id", ""),
+        "lead_id": reply.get("lead_id", ""),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "validation": {
+            "ok": False,
+            "errors": ["structured_menu_items_required"],
+            "warnings": [],
+        },
+        "extraction_required": True,
+        "needs_extraction_reason": "photo_only_reply_requires_structured_menu_extraction",
+    }
+    _write_qr_job(state_root, job)
+    _append_audit(state_root, menu_id, "needs_extraction", {"job_id": job_id, "version_id": version_id})
+    return job
+
+
 def _items_from_payload_menu_data(menu_data: Any) -> list[dict[str, Any]]:
     if not isinstance(menu_data, dict):
         return []
@@ -493,28 +535,6 @@ def _items_from_payload_menu_data(menu_data: Any) -> list[dict[str, Any]]:
             if isinstance(item, dict):
                 items.append(_normalise_qr_item(item, section_title=section.get("title", "")))
     return items
-
-
-def _items_from_reply_text(reply: dict[str, Any]) -> list[dict[str, Any]]:
-    body = str(reply.get("body") or "")
-    candidates = []
-    for line in body.splitlines():
-        line = line.strip(" -・\t")
-        if not line or len(line) > 80:
-            continue
-        if re.search(r"(¥\s?\d|円|\d{2,5})", line):
-            candidates.append(line)
-    return [
-        {
-            "name": line,
-            "japanese_name": line,
-            "price": "",
-            "description": "",
-            "ingredients": [],
-            "section": "Menu",
-        }
-        for line in candidates[:30]
-    ]
 
 
 def _normalise_qr_item(item: dict[str, Any], *, section_title: str = "") -> dict[str, Any]:

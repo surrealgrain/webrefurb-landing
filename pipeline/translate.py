@@ -80,7 +80,7 @@ TRANSLATION_MAP: dict[str, str] = {
     "トッピング": "Toppings",
     # --- Sides ---
     "餃子": "Gyoza Dumplings",
-    "唐揚げ": "Japanese Fried Chicken (Karaage)",
+    "唐揚げ": "Japanese Fried Chicken",
     "チャーハン": "Fried Rice",
     "半チャーハン": "Half Fried Rice",
     "ご飯": "Rice",
@@ -170,7 +170,7 @@ _GLOSSARY = (
     "醤油=Shoyu, 味噌=Miso, 塩=Shio, 豚骨=Tonkotsu, "
     "チャーシュー=Chashu Pork, 味玉=Marinated Egg (Ajitama), "
     "替玉=Extra Noodles (Kaedama), 餃子=Gyoza, "
-    "唐揚げ=Japanese Fried Chicken (Karaage), "
+    "唐揚げ=Japanese Fried Chicken, "
     "大盛=Large, 小盛=Small, "
     "飲み放題=All-You-Can-Drink, つけ麺=Tsukemen, まぜそば=Mazesoba, "
     "油そば=Abura Soba, 焼き鳥=Yakitori (Grilled Chicken), "

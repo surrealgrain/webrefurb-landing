@@ -60,6 +60,20 @@ INTERNAL_MARKERS = (
     "data-review-gap",
 )
 
+ALLOWED_PRICE_STATUSES = {
+    "unknown",
+    "detected_in_source",
+    "pending_business_confirmation",
+    "confirmed_by_business",
+}
+
+ALLOWED_PRICE_VISIBILITY = {
+    "not_applicable",
+    "pending_business_confirmation",
+    "customer_visible",
+    "intentionally_hidden",
+}
+
 
 class PackageExportError(ValueError):
     """Raised when a package cannot pass the review/export gate."""
@@ -109,6 +123,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
     )
     package = PACKAGE_REGISTRY[package_key]
     menu_data = _load_menu_data(output_dir, [])
+    review_checklist = _derive_review_checklist(menu_data or {}, validation=validation)
     return {
         "job_id": job_id,
         "package_key": package_key,
@@ -124,7 +139,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
         "final_export_path": job.get("final_export_path", ""),
         "validation": validation,
         "print_profile": validation.get("print_profile"),
-        "review_checklist": (menu_data or {}).get("review_checklist", {}),
+        "review_checklist": review_checklist,
         "artifacts": _artifact_report(output_dir, package_key=package_key),
     }
 
@@ -354,6 +369,14 @@ def _validate_menu_schema(menu_data: dict[str, Any], errors: list[str]) -> None:
                     errors.append(
                         f"{panel_key}_unresolved_translation:{english_name}"
                     )
+                price_status = str(item.get("price_status") or "").strip()
+                price_visibility = str(item.get("price_visibility") or "").strip()
+                if price_status not in ALLOWED_PRICE_STATUSES:
+                    errors.append(f"{panel_key}_price_status_invalid:{price_status or 'missing'}")
+                if price_visibility and price_visibility not in ALLOWED_PRICE_VISIBILITY:
+                    errors.append(f"{panel_key}_price_visibility_invalid:{price_visibility}")
+                if price_status == "confirmed_by_business" and price_visibility == "pending_business_confirmation":
+                    errors.append(f"{panel_key}_price_visibility_conflicts_with_confirmation")
 
 
 def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], errors: list[str]) -> None:
@@ -380,12 +403,7 @@ def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], e
             for item in expected_items
             if str(item.get("japanese_name") or item.get("source_text") or "").strip()
         }
-        expected_sections = {
-            str(section.get("title") or "").strip()
-            for section in expected_panel.get("sections") or []
-            if str(section.get("title") or "").strip()
-        }
-
+        expected_sections = _expected_rendered_section_titles(expected_panel)
         for item in expected_items:
             english = _customer_visible_english(item, show_prices=show_prices)
             japanese = str(item.get("japanese_name") or item.get("source_text") or "").strip()
@@ -394,11 +412,17 @@ def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], e
                 errors.append(f"{panel_key}_output_missing_item:{english}")
             if japanese and japanese not in rendered["item_jp"]:
                 errors.append(f"{panel_key}_output_missing_source_text:{japanese}")
-            if show_prices and item.get("price_status") == "confirmed" and price and not any(price in line for line in rendered["item_en"]):
+            if _item_price_should_render(item, show_prices=show_prices) and price and not any(price in line for line in rendered["item_en"]):
                 errors.append(f"{panel_key}_price_missing:{price}")
+            if price and not _item_price_should_render(item, show_prices=show_prices):
+                if any(price in line for line in rendered["item_en"]):
+                    errors.append(f"{panel_key}_unconfirmed_price_visible:{price}")
         for title in expected_sections:
             if title not in rendered["all"]:
                 errors.append(f"{panel_key}_section_title_missing_in_output:{title}")
+
+        if show_prices and not any(_item_price_should_render(item, show_prices=show_prices) for item in expected_items):
+            errors.append(f"{panel_key}_show_prices_without_confirmed_prices")
 
         stale = [
             text for text in rendered["all"]
@@ -612,12 +636,86 @@ def _allowed_static_svg_text(panel_key: str) -> set[str]:
     return {"FOOD MENU" if panel_key == "food" else "DRINKS MENU"}
 
 
+def _expected_rendered_section_titles(panel: dict[str, Any]) -> set[str]:
+    title = _effective_panel_title(panel)
+    sections = list(panel.get("sections") or [])
+    if not sections:
+        return set()
+    if _should_fold_sides_into_ramen(sections):
+        expected: set[str] = set()
+        first = sections[0]
+        first_title = str(first.get("title") or "").strip()
+        if not _section_heading_is_redundant(title, first_title):
+            expected.add(first_title)
+        expected.add("SIDES / ADD-ONS")
+        return expected
+    return {
+        section_title
+        for section in sections
+        for section_title in [str(section.get("title") or "").strip()]
+        if section_title and not _section_heading_is_redundant(title, section_title)
+    }
+
+
+def _section_heading_is_redundant(panel_title: str, section_title: str) -> bool:
+    normalized_panel = _normalize_menu_title(panel_title)
+    normalized_section = _normalize_menu_title(section_title)
+    return normalized_panel == normalized_section or normalized_panel == f"{normalized_section} MENU"
+
+
+def _effective_panel_title(panel: dict[str, Any]) -> str:
+    title = str(panel.get("title") or "")
+    sections = list(panel.get("sections") or [])
+    if _normalize_menu_title(title) == "FOOD MENU":
+        rendered_sections = sections[:1] if _should_fold_sides_into_ramen(sections) else sections
+        if len(rendered_sections) == 1 and _is_ramen_title(str(rendered_sections[0].get("title") or "")):
+            return "RAMEN MENU"
+    return title
+
+
+def _normalize_menu_title(value: str) -> str:
+    return " ".join(str(value or "").strip().upper().replace("&", "AND").split())
+
+
+def _should_fold_sides_into_ramen(sections: list[dict[str, Any]]) -> bool:
+    if len(sections) < 2:
+        return False
+    first_title = str(sections[0].get("title") or "")
+    if not _is_ramen_title(first_title):
+        return False
+    return all(_is_side_addon_title(str(section.get("title") or "")) for section in sections[1:])
+
+
+def _is_ramen_title(title: str) -> bool:
+    normalized = str(title or "").strip().upper()
+    return normalized in {"RAMEN", "NOODLES", "RAMEN MENU"} or "RAMEN" in normalized
+
+
+def _is_side_addon_title(title: str) -> bool:
+    normalized = str(title or "").strip().upper().replace("&", "AND")
+    side_tokens = ("SIDE", "SMALL PLATE", "ADD-ON", "ADD ON", "TOPPING", "EXTRA")
+    return any(token in normalized for token in side_tokens)
+
+
 def _customer_visible_english(item: dict[str, Any], *, show_prices: bool = False) -> str:
     english = str(item.get("english_name") or item.get("name") or "").strip()
     price = str(item.get("price") or "").strip()
-    if show_prices and item.get("price_status") == "confirmed" and price:
+    if _item_price_should_render(item, show_prices=show_prices) and price:
         return f"{english}  {price}"
     return english
+
+
+def _item_price_requires_output(item: dict[str, Any]) -> bool:
+    price = str(item.get("price") or "").strip()
+    if not price:
+        return False
+    if str(item.get("price_visibility") or "").strip() == "intentionally_hidden":
+        return False
+    return str(item.get("price_status") or "").strip() == "confirmed_by_business"
+
+
+def _item_price_should_render(item: dict[str, Any], *, show_prices: bool) -> bool:
+    return show_prices and _item_price_requires_output(item)
 
 
 def _final_manifest(
@@ -669,6 +767,28 @@ def _validation_result(*, errors: list[str], warnings: list[str], **extra: Any) 
         "warnings": warnings,
         "checked_at": datetime.now(timezone.utc).isoformat(),
         **extra,
+    }
+
+
+def _derive_review_checklist(menu_data: dict[str, Any], *, validation: dict[str, Any] | None = None) -> dict[str, Any]:
+    food_sections = (menu_data.get("food") or {}).get("sections") or []
+    drinks_sections = (menu_data.get("drinks") or {}).get("sections") or []
+    all_sections = [*food_sections, *drinks_sections]
+    all_items = [item for section in all_sections for item in section.get("items") or [] if isinstance(item, dict)]
+    show_prices = bool(menu_data.get("show_prices"))
+    source_price_count = sum(1 for item in all_items if str(item.get("price") or "").strip())
+    visible_price_count = sum(1 for item in all_items if _item_price_should_render(item, show_prices=show_prices))
+    errors = (validation or {}).get("errors") or []
+    return {
+        "item_count": len(all_items),
+        "price_count": visible_price_count,
+        "source_price_count": source_price_count,
+        "hidden_price_count": max(0, source_price_count - visible_price_count),
+        "food_section_count": len(food_sections),
+        "drinks_section_count": len(drinks_sections),
+        "section_split": "separated" if food_sections and drinks_sections else "single_panel_only",
+        "stale_text_absent": not any("stale_template_text_present" in str(err) for err in errors),
+        "owner_source_present": all(bool(str(item.get("source_provenance") or "").strip()) for item in all_items),
     }
 
 

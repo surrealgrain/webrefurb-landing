@@ -332,7 +332,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   border-radius: 12px; background: #fff;
 }
 .build-review-summary {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
 }
 .build-review-metric {
   border: 1px solid var(--line); border-radius: 12px; background: #fff;
@@ -877,13 +877,13 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
     steps.push({ text: 'Skipped ' + duplicateCount + ' already tracked ' + plural(duplicateCount, 'business', 'businesses') + '.', state: 'done' });
   }
   if (noEmailCount) {
-    steps.push({ text: 'Skipped ' + noEmailCount + ' qualified ' + plural(noEmailCount, 'restaurant') + ' without a business email.', state: 'done' });
+    steps.push({ text: 'Found ' + noEmailCount + ' qualified ' + plural(noEmailCount, 'restaurant') + ' that still need a supported contact route.', state: 'done' });
   }
   if (data.email_reachability_mismatch) {
     steps.push({ text: 'Saved lead email check disagreed with the scraper result; no outreach-ready card was counted.', state: 'done' });
   }
   if (addedCount > 0) {
-    steps.push({ text: addedCount + ' email-reachable qualified ' + plural(addedCount, 'lead') + ' added to Leads.', state: 'done' });
+    steps.push({ text: addedCount + ' qualified ' + plural(addedCount, 'lead') + ' added to Leads for the current outreach flow.', state: 'done' });
     return {
       state: 'success',
       title: addedCount === 1 ? 'Qualified lead found' : 'Qualified leads found',
@@ -892,11 +892,11 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
     };
   }
 
-  steps.push({ text: 'No new email-reachable lead was added.', state: 'done' });
+  steps.push({ text: 'No new lead was added to the current outreach queue.', state: 'done' });
   return {
     state: 'warning',
     title: 'No lead added',
-    summary: noEmailCount ? 'Qualified restaurants were found, but none had a business email.' : 'No new qualified restaurant matched the lead rules.',
+    summary: noEmailCount ? 'Qualified restaurants were found, but the current workflow could not route them into an outreach-ready lead.' : 'No new qualified restaurant matched the lead rules.',
     steps,
   };
 }
@@ -980,7 +980,7 @@ async function runSearch() {
   ]);
   scheduleSearchStep(900, 'Reviewing candidates from Maps...');
   scheduleSearchStep(2200, 'Checking restaurant websites for menu evidence...');
-  scheduleSearchStep(3800, 'Looking for business email addresses...');
+  scheduleSearchStep(3800, 'Looking for contact routes and outreach evidence...');
   scheduleSearchStep(5200, 'Checking ticket machine evidence...');
 
   try {
@@ -1007,7 +1007,7 @@ async function runSearch() {
     if (data.leads > 0) {
       showToast('Qualified lead added to Leads', 'success');
     } else {
-      showToast('No email-reachable lead added', 'info');
+      showToast('No new outreach-ready lead added', 'info');
     }
     // Reload to refresh leads list
     setTimeout(() => location.reload(), 2200);
@@ -1296,10 +1296,10 @@ async function openPreview(leadId) {
     // Show classification-specific info
     const classification = data.classification || 'menu_only';
     if (classification === 'machine_only') {
-      jpPreview.textContent = 'Machine-only leads cannot receive the standard menu email template. Please flag as needs_review.';
-      setSaveState('Needs review', 'error');
+      jpPreview.textContent = 'This lead needs the later-phase machine or ticket-machine outreach flow. Keep it in review until that path is implemented.';
+      setSaveState('Manual review required', 'error');
       sendBtn.disabled = true;
-      sendBtn.title = 'No template available for machine-only outreach';
+      sendBtn.title = 'Machine or ticket-machine outreach flow is not implemented yet';
       modal.showModal();
       return;
     }
@@ -1747,11 +1747,14 @@ function renderBuildReview(review) {
   const errors = validation.errors || [];
   const warnings = validation.warnings || [];
   const artifacts = review.artifacts || [];
+  const checklist = review.review_checklist || {};
   const printProfile = review.print_profile || validation.print_profile || null;
   const isPrinted = review.package_key === 'package_2_printed_delivered_45k';
   const actionErrors = isPrinted ? errors.filter(e => !['delivery_contact_name_missing', 'delivery_address_missing'].includes(e)) : errors;
   const requiredReady = artifacts.filter(a => a.required && a.exists).length;
   const requiredTotal = artifacts.filter(a => a.required).length;
+  const visiblePriceCount = Number(checklist.price_count || 0);
+  const sourcePriceCount = Number(checklist.source_price_count || visiblePriceCount || 0);
   const approved = review.review_status === 'approved' && review.final_export_status === 'ready';
   const approvalBlocked = actionErrors.length > 0 || approved;
   const approveDisabled = approvalBlocked ? 'disabled aria-disabled="true"' : '';
@@ -1765,6 +1768,10 @@ function renderBuildReview(review) {
     <div class="build-review-metric">
       <div class="qr-review-label">Package</div>
       <strong>${escapeHtml(review.package_label || 'Package')}</strong>
+    </div>
+    <div class="build-review-metric">
+      <div class="qr-review-label">Package Price</div>
+      <strong>¥${Number(review.price_yen || 0).toLocaleString('en-US')}</strong>
     </div>
     <div class="build-review-metric">
       <div class="qr-review-label">Validation</div>
@@ -1785,6 +1792,17 @@ function renderBuildReview(review) {
         <li class="${printProfile.custom_quote_required ? 'is-error' : ''}">${escapeHtml(printProfile.reason || '')}</li>
       </ul>
     </div>` : '';
+  const checklistCard = Object.keys(checklist).length ? `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Operator checklist</div>
+      <ul class="qr-check-list">
+        <li>Items visible: ${escapeHtml(String(checklist.item_count || 0))}</li>
+        <li class="${visiblePriceCount < sourcePriceCount ? 'is-warning' : ''}">Prices visible: ${escapeHtml(String(visiblePriceCount))} of ${escapeHtml(String(sourcePriceCount))}</li>
+        <li>Section split: ${escapeHtml(checklist.section_split || 'unknown')}</li>
+        <li class="${checklist.stale_text_absent === false ? 'is-error' : ''}">Stale text absent: ${checklist.stale_text_absent === false ? 'No' : 'Yes'}</li>
+        <li class="${checklist.owner_source_present ? '' : 'is-error'}">Owner source present: ${checklist.owner_source_present ? 'Yes' : 'No'}</li>
+      </ul>
+    </div>` : '';
   const deliveryCard = isPrinted && !approved ? `
     <div class="qr-review-card">
       <div class="qr-review-label">Delivery</div>
@@ -1802,6 +1820,7 @@ function renderBuildReview(review) {
         ${warnings.map(w => `<li class="is-warning">${escapeHtml(w)}</li>`).join('')}
       </ul>
     </div>
+    ${checklistCard}
     ${printCard}
     ${deliveryCard}
     <div class="qr-review-card">
