@@ -339,6 +339,44 @@ body::before {
   border-color: var(--text-muted);
 }
 
+.cta-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.btn-pricing-modal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.btn-pricing-modal:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.btn-pricing-modal svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* ── Main Content ── */
 
 .main {
@@ -709,6 +747,152 @@ body::before {
 }
 
 .pricing-section__note {
+  margin-top: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pricing-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--backdrop);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-med), visibility var(--transition-med);
+  padding: 24px;
+}
+
+.pricing-modal.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.pricing-modal__panel {
+  width: min(980px, 100%);
+  max-height: min(84vh, 920px);
+  overflow: auto;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  transform: translateY(12px) scale(0.98);
+  transition: transform var(--transition-med);
+}
+
+.pricing-modal.active .pricing-modal__panel {
+  transform: translateY(0) scale(1);
+}
+
+.pricing-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px 28px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pricing-modal__title {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.pricing-modal__sub {
+  margin-top: 8px;
+  max-width: 640px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.pricing-modal__close {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pricing-modal__close:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.pricing-modal__body {
+  padding: 22px 28px 28px;
+}
+
+.pricing-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pricing-modal__card {
+  position: relative;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 26px 22px 22px;
+}
+
+.pricing-modal__card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent-green);
+}
+
+.pricing-modal__card--printed::before { background: var(--accent-blue); }
+.pricing-modal__card--qr::before { background: var(--accent-cyan); }
+
+.pricing-modal__name {
+  display: block;
+  font-family: 'Outfit', sans-serif;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.pricing-modal__price {
+  display: block;
+  margin-top: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.pricing-modal__desc {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.pricing-modal__foot {
   margin-top: 18px;
   font-size: 13px;
   line-height: 1.5;
@@ -1251,13 +1435,21 @@ a:focus-visible {
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
-    <a class="btn-outline" href="/pricing.html">Pricing</a>
-    <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20sample&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20sample%20English%20menu.%0A%0ARestaurant%20name%3A%20%0ALocation%3A%20%0A%0AThanks%2C">
-      Request a free sample
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
-      </svg>
-    </a>
+    <div class="cta-stack">
+      <a class="btn-outline" href="/pricing.html">Pricing</a>
+      <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20sample&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20sample%20English%20menu.%0A%0ARestaurant%20name%3A%20%0ALocation%3A%20%0A%0AThanks%2C">
+        Request a free sample
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+      <button class="btn-pricing-modal" id="pricingModalBtn" type="button">
+        View pricing packages
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -1381,32 +1573,6 @@ a:focus-visible {
     </a>
   </section>
 
-  <!-- Pricing Section -->
-  <section class="pricing-section" aria-label="Pricing">
-    <div class="pricing-section__header">
-      <h2 class="pricing-section__title">Pricing</h2>
-      <p class="pricing-section__sub">Simple packages for English menus and ordering support.</p>
-    </div>
-    <div class="pricing-grid">
-      <div class="pricing-card pricing-card--online">
-        <span class="pricing-card__name">Online Delivery</span>
-        <span class="pricing-card__price">&#165;30,000</span>
-        <p class="pricing-card__desc">Print-ready English menu files delivered online.</p>
-      </div>
-      <div class="pricing-card pricing-card--printed">
-        <span class="pricing-card__name">Printed and Delivered</span>
-        <span class="pricing-card__price">&#165;45,000</span>
-        <p class="pricing-card__desc">Printed and laminated menus delivered directly to your restaurant, sized compactly for your menu and shop.</p>
-      </div>
-      <div class="pricing-card pricing-card--qr">
-        <span class="pricing-card__name">QR Menu System</span>
-        <span class="pricing-card__price">&#165;65,000</span>
-        <p class="pricing-card__desc">A hosted English menu page with item descriptions, photos if provided, ingredients when confirmed by the restaurant, QR code, and "Scan for English Menu" sign.</p>
-      </div>
-    </div>
-    <p class="pricing-section__note">Larger menus, extra pages, additional copies, or combined packages can be quoted separately.</p>
-  </section>
-
   <!-- Footer -->
   <footer class="footer" aria-label="Footer">
     <div class="footer__line"></div>
@@ -1429,6 +1595,38 @@ a:focus-visible {
   </div>
 </div>
 
+<div class="pricing-modal" id="pricingModal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="pricing-modal__panel">
+    <div class="pricing-modal__header">
+      <div>
+        <h2 class="pricing-modal__title">Pricing</h2>
+        <p class="pricing-modal__sub">Three fixed-price packages for Japanese ramen and izakaya shops, with clear scope and straightforward delivery.</p>
+      </div>
+      <button class="pricing-modal__close" id="pricingModalClose" type="button" aria-label="Close pricing modal">&times;</button>
+    </div>
+    <div class="pricing-modal__body">
+      <div class="pricing-modal__grid">
+        <article class="pricing-modal__card pricing-modal__card--online">
+          <span class="pricing-modal__name">Online Delivery</span>
+          <span class="pricing-modal__price">&#165;30,000</span>
+          <p class="pricing-modal__desc">Print-ready English menu files delivered online.</p>
+        </article>
+        <article class="pricing-modal__card pricing-modal__card--printed">
+          <span class="pricing-modal__name">Printed and Delivered</span>
+          <span class="pricing-modal__price">&#165;45,000</span>
+          <p class="pricing-modal__desc">Printed and laminated menus delivered directly to your restaurant, sized compactly for your menu and shop.</p>
+        </article>
+        <article class="pricing-modal__card pricing-modal__card--qr">
+          <span class="pricing-modal__name">QR Menu System</span>
+          <span class="pricing-modal__price">&#165;65,000</span>
+          <p class="pricing-modal__desc">A hosted English menu page with item descriptions, photos if provided, ingredients when confirmed by the restaurant, QR code, and "Scan for English Menu" sign.</p>
+        </article>
+      </div>
+      <p class="pricing-modal__foot">Larger menus, extra pages, additional copies, or combined packages can be quoted separately.</p>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
   /* ── Theme toggle ─ */
@@ -1439,6 +1637,26 @@ a:focus-visible {
     var current = html.getAttribute('data-theme');
     var next = current === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
+  });
+
+  var pricingModal = document.getElementById('pricingModal');
+  var pricingModalBtn = document.getElementById('pricingModalBtn');
+  var pricingModalClose = document.getElementById('pricingModalClose');
+
+  function openPricingModal() {
+    pricingModal.classList.add('active');
+    pricingModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closePricingModal() {
+    pricingModal.classList.remove('active');
+    pricingModal.setAttribute('aria-hidden', 'true');
+  }
+
+  pricingModalBtn.addEventListener('click', openPricingModal);
+  pricingModalClose.addEventListener('click', closePricingModal);
+  pricingModal.addEventListener('click', function(e) {
+    if (e.target === pricingModal) closePricingModal();
   });
 
   /* ── Mouse tracking for tiles ─ */
@@ -1565,6 +1783,7 @@ a:focus-visible {
   /* ── Escape to close ─ */
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && activeKey) hideGlass();
+    if (e.key === 'Escape' && pricingModal.classList.contains('active')) closePricingModal();
   });
 })();
 </script>
