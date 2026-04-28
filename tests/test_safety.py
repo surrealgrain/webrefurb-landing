@@ -289,22 +289,20 @@ class TestSendSafetyGuards:
 
 class TestClassificationContent:
     def test_menu_and_machine_has_both_inline_images(self):
-        from pipeline.email_html import build_pitch_email_html, MENU_URL, MACHINE_URL
+        from pipeline.email_html import build_pitch_email_html, MENU_CID, MACHINE_CID
         html = build_pitch_email_html(
             text_body="Test body",
-            menu_image_path="dummy.jpg",
             include_menu_image=True,
             include_machine_image=True,
         )
-        assert MENU_URL in html
-        assert MACHINE_URL in html
+        assert f"cid:{MENU_CID}" in html
+        assert f"cid:{MACHINE_CID}" in html
 
     def test_menu_only_has_no_machine_image(self):
-        from pipeline.email_html import build_pitch_email_html, MACHINE_URL
+        from pipeline.email_html import build_pitch_email_html, MACHINE_CID
         html = build_pitch_email_html(
             text_body="Test body",
-            menu_image_path="dummy.jpg",
             include_menu_image=True,
             include_machine_image=False,
         )
-        assert MACHINE_URL not in html
+        assert f"cid:{MACHINE_CID}" not in html

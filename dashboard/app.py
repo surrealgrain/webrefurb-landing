@@ -82,16 +82,19 @@ def _dashboard_email_preview_html(
     include_machine_image: bool,
 ) -> str:
     """Render the dashboard preview from the same HTML email builder."""
-    from pipeline.email_html import build_pitch_email_html
+    from pipeline.email_html import build_pitch_email_html, LOGO_CID, MENU_CID, MACHINE_CID
 
     html_body = build_pitch_email_html(
         text_body=text_body,
-        menu_image_path="dashboard-preview",
         include_menu_image=include_menu_image,
         include_machine_image=include_machine_image,
         locale="ja",
     )
-    return html_body.replace("cid:webrefurb-logo", "/assets/webrefurb-email-logo.svg")
+    # Replace CID references with dashboard-local SVG/PNG paths for in-browser display
+    html_body = html_body.replace(f"cid:{LOGO_CID}", "/assets/webrefurb-email-logo.svg")
+    html_body = html_body.replace(f"cid:{MENU_CID}", "/assets/placeholder-menu-preview.png")
+    html_body = html_body.replace(f"cid:{MACHINE_CID}", "/assets/placeholder-machine-preview.png")
+    return html_body
 
 
 def _normalise_body(text: str) -> str:
@@ -945,7 +948,7 @@ async def api_send(lead_id: str, request: Request):
     _log("send_attempted", f"to={to_email}", lead_id=lead_id)
 
     # Send via Resend with inline menu preview
-    from pipeline.constants import TEMPLATE_PACKAGE_MENU
+    from pipeline.constants import TEMPLATE_PACKAGE_MENU, TEMPLATE_PACKAGE_MACHINE
 
     menu_html = None
     if include_menu_image:
@@ -955,6 +958,12 @@ async def api_send(lead_id: str, request: Request):
         if not menu_html.exists():
             raise HTTPException(status_code=400, detail="Required menu preview image source file not found")
 
+    machine_html = None
+    if include_machine_image:
+        machine_html = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide_browser_preview.html"
+        if not machine_html.exists():
+            machine_html = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide_print_master.html"
+
     try:
         result = await _send_email_resend(
             to=to_email,
@@ -962,6 +971,7 @@ async def api_send(lead_id: str, request: Request):
             body=email_body,
             attachments=asset_paths,
             menu_html_path=str(menu_html) if menu_html and menu_html.exists() else None,
+            machine_html_path=str(machine_html) if machine_html and machine_html.exists() else None,
             include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
         )
@@ -1875,15 +1885,17 @@ async def _send_email_resend(
     attachments: list[str],
     in_reply_to: str = "",
     menu_html_path: str | None = None,
+    machine_html_path: str | None = None,
     include_menu_image: bool = True,
     include_machine_image: bool = False,
 ) -> dict:
-    """Send an email via the Resend SDK with HTML body, header/footer, inline menu image."""
+    """Send an email via Resend with CID-embedded inline images + PDF attachments."""
     import base64
     import resend as _resend
     from pipeline.email_html import (
         build_pitch_email_html,
         build_inline_attachments,
+        _ensure_menu_jpeg,
     )
 
     api_key = os.environ.get("RESEND_API_KEY", "")
@@ -1896,17 +1908,15 @@ async def _send_email_resend(
     from_name = os.environ.get("RESEND_FROM_NAME", "Chris（クリス）")
     reply_to = os.environ.get("RESEND_REPLY_TO_EMAIL", from_email).strip() or from_email
 
-    # The email builder uses hosted preview image URLs. Keep the local HTML
-    # existence check in api_send, but avoid rendering work during send.
-    menu_image_path = "hosted-menu-sample" if menu_html_path else None
+    # Render HTML templates to JPEG for CID embedding
+    menu_jpeg = _ensure_menu_jpeg(menu_html_path) if include_menu_image and menu_html_path else None
+    machine_jpeg = _ensure_menu_jpeg(machine_html_path) if include_machine_image and machine_html_path else None
 
     # Build HTML email body — all images via cid: references
-    # Japanese outreach → locale="ja" so footer/header links point to /ja
     html_body = build_pitch_email_html(
         text_body=body,
-        menu_image_path=menu_image_path,
-        include_menu_image=include_menu_image and bool(menu_image_path),
-        include_machine_image=include_machine_image,
+        include_menu_image=bool(menu_jpeg),
+        include_machine_image=bool(machine_jpeg),
         locale="ja",
     )
 
@@ -1922,8 +1932,11 @@ async def _send_email_resend(
     if in_reply_to:
         params["headers"] = {"In-Reply-To": in_reply_to}
 
-    # Attachments: inline images (logo + menu via CID) + PDF files
-    all_attachments = build_inline_attachments(menu_image_path)
+    # CID inline attachments (logo + menu + machine) + PDF file attachments
+    all_attachments = build_inline_attachments(
+        menu_jpeg_path=menu_jpeg,
+        machine_jpeg_path=machine_jpeg,
+    )
 
     if attachments:
         for file_path in attachments:

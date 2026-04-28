@@ -1018,7 +1018,8 @@ class TestDraftSaveAndLoad:
         assert response.status_code == 200
         data = response.json()
         assert "突然のご連絡にて失礼いたします。" in data["body"]
-        assert "menu-sample.jpg" in data["preview_html"]
+        # Dashboard preview replaces CID references with local asset paths
+        assert "menu-preview" in data["preview_html"]
 
     def test_draft_status_persists_after_save(self):
         self._create_lead()

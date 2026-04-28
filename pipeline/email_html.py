@@ -1,7 +1,10 @@
 """Build professional HTML emails with header, inline menu image, and footer.
 
-Uses CID (Content-ID) inline attachments for all images — the industry-standard
-approach.  SVGs are rasterised to PNG first because Gmail strips <svg> tags.
+All images use CID (Content-ID) inline attachments — embedded directly in
+the email.  No external URL fetches, so images load 100 % of the time in
+every email client including mobile carriers that block remote content.
+
+Max 2 inline images: menu sample + ticket machine guide (if applicable).
 """
 
 from __future__ import annotations
@@ -14,8 +17,7 @@ LOGO_PNG_PATH = Path(__file__).resolve().with_name("_logo_cache.png")
 
 LOGO_CID = "webrefurb-logo"
 MENU_CID = "menu-preview"
-MENU_URL = "https://www.webrefurb.com/previews/menu-sample.jpg"
-MACHINE_URL = "https://www.webrefurb.com/previews/machine-sample.jpg"
+MACHINE_CID = "machine-preview"
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +37,6 @@ def _ensure_logo_png() -> Path | None:
         from playwright.sync_api import sync_playwright
 
         svg_abs = LOGO_SVG_PATH.resolve()
-        # Wrap SVG in minimal HTML so Playwright can render it reliably
         wrapper = (
             '<!DOCTYPE html><html><head><style>'
             'html,body{margin:0;padding:0;background:transparent;}'
@@ -70,35 +71,98 @@ def _ensure_logo_png() -> Path | None:
 
 
 # ---------------------------------------------------------------------------
+# Menu / machine image rendering (HTML → JPEG, cached)
+# ---------------------------------------------------------------------------
+
+def _render_html_to_jpeg(
+    html_path: Path,
+    output_path: Path,
+    width: int = 600,
+) -> Path | None:
+    """Render an HTML file to JPEG using Playwright (retina quality).
+
+    Returns the JPEG path, or None if rendering fails.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+
+        if not html_path.exists():
+            return None
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(
+                viewport={"width": width, "height": 600},
+                device_scale_factor=2,
+            )
+            page.goto(f"file://{html_path.resolve()}")
+            page.wait_for_load_state("networkidle")
+            page.screenshot(path=str(output_path), full_page=True, type="jpeg", quality=92)
+            browser.close()
+
+        return output_path
+    except Exception:
+        return None
+
+
+def _ensure_menu_jpeg(html_path: str | Path | None) -> Path | None:
+    """Render a menu HTML to JPEG if needed, return the JPEG path.
+
+    Caches next to the source HTML as ``<name>_email_preview.jpg``.
+    """
+    if not html_path:
+        return None
+    src = Path(html_path)
+    if not src.exists():
+        return None
+    cached = src.with_name(src.stem + "_email_preview.jpg")
+    if cached.exists():
+        return cached
+    return _render_html_to_jpeg(src, cached)
+
+
+# Backward-compatible alias for external callers
+def render_menu_to_jpeg(
+    menu_html_path: str | Path,
+    output_path: str | Path | None = None,
+    width: int = 600,
+) -> Path | None:
+    if output_path is None:
+        output_path = Path(menu_html_path).with_suffix(".jpg")
+    return _render_html_to_jpeg(Path(menu_html_path), Path(output_path), width)
+
+
+render_menu_to_png = render_menu_to_jpeg
+
+
+# ---------------------------------------------------------------------------
 # Email HTML builder
 # ---------------------------------------------------------------------------
 
 def build_pitch_email_html(
     *,
     text_body: str,
-    menu_image_path: str | Path | None = None,
     include_menu_image: bool = True,
     include_machine_image: bool = False,
     locale: str = "en",
 ) -> str:
-    """Build a full HTML email with header logo, body, images, and footer.
+    """Build a full HTML email with header logo, body, CID images, and footer.
 
-    Logo uses CID inline attachment. Menu and machine images are hosted on
-    the web and referenced by URL — no attachments needed for those.
+    Menu and machine guide images use CID references — they must be
+    provided as inline attachments via ``build_inline_attachments()``.
 
     Args:
         locale: "en" links to webrefurb.com, "ja" links to webrefurb.com/ja.
-            The visible footer text always shows "webrefurb.com".
 
     Returns:
-        Complete HTML string (typically < 10 KB).
+        Complete HTML string.
     """
     has_logo = _ensure_logo_png() is not None
     site_url = "https://webrefurb.com/ja" if locale == "ja" else "https://webrefurb.com"
 
     lines = [l.strip() for l in text_body.strip().split("\n\n") if l.strip()]
 
-    # -- Header (clean logo strip, hairline separator) --------------------
+    # -- Header ----------------------------------------------------------
     if has_logo:
         header_logo = (
             f'<a href="{site_url}" target="_blank" rel="noopener noreferrer">'
@@ -119,7 +183,7 @@ def build_pitch_email_html(
         '</div>'
     )
 
-    # -- Body paragraphs ---------------------------------------------------
+    # -- Body paragraphs -------------------------------------------------
     body_parts: list[str] = []
     for line in lines:
         escaped = html.escape(line).replace("\n", "<br>")
@@ -128,25 +192,25 @@ def build_pitch_email_html(
             f'color:#111; text-align:left;">{escaped}</p>'
         )
 
-    # -- Menu image (URL-hosted, no attachment) ---------------------------
-    if include_menu_image and menu_image_path:
+    # -- Menu image (CID inline, embedded in email) ----------------------
+    if include_menu_image:
         body_parts.append(
-            f'<img src="{MENU_URL}" width="600" alt="English Menu Sample" '
+            f'<img src="cid:{MENU_CID}" width="600" alt="English Menu Sample" '
             'style="display:block; width:100%; max-width:600px; height:auto; '
             'margin:24px 0; border-radius:8px; border:1px solid #E8E8E5;" />'
         )
 
-    # -- Ticket machine guide image (URL-hosted, no attachment) -----------
+    # -- Ticket machine guide image (CID inline) -------------------------
     if include_machine_image:
         body_parts.append(
-            f'<img src="{MACHINE_URL}" width="600" alt="Ticket Machine Guide" '
+            f'<img src="cid:{MACHINE_CID}" width="600" alt="Ticket Machine Guide" '
             'style="display:block; width:100%; max-width:600px; height:auto; '
             'margin:24px 0; border-radius:8px; border:1px solid #E8E8E5;" />'
         )
 
     body_html = "\n".join(body_parts)
 
-    # -- Footer (logo + hairline separator) --------------------------------
+    # -- Footer ----------------------------------------------------------
     if has_logo:
         footer = (
             '<div style="margin-top:40px; padding-top:20px; border-top:1px solid #E8E8E5;">'
@@ -189,16 +253,18 @@ def build_pitch_email_html(
 
 
 # ---------------------------------------------------------------------------
-# Attachment helpers
+# CID inline attachment builder
 # ---------------------------------------------------------------------------
 
 def build_inline_attachments(
-    menu_image_path: str | Path | None = None,
+    *,
+    menu_jpeg_path: str | Path | None = None,
+    machine_jpeg_path: str | Path | None = None,
 ) -> list[dict]:
-    """Return the list of Resend inline-attachment dicts for email images.
+    """Return the list of Resend inline-attachment dicts for all email images.
 
-    Only the logo is sent as a CID inline attachment. The menu image is
-    hosted on the web and referenced by URL — no attachment needed.
+    Produces up to 4 CID attachments: logo (header+footer shared),
+    menu preview, and machine guide preview.
     """
     import base64
 
@@ -215,44 +281,28 @@ def build_inline_attachments(
             "mime_type": "image/png",
         })
 
+    # Menu preview JPEG
+    if menu_jpeg_path:
+        menu_path = Path(menu_jpeg_path)
+        if menu_path.exists():
+            attachments.append({
+                "filename": "english-menu-sample.jpg",
+                "content": base64.b64encode(menu_path.read_bytes()).decode("ascii"),
+                "content_id": MENU_CID,
+                "disposition": "inline",
+                "mime_type": "image/jpeg",
+            })
+
+    # Machine guide preview JPEG
+    if machine_jpeg_path:
+        machine_path = Path(machine_jpeg_path)
+        if machine_path.exists():
+            attachments.append({
+                "filename": "ticket-machine-guide.jpg",
+                "content": base64.b64encode(machine_path.read_bytes()).decode("ascii"),
+                "content_id": MACHINE_CID,
+                "disposition": "inline",
+                "mime_type": "image/jpeg",
+            })
+
     return attachments
-
-
-def render_menu_to_jpeg(
-    menu_html_path: str | Path,
-    output_path: str | Path | None = None,
-    width: int = 600,
-) -> Path | None:
-    """Render a menu HTML file to JPEG using Playwright (retina quality).
-
-    Returns the path to the generated JPEG, or None if rendering fails.
-    """
-    try:
-        from playwright.sync_api import sync_playwright
-
-        menu_path = Path(menu_html_path).resolve()
-        if not menu_path.exists():
-            return None
-
-        if output_path is None:
-            output_path = menu_path.with_suffix(".jpg")
-        out = Path(output_path)
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page(
-                viewport={"width": width, "height": 600},
-                device_scale_factor=2,
-            )
-            page.goto(f"file://{menu_path}")
-            page.wait_for_load_state("networkidle")
-            page.screenshot(path=str(out), full_page=True, type="jpeg", quality=92)
-            browser.close()
-
-        return out
-    except Exception:
-        return None
-
-
-# Backward-compatible alias
-render_menu_to_png = render_menu_to_jpeg
