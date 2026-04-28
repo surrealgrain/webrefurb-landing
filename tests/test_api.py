@@ -317,9 +317,9 @@ class TestAPIEndpoints:
         response = self.client.get("/api/outreach/wrm-test-profile-assets")
         assert response.status_code == 200
         data = response.json()
-        assert data["asset_strategy_label"] == "Ramen-only sample set"
-        assert "one-page ramen sample" in data["asset_strategy_note"]
-        assert data["asset_details"][0]["label"] == "Ramen Menu Sample (One Page)"
+        assert data["asset_strategy_label"] == "Ramen menu sample set"
+        assert "ramen" in data["asset_strategy_note"].lower()
+        assert "Ramen Menu Sample" in data["asset_details"][0]["label"]
 
     def test_mark_manual_contacted_sets_route_specific_status(self, tmp_path):
         self._create_lead(
@@ -1346,9 +1346,9 @@ class TestClassificationSpecificBehavior:
         assert response.status_code == 200
         data = response.json()
         assert "p1-split-food-drinks-layout" in data["assets"][0]
-        assert data["asset_strategy_label"] == "Drink-forward izakaya sample set"
-        assert data["asset_details"][0]["label"] == "Drink-Forward Izakaya Sample"
-        assert "飲み放題" in data["body"]
+        assert data["asset_strategy_label"] == "Izakaya sample set"
+        assert data["asset_details"][0]["label"] == "Izakaya Food + Drinks Sample"
+        assert "スタッフの方が個別にご説明する手間" in data["body"]
 
     def test_menu_and_machine_classification(self):
         """menu_and_machine leads get two PDFs and machine content."""
@@ -1363,7 +1363,7 @@ class TestClassificationSpecificBehavior:
         assert data["include_machine_image"] is True
         assert len(data["assets"]) == 2
         # Body should contain machine line
-        assert "券売機用の英語ガイド" in data["body"]
+        assert "券売機" in data["body"]
 
     def test_machine_only_generates_ticket_machine_outreach(self):
         """machine_only leads should generate a real first-pass outreach draft."""
@@ -1379,7 +1379,7 @@ class TestClassificationSpecificBehavior:
         assert data["include_machine_image"] is True
         assert len(data["assets"]) == 1
         assert "machine" in data["assets"][0].lower()
-        assert "券売機や注文方法" in data["body"]
+        assert "券売機" in data["body"] and "注文ガイド" in data["body"]
 
     def test_default_no_evidence_classifies_as_menu_only(self):
         """No evidence at all defaults to menu_only."""

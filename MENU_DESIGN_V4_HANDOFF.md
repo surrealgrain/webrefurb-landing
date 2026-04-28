@@ -1,66 +1,86 @@
-# Menu Template v4 Redesign — Session Handoff
+# Menu Template v4c — Complete Redesign
 
 Updated: 2026-04-28
+Commit: `f76ac71` — "Replace cream/off-white menu templates with dark izakaya v4c designs"
 
-## Task
+## Status: COMPLETE
 
-UI/UX improvement pass on the master menu template (`assets/templates/master_menu.html`) for izakaya/ramen target market. Use StyleSeed skills exclusively. Original must stay untouched until confirmed.
+The v4c dark izakaya design was accepted and has replaced all previous templates.
 
-## What Was Done
+## Design Language
 
-1. **Backup created**: `assets/templates_v3_original/` — verified copy of the original templates
-2. **2026 design trend research completed** (DuckDuckGo + webReader):
-   - Creative Bloq (Dec 2025): "Texture, warmth and tactile rebellion"
-   - YoungMindInteractive (Apr 2026): "Imperfection as aesthetic choice, tactile/sensory design, type as design"
-   - Key trends: anti-AI crafting (handmade marks), emotional color, bold minimalism updated with warmth, tactile/sensory surfaces
-3. **StyleSeed audit run**: Scored B- — Cormorant Garamond reads "European luxury hotel," not izakaya
-4. **Two mockups produced and rejected**:
-   - `v4_food_mockup.html` — warm brown palette, DM Sans, brush-stroke motif → "same vibe problem, squiggly line out of place"
-   - `v4b_food_mockup.html` — restored indigo, paper texture, lighter heading weight → "still looks like a wine menu"
+- **Style**: Dark izakaya — aged wood surface, light text, kanji prominent, red vermillion accent
+- **Palette**: `#0f0d0b` bg, `#1c1917` surface, `#f0ebe3` text, `#c53d43` accent
+- **Fonts**: Outfit (English headings/body), Shippori Mincho (kanji — traditional Mincho style)
+- **Print size**: A5 portrait (148mm × 210mm) — chosen for narrow ramen counter display
+- **Texture**: SVG film grain at 0.12 opacity, warm radial glow from top
 
-## Core Problem (Unresolved)
+## Templates
 
-The current template design language is fundamentally **European fine dining**:
-- Cormorant Garamond serif → wine list / luxury hotel
-- Cream surface + indigo border → formal restaurant card
-- Rigid 2x2 section grid → corporate / hotel minibar list
-- Symmetrical layout with flanking rules → traditional European print
+| File | Use Case | Sections |
+|---|---|---|
+| `izakaya_food_menu.html` | Full izakaya food (double-sided front) | Ramen 8, Small Plates 8, Grilled Skewers 8, Rice & Noodles 8 |
+| `izakaya_drinks_menu.html` | Izakaya drinks (double-sided back) | Beer 5, Sake 6, Highball & Shochu 5, Soft Drinks 5 |
+| `ramen_food_menu.html` | Ramen-only single-sided A5 | Ramen 8, Sides & Add-ons 6 |
+| `ramen_drinks_menu.html` | Ramen shop drinks (simple) | Beer & Highballs 6, Soft Drinks & Tea 6 |
+| `ticket_machine_guide.html` | Visual 食券機 mirror | 5×5 grid: 10 ramen, 5 sides, 5 drinks, 5 toppings |
+| `qr_code_sign.html` | A6 table/counter sign for QR package | Seal + headline + QR placeholder + camera hint |
 
-**Incremental tweaks (font weight, texture opacity, section borders) do NOT fix this.** The entire visual language needs to change to something that reads "izakaya / ramen" — warm, casual, approachable, Japanese — not "French bistro."
+## Ticket Machine Guide Details
 
-## What the User Said
+Mirrors real 食券機 (Glory VT-B series):
+- 5-column grid (standard layout for most machines)
+- No section labels — visual mapping only
+- `grid-spacer` dividers mimic blank/block buttons on real machines
+- Standard buttons (72px min-height) for ramen/sides/drinks
+- Mini buttons (56px min-height) for toppings (mirrors 3連ミニ)
+- Top-left button = best seller with "Popular" tag
+- Steps merged into header (seal → title → steps → grid)
+- Button text enlarged to 14px English / 11.5px kanji for wall readability
 
-- "it still looks like a wine menu"
-- "we need to try a completely different design style"
-- "don't japanese love blue?" — indigo blue IS culturally appropriate, keep it
-- "didn't the research say add texture?" — texture should be the hero change, not barely visible
-- The user likes "minimalist, elegant simplicity" but it needs to feel appropriate for izakayas/ramen spots
-- The squiggly brush-stroke motif was rejected — clashing with the professional look
+## Japanese Translation Audit
 
-## What a Fresh Approach Should Try
+All translations verified and corrected. Key fixes applied:
+- 焼き鳥 → もも (Grilled Chicken Thigh — 焼き鳥 is generic, not thigh-specific)
+- サッポロプレミアム → サッポロ黒ラベル (export name replaced with domestic product)
+- ジャパニーズラガー → オリオンビール (back-translation replaced with real brand)
+- ハウスレモネード → メロンソーダ (unnatural katakana replaced with common ramen shop drink)
 
-A **completely different design style** — not tweaks to the current template. Options worth exploring:
+## Design Decisions Log
 
-1. **Japanese stamp/seal aesthetic** — hanko-inspired marks, washi paper texture as the dominant surface, indigo + red accents, more playful asymmetry
-2. **Kraft/brown paper casual** — textured kraft background, stamp-style type, hand-drawn section dividers, warm and unpretentious
-3. **Japanese newspaper/woodblock** — traditional print aesthetic, vertical elements, sumi-e influenced, serif but a Japanese serif
-4. **Modern Japanese minimal** — stark but warm, lots of negative space, single accent, but with Japanese aesthetic cues (not European)
-5. **Chalkboard/casual** — dark textured background, handwritten-style fonts, casual and approachable
+1. **v4 warm brown** → rejected ("same vibe problem, squiggly line out of place")
+2. **v4b indigo + paper texture** → rejected ("still looks like a wine menu")
+3. **v4c dark izakaya** → ACCEPTED
+4. Section titles: left-aligned for food menus, center-aligned for ticket guide
+9. QR sign is English-only (no kanji except seal stamp) — audience is tourists who can't read Japanese
+10. QR sign print size: A6 portrait (105mm × 148mm) — half the ticket machine guide, fits table stands
+6. English translations (not romanized Japanese) — tourists need to know what they're ordering
+7. Seal stamp auto-sizes via `data-length` attribute (1-6 character scaling)
+8. Seal name sourced from `locked_business_name` only (never mutable `business_name`)
 
-The design should still be print-ready (A3 landscape for dual-panel, A4 for single panel) and use the data-slot architecture.
+## Pipeline Changes
 
-## Files
+- `render.py`: default template changed from `master_menu.html` to `izakaya_food_menu.html`
+- `cli.py`: help text updated to remove `master_menu.html` reference
+- Pipeline renderer uses `data-slot` architecture — compatible with all new templates
+- **Note**: Pipeline still expects v1/v2 section structure. The v4c templates use a different HTML structure (sections-stack, section-header with section-title + section-kanji). The renderer's `_replace_section()` regex patterns may need updating to match the new structure. This is a known gap.
 
-- Original (untouched): `assets/templates/master_menu.html`
-- Backup: `assets/templates_v3_original/`
-- Rejected mockup 1: `assets/templates/v4_food_mockup.html`
-- Rejected mockup 2: `assets/templates/v4b_food_mockup.html`
+## Backups
+
+- Original v3 templates preserved at `assets/templates_v3_original/`
+
+## Pending / Next Steps
+
+1. **Pipeline renderer update** — `_replace_section()` regex needs updating for v4c HTML structure
+2. **Seal checksum verification** — SHA256 checksum of `locked_business_name` at render/send time (see memory: `seal_name_checksum.md`)
+3. **Template selection logic** — pipeline should auto-select template based on `establishment_profile` (izakaya vs ramen)
+4. **Consider izakaya section reordering** — for pure izakaya, Small Plates should lead instead of Ramen
+5. **Multi-language variants** — if expanding beyond English, template architecture supports it via data-slots
 
 ## Key Constraints
 
 - Market: Japan izakayas and ramen shops only
-- Original template must stay untouched until user confirms
-- Use StyleSeed skills (ss-audit, ss-lint, ss-review, ss-tokens, etc.)
-- Print-ready: A3 landscape dual-panel, A4 single panel
+- No prices on templates (longevity)
+- English descriptions (not romanized Japanese names)
 - Data-slot driven architecture must be preserved
-- DuckDuckGo search installed: `.venv/bin/python -c "from ddgs import DDGS; ..."` (no API key needed)
+- Seal name must use `locked_business_name` exclusively

@@ -336,7 +336,9 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .reply-compose.open { display: block; }
 .reply-textarea { width: 100%; border-radius: 8px; border: 1px solid var(--input-border); padding: 8px 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; outline: none; }
 .reply-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,116,144,0.1); }
-.reply-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+.reply-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; align-items: center; }
+.reply-translate-hint { font-size: 11px; color: var(--text-tertiary); margin-right: auto; display: none; }
+.reply-translate-hint.visible { display: block; }
 
 /* Build modal */
 .build-form { display: flex; flex-direction: column; gap: 16px; }
@@ -2675,8 +2677,9 @@ async function loadSentEmails() {
       const safeSubject = (s.subject || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
       const safeTo = (s.to || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
       const safeLeadId = (s.lead_id || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+      const safeName = (s.business_name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
       return `
-      <div class="sent-entry" data-to="${safeTo}" data-subject="${safeSubject}" data-lead-id="${safeLeadId}">
+      <div class="sent-entry" data-to="${safeTo}" data-subject="${safeSubject}" data-lead-id="${safeLeadId}" data-business-name="${safeName}">
         <div class="sent-entry-header">
           <span class="sent-entry-subject">${safeSubject}</span>
           <span class="sent-entry-date">${s.sent_at ? new Date(s.sent_at).toLocaleDateString() : ''}</span>
@@ -2685,8 +2688,10 @@ async function loadSentEmails() {
         <div class="reply-section">
           <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Reply</button>
           <div class="reply-compose">
-            <textarea class="reply-textarea" placeholder="Type your reply..."></textarea>
+            <textarea class="reply-textarea" placeholder="Type your reply in English, then click Translate..."></textarea>
             <div class="reply-actions">
+              <span class="reply-translate-hint">Translated from English — edit before sending</span>
+              <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="translateReply(this)">Translate to Japanese</button>
               <button class="btn btn-primary" style="height:32px;font-size:12px;padding:0 14px;" onclick="sendReply(this)">Send Reply</button>
             </div>
           </div>
@@ -2823,6 +2828,42 @@ async function loadReplies(channel, markRead) {
 function toggleReply(btn) {
   const compose = btn.parentElement.querySelector('.reply-compose');
   compose.classList.toggle('open');
+}
+
+async function translateReply(btn) {
+  if (btn.disabled) return;
+  const compose = btn.closest('.reply-compose');
+  const textarea = compose.querySelector('.reply-textarea');
+  const text = textarea.value.trim();
+  if (!text) { showToast('Type something first', 'error'); return; }
+
+  const entry = btn.closest('.sent-entry');
+  const businessName = entry ? (entry.dataset.businessName || '') : '';
+
+  btn.disabled = true;
+  btn.textContent = 'Translating...';
+
+  try {
+    const res = await fetch('/api/translate-reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, business_name: businessName }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      textarea.value = data.japanese;
+      const hint = compose.querySelector('.reply-translate-hint');
+      if (hint) hint.classList.add('visible');
+      showToast('Translated to Japanese — review before sending', 'success');
+    } else {
+      showToast('Translation failed: ' + data.detail, 'error');
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Translate to Japanese';
+  }
 }
 
 async function sendReply(btn) {
