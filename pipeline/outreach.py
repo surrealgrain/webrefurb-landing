@@ -363,7 +363,7 @@ def build_manual_outreach_message(
         body = CONTACT_FORM_BODY
         english_body = _join_paragraphs([
             "Hello,",
-            "My name is Chris from WebRefurb, and I create English menus and ordering guides for restaurants.",
+            "My name is Chris, and I create English menus and ordering guides for restaurants.",
             tmpl["focus_en"],
             "I can prepare print-ready data, laminated copies, and restaurant delivery to match your current setup." if include_inperson_line else "I can prepare print-ready data to match your current setup.",
             tmpl["photo_en"],

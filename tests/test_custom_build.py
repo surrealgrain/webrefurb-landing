@@ -24,7 +24,7 @@ from pipeline.package_export import (
     validate_package1_output,
 )
 from pipeline.translate import translate_items, translate_section_headers
-from pipeline.populate import build_menu_data, build_ticket_data, layout_item_capacities, populate_menu_svg
+from pipeline.populate import build_menu_data, build_ticket_data, layout_item_capacities, populate_menu_svg, populate_menu_html
 from pipeline.models import CustomBuildInput, ExtractedItem, TranslatedItem
 
 
@@ -205,14 +205,15 @@ class TestAdaptiveMenuLayout:
         assert layout_item_capacities(3) == [9, 8, 8]
         assert layout_item_capacities(4) == [8, 8, 8, 8]
 
-    def test_single_section_food_menu_uses_one_full_width_box(self, tmp_path):
-        output_path = tmp_path / "food_menu.svg"
+    def test_single_section_food_menu_uses_v4c_html_template(self, tmp_path):
+        output_path = tmp_path / "food_menu.html"
         data = build_menu_data(
             menu_type="food",
             title="FOOD MENU",
             sections=[
                 {
                     "title": "RAMEN",
+                    "data_section": "ramen",
                     "items": [
                         {"name": "Shoyu Ramen", "english_name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"},
                         {"name": "Miso Ramen", "english_name": "Miso Ramen", "japanese_name": "味噌ラーメン"},
@@ -222,6 +223,7 @@ class TestAdaptiveMenuLayout:
             food_sections=[
                 {
                     "title": "RAMEN",
+                    "data_section": "ramen",
                     "items": [
                         {"name": "Shoyu Ramen", "english_name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"},
                         {"name": "Miso Ramen", "english_name": "Miso Ramen", "japanese_name": "味噌ラーメン"},
@@ -230,35 +232,18 @@ class TestAdaptiveMenuLayout:
             ],
         )
 
-        populate_menu_svg(
-            template_path=TEMPLATE_PACKAGE_MENU / "food_menu_editable_vector.svg",
+        populate_menu_html(
+            template_path=TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html",
             data=data,
             output_path=output_path,
         )
 
-        root = ET.parse(output_path).getroot()
-        rects = [
-            elem for elem in root.iter("{http://www.w3.org/2000/svg}rect")
-            if "stroke" in elem.get("class", "").split() and elem.get("data-slot-index") is not None
-        ]
-        visible = [elem for elem in rects if elem.get("display") != "none"]
-        hidden = [elem for elem in rects if elem.get("display") == "none"]
-
-        assert len(visible) == 1
-        assert len(hidden) == 3
-        assert visible[0].get("width") == "498.0"
-        assert visible[0].get("height") == "506.0"
-        item_fonts = [
-            float(elem.get("font-size", "0") or 0)
-            for elem in root.iter("{http://www.w3.org/2000/svg}text")
-            if "item-en" in elem.get("class", "").split() and elem.get("display") != "none" and "".join(elem.itertext()).strip()
-        ]
-        assert item_fonts
-        assert max(item_fonts) >= 16.0
-        text_values = {" ".join(part.strip() for part in elem.itertext()).strip() for elem in root.iter("{http://www.w3.org/2000/svg}text")}
-        assert "RAMEN MENU" in text_values
-        assert "RAMEN" not in text_values
-        assert "Shoyu Ramen" in text_values
+        html = output_path.read_text(encoding="utf-8")
+        assert "Shoyu Ramen" in html
+        assert "醤油ラーメン" in html
+        assert "Miso Ramen" in html
+        assert "味噌ラーメン" in html
+        assert 'data-section="ramen"' in html
 
 
 class TestRunCustomBuild:
@@ -291,14 +276,15 @@ class TestRunCustomBuild:
         assert menu_data["review_checklist"]["price_count"] == 0
         assert menu_data["review_checklist"]["source_price_count"] == 2
 
-    def test_ramen_sides_fold_into_bottom_of_ramen_panel(self, tmp_path):
-        output_path = tmp_path / "food_menu.svg"
+    def test_ramen_sides_fold_into_single_html_output(self, tmp_path):
+        output_path = tmp_path / "food_menu.html"
         data = build_menu_data(
             menu_type="food",
             title="FOOD MENU",
             sections=[
                 {
                     "title": "RAMEN",
+                    "data_section": "ramen",
                     "items": [
                         {"name": "Shoyu Ramen", "english_name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"},
                         {"name": "Miso Ramen", "english_name": "Miso Ramen", "japanese_name": "味噌ラーメン"},
@@ -306,6 +292,7 @@ class TestRunCustomBuild:
                 },
                 {
                     "title": "SMALL PLATES",
+                    "data_section": "sides-add-ons",
                     "items": [
                         {"name": "Gyoza", "english_name": "Gyoza", "japanese_name": "餃子"},
                         {"name": "Karaage", "english_name": "Karaage", "japanese_name": "唐揚げ"},
@@ -314,49 +301,20 @@ class TestRunCustomBuild:
             ],
         )
 
-        populate_menu_svg(
-            template_path=TEMPLATE_PACKAGE_MENU / "food_menu_editable_vector.svg",
+        populate_menu_html(
+            template_path=TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html",
             data=data,
             output_path=output_path,
         )
 
-        root = ET.parse(output_path).getroot()
-        rects = [
-            elem for elem in root.iter("{http://www.w3.org/2000/svg}rect")
-            if "stroke" in elem.get("class", "").split() and elem.get("data-slot-index") is not None
-        ]
-        visible_rects = [elem for elem in rects if elem.get("display") != "none"]
-        title_texts = {
-            "".join(elem.itertext()).strip(): elem
-            for elem in root.iter("{http://www.w3.org/2000/svg}text")
-            if "section" in elem.get("class", "").split() and "".join(elem.itertext()).strip()
-        }
-        item_positions = {
-            "".join(elem.itertext()).strip(): float(elem.get("y", "0") or 0)
-            for elem in root.iter("{http://www.w3.org/2000/svg}text")
-            if "item-en" in elem.get("class", "").split() and elem.get("display") != "none" and "".join(elem.itertext()).strip()
-        }
-
-        assert len(visible_rects) == 1
-        main_titles = {
-            "".join(elem.itertext()).strip()
-            for elem in root.iter("{http://www.w3.org/2000/svg}text")
-            if "title" in elem.get("class", "").split() and "".join(elem.itertext()).strip()
-        }
-        assert "RAMEN MENU" in main_titles
-        assert "RAMEN" not in title_texts
-        assert "SIDES / ADD-ONS" in title_texts
-        assert item_positions["Gyoza"] > item_positions["Miso Ramen"]
-        assert title_texts["SIDES / ADD-ONS"].get("display") == "inline"
-        item_fonts = {
-            "".join(elem.itertext()).strip(): float(elem.get("font-size", "0") or 0)
-            for elem in root.iter("{http://www.w3.org/2000/svg}text")
-            if "item-en" in elem.get("class", "").split() and elem.get("display") != "none" and "".join(elem.itertext()).strip()
-        }
-        assert item_positions["Shoyu Ramen"] >= 250.0
-        assert item_positions["Gyoza"] >= 550.0
-        assert item_fonts["Shoyu Ramen"] >= 18.0
-        assert item_fonts["Gyoza"] >= 14.0
+        html = output_path.read_text(encoding="utf-8")
+        assert "Shoyu Ramen" in html
+        assert "Miso Ramen" in html
+        assert "Gyoza" in html
+        assert "Karaage" in html
+        # Both sections should appear in the single HTML output
+        assert 'data-section="ramen"' in html
+        assert 'data-section="sides-add-ons"' in html
 
 
 # ---------------------------------------------------------------------------
@@ -382,16 +340,27 @@ class TestCustomerExport:
     def _write_package_output(self, output_dir: Path, item_count: int = 2) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         for name in (
-            "restaurant_menu_print_ready_combined.pdf",
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
             (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "food_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "drinks_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
-        (output_dir / "food_menu_browser_preview.html").write_text("<html>food</html>", encoding="utf-8")
-        (output_dir / "drinks_menu_browser_preview.html").write_text("<html>drinks</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text(
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="menu">'
+            '<div class="section-header"><span class="section-title">MENU</span></div>'
+            '<ul class="menu-items">'
+            + "".join(
+                f'<li><span class="item-en">Item {idx}</span><span class="item-jp">品{idx}</span></li>'
+                for idx in range(item_count)
+            )
+            + '</ul></div></div></div></div></body></html>',
+            encoding="utf-8",
+        )
+        (output_dir / "drinks_menu.html").write_text(
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>',
+            encoding="utf-8",
+        )
         (output_dir / "menu_data.json").write_text(
             json.dumps({
                 "sections": [
@@ -482,7 +451,7 @@ class TestCustomerExport:
                 Path(path).write_text("not a pdf", encoding="utf-8")
 
         class FakeBrowser:
-            async def new_page(self):
+            async def new_page(self, **_kwargs):
                 return FakePage()
 
             async def close(self):
@@ -517,7 +486,7 @@ class TestCustomerExport:
         assert not pdf_path.exists()
 
     def test_custom_package_outputs_are_not_watermarked(self, tmp_path, monkeypatch):
-        async def fake_html_to_pdf(html_path: Path, pdf_path: Path) -> Path:
+        async def fake_html_to_pdf(html_path: Path, pdf_path: Path, **_kwargs) -> Path:
             pdf_path.write_text("pdf placeholder", encoding="utf-8")
             return pdf_path
 
@@ -551,9 +520,7 @@ class TestCustomerExport:
         )
 
         html_outputs = [
-            output_dir / "food_menu_browser_preview.html",
-            output_dir / "drinks_menu_browser_preview.html",
-            output_dir / "restaurant_menu_print_master.html",
+            output_dir / "food_menu.html",
         ]
         for html_path in html_outputs:
             assert html_path.exists()
@@ -565,14 +532,12 @@ class TestCustomerExport:
         output_dir = tmp_path / "build"
         output_dir.mkdir()
         for name in (
-            "restaurant_menu_print_ready_combined.pdf",
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
             (output_dir / name).write_text("not a pdf", encoding="utf-8")
-        (output_dir / "food_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "drinks_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>ok</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text("<html>ok</html>", encoding="utf-8")
+        (output_dir / "drinks_menu.html").write_text("<html>ok</html>", encoding="utf-8")
         (output_dir / "menu_data.json").write_text(
             json.dumps({"sections": [{"title": "RAMEN", "items": [{"name": "Shoyu"}]}]}),
             encoding="utf-8",
@@ -581,73 +546,58 @@ class TestCustomerExport:
         report = validate_package1_output(output_dir=output_dir)
 
         assert report["ok"] is False
-        assert "restaurant_menu_print_ready_combined.pdf_not_pdf" in report["errors"]
+        assert "food_menu_print_ready.pdf_not_pdf" in report["errors"]
+
+    def _write_validation_output(self, output_dir: Path, food_html: str, drinks_html: str, menu_json: dict) -> None:
+        """Write v4c HTML files and menu data for validation tests."""
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("food_menu_print_ready.pdf", "drinks_menu_print_ready.pdf"):
+            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+        (output_dir / "food_menu.html").write_text(food_html, encoding="utf-8")
+        (output_dir / "drinks_menu.html").write_text(drinks_html, encoding="utf-8")
+        (output_dir / "menu_data.json").write_text(json.dumps(menu_json), encoding="utf-8")
 
     def test_package_review_allows_unconfirmed_hidden_prices_but_blocks_stale_template_text(self, tmp_path):
         output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen</span><span class="item-jp">醤油ラーメン</span></li>'
+            '<li><span class="item-en">Edamame</span><span class="item-jp">枝豆</span></li>'
+            '</ul></div></div></div></div></body></html>'
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>'
         )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">FOOD MENU</text>'
-            '<text class="section">RAMEN</text>'
-            '<text class="item-en">Shoyu Ramen</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '<text class="item-en">Edamame</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [{
-                        "title": "RAMEN",
-                        "items": [{
-                            "name": "Shoyu Ramen",
-                            "english_name": "Shoyu Ramen",
-                            "japanese_name": "醤油ラーメン",
-                            "source_text": "醤油ラーメン",
-                            "section": "RAMEN",
-                            "price": "¥900",
-                            "price_status": "confirmed_by_business",
-                            "source_provenance": "owner_text",
-                            "approval_status": "pending_review",
-                        }],
-                    }],
-                },
-                "drinks": {"title": "DRINKS MENU", "sections": []},
-                "show_prices": False,
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [{
                     "title": "RAMEN",
-                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                    "items": [{
+                        "name": "Shoyu Ramen",
+                        "english_name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "source_text": "醤油ラーメン",
+                        "section": "RAMEN",
+                        "price": "¥900",
+                        "price_status": "confirmed_by_business",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
+                    }],
                 }],
-            }),
-            encoding="utf-8",
-        )
+            },
+            "drinks": {"title": "DRINKS MENU", "sections": []},
+            "show_prices": False,
+            "sections": [{
+                "title": "RAMEN",
+                "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+            }],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
 
         report = validate_package1_output(output_dir=output_dir)
 
@@ -657,68 +607,45 @@ class TestCustomerExport:
 
     def test_package_review_allows_explicit_operator_hidden_prices(self, tmp_path):
         output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div></div></div></div></body></html>'
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>'
         )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">RAMEN MENU</text>'
-            '<text class="item-en">Shoyu Ramen</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [{
-                        "title": "RAMEN",
-                        "items": [{
-                            "name": "Shoyu Ramen",
-                            "english_name": "Shoyu Ramen",
-                            "japanese_name": "醤油ラーメン",
-                            "source_text": "醤油ラーメン",
-                            "section": "RAMEN",
-                            "price": "¥900",
-                            "price_status": "confirmed_by_business",
-                            "price_visibility": "intentionally_hidden",
-                            "source_provenance": "owner_text",
-                            "approval_status": "pending_review",
-                        }],
-                    }],
-                },
-                "drinks": {"title": "DRINKS MENU", "sections": []},
-                "show_prices": False,
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [{
                     "title": "RAMEN",
-                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                    "items": [{
+                        "name": "Shoyu Ramen",
+                        "english_name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "source_text": "醤油ラーメン",
+                        "section": "RAMEN",
+                        "price": "¥900",
+                        "price_status": "confirmed_by_business",
+                        "price_visibility": "intentionally_hidden",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
+                    }],
                 }],
-            }),
-            encoding="utf-8",
-        )
+            },
+            "drinks": {"title": "DRINKS MENU", "sections": []},
+            "show_prices": False,
+            "sections": [{
+                "title": "RAMEN",
+                "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+            }],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
 
         report = validate_package1_output(output_dir=output_dir)
 
@@ -726,69 +653,45 @@ class TestCustomerExport:
 
     def test_package_review_blocks_unconfirmed_prices_visible_in_customer_output(self, tmp_path):
         output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen  ¥900</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div></div></div></div></body></html>'
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>'
         )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">FOOD MENU</text>'
-            '<text class="section">RAMEN</text>'
-            '<text class="item-en">Shoyu Ramen  ¥900</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [{
-                        "title": "RAMEN",
-                        "items": [{
-                            "name": "Shoyu Ramen",
-                            "english_name": "Shoyu Ramen",
-                            "japanese_name": "醤油ラーメン",
-                            "source_text": "醤油ラーメン",
-                            "section": "RAMEN",
-                            "price": "¥900",
-                            "price_status": "detected_in_source",
-                            "price_visibility": "pending_business_confirmation",
-                            "source_provenance": "owner_text",
-                            "approval_status": "pending_review",
-                        }],
-                    }],
-                },
-                "drinks": {"title": "DRINKS MENU", "sections": []},
-                "show_prices": False,
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [{
                     "title": "RAMEN",
-                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                    "items": [{
+                        "name": "Shoyu Ramen",
+                        "english_name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "source_text": "醤油ラーメン",
+                        "section": "RAMEN",
+                        "price": "¥900",
+                        "price_status": "detected_in_source",
+                        "price_visibility": "pending_business_confirmation",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
+                    }],
                 }],
-            }),
-            encoding="utf-8",
-        )
+            },
+            "drinks": {"title": "DRINKS MENU", "sections": []},
+            "show_prices": False,
+            "sections": [{
+                "title": "RAMEN",
+                "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+            }],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
 
         report = validate_package1_output(output_dir=output_dir)
 
@@ -797,68 +700,44 @@ class TestCustomerExport:
 
     def test_package_review_blocks_missing_prices_when_price_display_enabled(self, tmp_path):
         output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div></div></div></div></body></html>'
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>'
         )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">FOOD MENU</text>'
-            '<text class="section">RAMEN</text>'
-            '<text class="item-en">Shoyu Ramen</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [{
-                        "title": "RAMEN",
-                        "items": [{
-                            "name": "Shoyu Ramen",
-                            "english_name": "Shoyu Ramen",
-                            "japanese_name": "醤油ラーメン",
-                            "source_text": "醤油ラーメン",
-                            "section": "RAMEN",
-                            "price": "¥900",
-                            "price_status": "confirmed_by_business",
-                            "source_provenance": "owner_text",
-                            "approval_status": "pending_review",
-                        }],
-                    }],
-                },
-                "drinks": {"title": "DRINKS MENU", "sections": []},
-                "show_prices": True,
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [{
                     "title": "RAMEN",
-                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                    "items": [{
+                        "name": "Shoyu Ramen",
+                        "english_name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "source_text": "醤油ラーメン",
+                        "section": "RAMEN",
+                        "price": "¥900",
+                        "price_status": "confirmed_by_business",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
+                    }],
                 }],
-            }),
-            encoding="utf-8",
-        )
+            },
+            "drinks": {"title": "DRINKS MENU", "sections": []},
+            "show_prices": True,
+            "sections": [{
+                "title": "RAMEN",
+                "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+            }],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
 
         report = validate_package1_output(output_dir=output_dir)
 
@@ -867,151 +746,34 @@ class TestCustomerExport:
 
     def test_package_review_allows_redundant_headings_to_be_suppressed(self, tmp_path):
         output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack">'
+            '<div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div>'
+            '<div class="section" data-section="sides">'
+            '<div class="section-header"><span class="section-title">SIDES / ADD-ONS</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Gyoza</span><span class="item-jp">餃子</span></li>'
+            '</ul></div>'
+            '</div></div></div></body></html>'
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="drinks">'
+            '<div class="section-header"><span class="section-title">DRINKS</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Draft Beer</span><span class="item-jp">生ビール</span></li>'
+            '</ul></div></div></div></div></body></html>'
         )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">RAMEN MENU</text>'
-            '<text class="item-en">Shoyu Ramen</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '<text class="item-en">Gyoza</text>'
-            '<text class="item-jp">餃子</text>'
-            '<text class="section">SIDES / ADD-ONS</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '<text class="item-en">Draft Beer</text>'
-            '<text class="item-jp">生ビール</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [
-                        {
-                            "title": "RAMEN",
-                            "items": [{
-                                "name": "Shoyu Ramen",
-                                "english_name": "Shoyu Ramen",
-                                "japanese_name": "醤油ラーメン",
-                                "source_text": "醤油ラーメン",
-                                "section": "RAMEN",
-                                "price_status": "unknown",
-                                "price_visibility": "not_applicable",
-                                "source_provenance": "owner_text",
-                                "approval_status": "pending_review",
-                            }],
-                        },
-                        {
-                            "title": "SIDES",
-                            "items": [{
-                                "name": "Gyoza",
-                                "english_name": "Gyoza",
-                                "japanese_name": "餃子",
-                                "source_text": "餃子",
-                                "section": "SIDES",
-                                "price_status": "unknown",
-                                "price_visibility": "not_applicable",
-                                "source_provenance": "owner_text",
-                                "approval_status": "pending_review",
-                            }],
-                        },
-                    ],
-                },
-                "drinks": {
-                    "title": "DRINKS MENU",
-                    "sections": [{
-                        "title": "DRINKS",
-                        "items": [{
-                            "name": "Draft Beer",
-                            "english_name": "Draft Beer",
-                            "japanese_name": "生ビール",
-                            "source_text": "生ビール",
-                            "section": "DRINKS",
-                            "price_status": "unknown",
-                            "price_visibility": "not_applicable",
-                            "source_provenance": "owner_text",
-                            "approval_status": "pending_review",
-                        }],
-                    }],
-                },
-                "show_prices": False,
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [
-                    {"title": "RAMEN", "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}]},
-                    {"title": "SIDES", "items": [{"name": "Gyoza", "japanese_name": "餃子"}]},
-                    {"title": "DRINKS", "items": [{"name": "Draft Beer", "japanese_name": "生ビール"}]},
-                ],
-            }),
-            encoding="utf-8",
-        )
-
-        report = validate_package1_output(output_dir=output_dir)
-
-        assert report["ok"] is True
-
-    def test_package_review_blocks_show_prices_without_confirmed_prices(self, tmp_path):
-        output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">FOOD MENU</text>'
-            '<text class="section">RAMEN</text>'
-            '<text class="item-en">Shoyu Ramen</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [{
+                    {
                         "title": "RAMEN",
                         "items": [{
                             "name": "Shoyu Ramen",
@@ -1019,23 +781,99 @@ class TestCustomerExport:
                             "japanese_name": "醤油ラーメン",
                             "source_text": "醤油ラーメン",
                             "section": "RAMEN",
-                            "price": "¥900",
-                            "price_status": "detected_in_source",
-                            "price_visibility": "pending_business_confirmation",
+                            "price_status": "unknown",
+                            "price_visibility": "not_applicable",
                             "source_provenance": "owner_text",
                             "approval_status": "pending_review",
                         }],
+                    },
+                    {
+                        "title": "SIDES",
+                        "items": [{
+                            "name": "Gyoza",
+                            "english_name": "Gyoza",
+                            "japanese_name": "餃子",
+                            "source_text": "餃子",
+                            "section": "SIDES",
+                            "price_status": "unknown",
+                            "price_visibility": "not_applicable",
+                            "source_provenance": "owner_text",
+                            "approval_status": "pending_review",
+                        }],
+                    },
+                ],
+            },
+            "drinks": {
+                "title": "DRINKS MENU",
+                "sections": [{
+                    "title": "DRINKS",
+                    "items": [{
+                        "name": "Draft Beer",
+                        "english_name": "Draft Beer",
+                        "japanese_name": "生ビール",
+                        "source_text": "生ビール",
+                        "section": "DRINKS",
+                        "price_status": "unknown",
+                        "price_visibility": "not_applicable",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
                     }],
-                },
-                "drinks": {"title": "DRINKS MENU", "sections": []},
-                "show_prices": True,
+                }],
+            },
+            "show_prices": False,
+            "sections": [
+                {"title": "RAMEN", "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}]},
+                {"title": "SIDES", "items": [{"name": "Gyoza", "japanese_name": "餃子"}]},
+                {"title": "DRINKS", "items": [{"name": "Draft Beer", "japanese_name": "生ビール"}]},
+            ],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
+
+        report = validate_package1_output(output_dir=output_dir)
+
+        assert report["ok"] is True
+
+    def test_package_review_blocks_show_prices_without_confirmed_prices(self, tmp_path):
+        output_dir = tmp_path / "build"
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div></div></div></div></body></html>'
+        )
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>'
+        )
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [{
                     "title": "RAMEN",
-                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                    "items": [{
+                        "name": "Shoyu Ramen",
+                        "english_name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "source_text": "醤油ラーメン",
+                        "section": "RAMEN",
+                        "price": "¥900",
+                        "price_status": "detected_in_source",
+                        "price_visibility": "pending_business_confirmation",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
+                    }],
                 }],
-            }),
-            encoding="utf-8",
-        )
+            },
+            "drinks": {"title": "DRINKS MENU", "sections": []},
+            "show_prices": True,
+            "sections": [{
+                "title": "RAMEN",
+                "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+            }],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
 
         report = validate_package1_output(output_dir=output_dir)
 
@@ -1044,69 +882,45 @@ class TestCustomerExport:
 
     def test_package_review_blocks_invalid_price_state_names(self, tmp_path):
         output_dir = tmp_path / "build"
-        output_dir.mkdir()
-        for name in (
-            "restaurant_menu_print_ready_combined.pdf",
-            "food_menu_print_ready.pdf",
-            "drinks_menu_print_ready.pdf",
-        ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "restaurant_menu_print_master.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        food_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu Ramen</span><span class="item-jp">醤油ラーメン</span></li>'
+            '</ul></div></div></div></div></body></html>'
         )
-        (output_dir / "food_menu_browser_preview.html").write_text(
-            '<html><body><img src="food_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
+        drinks_html = (
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"></div></div></div></body></html>'
         )
-        (output_dir / "drinks_menu_browser_preview.html").write_text(
-            '<html><body><img src="drinks_menu_editable_vector.svg"></body></html>',
-            encoding="utf-8",
-        )
-        (output_dir / "food_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">FOOD MENU</text>'
-            '<text class="section">RAMEN</text>'
-            '<text class="item-en">Shoyu Ramen</text>'
-            '<text class="item-jp">醤油ラーメン</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "drinks_menu_editable_vector.svg").write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg">'
-            '<text class="title">DRINKS MENU</text>'
-            '</svg>',
-            encoding="utf-8",
-        )
-        (output_dir / "menu_data.json").write_text(
-            json.dumps({
-                "food": {
-                    "title": "FOOD MENU",
-                    "sections": [{
-                        "title": "RAMEN",
-                        "items": [{
-                            "name": "Shoyu Ramen",
-                            "english_name": "Shoyu Ramen",
-                            "japanese_name": "醤油ラーメン",
-                            "source_text": "醤油ラーメン",
-                            "section": "RAMEN",
-                            "price": "¥900",
-                            "price_status": "pending_owner_confirmation",
-                            "price_visibility": "pending_owner_confirmation",
-                            "source_provenance": "owner_text",
-                            "approval_status": "pending_review",
-                        }],
-                    }],
-                },
-                "drinks": {"title": "DRINKS MENU", "sections": []},
-                "show_prices": False,
+        menu_json = {
+            "food": {
+                "title": "FOOD MENU",
                 "sections": [{
                     "title": "RAMEN",
-                    "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+                    "items": [{
+                        "name": "Shoyu Ramen",
+                        "english_name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "source_text": "醤油ラーメン",
+                        "section": "RAMEN",
+                        "price": "¥900",
+                        "price_status": "pending_owner_confirmation",
+                        "price_visibility": "pending_owner_confirmation",
+                        "source_provenance": "owner_text",
+                        "approval_status": "pending_review",
+                    }],
                 }],
-            }),
-            encoding="utf-8",
-        )
+            },
+            "drinks": {"title": "DRINKS MENU", "sections": []},
+            "show_prices": False,
+            "sections": [{
+                "title": "RAMEN",
+                "items": [{"name": "Shoyu Ramen", "japanese_name": "醤油ラーメン"}],
+            }],
+        }
+        self._write_validation_output(output_dir, food_html, drinks_html, menu_json)
 
         report = validate_package1_output(output_dir=output_dir)
 
@@ -1118,14 +932,20 @@ class TestCustomerExport:
         output_dir = tmp_path / "builds" / "job123"
         output_dir.mkdir(parents=True)
         for name in (
-            "restaurant_menu_print_ready_combined.pdf",
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
             (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
-        (output_dir / "food_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "drinks_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>ok</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text(
+            '<html><body><div class="menu-wrapper"><div class="menu-panel">'
+            '<div class="sections-stack"><div class="section" data-section="ramen">'
+            '<div class="section-header"><span class="section-title">RAMEN</span></div>'
+            '<ul class="menu-items">'
+            '<li><span class="item-en">Shoyu</span></li>'
+            '</ul></div></div></div></div></body></html>',
+            encoding="utf-8",
+        )
+        (output_dir / "drinks_menu.html").write_text("<html>drinks</html>", encoding="utf-8")
         (output_dir / "menu_data.json").write_text(
             json.dumps({"sections": [{"title": "RAMEN", "items": [{"name": "Shoyu"}]}]}),
             encoding="utf-8",
@@ -1147,5 +967,5 @@ class TestCustomerExport:
         assert result["review_status"] == "approved"
         with zipfile.ZipFile(result["final_export_path"]) as package:
             names = set(package.namelist())
-        assert "restaurant_menu_print_ready_combined.pdf" in names
+        assert "food_menu_print_ready.pdf" in names
         assert "PACKAGE_MANIFEST.json" in names

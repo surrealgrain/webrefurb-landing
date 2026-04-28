@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .constants import TEMPLATE_PACKAGE_MENU, TEMPLATE_PACKAGE_MACHINE
+from .constants import PROJECT_ROOT
 from .utils import ensure_dir, write_json
-from .populate import populate_menu_svg, populate_menu_html, populate_ticket_machine_svg
+from .populate import populate_menu_html
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +92,11 @@ async def svg_to_pdf(svg_path: Path, pdf_path: Path) -> Path:
 
 
 async def html_to_pdf(html_path: Path, pdf_path: Path, *, print_profile: PrintProfile | None = None) -> Path:
-    """Render an HTML file to a print-ready PDF using Playwright."""
+    """Render an HTML file to a print-ready PDF using Playwright.
+
+    Uses device_scale_factor=2 for high-resolution output suitable for
+    professional printing. Respects CSS @page size rules.
+    """
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
     profile = print_profile or PrintProfile()
 
@@ -105,7 +109,10 @@ async def html_to_pdf(html_path: Path, pdf_path: Path, *, print_profile: PrintPr
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             try:
-                page = await browser.new_page()
+                page = await browser.new_page(
+                    viewport={"width": 495, "height": 700},
+                    device_scale_factor=2,
+                )
                 await page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
                 await page.emulate_media(media="print")
                 await page.pdf(
@@ -113,7 +120,7 @@ async def html_to_pdf(html_path: Path, pdf_path: Path, *, print_profile: PrintPr
                     format=profile.paper_size,
                     landscape=profile.landscape,
                     print_background=True,
-                    prefer_css_page_size=False,
+                    prefer_css_page_size=True,
                     margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
                 )
             finally:
@@ -173,87 +180,116 @@ async def build_custom_package(
     ticket_data: dict[str, Any] | None = None,
     restaurant_name: str = "",
 ) -> Path:
-    """Create a complete output package matching the confirmed template structure.
+    """Create a complete output package using v4c dark HTML templates.
 
-    Generates: populated SVGs, HTML previews, print-ready PDFs.
+    Generates: populated HTMLs + print-ready A5 PDFs (highest quality).
+    Templates are selected by restaurant type (ramen vs izakaya).
     """
     ensure_dir(output_dir)
-    slug = restaurant_name.lower().replace(" ", "_") if restaurant_name else "custom"
 
-    # Copy template package structure
-    menu_src = TEMPLATE_PACKAGE_MENU
+    # Determine template type from menu data
+    is_izakaya = "izakaya" in (menu_data.get("menu_type") or "").lower()
+    V4C = PROJECT_ROOT / "assets" / "templates"
 
     # --- Food menu ---
-    food_svg_src = menu_src / "food_menu_editable_vector.svg"
-    food_html_src = menu_src / "food_menu_browser_preview.html"
-
-    food_svg_out = output_dir / "food_menu_editable_vector.svg"
-    food_html_out = output_dir / "food_menu_browser_preview.html"
+    food_template = "izakaya_food_menu.html" if is_izakaya else "ramen_food_menu.html"
+    food_src = V4C / food_template
+    food_html_out = output_dir / "food_menu.html"
     food_pdf_out = output_dir / "food_menu_print_ready.pdf"
 
-    # Copy source templates as base
-    if food_svg_src.exists():
-        shutil.copy2(food_svg_src, food_svg_out)
-    if food_html_src.exists():
-        shutil.copy2(food_html_src, food_html_out)
-
-    # Populate with restaurant data
-    if food_svg_out.exists():
-        populate_menu_svg(template_path=food_svg_out, data=menu_data, output_path=food_svg_out)
-    if food_html_out.exists():
-        populate_menu_html(template_path=food_html_out, data=menu_data, output_path=food_html_out, business_name=restaurant_name or None)
-
-    # Generate PDF from the populated HTML
-    if food_html_out.exists():
-        await html_to_pdf(food_html_out, food_pdf_out)
+    if food_src.exists():
+        shutil.copy2(food_src, food_html_out)
+        populate_menu_html(
+            template_path=food_html_out,
+            data=menu_data,
+            output_path=food_html_out,
+            business_name=restaurant_name or None,
+        )
+        await html_to_pdf(
+            food_html_out, food_pdf_out,
+            print_profile=PrintProfile(paper_size="A5"),
+        )
 
     # --- Drinks menu ---
-    drinks_svg_src = menu_src / "drinks_menu_editable_vector.svg"
-    drinks_html_src = menu_src / "drinks_menu_browser_preview.html"
-    drinks_svg_out = output_dir / "drinks_menu_editable_vector.svg"
-    drinks_html_out = output_dir / "drinks_menu_browser_preview.html"
+    drinks_template = "izakaya_drinks_menu.html" if is_izakaya else "ramen_drinks_menu.html"
+    drinks_src = V4C / drinks_template
+    drinks_html_out = output_dir / "drinks_menu.html"
     drinks_pdf_out = output_dir / "drinks_menu_print_ready.pdf"
 
-    if drinks_svg_src.exists():
-        shutil.copy2(drinks_svg_src, drinks_svg_out)
-        populate_menu_svg(template_path=drinks_svg_out, data=menu_data, output_path=drinks_svg_out)
-    if drinks_html_src.exists():
-        shutil.copy2(drinks_html_src, drinks_html_out)
-        populate_menu_html(template_path=drinks_html_out, data=menu_data, output_path=drinks_html_out, business_name=restaurant_name or None)
-        await html_to_pdf(drinks_html_out, drinks_pdf_out)
-
-    # --- Combined menu ---
-    combined_html_src = menu_src / "restaurant_menu_print_master.html"
-    combined_html_out = output_dir / "restaurant_menu_print_master.html"
-    combined_pdf_out = output_dir / "restaurant_menu_print_ready_combined.pdf"
-
-    if combined_html_src.exists():
-        shutil.copy2(combined_html_src, combined_html_out)
-        if menu_data.get("sections"):
-            populate_menu_html(template_path=combined_html_out, data=menu_data, output_path=combined_html_out, business_name=restaurant_name or None)
-        await html_to_pdf(combined_html_out, combined_pdf_out)
+    has_drinks = bool((menu_data.get("drinks") or {}).get("sections"))
+    if has_drinks and drinks_src.exists():
+        shutil.copy2(drinks_src, drinks_html_out)
+        populate_menu_html(
+            template_path=drinks_html_out,
+            data=menu_data,
+            output_path=drinks_html_out,
+            business_name=restaurant_name or None,
+        )
+        await html_to_pdf(
+            drinks_html_out, drinks_pdf_out,
+            print_profile=PrintProfile(paper_size="A5"),
+        )
 
     # --- Ticket machine guide ---
-    ticket_pdf_out = None
     if ticket_data:
-        machine_src = TEMPLATE_PACKAGE_MACHINE
-        ticket_svg_src = machine_src / "ticket_machine_guide_editable_vector.svg"
-        ticket_html_src = machine_src / "ticket_machine_guide_browser_preview.html"
-        ticket_svg_out = output_dir / "ticket_machine_guide_editable_vector.svg"
-        ticket_html_out = output_dir / "ticket_machine_guide_browser_preview.html"
+        machine_src = V4C / "ticket_machine_guide.html"
+        ticket_html_out = output_dir / "ticket_machine_guide.html"
         ticket_pdf_path = output_dir / "ticket_machine_guide_print_ready.pdf"
 
-        if ticket_svg_src.exists():
-            shutil.copy2(ticket_svg_src, ticket_svg_out)
-            populate_ticket_machine_svg(template_path=ticket_svg_out, data=ticket_data, output_path=ticket_svg_out)
-
-        if ticket_html_src.exists():
-            shutil.copy2(ticket_html_src, ticket_html_out)
-            await html_to_pdf(ticket_html_out, ticket_pdf_path)
-            ticket_pdf_out = ticket_pdf_path
+        if machine_src.exists():
+            shutil.copy2(machine_src, ticket_html_out)
+            # Populate ticket machine guide with button data
+            _populate_ticket_machine_html(ticket_html_out, ticket_data, restaurant_name)
+            await html_to_pdf(
+                ticket_html_out, ticket_pdf_path,
+                print_profile=PrintProfile(paper_size="A5"),
+            )
 
     # --- Menu data JSON ---
     menu_json_out = output_dir / "menu_data.json"
     write_json(menu_json_out, menu_data)
 
     return output_dir
+
+
+def _populate_ticket_machine_html(
+    html_path: Path, data: dict[str, Any], restaurant_name: str | None,
+) -> None:
+    """Populate the v4c ticket machine guide HTML with button data."""
+    import re
+    from html import escape as esc
+
+    html = html_path.read_text(encoding="utf-8")
+
+    # Replace seal text
+    if restaurant_name:
+        from .render import replace_seal_text
+        html = replace_seal_text(html, restaurant_name)
+
+    # Replace button labels — find all machine-btn elements and update text
+    buttons = data.get("buttons", [])
+    if buttons:
+        # Find existing button slots
+        btn_pattern = re.compile(
+            r'(<div\s+class="machine-btn"[^>]*>\s*)'
+            r'(?:<span\s+class="best-tag"[^>]*>[^<]*</span>\s*)?'
+            r'<span\s+class="btn-en">)([^<]*)(</span>\s*'
+            r'<span\s+class="btn-jp">)([^<]*)(</span>)',
+        )
+        existing = list(btn_pattern.finditer(html))
+        for idx, match in enumerate(existing):
+            if idx < len(buttons):
+                btn = buttons[idx] if isinstance(buttons[idx], dict) else {"en": str(buttons[idx]), "jp": ""}
+                en = btn.get("en", btn.get("english_name", ""))
+                jp = btn.get("jp", btn.get("japanese_name", ""))
+                # Keep best-tag if present
+                best_tag = '<span class="best-tag">Popular</span>\n          ' if idx == 0 else ""
+                replacement = (
+                    rf'\g<1>{best_tag}<span class="btn-en">{esc(en)}</span>\g<3>'
+                    rf'{esc(jp)}\g<5>'
+                )
+                html = html[:match.start()] + btn_pattern.sub(
+                    replacement, html[match.start():], count=1,
+                )
+
+    html_path.write_text(html, encoding="utf-8")

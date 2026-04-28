@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,23 +29,21 @@ REVIEW_STATUS_APPROVED = "approved"
 FINAL_EXPORT_READY = "ready"
 
 PACKAGE_1_FILES = (
-    "restaurant_menu_print_ready_combined.pdf",
     "food_menu_print_ready.pdf",
     "drinks_menu_print_ready.pdf",
-    "food_menu_editable_vector.svg",
-    "drinks_menu_editable_vector.svg",
+    "food_menu.html",
+    "drinks_menu.html",
     "menu_data.json",
 )
 
 OPTIONAL_PACKAGE_FILES = (
     "ticket_machine_guide_print_ready.pdf",
-    "ticket_machine_guide_editable_vector.svg",
-    "ticket_machine_guide_browser_preview.html",
+    "ticket_machine_guide.html",
 )
 
 PREVIEW_FILES = (
-    "restaurant_menu_print_master.html",
-    "food_menu_browser_preview.html",
+    "food_menu.html",
+    "drinks_menu.html",
 )
 
 PACKAGE_2_PRINT_FILES = (
@@ -381,11 +380,10 @@ def _validate_menu_schema(menu_data: dict[str, Any], errors: list[str]) -> None:
 
 def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], errors: list[str]) -> None:
     show_prices = bool(menu_data.get("show_prices"))
-    for panel_key, file_name in (("food", "food_menu_editable_vector.svg"), ("drinks", "drinks_menu_editable_vector.svg")):
-        svg_path = output_dir / file_name
-        if not svg_path.exists():
+    for panel_key, file_name in (("food", "food_menu.html"), ("drinks", "drinks_menu.html")):
+        html_path = output_dir / file_name
+        if not html_path.exists():
             continue
-        template_path = TEMPLATE_PACKAGE_MENU / file_name
         expected_panel = menu_data.get(panel_key) or {}
         opposite_panel = menu_data.get("drinks" if panel_key == "food" else "food") or {}
         expected_items = [item for section in expected_panel.get("sections") or [] for item in section.get("items") or []]
@@ -395,8 +393,7 @@ def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], e
             for item in section.get("items") or []
             if str(item.get("english_name") or item.get("name") or "").strip()
         }
-        rendered = _svg_text_report(svg_path)
-        template_text = _template_item_texts(template_path)
+        rendered = _html_text_report(html_path)
         expected_english = {_customer_visible_english(item, show_prices=show_prices) for item in expected_items}
         expected_japanese = {
             str(item.get("japanese_name") or item.get("source_text") or "").strip()
@@ -426,8 +423,7 @@ def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], e
 
         stale = [
             text for text in rendered["all"]
-            if text in template_text and text not in _allowed_static_svg_text(panel_key)
-            and text not in expected_english
+            if text in TEMPLATE_PLACEHOLDER_ITEMS and text not in expected_english
             and text not in expected_japanese
             and text not in expected_sections
         ]
@@ -443,26 +439,8 @@ def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], e
 
 
 def _validate_preview_html_links(*, output_dir: Path, menu_data: dict[str, Any], errors: list[str]) -> None:
-    expected = {
-        "food_menu_browser_preview.html": "food_menu_editable_vector.svg",
-        "drinks_menu_browser_preview.html": "drinks_menu_editable_vector.svg",
-        "restaurant_menu_print_master.html": "food_menu_editable_vector.svg",
-    }
-    for file_name, required_ref in expected.items():
-        path = output_dir / file_name
-        if not path.exists():
-            continue
-        content = path.read_text(encoding="utf-8", errors="ignore")
-        if "<img" not in content:
-            continue
-        if required_ref not in content:
-            errors.append(f"preview_reference_missing:{file_name}")
-    combined = output_dir / "restaurant_menu_print_master.html"
-    if combined.exists():
-        content = combined.read_text(encoding="utf-8", errors="ignore")
-        drinks_sections = (menu_data.get("drinks") or {}).get("sections") or []
-        if drinks_sections and "<img" in content and "drinks_menu_editable_vector.svg" not in content:
-            errors.append("preview_reference_missing:combined_drinks")
+    # v4c HTML templates are self-contained — no external image references to validate
+    pass
 
 
 def _write_package2_print_pack(
@@ -477,8 +455,8 @@ def _write_package2_print_pack(
     pdf_profile = PrintProfile(paper_size=profile["paper_size"], orientation=profile["orientation"])
     generated: list[Path] = []
     for html_name, pdf_name in (
-        ("food_menu_browser_preview.html", f"food_menu_print_{profile['paper_size'].lower()}.pdf"),
-        ("drinks_menu_browser_preview.html", f"drinks_menu_print_{profile['paper_size'].lower()}.pdf"),
+        ("food_menu.html", f"food_menu_print_{profile['paper_size'].lower()}.pdf"),
+        ("drinks_menu.html", f"drinks_menu_print_{profile['paper_size'].lower()}.pdf"),
     ):
         source = output_dir / html_name
         if source.exists():
@@ -625,11 +603,66 @@ def _svg_text_report(path: Path) -> dict[str, list[str]]:
     return {"all": all_text, "item_en": item_en, "item_jp": item_jp}
 
 
+def _html_text_report(path: Path) -> dict[str, list[str]]:
+    """Extract text content from a v4c HTML template for validation."""
+    html = path.read_text(encoding="utf-8", errors="ignore")
+    item_en: list[str] = []
+    item_jp: list[str] = []
+    all_text: list[str] = []
+
+    # Extract text from <span class="item-en"> and <span class="item-jp">
+    for match in re.finditer(r'<span\s+class="([^"]*)"[^>]*>(.*?)</span>', html, re.DOTALL):
+        classes = match.group(1).split()
+        text = re.sub(r'<[^>]+>', '', match.group(2)).strip()
+        if not text:
+            continue
+        if "item-en" in classes:
+            item_en.append(text)
+            all_text.append(text)
+        elif "item-jp" in classes:
+            item_jp.append(text)
+            all_text.append(text)
+
+    # Extract section titles
+    for match in re.finditer(r'<span\s+class="section-title"[^>]*>(.*?)</span>', html, re.DOTALL):
+        text = re.sub(r'<[^>]+>', '', match.group(1)).strip()
+        if text:
+            all_text.append(text)
+
+    # Extract menu title
+    for match in re.finditer(r'<h1\s+class="menu-title"[^>]*>(.*?)</h1>', html, re.DOTALL):
+        text = re.sub(r'<[^>]+>', '', match.group(1)).strip()
+        if text:
+            all_text.append(text)
+
+    return {"all": all_text, "item_en": item_en, "item_jp": item_jp}
+
+
 def _template_item_texts(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    report = _svg_text_report(path)
+    if path.suffix.lower() == ".svg":
+        report = _svg_text_report(path)
+    else:
+        report = _html_text_report(path)
     return set(report["all"])
+
+
+def _load_template_placeholder_items() -> set[str]:
+    """Load placeholder item text from v4c HTML templates."""
+    items: set[str] = set()
+    for template_name in (
+        "ramen_food_menu.html", "izakaya_food_menu.html",
+        "ramen_drinks_menu.html", "izakaya_drinks_menu.html",
+    ):
+        template_path = TEMPLATE_PACKAGE_MENU / template_name
+        if template_path.exists():
+            report = _html_text_report(template_path)
+            items.update(report["all"])
+    return items
+
+
+TEMPLATE_PLACEHOLDER_ITEMS: set[str] = _load_template_placeholder_items()
 
 
 def _allowed_static_svg_text(panel_key: str) -> set[str]:

@@ -218,16 +218,12 @@ PRICE_RE = __import__("re").compile(
 )
 
 # ---------------------------------------------------------------------------
-# Template package paths (locked, never modified at outreach stage)
+# Template package paths (v4c dark templates)
 # ---------------------------------------------------------------------------
-TEMPLATE_PACKAGE_MENU = (
-    PROJECT_ROOT / "glm_menu_template_package_BROWSER_CHECKED_bilingual_right_verified"
-)
-TEMPLATE_PACKAGE_MACHINE = (
-    PROJECT_ROOT / "ticket_machine_guide_template_package_MATCHED_STYLE"
-)
-GENERIC_MENU_PDF = TEMPLATE_PACKAGE_MENU / "restaurant_menu_print_ready_combined.pdf"
-GENERIC_MACHINE_PDF = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide_print_ready.pdf"
+TEMPLATE_PACKAGE_MENU = PROJECT_ROOT / "assets" / "templates"
+TEMPLATE_PACKAGE_MACHINE = PROJECT_ROOT / "assets" / "templates"
+GENERIC_MENU_PDF = TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
+GENERIC_MACHINE_PDF = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide.html"
 OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF = (
     PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "restaurant_menu_print_ready_combined.pdf"
 )
