@@ -1173,6 +1173,44 @@ async def api_qr_review(job_id: str):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.post("/api/qr/{job_id}/extract")
+async def api_qr_extract(job_id: str, request: Request):
+    from pipeline.qr import QRMenuError, complete_qr_extraction
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    try:
+        return complete_qr_extraction(
+            state_root=STATE_ROOT,
+            docs_root=QR_DOCS_ROOT,
+            job_id=job_id,
+            payload=body if isinstance(body, dict) else {},
+        )
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/api/qr/{job_id}/confirm")
+async def api_qr_confirm(job_id: str, request: Request):
+    from pipeline.qr import QRMenuError, confirm_qr_content
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    try:
+        return confirm_qr_content(
+            state_root=STATE_ROOT,
+            docs_root=QR_DOCS_ROOT,
+            job_id=job_id,
+            payload=body if isinstance(body, dict) else {},
+        )
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
 @app.post("/api/qr/{job_id}/sign")
 async def api_qr_sign(job_id: str):
     from pipeline.qr import QRMenuError, create_qr_sign

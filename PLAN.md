@@ -28,6 +28,9 @@ The system is watertight only when all of the following are true:
 - Update this file when a task is completed, blocked, or intentionally changed.
 - A phase is complete only when every required task is checked and the exit gate evidence is recorded.
 - If a new launch blocker is found, add it to the current phase or an earlier phase. Do not bury it in notes.
+- Keep moving automatically through the active phase and then the next phase without waiting for a separate user prompt.
+- Stop only when the context window is starting to get bloated enough that a clean handoff is the safer path.
+- When a handoff is needed for context management, suggest handoff explicitly; once the user says `handoff`, resume automatically from the next unfinished plan step without requiring a new kickoff prompt.
 - Do not send real outreach until P6 is complete.
 - Do not approve real customer packages until P1, P2, and P5 gates are complete.
 - Do not sell Package 3 until P2 defines the hosting/update/support promise and QR empty-payload gates are fixed.
@@ -56,8 +59,8 @@ These are known blockers from the repo audit and ignored `state/` artifacts:
 | --- | --- | --- | --- |
 | P0 | Stabilize Baseline And Freeze Risk | Completed | `.venv/bin/python -m pip install -e .`; `.venv/bin/python -m pytest tests/ -v` => 221 passed on 2026-04-28; `.venv/bin/python -m pipeline.cli backup-state` dry-run wrote `state/backups/webrefurb-state-20260428T060622+0000.zip`; `git diff --check` passed |
 | P1 | Correct Menu Output Generation | Completed | Rendered menu output, price-state validation, fresh smoke/confirmed-price artifacts, and dashboard review verification completed on 2026-04-28 |
-| P2 | Harden QR Product | In Progress | Starting with empty-payload and photo-only QR draft guards |
-| P3 | Fix Lead And Contact Reality | Not Started | Pending |
+| P2 | Harden QR Product | Completed | Structured extraction, owner-confirmation gating, package promise, QR health/export checks, and active-environment tests/browser verification completed on 2026-04-28 |
+| P3 | Fix Lead And Contact Reality | In Progress | Contact routes and establishment-profile hardening are the next active focus |
 | P4 | Make Outreach Convert | Not Started | Pending |
 | P5 | Add Paid Operations Workflow | Not Started | Pending |
 | P6 | Operator Rehearsal | Not Started | Pending |
@@ -182,23 +185,41 @@ Tasks:
 
 - [x] Reject QR draft creation when payload has no structured menu items.
 - [x] Convert photo-only replies into a "needs extraction" state, not a QR draft.
-- [ ] Add a structured QR extraction/review step before `create_qr_draft`.
-- [ ] Require item descriptions and ingredients/allergens only when the package promise includes them.
-- [ ] Store owner-confirmation provenance for ingredient/allergen claims.
-- [ ] Block publish when ingredient/allergen content is present but not owner-confirmed.
-- [ ] Define the Package 3 hosting promise: hosting term, update policy, support expectations, and what happens after the term.
-- [ ] Re-evaluate Package 3 pricing and whether it should be standalone, bundled, or update-fee based.
-- [ ] Add QR health checks that fail when docs output, manifest, current version, sign PDF, or source data is missing.
-- [ ] Ensure QR sign generation works in a freshly synced environment.
+- [x] Add a structured QR extraction/review step before `create_qr_draft`.
+- [x] Require item descriptions and ingredients/allergens only when the package promise includes them.
+- [x] Store owner-confirmation provenance for ingredient/allergen claims.
+- [x] Block publish when ingredient/allergen content is present but not owner-confirmed.
+- [x] Define the Package 3 hosting promise: hosting term, update policy, support expectations, and what happens after the term.
+- [x] Re-evaluate Package 3 pricing and whether it should be standalone, bundled, or update-fee based.
+- [x] Add QR health checks that fail when docs output, manifest, current version, sign PDF, or source data is missing.
+- [x] Ensure QR sign generation works in a freshly synced environment.
 - [x] Add tests for empty payload rejection, photo-only "needs extraction", owner-confirmation blocking, and successful publish.
 - [ ] Render and visually inspect the QR menu page and dashboard QR review modal after changes.
 
 Exit gate:
 
 - [x] Empty or photo-only QR creation cannot produce a reviewable QR draft.
-- [ ] A complete QR sample publishes, health-checks, and exports successfully.
-- [ ] Package 3 has a clear operational promise in code/docs before it is sold.
-- [ ] QR tests pass in the active environment.
+- [x] A complete QR sample publishes, health-checks, and exports successfully.
+- [x] Package 3 has a clear operational promise in code/docs before it is sold.
+- [x] QR tests pass in the active environment.
+
+Progress recorded 2026-04-28:
+
+- Added a real `needs_extraction -> ready_for_review` QR workflow step via `complete_qr_extraction()`.
+- Structured extraction now accepts direct `items`, `menu_data`, raw text, or stored-menu-photo extraction before a draft is materialized.
+- Dashboard QR review now truthfully shows `Needs extraction` until a reviewable draft exists, then transitions into the standard review state.
+- Focused verification passed: `.venv/bin/python -m pytest tests/test_qr.py -q` => `11 passed`; `.venv/bin/python -m pytest tests/test_api.py -q` => `75 passed`.
+- Browser verification completed for the dashboard QR review modal and the generated extracted draft page on `http://127.0.0.1:8001`.
+- Added explicit QR content requirements plus owner-confirmation provenance for descriptions and ingredient/allergen claims.
+- Publish now blocks when owner-visible description or ingredient/allergen content exists without recorded owner confirmation.
+- Added a QR review action to confirm owner-provided content and surfaced confirmation counts in the dashboard review modal.
+- Defined the Package 3 promise in code plus English/Japanese pricing docs: 12-month hosting term, one bundled update round in the first 30 days, basic support scope, and the after-term path.
+- Fresh verification passed after that change: `.venv/bin/python -m pytest tests/test_qr.py -q` => `12 passed`; `.venv/bin/python -m pytest tests/test_api.py -q` => `76 passed`.
+- Browser verification completed for the updated QR review modal plus `docs/pricing.html` and `docs/ja/pricing.html` via local file renders.
+- QR health now fails loudly when the live manifest, checksums, current version docs output, publish manifest, source data, or approved-package sign PDF/export is missing.
+- Fresh verification passed after that health pass: `.venv/bin/python -m pytest tests/test_qr.py -q` => `14 passed`; `.venv/bin/python -m pytest tests/test_api.py -q` => `77 passed`.
+- Package 3 pricing was re-evaluated and is now treated as a standalone `¥65,000` hosted service with one bundled 30-day update round; later changes move into paid update work while combined-package deals remain quote-only.
+- QR sign generation is confirmed working in the active synced `.venv` through focused tests plus live dashboard/browser flows.
 
 ## P3 - Fix Lead And Contact Reality
 
