@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    TEMPLATE: qr-code-sign v4c
+    STYLE: izakaya — dark warm surface, light text, red vermillion accent
+    SIZE: A6 portrait (105mm × 148mm) — half of ticket machine guide
+    USE: Table or counter sign for Package 3 (QR menu system)
+    AUDIENCE: English-reading tourists only — no kanji
+  -->
+  <title>QR Code Sign — v4c Style</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Shippori+Mincho:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --color-bg: #0f0d0b;
+      --color-surface: #1c1917;
+      --color-text: #f0ebe3;
+      --color-text-secondary: rgba(240, 235, 227, 0.5);
+      --color-kanji: rgba(240, 235, 227, 0.55);
+      --color-rule: rgba(240, 235, 227, 0.1);
+      --color-accent: #c53d43;
+
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Outfit', sans-serif;
+      --font-kanji: 'Shippori Mincho', serif;
+
+      --panel-pad: 20px 24px 24px;
+
+      --max-width: 370px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: var(--color-bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .sign-wrapper {
+      max-width: var(--max-width);
+      width: 100%;
+      background-color: var(--color-surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Film grain texture */
+    .sign-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.12;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    /* Warm glow from top */
+    .sign-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(200, 160, 100, 0.06) 0%, transparent 60%);
+    }
+
+    .sign-panel {
+      padding: var(--panel-pad);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       SEAL STAMP
+       ═══════════════════════════════════════════ */
+    .seal-mark {
+      display: flex;
+      justify-content: center;
+      padding-bottom: 16px;
+    }
+
+    .seal-stamp {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.8px solid var(--color-accent);
+      border-radius: 2px;
+      padding: 5px 8px;
+      opacity: 0.65;
+      white-space: nowrap;
+      line-height: 1;
+      font-size: 9.5px;
+    }
+
+    .seal-stamp[data-length="1"] { padding: 8px 10px; font-size: 16px; }
+    .seal-stamp[data-length="2"] { padding: 7px 10px; font-size: 14px; }
+    .seal-stamp[data-length="3"] { padding: 6px 10px; font-size: 12px; }
+    .seal-stamp[data-length="4"] { padding: 6px 9px; font-size: 11px; }
+    .seal-stamp[data-length="5"] { padding: 5px 8px; font-size: 10px; }
+    .seal-stamp[data-length="6"] { padding: 5px 8px; font-size: 9.5px; }
+
+    .seal-text {
+      font-family: var(--font-kanji);
+      font-weight: 700;
+      color: var(--color-accent);
+      letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════
+       HEADLINE
+       ═══════════════════════════════════════════ */
+    .sign-headline {
+      font-family: var(--font-heading);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--color-text);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-align: center;
+      line-height: 1.3;
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--color-rule);
+    }
+
+    /* ═══════════════════════════════════════════
+       QR CODE AREA
+       ═══════════════════════════════════════════ */
+    .qr-area {
+      width: 180px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .qr-placeholder {
+      width: 100%;
+      height: 100%;
+      background-color: var(--color-text);
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-placeholder svg {
+      width: 140px;
+      height: 140px;
+    }
+
+    /* ═══════════════════════════════════════════
+       SCAN HINT
+       ═══════════════════════════════════════════ */
+    .scan-hint {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0.5;
+    }
+
+    .scan-hint-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    .scan-hint-text {
+      font-family: var(--font-body);
+      font-size: 9.5px;
+      font-weight: 400;
+      color: var(--color-text);
+      letter-spacing: 0.5px;
+    }
+
+    @media print {
+      @page { size: 105mm 148mm; margin: 0; }
+      body { padding: 0; min-height: auto; background: none; }
+      .sign-wrapper { max-width: none; width: 100%; height: 100vh; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="sign-wrapper">
+  <div class="sign-panel">
+
+    <div class="seal-mark" aria-hidden="true">
+      <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">博多らーめん亭</span></span>
+    </div>
+
+    <div class="sign-headline" data-slot="sign-headline">Scan for English Menu</div>
+
+    <div class="qr-area" data-slot="qr-code">
+      <div class="qr-placeholder">
+        <!-- Placeholder QR pattern — replaced by pipeline with real QR code -->
+        <svg viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="10" width="40" height="40" rx="2" fill="#1c1917"/>
+          <rect x="18" y="18" width="24" height="24" rx="1" fill="#f0ebe3"/>
+          <rect x="24" y="24" width="12" height="12" rx="1" fill="#1c1917"/>
+          <rect x="90" y="10" width="40" height="40" rx="2" fill="#1c1917"/>
+          <rect x="98" y="18" width="24" height="24" rx="1" fill="#f0ebe3"/>
+          <rect x="104" y="24" width="12" height="12" rx="1" fill="#1c1917"/>
+          <rect x="10" y="90" width="40" height="40" rx="2" fill="#1c1917"/>
+          <rect x="18" y="98" width="24" height="24" rx="1" fill="#f0ebe3"/>
+          <rect x="24" y="104" width="12" height="12" rx="1" fill="#1c1917"/>
+          <rect x="60" y="10" width="8" height="8" fill="#1c1917"/>
+          <rect x="72" y="10" width="8" height="8" fill="#1c1917"/>
+          <rect x="60" y="24" width="8" height="8" fill="#1c1917"/>
+          <rect x="72" y="30" width="8" height="8" fill="#1c1917"/>
+          <rect x="60" y="60" width="8" height="8" fill="#1c1917"/>
+          <rect x="72" y="60" width="8" height="8" fill="#1c1917"/>
+          <rect x="84" y="60" width="8" height="8" fill="#1c1917"/>
+          <rect x="100" y="60" width="8" height="8" fill="#1c1917"/>
+          <rect x="116" y="60" width="8" height="8" fill="#1c1917"/>
+          <rect x="60" y="72" width="8" height="8" fill="#1c1917"/>
+          <rect x="84" y="72" width="8" height="8" fill="#1c1917"/>
+          <rect x="116" y="72" width="8" height="8" fill="#1c1917"/>
+          <rect x="60" y="84" width="8" height="8" fill="#1c1917"/>
+          <rect x="72" y="84" width="8" height="8" fill="#1c1917"/>
+          <rect x="100" y="84" width="8" height="8" fill="#1c1917"/>
+          <rect x="60" y="100" width="8" height="8" fill="#1c1917"/>
+          <rect x="72" y="100" width="8" height="8" fill="#1c1917"/>
+          <rect x="84" y="100" width="8" height="8" fill="#1c1917"/>
+          <rect x="100" y="100" width="8" height="8" fill="#1c1917"/>
+          <rect x="116" y="100" width="8" height="8" fill="#1c1917"/>
+          <rect x="60" y="116" width="8" height="8" fill="#1c1917"/>
+          <rect x="84" y="116" width="8" height="8" fill="#1c1917"/>
+          <rect x="100" y="116" width="8" height="8" fill="#1c1917"/>
+          <rect x="116" y="116" width="8" height="8" fill="#1c1917"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="scan-hint">
+      <svg class="scan-hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text)">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <span class="scan-hint-text">Point your camera at the code</span>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

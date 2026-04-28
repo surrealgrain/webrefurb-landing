@@ -1007,6 +1007,33 @@ async def api_sent():
     return results
 
 
+@app.post("/api/translate-reply")
+async def api_translate_reply(request: Request):
+    """Translate an English reply draft into natural Japanese."""
+    body = await request.json()
+    english_text = body.get("text", "").strip()
+    business_name = body.get("business_name", "")
+
+    if not english_text:
+        raise HTTPException(status_code=400, detail="Text required")
+
+    _log("translate_reply", f"len={len(english_text)}")
+
+    try:
+        from pipeline.translate_reply import translate_reply
+        from pipeline.llm_client import LLMClientError
+
+        japanese = translate_reply(
+            english_text,
+            business_name=business_name or None,
+        )
+    except LLMClientError as exc:
+        _log("translate_failed", str(exc)[:200])
+        raise HTTPException(status_code=502, detail=f"Translation failed: {exc}")
+
+    return {"japanese": japanese}
+
+
 @app.post("/api/reply/{lead_id}")
 async def api_reply(lead_id: str, request: Request):
     """Send a reply to a lead."""
