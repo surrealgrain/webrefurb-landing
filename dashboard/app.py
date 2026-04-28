@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from pipeline.business_name import business_name_is_suspicious
 from pipeline.utils import load_project_env
 
 # ---------------------------------------------------------------------------
@@ -160,14 +161,127 @@ BLOCKED_SEND_STATUSES = {
     "do_not_contact",
     "rejected",
     "needs_review",
+    "contacted_form",
+    "contacted_line",
+    "contacted_instagram",
+    "called",
+    "visited",
 }
 
 BLOCKED_REGENERATE_STATUSES = BLOCKED_SEND_STATUSES - {"rejected", "needs_review"}
 
+MANUAL_CONTACT_STATUS_BY_ROUTE = {
+    "contact_form": "contacted_form",
+    "line": "contacted_line",
+    "instagram": "contacted_instagram",
+    "phone": "called",
+    "walk_in": "visited",
+}
+
+ESTABLISHMENT_PROFILE_LABELS = {
+    "unknown": "Manual Review",
+    "ramen_only": "Ramen Only",
+    "ramen_with_drinks": "Ramen With Drinks",
+    "ramen_ticket_machine": "Ramen With Ticket Machine",
+    "ramen_with_sides_add_ons": "Ramen With Sides / Add-ons",
+    "izakaya_food_and_drinks": "Izakaya Food And Drinks",
+    "izakaya_drink_heavy": "Izakaya Drink Heavy",
+    "izakaya_course_heavy": "Izakaya Course Heavy",
+}
+
+
+def _normalise_contact_label(contact: dict[str, Any] | None) -> str:
+    if not contact:
+        return "No contact route"
+    contact_type = str(contact.get("type") or "").replace("_", " ").title()
+    value = str(contact.get("value") or "").strip()
+    if contact_type == "Walk In":
+        return "Walk-in"
+    if contact_type == "Contact Form":
+        return "Contact Form"
+    if contact_type == "Email" and value:
+        return value
+    if value:
+        return value
+    return contact_type
+
+
+def _lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
+    from pipeline.record import normalise_lead_contacts
+
+    return normalise_lead_contacts(lead)
+
+
+def _lead_primary_contact(lead: dict[str, Any]) -> dict[str, Any] | None:
+    from pipeline.record import get_primary_contact
+
+    return get_primary_contact(lead)
+
+
+def _has_supported_contact_route(lead: dict[str, Any]) -> bool:
+    from pipeline.record import has_supported_contact_route
+
+    return has_supported_contact_route(lead)
+
 
 def _has_business_email(lead: dict[str, Any]) -> bool:
-    """Current send flow requires a valid email even though later phases add other contact routes."""
-    return _valid_email(str(lead.get("email") or ""))
+    """Current send flow still requires a valid e-mail route."""
+    from pipeline.record import get_primary_email_contact
+
+    email_contact = get_primary_email_contact(lead)
+    if not email_contact:
+        return False
+    return _valid_email(str(email_contact.get("value") or ""))
+
+
+def _manual_contact_status(contact_type: str) -> str:
+    return MANUAL_CONTACT_STATUS_BY_ROUTE.get(contact_type, "")
+
+
+def _establishment_profile_label(profile: str) -> str:
+    return ESTABLISHMENT_PROFILE_LABELS.get(profile, profile.replace("_", " ").title() if profile else "Manual Review")
+
+
+def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
+    override = str(lead.get("establishment_profile_override") or "").strip()
+    stored = str(lead.get("establishment_profile") or "").strip() or "unknown"
+    effective = override or stored or "unknown"
+    mode = "operator_override" if override else "evidence"
+    confidence = "operator" if override else str(lead.get("establishment_profile_confidence") or "low")
+    note = str(lead.get("establishment_profile_override_note") or "").strip()
+    return {
+        "effective": effective,
+        "label": _establishment_profile_label(effective),
+        "mode": mode,
+        "confidence": confidence,
+        "evidence": list(lead.get("establishment_profile_evidence") or []),
+        "source_urls": list(lead.get("establishment_profile_source_urls") or []),
+        "override": override,
+        "override_note": note,
+        "override_at": lead.get("establishment_profile_override_at"),
+    }
+
+
+def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
+    prepared = dict(lead)
+    contacts = _lead_contacts(lead)
+    primary_contact = _lead_primary_contact(lead)
+    profile = _effective_establishment_profile(lead)
+    prepared["contacts"] = contacts
+    prepared["primary_contact"] = primary_contact
+    prepared["has_supported_contact_route"] = _has_supported_contact_route(lead)
+    prepared["can_send_email"] = _has_business_email(lead)
+    prepared["primary_contact_label"] = _normalise_contact_label(primary_contact)
+    prepared["primary_contact_type"] = str((primary_contact or {}).get("type") or "")
+    prepared["establishment_profile_effective"] = profile["effective"]
+    prepared["establishment_profile_label"] = profile["label"]
+    prepared["establishment_profile_mode"] = profile["mode"]
+    prepared["establishment_profile_confidence"] = profile["confidence"]
+    prepared["establishment_profile_evidence"] = profile["evidence"]
+    prepared["establishment_profile_source_urls"] = profile["source_urls"]
+    prepared["establishment_profile_override"] = profile["override"]
+    prepared["establishment_profile_override_note"] = profile["override_note"]
+    return prepared
 
 
 def _is_test_recipient_email(value: str) -> bool:
@@ -204,10 +318,11 @@ async def dashboard_main(request: Request):
     """Main dashboard view."""
     from pipeline.record import list_leads
     leads = [
-        lead for lead in list_leads(state_root=STATE_ROOT)
+        _prepare_lead_for_dashboard(lead)
+        for lead in list_leads(state_root=STATE_ROOT)
         if lead.get("lead") is True
         and lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
-        and _has_business_email(lead)
+        and _has_supported_contact_route(lead)
     ]
     return templates.TemplateResponse(request, "index.html", {
         "leads": leads,
@@ -244,6 +359,81 @@ async def api_delete_lead(lead_id: str):
     return {"status": "deleted", "lead_id": lead_id}
 
 
+@app.post("/api/leads/{lead_id}/profile")
+async def api_update_lead_profile(lead_id: str, request: Request):
+    """Update or clear the operator establishment-profile override."""
+    from pipeline.record import load_lead, persist_lead_record
+
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    body = await request.json()
+    clear_override = bool(body.get("clear_override"))
+
+    if clear_override:
+        record["establishment_profile_override"] = ""
+        record["establishment_profile_override_note"] = ""
+        record["establishment_profile_override_at"] = None
+        action = "establishment_profile_override_cleared"
+    else:
+        profile = str(body.get("profile") or "").strip()
+        note = str(body.get("note") or "").strip()
+        if profile not in ESTABLISHMENT_PROFILE_LABELS:
+            raise HTTPException(status_code=400, detail="Invalid establishment profile")
+        record["establishment_profile_override"] = profile
+        record["establishment_profile_override_note"] = note
+        record["establishment_profile_override_at"] = datetime.now(timezone.utc).isoformat()
+        action = "establishment_profile_override_saved"
+
+    persist_lead_record(record, state_root=STATE_ROOT)
+    prepared = _prepare_lead_for_dashboard(record)
+    _log(action, f"profile={prepared.get('establishment_profile_effective', '')}", lead_id=lead_id)
+    return prepared
+
+
+@app.post("/api/leads/{lead_id}/contacted")
+async def api_mark_manual_contacted(lead_id: str, request: Request):
+    """Persist a non-email outreach action as contacted."""
+    from pipeline.record import load_lead, persist_lead_record
+
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    primary_contact = _lead_primary_contact(record)
+    primary_contact_type = str((primary_contact or {}).get("type") or "")
+    status = _manual_contact_status(primary_contact_type)
+    if not status:
+        raise HTTPException(status_code=400, detail="Lead does not have a supported manual contact route")
+    if record.get("outreach_status") in BLOCKED_SEND_STATUSES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Lead already has status '{record.get('outreach_status')}'",
+        )
+
+    body = await request.json()
+    note = str(body.get("note") or "").strip()
+    route_label = primary_contact_type.replace("_", " ") if primary_contact_type else "manual"
+    record["outreach_status"] = status
+    record["outreach_contacted_at"] = datetime.now(timezone.utc).isoformat()
+    record["outreach_contacted_via"] = primary_contact_type
+    record.setdefault("status_history", []).append({
+        "status": status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "note": note or f"Marked contacted after {route_label} outreach",
+    })
+
+    persist_lead_record(record, state_root=STATE_ROOT)
+    _log("manual_contact_marked", f"route={primary_contact_type}", lead_id=lead_id)
+    return {
+        "status": "ok",
+        "lead_id": lead_id,
+        "outreach_status": status,
+        "contact_type": primary_contact_type,
+    }
+
+
 @app.post("/api/search")
 async def api_search(request: Request):
     """Search for businesses, qualify them, and add leads."""
@@ -264,7 +454,7 @@ async def api_search(request: Request):
     existing_actionable_ids = {
         lead.get("lead_id")
         for lead in list_leads(state_root=STATE_ROOT)
-        if lead.get("lead") is True and _has_business_email(lead)
+        if lead.get("lead") is True and _has_supported_contact_route(lead)
     }
 
     from pipeline.search import search_and_qualify
@@ -290,7 +480,7 @@ async def api_search(request: Request):
 
     actionable_leads = [
         lead for lead in list_leads(state_root=STATE_ROOT)
-        if lead.get("lead") is True and _has_business_email(lead)
+        if lead.get("lead") is True and _has_supported_contact_route(lead)
     ]
     new_actionable_ids = [
         lead.get("lead_id")
@@ -302,9 +492,9 @@ async def api_search(request: Request):
     result["leads"] = len(new_actionable_ids)
     result["added_lead_ids"] = new_actionable_ids
     if pipeline_added_count != result["leads"]:
-        result["email_reachability_mismatch"] = {
+        result["contact_route_mismatch"] = {
             "pipeline_reported_leads": pipeline_added_count,
-            "saved_email_reachable_leads": result["leads"],
+            "saved_actionable_leads": result["leads"],
         }
 
     duplicate_count = sum(
@@ -345,6 +535,26 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     if not record:
         raise HTTPException(status_code=404, detail="Lead not found")
 
+    if business_name_is_suspicious(str(record.get("business_name") or "")):
+        record["outreach_status"] = "needs_review"
+        record["outreach_classification"] = None
+        from pipeline.record import persist_lead_record
+        persist_lead_record(record, state_root=STATE_ROOT)
+        raise HTTPException(
+            status_code=422,
+            detail="Business name looks unsafe or contact-route-derived. Fix the name before generating outreach.",
+        )
+
+    verified_by = list(record.get("business_name_verified_by") or [])
+    if record.get("business_name_source") and len(verified_by) < 2:
+        record["outreach_status"] = "needs_review"
+        from pipeline.record import persist_lead_record
+        persist_lead_record(record, state_root=STATE_ROOT)
+        raise HTTPException(
+            status_code=422,
+            detail="Business name is not verified by two sources yet. Confirm it with Google and Tabelog before generating outreach.",
+        )
+
     if regenerate and record.get("outreach_status") == "do_not_contact":
         raise HTTPException(status_code=403, detail="Lead is marked Do Not Contact")
 
@@ -364,6 +574,20 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     )
 
     classification = classify_business(q)
+    contacts = _lead_contacts(record)
+    primary_contact = _lead_primary_contact(record)
+    profile = _effective_establishment_profile(record)
+    send_enabled = _has_business_email(record)
+    primary_contact_type = str((primary_contact or {}).get("type") or "")
+    if primary_contact_type == "contact_form":
+        contact_action = "use_contact_form"
+        contact_action_note = "Use this draft in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
+    elif primary_contact_type and primary_contact_type != "email":
+        contact_action = "manual_outreach"
+        contact_action_note = f"Use this draft as the basis for {primary_contact_type.replace('_', ' ')} outreach. Dashboard e-mail sending stays disabled for this lead."
+    else:
+        contact_action = "send_email"
+        contact_action_note = "This lead has a saved business e-mail route."
 
     # Block machine_only — no email template exists yet
     if classification == "machine_only":
@@ -432,6 +656,19 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "include_machine_image": record.get("outreach_include_machine_image", email["include_machine_image"]),
         "business_name": record["business_name"],
         "email": record.get("email", ""),
+        "contacts": contacts,
+        "primary_contact": primary_contact,
+        "establishment_profile": profile["effective"],
+        "establishment_profile_label": profile["label"],
+        "establishment_profile_mode": profile["mode"],
+        "establishment_profile_confidence": profile["confidence"],
+        "establishment_profile_evidence": profile["evidence"],
+        "establishment_profile_source_urls": profile["source_urls"],
+        "establishment_profile_override": profile["override"],
+        "establishment_profile_override_note": profile["override_note"],
+        "send_enabled": send_enabled,
+        "contact_action": contact_action,
+        "contact_action_note": contact_action_note,
         "has_saved_draft": bool(record.get("outreach_draft_body") or record.get("outreach_draft_english_body")),
         "send_blocked": record.get("outreach_status") in BLOCKED_SEND_STATUSES,
         "outreach_status": record.get("outreach_status"),

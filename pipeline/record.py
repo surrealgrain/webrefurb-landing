@@ -54,6 +54,166 @@ def _extract_area(address: str) -> str:
     return area
 
 
+CONTACT_PRIORITY = {
+    "email": 0,
+    "contact_form": 1,
+    "line": 2,
+    "instagram": 3,
+    "phone": 4,
+    "walk_in": 5,
+    "website": 6,
+}
+
+ACTIONABLE_CONTACT_TYPES = {"email", "contact_form", "line", "instagram", "phone", "walk_in"}
+
+
+def _normalise_contact_value(contact_type: str, value: str) -> str:
+    cleaned = str(value or "").strip()
+    if contact_type == "email":
+        return cleaned.lower()
+    if contact_type == "phone":
+        return _normalise_phone(cleaned)
+    return cleaned.lower()
+
+
+def _build_contact_record(
+    *,
+    contact_type: str,
+    value: str,
+    label: str = "",
+    href: str = "",
+    source: str = "",
+    source_url: str = "",
+    actionable: bool | None = None,
+) -> dict[str, Any]:
+    cleaned_value = str(value or "").strip()
+    cleaned_label = str(label or "").strip() or cleaned_value
+    cleaned_href = str(href or "").strip()
+    if actionable is None:
+        actionable = contact_type in ACTIONABLE_CONTACT_TYPES
+    return {
+        "type": contact_type,
+        "value": cleaned_value,
+        "label": cleaned_label,
+        "href": cleaned_href,
+        "source": str(source or "").strip(),
+        "source_url": str(source_url or "").strip(),
+        "actionable": bool(actionable),
+    }
+
+
+def _append_contact(
+    contacts: list[dict[str, Any]],
+    seen: set[tuple[str, str]],
+    *,
+    contact_type: str,
+    value: str,
+    label: str = "",
+    href: str = "",
+    source: str = "",
+    source_url: str = "",
+    actionable: bool | None = None,
+) -> None:
+    normalized_value = _normalise_contact_value(contact_type, value)
+    if not normalized_value:
+        return
+    key = (contact_type, normalized_value)
+    if key in seen:
+        return
+    seen.add(key)
+    contacts.append(_build_contact_record(
+        contact_type=contact_type,
+        value=value,
+        label=label,
+        href=href,
+        source=source,
+        source_url=source_url,
+        actionable=actionable,
+    ))
+
+
+def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
+    contacts: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for raw in lead.get("contacts") or []:
+        contact_type = str(raw.get("type") or "").strip()
+        if not contact_type:
+            continue
+        _append_contact(
+            contacts,
+            seen,
+            contact_type=contact_type,
+            value=str(raw.get("value") or ""),
+            label=str(raw.get("label") or ""),
+            href=str(raw.get("href") or ""),
+            source=str(raw.get("source") or ""),
+            source_url=str(raw.get("source_url") or ""),
+            actionable=raw.get("actionable"),
+        )
+
+    if lead.get("email"):
+        _append_contact(
+            contacts,
+            seen,
+            contact_type="email",
+            value=str(lead.get("email") or ""),
+            href=f"mailto:{str(lead.get('email') or '').strip()}",
+            source="legacy_record",
+        )
+    if lead.get("phone"):
+        _append_contact(
+            contacts,
+            seen,
+            contact_type="phone",
+            value=str(lead.get("phone") or ""),
+            href=f"tel:{_normalise_phone(str(lead.get('phone') or ''))}",
+            source="legacy_record",
+        )
+    if lead.get("address"):
+        _append_contact(
+            contacts,
+            seen,
+            contact_type="walk_in",
+            value=str(lead.get("address") or ""),
+            label="Walk-in route",
+            source="legacy_record",
+        )
+    if lead.get("website"):
+        _append_contact(
+            contacts,
+            seen,
+            contact_type="website",
+            value=str(lead.get("website") or ""),
+            label="Official website",
+            href=str(lead.get("website") or ""),
+            source="legacy_record",
+            actionable=False,
+        )
+
+    contacts.sort(key=lambda contact: (CONTACT_PRIORITY.get(contact.get("type", ""), 99), str(contact.get("label") or "").lower()))
+    return contacts
+
+
+def get_primary_contact(lead: dict[str, Any]) -> dict[str, Any] | None:
+    contacts = normalise_lead_contacts(lead)
+    for contact in contacts:
+        if contact.get("actionable"):
+            return contact
+    return contacts[0] if contacts else None
+
+
+def get_primary_email_contact(lead: dict[str, Any]) -> dict[str, Any] | None:
+    for contact in normalise_lead_contacts(lead):
+        if contact.get("type") == "email":
+            return contact
+    return None
+
+
+def has_supported_contact_route(lead: dict[str, Any]) -> bool:
+    return any(bool(contact.get("actionable")) for contact in normalise_lead_contacts(lead))
+
+
 def find_existing_lead(
     *,
     business_name: str = "",
@@ -114,6 +274,7 @@ def create_lead_record(
     qualification: QualificationResult,
     preview_html: str,
     pitch_draft: dict[str, dict[str, str]],
+    contacts: list[dict[str, Any]] | None = None,
     source_query: str = "",
     state_root: Path | None = None,
 ) -> dict[str, Any]:
@@ -129,6 +290,9 @@ def create_lead_record(
 
     preview_rel = f"state/previews/{lead_id}/english-menu.html"
     record_rel = f"state/leads/{lead_id}.json"
+    contact_records = normalise_lead_contacts({"contacts": contacts or []})
+    primary_contact = next((contact for contact in contact_records if contact.get("actionable")), None)
+    email_contact = next((contact for contact in contact_records if contact.get("type") == "email"), None)
 
     return {
         # Identity
@@ -149,11 +313,22 @@ def create_lead_record(
             "map_url": qualification.map_url,
             "evidence_urls": qualification.evidence_urls,
         },
+        "contacts": contact_records,
+        "primary_contact": primary_contact,
+        "has_supported_contact_route": bool(primary_contact),
+        "email": email_contact["value"] if email_contact else "",
 
         # Binary lead decision
         "lead": qualification.lead,
         "rejection_reason": qualification.rejection_reason,
         "lead_category": qualification.lead_category,
+        "establishment_profile": qualification.establishment_profile,
+        "establishment_profile_evidence": qualification.establishment_profile_evidence,
+        "establishment_profile_confidence": qualification.establishment_profile_confidence,
+        "establishment_profile_source_urls": qualification.establishment_profile_source_urls,
+        "establishment_profile_override": "",
+        "establishment_profile_override_note": "",
+        "establishment_profile_override_at": None,
 
         # V1 scoring
         "english_menu_issue": qualification.english_menu_issue,

@@ -55,6 +55,8 @@ def test_merge_search_results_sums_all_category_runs():
                 "total_candidates": 20,
                 "leads": 1,
                 "qualified_without_email": 2,
+                "qualified_with_non_email_contact": 1,
+                "qualified_without_supported_contact": 1,
                 "decisions": [{"business_name": "Ramen"}],
             },
             {
@@ -62,6 +64,8 @@ def test_merge_search_results_sums_all_category_runs():
                 "total_candidates": 18,
                 "leads": 3,
                 "qualified_without_email": 4,
+                "qualified_with_non_email_contact": 2,
+                "qualified_without_supported_contact": 2,
                 "decisions": [{"business_name": "Izakaya"}],
             },
         ],
@@ -73,4 +77,6 @@ def test_merge_search_results_sums_all_category_runs():
     assert merged["total_candidates"] == 38
     assert merged["leads"] == 4
     assert merged["qualified_without_email"] == 6
+    assert merged["qualified_with_non_email_contact"] == 3
+    assert merged["qualified_without_supported_contact"] == 3
     assert merged["decisions"] == [{"business_name": "Ramen"}, {"business_name": "Izakaya"}]

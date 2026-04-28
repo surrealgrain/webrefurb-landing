@@ -7,6 +7,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from .business_name import business_name_is_suspicious, business_names_match, extract_business_name_candidates, resolve_business_name
+from .contact_crawler import extract_contact_signals
 from .utils import utc_now, write_json, ensure_dir
 from .qualification import qualify_candidate
 from .evidence import _count_japanese_chars
@@ -89,6 +91,170 @@ def find_contact_email(website: str, html: str, *, timeout_seconds: int = 8) -> 
     return ""
 
 
+def _append_contact_route(
+    contacts: list[dict[str, Any]],
+    seen: set[tuple[str, str]],
+    *,
+    contact_type: str,
+    value: str,
+    label: str = "",
+    href: str = "",
+    source: str = "",
+    source_url: str = "",
+    actionable: bool = True,
+) -> None:
+    cleaned = str(value or "").strip()
+    if not cleaned:
+        return
+    if contact_type == "email":
+        normalized = cleaned.lower()
+    elif contact_type == "phone":
+        normalized = re.sub(r"\D", "", cleaned)
+    else:
+        normalized = cleaned.lower()
+    if not normalized:
+        return
+    key = (contact_type, normalized)
+    if key in seen:
+        return
+    seen.add(key)
+    contacts.append({
+        "type": contact_type,
+        "value": cleaned,
+        "label": label or cleaned,
+        "href": href.strip(),
+        "source": source,
+        "source_url": source_url,
+        "actionable": actionable,
+    })
+
+
+def discover_contact_routes(
+    website: str,
+    html: str,
+    *,
+    phone: str = "",
+    address: str = "",
+    timeout_seconds: int = 8,
+) -> list[dict[str, Any]]:
+    contacts: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    _append_contact_route(
+        contacts,
+        seen,
+        contact_type="website",
+        value=website,
+        label="Official website",
+        href=website,
+        source="homepage",
+        source_url=website,
+        actionable=False,
+    )
+    if phone:
+        digits = re.sub(r"\D", "", phone)
+        _append_contact_route(
+            contacts,
+            seen,
+            contact_type="phone",
+            value=phone,
+            href=f"tel:{digits}" if digits else "",
+            source="maps_listing",
+            actionable=True,
+        )
+    if address:
+        _append_contact_route(
+            contacts,
+            seen,
+            contact_type="walk_in",
+            value=address,
+            label="Walk-in route",
+            source="maps_listing",
+            actionable=True,
+        )
+
+    pages: list[tuple[str, str, str]] = [("homepage", website, html)]
+    for url in _contact_candidate_urls(website, html):
+        try:
+            pages.append(("contact_page", url, _fetch_page(url, timeout_seconds=timeout_seconds)))
+        except Exception:
+            continue
+
+    for source, source_url, page_html in pages:
+        signals = extract_contact_signals(page_html)
+        for email in signals.emails:
+            _append_contact_route(
+                contacts,
+                seen,
+                contact_type="email",
+                value=email,
+                href=f"mailto:{email}",
+                source=source,
+                source_url=source_url,
+                actionable=True,
+            )
+        if signals.has_form:
+            _append_contact_route(
+                contacts,
+                seen,
+                contact_type="contact_form",
+                value=source_url,
+                label="Contact form",
+                href=source_url,
+                source=source,
+                source_url=source_url,
+                actionable=True,
+            )
+        for line_link in signals.line_links:
+            href = line_link if line_link.startswith(("http://", "https://")) else f"https://{line_link}"
+            _append_contact_route(
+                contacts,
+                seen,
+                contact_type="line",
+                value=line_link,
+                label="LINE",
+                href=href,
+                source=source,
+                source_url=source_url,
+                actionable=True,
+            )
+        for line_id in signals.line_ids:
+            _append_contact_route(
+                contacts,
+                seen,
+                contact_type="line",
+                value=line_id,
+                label=f"LINE {line_id}",
+                source=source,
+                source_url=source_url,
+                actionable=True,
+            )
+        for handle in signals.instagram_handles:
+            _append_contact_route(
+                contacts,
+                seen,
+                contact_type="instagram",
+                value=f"@{handle}",
+                label=f"Instagram @{handle}",
+                href=f"https://www.instagram.com/{handle}/",
+                source=source,
+                source_url=source_url,
+                actionable=True,
+            )
+
+    priority = {
+        "email": 0,
+        "contact_form": 1,
+        "line": 2,
+        "instagram": 3,
+        "phone": 4,
+        "walk_in": 5,
+        "website": 6,
+    }
+    contacts.sort(key=lambda contact: (priority.get(contact.get("type", ""), 99), str(contact.get("label") or "").lower()))
+    return contacts
+
+
 def run_search(
     *,
     query: str,
@@ -108,6 +274,108 @@ def run_search(
     return data.get("places") or []
 
 
+def run_web_search(
+    *,
+    query: str,
+    api_key: str,
+    gl: str = "jp",
+    timeout_seconds: int = 10,
+) -> dict[str, Any]:
+    url = "https://google.serper.dev/search"
+    payload = json.dumps({"q": query, "gl": gl}).encode("utf-8")
+    request = urllib.request.Request(url, data=payload, headers={
+        "Content-Type": "application/json",
+        "X-API-KEY": api_key,
+    })
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _address_search_token(address: str) -> str:
+    first_part = str(address or "").split(",")[0].strip()
+    return first_part or str(address or "").strip()
+
+
+def _find_tabelog_candidate_url(
+    *,
+    business_name: str,
+    address: str,
+    api_key: str,
+    timeout_seconds: int = 10,
+) -> str:
+    query_parts = [f"site:tabelog.com {business_name}"]
+    address_token = _address_search_token(address)
+    if address_token:
+        query_parts.append(address_token)
+    query = " ".join(part for part in query_parts if part).strip()
+    try:
+        data = run_web_search(query=query, api_key=api_key, timeout_seconds=timeout_seconds)
+    except Exception:
+        return ""
+
+    for result in data.get("organic") or []:
+        link = str(result.get("link") or "").strip()
+        if "tabelog.com" in link:
+            return link
+    return ""
+
+
+def verify_business_name(
+    *,
+    source_name: str,
+    website: str,
+    html: str,
+    address: str,
+    serper_api_key: str,
+    timeout_seconds: int = 8,
+) -> dict[str, Any]:
+    resolved_name, resolved_source = resolve_business_name(source_name=source_name, html=html)
+    source_candidate = str(source_name or "").strip()
+    official_candidates = [candidate for candidate in extract_business_name_candidates(html) if not business_name_is_suspicious(candidate)]
+    official_name = official_candidates[0] if official_candidates else ""
+    verified_by: list[str] = []
+
+    tabelog_url = _find_tabelog_candidate_url(
+        business_name=resolved_name or source_candidate,
+        address=address,
+        api_key=serper_api_key,
+        timeout_seconds=timeout_seconds,
+    ) if (resolved_name or source_candidate) else ""
+    tabelog_name = ""
+    if tabelog_url:
+        try:
+            tabelog_html = _fetch_page(tabelog_url, timeout_seconds=timeout_seconds)
+            tabelog_candidates = [
+                candidate for candidate in extract_business_name_candidates(tabelog_html)
+                if not business_name_is_suspicious(candidate)
+            ]
+            tabelog_name = tabelog_candidates[0] if tabelog_candidates else ""
+        except Exception:
+            tabelog_name = ""
+
+    if tabelog_name:
+        resolved_name = tabelog_name
+        resolved_source = "tabelog"
+        if source_candidate and not business_name_is_suspicious(source_candidate) and business_names_match(source_candidate, tabelog_name):
+            verified_by = ["tabelog", "google"]
+        elif official_name and business_names_match(official_name, tabelog_name):
+            verified_by = ["tabelog", "official_site"]
+    elif source_candidate and not business_name_is_suspicious(source_candidate) and official_name and business_names_match(source_candidate, official_name):
+        verified_by = ["google", "official_site"]
+        resolved_name = official_name
+
+    if not verified_by and official_name and resolved_source == "page_html":
+        resolved_name = official_name
+
+    return {
+        "business_name": resolved_name,
+        "business_name_source": resolved_source,
+        "verified_by": verified_by,
+        "tabelog_url": tabelog_url,
+        "tabelog_name": tabelog_name,
+    }
+
+
 def search_and_qualify(
     *,
     query: str,
@@ -124,17 +392,19 @@ def search_and_qualify(
     results: list[dict[str, Any]] = []
     decisions: list[dict[str, Any]] = []
     qualified_without_email = 0
+    qualified_with_non_email_contact = 0
+    qualified_without_supported_contact = 0
 
     for place in raw_places[:max_candidates]:
         website = str(place.get("website") or "").strip()
-        business_name = str(place.get("title") or place.get("name") or "").strip()
-        if not website or not business_name:
+        source_name = str(place.get("title") or place.get("name") or "").strip()
+        if not website or not source_name:
             continue
 
         # Skip if already tracked as a lead (any status)
         from .record import find_existing_lead
         existing = find_existing_lead(
-            business_name=business_name,
+            business_name=source_name,
             website=website,
             phone=str(place.get("phoneNumber", "")),
             place_id=str(place.get("placeId", "")),
@@ -143,7 +413,7 @@ def search_and_qualify(
         )
         if existing:
             decisions.append({
-                "business_name": business_name,
+                "business_name": source_name,
                 "lead": False,
                 "reason": "already_tracked",
                 "existing_lead_id": existing.get("lead_id"),
@@ -155,7 +425,35 @@ def search_and_qualify(
             website_html = _fetch_page(website)
             pages = [{"url": website, "html": website_html}]
         except Exception as exc:
-            decisions.append({"business_name": business_name, "lead": False, "reason": "fetch_failed", "error": str(exc)})
+            decisions.append({"business_name": source_name, "lead": False, "reason": "fetch_failed", "error": str(exc)})
+            continue
+
+        name_check = verify_business_name(
+            source_name=source_name,
+            website=website,
+            html=website_html,
+            address=str(place.get("address", "")),
+            serper_api_key=serper_api_key,
+        )
+        business_name = str(name_check.get("business_name") or "")
+        business_name_source = str(name_check.get("business_name_source") or "")
+        verified_by = list(name_check.get("verified_by") or [])
+        if business_name_is_suspicious(business_name):
+            decisions.append({
+                "business_name": source_name,
+                "lead": False,
+                "reason": "invalid_business_name_detected",
+                "business_name_source": business_name_source,
+            })
+            continue
+        if len(verified_by) < 2:
+            decisions.append({
+                "business_name": business_name or source_name,
+                "lead": False,
+                "reason": "business_name_unverified",
+                "business_name_source": business_name_source,
+                "business_name_verified_by": verified_by,
+            })
             continue
 
         qualification = qualify_candidate(
@@ -172,15 +470,31 @@ def search_and_qualify(
         )
 
         decision = qualification.to_dict()
+        decision["business_name_source"] = business_name_source
+        decision["business_name_verified_by"] = verified_by
 
         if qualification.lead:
-            contact_email = find_contact_email(website, website_html)
-            if not contact_email:
+            contact_routes = discover_contact_routes(
+                website,
+                website_html,
+                phone=str(place.get("phoneNumber", "")),
+                address=str(place.get("address", "")),
+            )
+            actionable_routes = [route for route in contact_routes if route.get("actionable")]
+            email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
+            decision["contact_route_types"] = [str(route.get("type") or "") for route in contact_routes]
+            decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
+
+            if not email_contact:
                 qualified_without_email += 1
+            if not actionable_routes:
+                qualified_without_supported_contact += 1
                 decision["lead"] = False
-                decision["reason"] = "no_business_email_found"
+                decision["reason"] = "no_supported_contact_route_found"
                 decisions.append(decision)
                 continue
+            if not email_contact:
+                qualified_with_non_email_contact += 1
 
             from .preview import build_preview_menu, build_preview_html
             from .pitch import build_pitch
@@ -207,13 +521,18 @@ def search_and_qualify(
                 qualification=qualification,
                 preview_html=preview_html,
                 pitch_draft=pitch,
+                contacts=contact_routes,
                 source_query=query,
                 state_root=state_root,
             )
-            record["email"] = contact_email
+            record["business_name_source"] = business_name_source
+            record["business_name_verified_by"] = verified_by
+            if name_check.get("tabelog_url"):
+                record["business_name_tabelog_url"] = name_check["tabelog_url"]
             persist_lead_record(record, state_root=state_root)
             results.append(record)
-            decision["email_found"] = True
+            decision["email_found"] = bool(email_contact)
+            decision["lead_id"] = record["lead_id"]
 
         decisions.append(decision)
 
@@ -224,5 +543,7 @@ def search_and_qualify(
         "total_candidates": len(raw_places[:max_candidates]),
         "leads": len(results),
         "qualified_without_email": qualified_without_email,
+        "qualified_with_non_email_contact": qualified_with_non_email_contact,
+        "qualified_without_supported_contact": qualified_without_supported_contact,
         "decisions": decisions,
     }

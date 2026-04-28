@@ -64,6 +64,10 @@ class QualificationResult:
     # V1 classification
     primary_category_v1: str = "other"  # "ramen" | "izakaya" | "other"
     lead_category: str = ""
+    establishment_profile: str = "unknown"
+    establishment_profile_evidence: list[str] = field(default_factory=list)
+    establishment_profile_confidence: str = "low"
+    establishment_profile_source_urls: list[str] = field(default_factory=list)
 
     # V1 scoring
     tourist_exposure_score: float = 0.0
@@ -86,6 +90,10 @@ class QualificationResult:
             "rejection_reason": self.rejection_reason,
             "primary_category_v1": self.primary_category_v1,
             "lead_category": self.lead_category,
+            "establishment_profile": self.establishment_profile,
+            "establishment_profile_evidence": self.establishment_profile_evidence,
+            "establishment_profile_confidence": self.establishment_profile_confidence,
+            "establishment_profile_source_urls": self.establishment_profile_source_urls,
             "english_menu_issue": self.english_menu_issue,
             "english_menu_issue_evidence": self.english_menu_issue_evidence,
             "tourist_exposure_score": self.tourist_exposure_score,
