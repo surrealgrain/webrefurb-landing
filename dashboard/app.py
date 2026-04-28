@@ -75,14 +75,19 @@ def _safe_upload_name(filename: str) -> str:
     return safe or f"upload-{uuid.uuid4().hex[:8]}"
 
 
-def _dashboard_email_preview_html(text_body: str, *, include_machine_image: bool) -> str:
+def _dashboard_email_preview_html(
+    text_body: str,
+    *,
+    include_menu_image: bool,
+    include_machine_image: bool,
+) -> str:
     """Render the dashboard preview from the same HTML email builder."""
     from pipeline.email_html import build_pitch_email_html
 
     html_body = build_pitch_email_html(
         text_body=text_body,
         menu_image_path="dashboard-preview",
-        include_menu_image=True,
+        include_menu_image=include_menu_image,
         include_machine_image=include_machine_image,
         locale="ja",
     )
@@ -528,7 +533,13 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     the locked template and clears the saved manual draft.
     """
     from pipeline.record import load_lead
-    from pipeline.outreach import classify_business, select_outreach_assets, build_outreach_email
+    from pipeline.outreach import (
+        build_manual_outreach_message,
+        build_outreach_email,
+        classify_business,
+        describe_outreach_assets,
+        select_outreach_assets,
+    )
     from pipeline.models import QualificationResult
 
     record = load_lead(lead_id, state_root=STATE_ROOT)
@@ -581,32 +592,45 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     primary_contact_type = str((primary_contact or {}).get("type") or "")
     if primary_contact_type == "contact_form":
         contact_action = "use_contact_form"
-        contact_action_note = "Use this draft in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
+        contact_action_note = "Use this no-attachment version in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
     elif primary_contact_type and primary_contact_type != "email":
         contact_action = "manual_outreach"
-        contact_action_note = f"Use this draft as the basis for {primary_contact_type.replace('_', ' ')} outreach. Dashboard e-mail sending stays disabled for this lead."
+        if primary_contact_type == "line":
+            contact_action_note = "Use this shorter LINE version and send any sample files manually if they help. Dashboard e-mail sending stays disabled for this lead."
+        elif primary_contact_type == "instagram":
+            contact_action_note = "Use this shorter Instagram DM version and send any sample files manually if they help. Dashboard e-mail sending stays disabled for this lead."
+        elif primary_contact_type == "phone":
+            contact_action_note = "Use this phone script during the call. Dashboard e-mail sending stays disabled for this lead."
+        elif primary_contact_type == "walk_in":
+            contact_action_note = "Use this in-person script during the visit. Dashboard e-mail sending stays disabled for this lead."
+        else:
+            contact_action_note = f"Use this draft as the basis for {primary_contact_type.replace('_', ' ')} outreach. Dashboard e-mail sending stays disabled for this lead."
     else:
         contact_action = "send_email"
         contact_action_note = "This lead has a saved business e-mail route."
 
-    # Block machine_only — no email template exists yet
-    if classification == "machine_only":
-        record["outreach_status"] = "needs_review"
-        record["outreach_classification"] = classification
-        from pipeline.record import persist_lead_record
-        persist_lead_record(record, state_root=STATE_ROOT)
-        raise HTTPException(
-            status_code=422,
-            detail="Machine-only outreach is not supported yet. No email template exists for this classification.",
-        )
-
-    assets = select_outreach_assets(classification)
-    include_inperson = record.get("outreach_include_inperson", True)
-    email = build_outreach_email(
-        business_name=record["business_name"],
-        classification=classification,
-        include_inperson_line=include_inperson,
+    draft_channel = primary_contact_type if primary_contact_type and primary_contact_type != "email" else "email"
+    assets = select_outreach_assets(
+        classification,
+        contact_type=draft_channel,
+        establishment_profile=profile["effective"],
     )
+    include_inperson = record.get("outreach_include_inperson", True)
+    if draft_channel == "email":
+        draft = build_outreach_email(
+            business_name=record["business_name"],
+            classification=classification,
+            establishment_profile=profile["effective"],
+            include_inperson_line=include_inperson,
+        )
+    else:
+        draft = build_manual_outreach_message(
+            business_name=record["business_name"],
+            classification=classification,
+            channel=draft_channel,
+            establishment_profile=profile["effective"],
+            include_inperson_line=include_inperson,
+        )
 
     # Update lead record
     record["outreach_classification"] = classification
@@ -628,9 +652,9 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
 
     persist_lead_record(record, state_root=STATE_ROOT)
 
-    subject = email["subject"]
-    body = email["body"]
-    english_body = email["english_body"]
+    subject = draft["subject"]
+    body = draft["body"]
+    english_body = draft["english_body"]
     saved_assets = record.get("outreach_assets_selected") or []
     if not regenerate:
         subject = record.get("outreach_draft_subject") or subject
@@ -638,6 +662,11 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         english_body = record.get("outreach_draft_english_body") or english_body
         if saved_assets:
             assets = [Path(p) for p in saved_assets]
+    asset_details = describe_outreach_assets(
+        assets,
+        classification=classification,
+        establishment_profile=profile["effective"],
+    )
 
     action = "draft_generated" if regenerate else "email_previewed"
     _log(action, f"classification={classification}", lead_id=lead_id)
@@ -645,19 +674,25 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     return {
         "classification": classification,
         "assets": [str(p) for p in assets],
+        "asset_details": asset_details["assets"],
+        "asset_strategy_label": asset_details["strategy_label"],
+        "asset_strategy_note": asset_details["strategy_note"],
         "subject": subject,
         "body": body,
         "english_body": english_body,
         "preview_html": _dashboard_email_preview_html(
             body,
-            include_machine_image=record.get("outreach_include_machine_image", email["include_machine_image"]),
+            include_menu_image=draft["include_menu_image"],
+            include_machine_image=record.get("outreach_include_machine_image", draft["include_machine_image"]),
         ),
         "include_inperson": include_inperson,
-        "include_machine_image": record.get("outreach_include_machine_image", email["include_machine_image"]),
+        "include_menu_image": draft["include_menu_image"],
+        "include_machine_image": record.get("outreach_include_machine_image", draft["include_machine_image"]),
         "business_name": record["business_name"],
         "email": record.get("email", ""),
         "contacts": contacts,
         "primary_contact": primary_contact,
+        "draft_channel": draft_channel,
         "establishment_profile": profile["effective"],
         "establishment_profile_label": profile["label"],
         "establishment_profile_mode": profile["mode"],
@@ -712,7 +747,10 @@ async def api_translate_draft(request: Request):
     english_body = _normalise_body(body.get("english_body", ""))
     business_name = body.get("business_name", "").strip()
     classification = body.get("classification", "menu_only")
+    establishment_profile = str(body.get("establishment_profile") or "unknown").strip()
+    draft_channel = str(body.get("draft_channel") or "email").strip().lower()
     include_inperson = body.get("include_inperson", True)
+    include_menu_image = bool(body.get("include_menu_image", True))
     include_machine_image = bool(body.get("include_machine_image", False))
 
     if not english_body:
@@ -720,16 +758,41 @@ async def api_translate_draft(request: Request):
     if not business_name:
         raise HTTPException(status_code=400, detail="Restaurant name required")
 
-    from pipeline.outreach import build_outreach_email
+    from pipeline.outreach import build_manual_outreach_message, build_outreach_email
 
-    default_email = build_outreach_email(
-        business_name=business_name,
-        classification=classification,
-        include_inperson_line=include_inperson,
-    )
-    if _normalise_body(english_body) == _normalise_body(default_email["english_body"]):
-        japanese_body = default_email["body"]
-    else:
+    candidate_profiles = [establishment_profile] if establishment_profile and establishment_profile != "unknown" else [
+        "unknown",
+        "ramen_only",
+        "ramen_with_drinks",
+        "ramen_ticket_machine",
+        "ramen_with_sides_add_ons",
+        "izakaya_food_and_drinks",
+        "izakaya_drink_heavy",
+        "izakaya_course_heavy",
+    ]
+    japanese_body = ""
+    normalised_english_body = _normalise_body(english_body)
+    for candidate_profile in candidate_profiles:
+        if draft_channel == "email":
+            candidate_draft = build_outreach_email(
+                business_name=business_name,
+                classification=classification,
+                establishment_profile=candidate_profile,
+                include_inperson_line=include_inperson,
+            )
+        else:
+            candidate_draft = build_manual_outreach_message(
+                business_name=business_name,
+                classification=classification,
+                channel=draft_channel,
+                establishment_profile=candidate_profile,
+                include_inperson_line=include_inperson,
+            )
+        if normalised_english_body == _normalise_body(candidate_draft["english_body"]):
+            japanese_body = candidate_draft["body"]
+            break
+
+    if not japanese_body:
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
         if not api_key:
             raise HTTPException(
@@ -772,6 +835,7 @@ async def api_translate_draft(request: Request):
         "body": japanese_body,
         "preview_html": _dashboard_email_preview_html(
             japanese_body,
+            include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
         ),
     }
@@ -820,7 +884,7 @@ async def api_send(lead_id: str, request: Request):
     is_test_send = not is_business_send
 
     from pipeline.models import QualificationResult
-    from pipeline.outreach import classify_business, select_outreach_assets
+    from pipeline.outreach import classify_business, select_outreach_assets, build_outreach_email
 
     q = QualificationResult(
         lead=record["lead"],
@@ -830,13 +894,15 @@ async def api_send(lead_id: str, request: Request):
         machine_evidence_found=record.get("machine_evidence_found", False),
     )
     classification = record.get("outreach_classification") or classify_business(q)
-    if classification == "machine_only":
-        raise HTTPException(
-            status_code=422,
-            detail="Machine-only outreach is not supported yet. No email template exists for this classification.",
-        )
-
-    required_assets = [str(p) for p in select_outreach_assets(classification)]
+    profile = _effective_establishment_profile(record)
+    required_assets = list(record.get("outreach_assets_selected") or [])
+    if not required_assets:
+        required_assets = [
+            str(p) for p in select_outreach_assets(
+                classification,
+                establishment_profile=profile["effective"],
+            )
+        ]
     if asset_paths is None:
         asset_paths = record.get("outreach_assets_selected") or required_assets
 
@@ -850,11 +916,18 @@ async def api_send(lead_id: str, request: Request):
         names = ", ".join(Path(p).name for p in missing_files)
         raise HTTPException(status_code=400, detail=f"Attachment file not found: {names}")
 
-    expected_machine_image = classification == "menu_and_machine"
+    default_email = build_outreach_email(
+        business_name=record["business_name"],
+        classification=classification,
+        establishment_profile=profile["effective"],
+        include_inperson_line=record.get("outreach_include_inperson", True),
+    )
+    include_menu_image = default_email["include_menu_image"]
+    expected_machine_image = default_email["include_machine_image"]
     if include_machine_image is None:
         include_machine_image = record.get("outreach_include_machine_image", expected_machine_image)
     if expected_machine_image and not include_machine_image:
-        raise HTTPException(status_code=400, detail="Required machine image missing for menu_and_machine lead")
+        raise HTTPException(status_code=400, detail=f"Required machine image missing for {classification} lead")
 
     # Rate limit check
     today_sends = _count_today_sends()
@@ -869,11 +942,13 @@ async def api_send(lead_id: str, request: Request):
     # Send via Resend with inline menu preview
     from pipeline.constants import TEMPLATE_PACKAGE_MENU
 
-    menu_html = TEMPLATE_PACKAGE_MENU / "restaurant_menu_print_master.html"
-    if not menu_html.exists():
-        menu_html = TEMPLATE_PACKAGE_MENU / "food_menu_browser_preview.html"
-    if not menu_html.exists():
-        raise HTTPException(status_code=400, detail="Required menu preview image source file not found")
+    menu_html = None
+    if include_menu_image:
+        menu_html = TEMPLATE_PACKAGE_MENU / "restaurant_menu_print_master.html"
+        if not menu_html.exists():
+            menu_html = TEMPLATE_PACKAGE_MENU / "food_menu_browser_preview.html"
+        if not menu_html.exists():
+            raise HTTPException(status_code=400, detail="Required menu preview image source file not found")
 
     try:
         result = await _send_email_resend(
@@ -881,7 +956,8 @@ async def api_send(lead_id: str, request: Request):
             subject=subject,
             body=email_body,
             attachments=asset_paths,
-            menu_html_path=str(menu_html) if menu_html.exists() else None,
+            menu_html_path=str(menu_html) if menu_html and menu_html.exists() else None,
+            include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
         )
     except Exception as exc:
@@ -1621,6 +1697,7 @@ async def _send_email_resend(
     attachments: list[str],
     in_reply_to: str = "",
     menu_html_path: str | None = None,
+    include_menu_image: bool = True,
     include_machine_image: bool = False,
 ) -> dict:
     """Send an email via the Resend SDK with HTML body, header/footer, inline menu image."""
@@ -1650,7 +1727,7 @@ async def _send_email_resend(
     html_body = build_pitch_email_html(
         text_body=body,
         menu_image_path=menu_image_path,
-        include_menu_image=bool(menu_image_path),
+        include_menu_image=include_menu_image and bool(menu_image_path),
         include_machine_image=include_machine_image,
         locale="ja",
     )

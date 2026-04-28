@@ -312,6 +312,9 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 #asset-items { display: flex; flex-wrap: wrap; gap: 8px; }
 .asset-thumb { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; border: 1px solid var(--input-border); background: var(--input-bg); min-height: 32px; }
 .asset-thumb input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+.asset-panel-note { margin-bottom: 10px; padding: 10px 12px; background: #F7FBFD; border: 1px solid rgba(54,111,145,0.18); border-radius: 14px; }
+.asset-panel-note-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #245B78; margin-bottom: 6px; }
+.asset-panel-note-summary { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
 .contact-route-panel { margin-bottom: 10px; padding: 10px 12px; background: #FFFDF7; border: 1px solid rgba(194,133,34,0.18); border-radius: 14px; }
 .contact-route-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9A6700; margin-bottom: 6px; }
 .contact-route-summary { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
@@ -671,6 +674,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <span class="asset-panel-label">Included files</span>
       <div id="asset-items"></div>
     </div>
+    <div class="asset-panel-note" id="asset-panel-note" style="display:none;">
+      <div class="asset-panel-note-title" id="asset-panel-note-title">Sample strategy</div>
+      <div class="asset-panel-note-summary" id="asset-panel-note-summary"></div>
+    </div>
     <div class="contact-route-panel" id="contact-route-panel" style="display:none;">
       <div class="contact-route-title">Contact route</div>
       <div class="contact-route-summary" id="contact-route-summary"></div>
@@ -881,6 +888,42 @@ function manualContactButtonLabel(contactType) {
   if (contactType === 'phone') return 'Mark Called';
   if (contactType === 'walk_in') return 'Mark Visited';
   return 'Mark Contacted';
+}
+
+function manualCopyButtonLabel(contactType) {
+  if (contactType === 'contact_form') return 'Copy Form Message';
+  if (contactType === 'line') return 'Copy LINE Message';
+  if (contactType === 'instagram') return 'Copy Instagram DM';
+  if (contactType === 'phone') return 'Copy Phone Script';
+  if (contactType === 'walk_in') return 'Copy Walk-in Script';
+  return 'Copy Draft';
+}
+
+function draftChannelLabel(channel) {
+  if (!channel || channel === 'email') return 'Email Draft';
+  if (channel === 'contact_form') return 'Contact Form Message';
+  if (channel === 'line') return 'LINE Message';
+  if (channel === 'instagram') return 'Instagram DM';
+  if (channel === 'phone') return 'Phone Script';
+  if (channel === 'walk_in') return 'Walk-in Script';
+  return contactTypeLabel(channel);
+}
+
+function assetPanelLabel(channel) {
+  if (channel === 'contact_form') return 'Attachments';
+  if (channel === 'line' || channel === 'instagram') return 'Suggested sample files';
+  if (channel === 'phone' || channel === 'walk_in') return 'Reference files';
+  return 'Included files';
+}
+
+function subjectPlaceholder(channel) {
+  if (!channel || channel === 'email') return '';
+  if (channel === 'contact_form') return 'No subject for contact-form outreach';
+  if (channel === 'line') return 'No subject for LINE outreach';
+  if (channel === 'instagram') return 'No subject for Instagram DM outreach';
+  if (channel === 'phone') return 'No subject for phone outreach';
+  if (channel === 'walk_in') return 'No subject for walk-in outreach';
+  return 'No subject for this channel';
 }
 
 function establishmentProfileLabel(profile) {
@@ -1453,6 +1496,11 @@ async function openPreview(leadId) {
   document.getElementById('send-email').style.borderColor = '';
   document.getElementById('send-email').style.display = '';
   document.getElementById('copy-draft-btn').style.display = 'none';
+  document.getElementById('copy-draft-btn').textContent = 'Copy Draft';
+  document.querySelector('#asset-panel .asset-panel-label').textContent = 'Included files';
+  document.getElementById('asset-panel-note').style.display = 'none';
+  document.getElementById('asset-panel-note-title').textContent = 'Sample strategy';
+  document.getElementById('asset-panel-note-summary').textContent = '';
   setSaveState('Loading draft...', '');
 
   // Disable send button while loading
@@ -1483,13 +1531,14 @@ async function openPreview(leadId) {
     const englishBodyForEdit = data.english_body || data.body;
     includeInperson = englishBodyForEdit.includes(ENGLISH_INPERSON_LINE) || (data.body || '').includes('ラミネート加工および店舗への直接のお届けも承っております。');
     document.getElementById('inperson-toggle').checked = includeInperson;
+    const draftChannel = data.draft_channel || ((data.primary_contact || {}).type || 'email');
 
     // Update modal title with business name
     document.getElementById('preview-modal-title').textContent =
-      'Outreach Draft — ' + (data.business_name || leadId);
+      draftChannelLabel(draftChannel) + ' — ' + (data.business_name || leadId);
 
     // Show subject and recipient
-    document.getElementById('preview-subject').textContent = data.subject;
+    document.getElementById('preview-subject').textContent = data.subject || subjectPlaceholder(draftChannel);
     document.getElementById('preview-recipient').textContent =
       data.primary_contact ? ('Primary route: ' + (data.primary_contact.label || data.primary_contact.value || contactTypeLabel(data.primary_contact.type))) : 'No contact route on file';
     setSaveState(data.has_saved_draft ? 'Saved draft loaded' : 'Template loaded', data.has_saved_draft ? 'saved' : '');
@@ -1503,30 +1552,30 @@ async function openPreview(leadId) {
 
     // Populate asset selection panel
     selectedAssets = data.assets || [];
+    document.querySelector('#asset-panel .asset-panel-label').textContent = assetPanelLabel(draftChannel);
+    const assetDetails = Array.isArray(data.asset_details) && data.asset_details.length ? data.asset_details : [];
     const assetItems = document.getElementById('asset-items');
     assetItems.innerHTML = '';
     if (selectedAssets.length === 0) {
       assetItems.innerHTML = '<span style="font-size:12px;color:var(--muted);">No attachments</span>';
     } else {
       selectedAssets.forEach((asset, i) => {
+        const detail = assetDetails.find(item => item.path === asset) || {};
         const name = asset.split('/').pop().replace(/\.pdf$/i, '');
-        const label = name.includes('ticket') ? 'Ticket Machine Guide' : name.includes('combined') ? 'Menu (Combined)' : name.includes('drinks') ? 'Drinks Menu' : 'Food Menu';
+        const label = detail.label || (name.includes('ticket') ? 'Ticket Machine Guide' : name.includes('combined') ? 'Menu (Combined)' : name.includes('drinks') ? 'Drinks Menu' : 'Food Menu');
         const div = document.createElement('label');
         div.className = 'asset-thumb';
         div.innerHTML = '<input type="checkbox" checked data-asset-index="' + i + '"> ' + label;
         assetItems.appendChild(div);
       });
     }
-
-    // Show classification-specific info
-    const classification = data.classification || 'menu_only';
-    if (classification === 'machine_only') {
-      jpPreview.textContent = 'This lead needs the later-phase machine or ticket-machine outreach flow. Keep it in review until that path is implemented.';
-      setSaveState('Manual review required', 'error');
-      sendBtn.disabled = true;
-      sendBtn.title = 'Machine or ticket-machine outreach flow is not implemented yet';
-      modal.showModal();
-      return;
+    const assetPanelNote = document.getElementById('asset-panel-note');
+    if (data.asset_strategy_label || data.asset_strategy_note) {
+      assetPanelNote.style.display = '';
+      document.getElementById('asset-panel-note-title').textContent = data.asset_strategy_label || 'Sample strategy';
+      document.getElementById('asset-panel-note-summary').textContent = data.asset_strategy_note || '';
+    } else {
+      assetPanelNote.style.display = 'none';
     }
 
     // Show rendered Japanese email preview
@@ -1551,6 +1600,7 @@ async function openPreview(leadId) {
       sendBtn.disabled = false;
       sendBtn.textContent = manualContactButtonLabel((data.primary_contact || {}).type || '');
       document.getElementById('send-email').style.display = 'none';
+      document.getElementById('copy-draft-btn').textContent = manualCopyButtonLabel((data.primary_contact || {}).type || '');
       document.getElementById('copy-draft-btn').style.display = '';
       document.getElementById('rate-limit').textContent = '';
     } else {
@@ -1601,7 +1651,9 @@ async function translateDraftFromEnglish(saveAfter) {
       english_body: englishBody,
       business_name: currentEmail.business_name,
       classification: currentEmail.classification,
+      draft_channel: currentEmail.draft_channel || 'email',
       include_inperson: includeInperson,
+      include_menu_image: currentEmail.include_menu_image !== false,
       include_machine_image: currentEmail.include_machine_image || false,
     }),
   })
@@ -1842,6 +1894,7 @@ async function executeSend() {
         subject: currentEmail.subject,
         body: bodyToSend,
         assets: checkedAssets,
+        include_menu_image: currentEmail.include_menu_image !== false,
         include_machine_image: currentEmail.include_machine_image || false,
       }),
     });

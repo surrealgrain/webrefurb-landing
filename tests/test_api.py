@@ -228,6 +228,8 @@ class TestAPIEndpoints:
             tmp_path,
             lead_id="wrm-test-form-route",
             email="",
+            generated_at="2026-04-28T00:00:00+00:00",
+            map_url="https://maps.google.com/?cid=form-route",
             contacts=[
                 {"type": "contact_form", "value": "https://form-route.test/contact", "label": "Contact form", "href": "https://form-route.test/contact", "actionable": True},
                 {"type": "website", "value": "https://form-route.test", "label": "Official website", "href": "https://form-route.test", "actionable": False},
@@ -239,7 +241,85 @@ class TestAPIEndpoints:
         data = response.json()
         assert data["send_enabled"] is False
         assert data["contact_action"] == "use_contact_form"
+        assert data["draft_channel"] == "contact_form"
         assert data["primary_contact"]["type"] == "contact_form"
+        assert data["subject"] == ""
+        assert data["assets"] == []
+        assert data["include_menu_image"] is False
+        assert data["include_machine_image"] is False
+        assert data["primary_contact"]["confidence"] == "medium"
+        assert data["primary_contact"]["discovered_at"] == "2026-04-28T00:00:00+00:00"
+        assert data["primary_contact"]["status"] == "discovered"
+        website_contact = next(contact for contact in data["contacts"] if contact["type"] == "website")
+        map_contact = next(contact for contact in data["contacts"] if contact["type"] == "map_url")
+        assert website_contact["status"] == "reference_only"
+        assert map_contact["href"] == "https://maps.google.com/?cid=form-route"
+        assert map_contact["status"] == "reference_only"
+
+    def test_outreach_preview_uses_locked_business_name_when_current_name_is_suspicious(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-locked-name",
+            business_name="Tokyo Instagram Ramen",
+            locked_business_name="青空ラーメン",
+            business_name_locked=True,
+            business_name_locked_at="2026-04-28T00:00:00+00:00",
+            contacts=[
+                {"type": "contact_form", "value": "https://locked-name.test/contact", "label": "Contact form", "href": "https://locked-name.test/contact", "actionable": True},
+            ],
+        )
+
+        response = self.client.get("/api/outreach/wrm-test-locked-name")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["business_name"] == "青空ラーメン"
+        assert data["body"].startswith("突然のご連絡にて失礼いたします。")
+
+    @pytest.mark.parametrize(
+        ("contact_type", "expected_phrase"),
+        [
+            ("line", "そのままご返信ください"),
+            ("instagram", "DMでご返信"),
+            ("phone", "メールかLINEでお送りいただけますでしょうか"),
+            ("walk_in", "お写真を見せていただけますでしょうか"),
+        ],
+    )
+    def test_outreach_preview_uses_route_specific_manual_copy(self, tmp_path, contact_type, expected_phrase):
+        value = "03-1234-5678" if contact_type == "phone" else "route-value"
+        self._create_lead(
+            tmp_path,
+            lead_id=f"wrm-test-{contact_type}-route",
+            email="",
+            contacts=[
+                {"type": contact_type, "value": value, "label": "Primary route", "href": "https://route.test", "actionable": True},
+            ],
+        )
+
+        response = self.client.get(f"/api/outreach/wrm-test-{contact_type}-route")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["send_enabled"] is False
+        assert data["contact_action"] == "manual_outreach"
+        assert data["draft_channel"] == contact_type
+        assert data["subject"] == ""
+        assert expected_phrase in data["body"]
+
+    def test_outreach_preview_returns_profile_aware_asset_labels(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-profile-assets",
+            establishment_profile="ramen_only",
+            establishment_profile_confidence="medium",
+            establishment_profile_evidence=["primary_category:ramen"],
+            establishment_profile_source_urls=["https://example.test/menu"],
+        )
+
+        response = self.client.get("/api/outreach/wrm-test-profile-assets")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["asset_strategy_label"] == "Ramen-only sample set"
+        assert "one-page ramen sample" in data["asset_strategy_note"]
+        assert data["asset_details"][0]["label"] == "Ramen Menu Sample (One Page)"
 
     def test_mark_manual_contacted_sets_route_specific_status(self, tmp_path):
         self._create_lead(
@@ -1254,6 +1334,22 @@ class TestClassificationSpecificBehavior:
         assert len(data["assets"]) == 1
         assert "machine" not in data["assets"][0].lower()
 
+    def test_izakaya_profile_uses_food_and_drinks_sample(self):
+        self._create_lead(
+            primary_category_v1="izakaya",
+            establishment_profile="izakaya_drink_heavy",
+            establishment_profile_confidence="high",
+            establishment_profile_evidence=["primary_category:izakaya", "drink_focused_menu_evidence"],
+            establishment_profile_source_urls=["https://example.test/menu"],
+        )
+        response = self.client.post("/api/outreach/wrm-class-test")
+        assert response.status_code == 200
+        data = response.json()
+        assert "p1-split-food-drinks-layout" in data["assets"][0]
+        assert data["asset_strategy_label"] == "Drink-forward izakaya sample set"
+        assert data["asset_details"][0]["label"] == "Drink-Forward Izakaya Sample"
+        assert "飲み放題" in data["body"]
+
     def test_menu_and_machine_classification(self):
         """menu_and_machine leads get two PDFs and machine content."""
         self._create_lead(
@@ -1269,16 +1365,21 @@ class TestClassificationSpecificBehavior:
         # Body should contain machine line
         assert "券売機用の英語ガイド" in data["body"]
 
-    def test_machine_only_blocked(self):
-        """machine_only leads should get a clear error, not a server crash."""
+    def test_machine_only_generates_ticket_machine_outreach(self):
+        """machine_only leads should generate a real first-pass outreach draft."""
         self._create_lead(
             menu_evidence_found=False,
             machine_evidence_found=True,
         )
         response = self.client.post("/api/outreach/wrm-class-test")
-        assert response.status_code == 422
-        assert "machine" in response.json()["detail"].lower()
-        assert "not supported" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        data = response.json()
+        assert data["classification"] == "machine_only"
+        assert data["include_menu_image"] is False
+        assert data["include_machine_image"] is True
+        assert len(data["assets"]) == 1
+        assert "machine" in data["assets"][0].lower()
+        assert "券売機や注文方法" in data["body"]
 
     def test_default_no_evidence_classifies_as_menu_only(self):
         """No evidence at all defaults to menu_only."""

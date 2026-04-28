@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import pytest
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from pipeline.record import (
     create_lead_record,
     persist_lead_record,
     find_existing_lead,
+    load_lead,
     _normalise_domain,
     _normalise_phone,
     _normalise_name,
@@ -199,18 +201,51 @@ class TestSentExclusion:
         assert record["evidence_snippets"] == ["メニュー 醤油ラーメン 900円"]
 
 
+class TestBusinessNameLocking:
+    def test_persist_promotes_verified_name_to_locked_name(self, tmp_state):
+        record = {
+            "lead_id": "wrm-locked-name",
+            "generated_at": "2026-04-28T00:00:00+00:00",
+            "business_name": "青空ラーメン",
+            "business_name_verified_by": ["google", "official_site"],
+        }
+
+        persist_lead_record(record, state_root=tmp_state)
+        loaded = load_lead("wrm-locked-name", state_root=tmp_state)
+
+        assert loaded is not None
+        assert loaded["business_name"] == "青空ラーメン"
+        assert loaded["locked_business_name"] == "青空ラーメン"
+        assert loaded["business_name_locked"] is True
+        assert loaded["business_name_lock_reason"] == "two_source_verification"
+
+
 # ---------------------------------------------------------------------------
 # Send safety guards (tested via outreach module)
 # ---------------------------------------------------------------------------
 
 class TestSendSafetyGuards:
-    def test_machine_only_raises(self):
-        from pipeline.outreach import build_outreach_email, MachineOnlyNotSupportedError
-        with pytest.raises(MachineOnlyNotSupportedError):
-            build_outreach_email(
+    def test_machine_only_builds_without_internal_tool_language(self):
+        from pipeline.outreach import build_manual_outreach_message, build_outreach_email
+
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="machine_only",
+        )
+        body_lower = email["body"].lower()
+        for token in ("ai", "automation", "llm", "gpt"):
+            assert token not in body_lower
+
+        for channel in ("contact_form", "line", "instagram", "phone", "walk_in"):
+            draft = build_manual_outreach_message(
                 business_name="テスト",
                 classification="machine_only",
+                channel=channel,
             )
+            draft_lower = draft["body"].lower()
+            scrubbed = re.sub(r"https?://\S+|mailto:\S+|\S+@\S+", " ", draft_lower)
+            for token in ("ai", "automation", "llm", "gpt"):
+                assert token not in scrubbed
 
     def test_sent_is_blocked_status(self):
         """Verify 'sent' is in the blocked set for re-sending."""

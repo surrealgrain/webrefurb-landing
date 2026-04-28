@@ -9,9 +9,10 @@ from .constants import (
     LEAD_CATEGORY_IZAKAYA_DRINK_COURSE_GUIDE,
     JP_AREAS,
 )
+from .geo import nearest_city_distance, nearest_hotspot_distance
 
 
-# Known high-tourist areas for exposure scoring
+# Known high-tourist areas for exposure scoring (string-based fallback)
 _TOURIST_HOTSPOTS = frozenset({
     "shibuya", "shinjuku", "asakusa", "akihabara", "ginza",
     "harajuku", "roppongi", "ueno", "ikebukuro",
@@ -22,27 +23,58 @@ _TOURIST_HOTSPOTS = frozenset({
 })
 
 
+def _hotspot_score_from_coordinates(lat: float, lng: float) -> float:
+    """Score 0.0-0.5 based on Haversine distance to nearest tourist hotspot."""
+    dist_km, _ = nearest_hotspot_distance(lat, lng)
+    if dist_km <= 0.5:
+        return 0.5
+    if dist_km <= 1.0:
+        return 0.4
+    if dist_km <= 2.0:
+        return 0.3
+    if dist_km <= 5.0:
+        return 0.2
+    return 0.0
+
+
+def _city_score_from_coordinates(lat: float, lng: float) -> float:
+    """Score 0.0-0.3 based on Haversine distance to nearest major city centre."""
+    dist_km, _ = nearest_city_distance(lat, lng)
+    if dist_km <= 2.0:
+        return 0.3
+    if dist_km <= 5.0:
+        return 0.2
+    if dist_km <= 10.0:
+        return 0.1
+    return 0.0
+
+
 def compute_tourist_exposure_score(
     *,
     address: str = "",
     rating: float | None = None,
     reviews: int | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> float:
     """Compute 0.0-1.0 score for tourist exposure potential."""
     score = 0.0
-    address_lower = address.lower()
 
-    # Tourist hotspot bonus (0.0-0.5)
-    for area in _TOURIST_HOTSPOTS:
-        if area in address_lower:
-            score += 0.5
-            break
-
-    # Major city bonus (0.0-0.3)
-    for city in ("tokyo", "kyoto", "osaka", "fukuoka", "sapporo"):
-        if city in address_lower:
-            score += 0.3
-            break
+    if latitude is not None and longitude is not None:
+        # Coordinate-based scoring (preferred)
+        score += _hotspot_score_from_coordinates(latitude, longitude)
+        score += _city_score_from_coordinates(latitude, longitude)
+    else:
+        # String-based fallback (lower max bonus to reflect lower accuracy)
+        address_lower = address.lower()
+        for area in _TOURIST_HOTSPOTS:
+            if area in address_lower:
+                score += 0.3
+                break
+        for city in ("tokyo", "kyoto", "osaka", "fukuoka", "sapporo"):
+            if city in address_lower:
+                score += 0.2
+                break
 
     # Review count as popularity proxy (0.0-0.2)
     if reviews:

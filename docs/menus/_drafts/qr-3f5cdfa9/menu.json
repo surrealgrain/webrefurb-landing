@@ -1,0 +1,46 @@
+{
+  "content_requirements": {
+    "descriptions_required": true,
+    "ingredient_allergen_required": true
+  },
+  "draft": true,
+  "items": [
+    {
+      "allergens": [],
+      "approval_status": "pending_review",
+      "description": "Classic soy sauce ramen.",
+      "description_confirmation": {
+        "confirmed_at": "",
+        "confirmed_by": "",
+        "kind": "description",
+        "notes": "",
+        "source": "",
+        "status": "pending_owner_confirmation"
+      },
+      "ingredient_allergen_confirmation": {
+        "confirmed_at": "",
+        "confirmed_by": "",
+        "kind": "ingredient_allergen",
+        "notes": "",
+        "source": "",
+        "status": "pending_owner_confirmation"
+      },
+      "ingredients": [
+        "noodles",
+        "soy sauce broth"
+      ],
+      "japanese_name": "\u91a4\u6cb9\u30e9\u30fc\u30e1\u30f3",
+      "name": "Shoyu Ramen",
+      "photo": "",
+      "price": "",
+      "section": "Ramen",
+      "source_provenance": "",
+      "source_text": "\u91a4\u6cb9\u30e9\u30fc\u30e1\u30f3"
+    }
+  ],
+  "menu_id": "qr-viz-ramen",
+  "public_url": "https://webrefurb.com/menus/_drafts/qr-3f5cdfa9/",
+  "restaurant_name": "QR Viz Ramen",
+  "ticket_machine": null,
+  "version_id": "draft-20260428083919-bb1f67"
+}

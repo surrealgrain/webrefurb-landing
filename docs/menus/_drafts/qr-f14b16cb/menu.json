@@ -1,0 +1,43 @@
+{
+  "content_requirements": {
+    "descriptions_required": true,
+    "ingredient_allergen_required": true
+  },
+  "draft": true,
+  "items": [
+    {
+      "allergens": [],
+      "approval_status": "pending_review",
+      "description": "",
+      "description_confirmation": {
+        "confirmed_at": "",
+        "confirmed_by": "",
+        "kind": "description",
+        "notes": "",
+        "source": "owner_photo:menu.jpg",
+        "status": "not_provided"
+      },
+      "ingredient_allergen_confirmation": {
+        "confirmed_at": "",
+        "confirmed_by": "",
+        "kind": "ingredient_allergen",
+        "notes": "",
+        "source": "owner_photo:menu.jpg",
+        "status": "not_provided"
+      },
+      "ingredients": [],
+      "japanese_name": "[menu image detected \u2014 OCR required]",
+      "name": "[[menu image detected \u2014 OCR required]]",
+      "photo": "",
+      "price": "",
+      "section": "Menu",
+      "source_provenance": "owner_photo:menu.jpg",
+      "source_text": "[menu image detected \u2014 OCR required]"
+    }
+  ],
+  "menu_id": "qr-viz-ramen",
+  "public_url": "https://webrefurb.com/menus/_drafts/qr-f14b16cb/",
+  "restaurant_name": "QR Viz Ramen",
+  "ticket_machine": null,
+  "version_id": "draft-20260428083546-d6039e"
+}

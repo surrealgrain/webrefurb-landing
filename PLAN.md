@@ -60,8 +60,8 @@ These are known blockers from the repo audit and ignored `state/` artifacts:
 | P0 | Stabilize Baseline And Freeze Risk | Completed | `.venv/bin/python -m pip install -e .`; `.venv/bin/python -m pytest tests/ -v` => 221 passed on 2026-04-28; `.venv/bin/python -m pipeline.cli backup-state` dry-run wrote `state/backups/webrefurb-state-20260428T060622+0000.zip`; `git diff --check` passed |
 | P1 | Correct Menu Output Generation | Completed | Rendered menu output, price-state validation, fresh smoke/confirmed-price artifacts, and dashboard review verification completed on 2026-04-28 |
 | P2 | Harden QR Product | Completed | Structured extraction, owner-confirmation gating, package promise, QR health/export checks, and active-environment tests/browser verification completed on 2026-04-28 |
-| P3 | Fix Lead And Contact Reality | In Progress | Contact routes and establishment-profile hardening are the next active focus |
-| P4 | Make Outreach Convert | Not Started | Pending |
+| P3 | Fix Lead And Contact Reality | Completed | Contact routes, manual-route outreach actions, establishment-profile evidence/override flows, and focused P3 verification completed on 2026-04-28 |
+| P4 | Make Outreach Convert | In Progress | Machine-only/ticket-machine outreach path is the next active focus |
 | P5 | Add Paid Operations Workflow | Not Started | Pending |
 | P6 | Operator Rehearsal | Not Started | Pending |
 | P7 | Controlled Launch | Not Started | Pending |
@@ -241,30 +241,53 @@ Primary files:
 
 Tasks:
 
-- [ ] Add a first-class `contacts` list to lead records.
-- [ ] Contact fields must support at least: email, contact form, LINE, Instagram, phone, website, map URL, and walk-in candidate.
-- [ ] Each contact must store source URL, confidence, discovered timestamp, and status.
-- [ ] Keep `email` as a compatibility field only where needed; do not make it the only actionable field.
-- [ ] Wire contact discovery into the main `search_and_qualify` flow.
-- [ ] Preserve qualified leads without email when another contact route exists.
-- [ ] Add dashboard filters for email, form, LINE, Instagram, phone, and walk-in.
-- [ ] Add "copy message" and "mark contacted" flows for form, LINE, Instagram, and phone/manual outreach.
-- [ ] Add statuses for `contacted_form`, `contacted_line`, `contacted_instagram`, `called`, and `visited`.
-- [ ] Add a first-class `establishment_profile` to lead records so the system can distinguish small ramen shops, ramen with ticket machines, ramen with sides/add-ons, izakaya drink-heavy menus, izakaya course-heavy menus, and unknown/manual-review cases.
-- [ ] Store establishment-profile evidence, confidence, and source URLs; do not infer a profile without recorded evidence or explicit operator override.
-- [ ] Add dashboard display and manual override for establishment profile before any outreach sample/layout is selected.
-- [ ] Keep duplicate prevention based on place ID, website domain, phone, and name plus area.
-- [ ] Add tests proving a no-email lead with a contact form appears as actionable.
-- [ ] Add tests proving a no-email, no-contact lead is retained as research-only or skipped with an explicit reason.
-- [ ] Add tests proving establishment profile classification selects ramen, ramen/ticket-machine, and izakaya/drink-heavy cases from evidence.
+- [x] Add a first-class `contacts` list to lead records.
+- [x] Contact fields must support at least: email, contact form, LINE, Instagram, phone, website, map URL, and walk-in candidate.
+- [x] Each contact must store source URL, confidence, discovered timestamp, and status.
+- [x] Keep `email` as a compatibility field only where needed; do not make it the only actionable field.
+- [x] Wire contact discovery into the main `search_and_qualify` flow.
+- [x] Preserve qualified leads without email when another contact route exists.
+- [x] Add dashboard filters for email, form, LINE, Instagram, phone, and walk-in.
+- [x] Add "copy message" and "mark contacted" flows for form, LINE, Instagram, and phone/manual outreach.
+- [x] Add statuses for `contacted_form`, `contacted_line`, `contacted_instagram`, `called`, and `visited`.
+- [x] Add a first-class `establishment_profile` to lead records so the system can distinguish small ramen shops, ramen with ticket machines, ramen with sides/add-ons, izakaya drink-heavy menus, izakaya course-heavy menus, and unknown/manual-review cases.
+- [x] Store establishment-profile evidence, confidence, and source URLs; do not infer a profile without recorded evidence or explicit operator override.
+- [x] Add dashboard display and manual override for establishment profile before any outreach sample/layout is selected.
+- [x] Keep duplicate prevention based on place ID, website domain, phone, and name plus area.
+- [x] Add tests proving a no-email lead with a contact form appears as actionable.
+- [x] Add tests proving a no-email, no-contact lead is retained as research-only or skipped with an explicit reason.
+- [x] Add tests proving establishment profile classification selects ramen, ramen/ticket-machine, and izakaya/drink-heavy cases from evidence.
+
+Progress recorded 2026-04-28:
+
+- Lead records now persist first-class normalized contacts for email, contact form, LINE, Instagram, phone, walk-in, map URL, and website routes.
+- Contact records now carry source URL, confidence, discovery timestamp, and status metadata, with legacy records normalized safely at read time.
+- `search_and_qualify()` now keeps qualified non-email businesses actionable when another supported route exists and records their primary route for the dashboard/manual outreach flow.
+- Dashboard lead filtering plus manual outreach copy/mark-contacted flows are active for non-email routes, and route-specific outreach statuses persist to lead history.
+- Establishment-profile classification, evidence, confidence, source URLs, and operator override flows are live in the dashboard before outreach selection.
+- Verified business names now promote into a locked authoritative field so downstream outreach/reply flows keep using the confirmed restaurant name even if a later mutable `business_name` value drifts.
+- Duplicate prevention remains enforced through place ID, website domain, phone, and name-plus-area matching.
+- Focused verification passed on the current P3 slice:
+  - `.venv/bin/python -m pytest tests/test_search.py -q` => `10 passed`
+  - `.venv/bin/python -m pytest tests/test_api.py -q` => `88 passed`
 
 Exit gate:
 
-- [ ] Dashboard no longer reports "zero actionable leads" just because no email exists.
-- [ ] Contact crawler results flow into saved lead records.
-- [ ] No-email contact-form and LINE leads can be actioned by the operator.
-- [ ] Leads carry an evidence-backed establishment profile or explicit manual-review state before outreach asset selection.
-- [ ] Existing email send safety rules still pass.
+- [x] Dashboard no longer reports "zero actionable leads" just because no email exists.
+- [x] Contact crawler results flow into saved lead records.
+- [x] No-email contact-form and LINE leads can be actioned by the operator.
+- [x] Leads carry an evidence-backed establishment profile or explicit manual-review state before outreach asset selection.
+- [x] Existing email send safety rules still pass.
+
+Exit evidence recorded 2026-04-28:
+
+- Lead discovery now persists first-class contacts, including non-email routes plus map URLs, into saved lead records with provenance and contact-status metadata.
+- Dashboard Leads keeps supported non-email businesses actionable instead of dropping them from the queue, and manual outreach flows can copy a draft plus persist route-specific contacted statuses.
+- Establishment profiles now persist with evidence, confidence, source URLs, and an operator override path before outreach asset selection.
+- Duplicate prevention remains enforced across place ID, website domain, phone, and name-plus-area matching.
+- Focused verification passed on the current P3 slice:
+  - `.venv/bin/python -m pytest tests/test_search.py -q` => `10 passed`
+  - `.venv/bin/python -m pytest tests/test_api.py -q` => `88 passed`
 
 ## P4 - Make Outreach Convert
 
@@ -289,26 +312,45 @@ Tasks:
 - [ ] Keep production boundary clear: production uses owner-provided photos or explicit owner confirmation.
 - [ ] Stop relying on generic PDF attachments as the primary conversion asset.
 - [ ] Keep generic PDFs only as secondary examples when useful.
-- [ ] Add a machine-only/ticket-machine outreach template.
-- [ ] Segment outreach copy by ramen, izakaya, ticket-machine ramen, and drink/course-heavy izakaya.
-- [ ] Select outreach preview/sample assets from `establishment_profile`: small ramen gets a ramen-only one-page sample, ramen with ticket-machine evidence gets menu plus ticket-machine support, and izakaya/drink-heavy leads get food/drinks-oriented samples.
+- [x] Add a machine-only/ticket-machine outreach template.
+- [x] Segment outreach copy by ramen, izakaya, ticket-machine ramen, and drink/course-heavy izakaya.
+- [x] Select outreach preview/sample assets from `establishment_profile`: small ramen gets a ramen-only one-page sample, ramen with ticket-machine evidence gets menu plus ticket-machine support, and izakaya/drink-heavy leads get food/drinks-oriented samples.
 - [ ] Ramen copy must emphasize ticket machines, toppings, set menus, rush-hour friction, and tourist ordering confidence.
 - [ ] Izakaya copy must emphasize drinks, courses, nomihodai-style rules, ingredient clarity, and fewer staff explanations.
-- [ ] Add channel-specific copy for email, contact forms, LINE, Instagram DM, phone script, and walk-in script.
-- [ ] Add dashboard operator controls for channel-specific messages.
+- [x] Add channel-specific copy for email, contact forms, LINE, Instagram DM, phone script, and walk-in script.
+- [x] Add dashboard operator controls for channel-specific messages.
 - [ ] Add inbound reply automation or webhook support for Resend replies.
 - [ ] Keep manual incoming reply entry as fallback.
 - [ ] Add bounce, invalid, and opt-out handling for non-email channels where applicable.
-- [ ] Render and visually inspect outreach preview modal after changes.
+- [x] Render and visually inspect outreach preview modal after changes.
 
 Exit gate:
 
-- [ ] A lead can generate a shop-specific preview.
-- [ ] Machine-only leads are no longer blocked solely because no template exists.
-- [ ] Email, form, LINE, Instagram, phone, and walk-in messages are available in dashboard.
-- [ ] Generic-only outreach is no longer the default.
-- [ ] Outreach samples match the lead's evidence-backed establishment profile instead of defaulting to a dual food/drinks menu.
-- [ ] Safety tests prove customer-facing outreach does not mention AI, automation, scraping, or internal tools.
+- [x] A lead can generate a shop-specific preview.
+- [x] Machine-only leads are no longer blocked solely because no template exists.
+- [x] Email, form, LINE, Instagram, phone, and walk-in messages are available in dashboard.
+- [x] Generic-only outreach is no longer the default.
+- [x] Outreach samples match the lead's evidence-backed establishment profile instead of defaulting to a dual food/drinks menu.
+- [x] Safety tests prove customer-facing outreach does not mention AI, automation, scraping, or internal tools.
+
+Progress recorded 2026-04-28:
+
+- `machine_only` leads now generate a real outreach draft instead of failing in the API/dashboard review flow.
+- Machine-only outreach now uses a dedicated subject/body, attaches the ticket-machine PDF sample, and renders the dashboard preview without the old blocker state.
+- Focused verification passed for the current P4 slice:
+  - `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py tests/test_safety.py -q` => `142 passed`
+  - `.venv/bin/python -m py_compile pipeline/outreach.py dashboard/app.py` => passing
+- Browser-rendered verification on `http://127.0.0.1:8001` confirmed a machine-only lead now opens a normal outreach draft modal with ticket-machine-specific copy and attachment instead of the previous “not implemented yet” block.
+- Outreach copy is now profile-aware for ramen-only, ramen-with-sides, ramen-with-drinks, ramen-ticket-machine, izakaya food-and-drinks, drink-heavy izakaya, and course-heavy izakaya leads.
+- Outreach sample-file selection now uses `establishment_profile` so the dashboard can pick a one-page ramen sample, ramen-plus-sides sample, drink-forward izakaya sample, or machine-guide set instead of always defaulting to the same generic menu PDF.
+- The preview modal now shows sample-strategy rationale and profile-aware asset labels so operators can see why a given sample set was chosen.
+- Fresh verification passed after that outreach-conversion pass:
+  - `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py tests/test_safety.py -q` => `163 passed`
+  - `.venv/bin/python -m py_compile pipeline/outreach.py dashboard/app.py` => passing
+  - `git diff --check` => passing
+- Browser-rendered verification on `http://127.0.0.1:8001` confirmed:
+  - a ramen-only lead shows the `Ramen Menu Sample (One Page)` asset plus a ramen-only sample-strategy note
+  - a drink-heavy izakaya lead shows the `Drink-Forward Izakaya Sample` asset plus drink/nomihodai-focused copy
 
 ## P5 - Add Paid Operations Workflow
 
