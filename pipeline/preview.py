@@ -234,12 +234,19 @@ def build_shop_preview_from_record(
 
     from .models import EvidenceAssessment
 
+    profile = record.get("establishment_profile", "")
     assessment = EvidenceAssessment(
-        is_ramen_candidate=record.get("establishment_profile", "").startswith("ramen"),
-        is_izakaya_candidate=record.get("establishment_profile", "").startswith("izakaya"),
+        is_ramen_candidate=profile.startswith("ramen"),
+        is_izakaya_candidate=profile.startswith("izakaya"),
         evidence_classes=record.get("evidence_classes") or [],
         menu_evidence_found=record.get("menu_evidence_found", False),
         machine_evidence_found=record.get("machine_evidence_found", False),
+        course_or_drink_plan_evidence_found=profile.startswith("izakaya"),
+        score=0,
+        evidence_urls=[],
+        best_evidence_url=None,
+        best_evidence_reason="",
+        false_positive_risk="low",
     )
 
     preview_menu = build_preview_menu(

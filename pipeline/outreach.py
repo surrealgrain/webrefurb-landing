@@ -128,11 +128,11 @@ _SITUATIONS = {
         "intro_ja": "飲食店向けの英語メニューや注文ガイド制作を行っております、Chris（クリス）と申します。",
         "intro_en": "My name is Chris, and I create English menus and ordering guides for restaurants.",
         "focus_ja": (
-            "海外からのお客様にも券売機の操作が分かるよう、英語の注文ガイドをお作りしております。\n"
+            "海外からのお客様にもラーメン屋さんの券売機操作が分かるよう、英語の注文ガイドをお作りしております。\n"
             "注文ガイドがあれば、混雑時でもお客様ご自身で券売機からご注文いただけるようになります。"
         ),
         "focus_en": (
-            "I create English ordering guides that help overseas customers understand ticket machine operations.\n"
+            "I create English ordering guides that help overseas customers understand ramen shop ticket machine operations.\n"
             "With an ordering guide, customers can order from the ticket machine themselves, even during busy hours."
         ),
         "sample_ja": (

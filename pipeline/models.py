@@ -255,3 +255,193 @@ class CustomBuildResult:
     combined_pdf: Path | None = None
     ticket_machine_pdf: Path | None = None
     menu_json: Path | None = None
+
+
+# ---------------------------------------------------------------------------
+# P5: Order / Quote / Payment models
+# ---------------------------------------------------------------------------
+@dataclass
+class QuoteDetails:
+    """Structured quote data for a package order."""
+    restaurant_name: str
+    package_key: str
+    package_label: str
+    price_yen: int
+    scope_description: str
+    revision_limit: int
+    delivery_terms: str
+    update_terms: str
+    payment_instructions: str
+    expiry_date: str  # ISO date
+    quote_date: str  # ISO date
+    is_custom: bool = False
+    custom_reason: str = ""
+    notes: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "restaurant_name": self.restaurant_name,
+            "package_key": self.package_key,
+            "package_label": self.package_label,
+            "price_yen": self.price_yen,
+            "scope_description": self.scope_description,
+            "revision_limit": self.revision_limit,
+            "delivery_terms": self.delivery_terms,
+            "update_terms": self.update_terms,
+            "payment_instructions": self.payment_instructions,
+            "expiry_date": self.expiry_date,
+            "quote_date": self.quote_date,
+            "is_custom": self.is_custom,
+            "custom_reason": self.custom_reason,
+            "notes": self.notes,
+        }
+
+
+@dataclass
+class PaymentDetails:
+    """Payment tracking for an order."""
+    method: str = ""  # "bank_transfer" | "manual"
+    status: str = "pending"  # "pending" | "received" | "confirmed"
+    amount_yen: int = 0
+    reference: str = ""  # bank transfer reference or receipt number
+    paid_at: str | None = None  # ISO timestamp
+    confirmed_at: str | None = None  # ISO timestamp
+    confirmed_by: str = ""  # operator who confirmed
+    invoice_number: str = ""
+    invoice_registration_number: str = ""  # Japanese invoice reg number if applicable
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "method": self.method,
+            "status": self.status,
+            "amount_yen": self.amount_yen,
+            "reference": self.reference,
+            "paid_at": self.paid_at,
+            "confirmed_at": self.confirmed_at,
+            "confirmed_by": self.confirmed_by,
+            "invoice_number": self.invoice_number,
+            "invoice_registration_number": self.invoice_registration_number,
+        }
+
+
+@dataclass
+class IntakeChecklist:
+    """Owner intake checklist for production inputs."""
+    full_menu_photos: bool = False
+    ticket_machine_photos: bool = False
+    price_confirmation: bool = False
+    dietary_ingredient_notes: bool = False
+    delivery_details: bool = False
+    business_contact_confirmed: bool = False
+    notes: str = ""
+
+    def is_complete(self) -> bool:
+        return all([
+            self.full_menu_photos,
+            self.price_confirmation,
+            self.delivery_details,
+            self.business_contact_confirmed,
+        ])
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "full_menu_photos": self.full_menu_photos,
+            "ticket_machine_photos": self.ticket_machine_photos,
+            "price_confirmation": self.price_confirmation,
+            "dietary_ingredient_notes": self.dietary_ingredient_notes,
+            "delivery_details": self.delivery_details,
+            "business_contact_confirmed": self.business_contact_confirmed,
+            "is_complete": self.is_complete(),
+            "notes": self.notes,
+        }
+
+
+@dataclass
+class OwnerApproval:
+    """Record of owner approval for production output."""
+    approved: bool = False
+    approver_name: str = ""
+    approved_package: str = ""
+    approved_at: str | None = None  # ISO timestamp
+    source_data_checksum: str = ""
+    artifact_checksum: str = ""
+    notes: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "approved": self.approved,
+            "approver_name": self.approver_name,
+            "approved_package": self.approved_package,
+            "approved_at": self.approved_at,
+            "source_data_checksum": self.source_data_checksum,
+            "artifact_checksum": self.artifact_checksum,
+            "notes": self.notes,
+        }
+
+
+@dataclass
+class RevisionRecord:
+    """Tracks revision rounds."""
+    current_round: int = 0
+    limit: int = 2
+    history: list[dict[str, str]] = field(default_factory=list)
+
+    def can_revise(self) -> bool:
+        return self.current_round < self.limit
+
+    def add_round(self, *, notes: str = "", requested_at: str = "") -> None:
+        self.current_round += 1
+        self.history.append({
+            "round": str(self.current_round),
+            "notes": notes,
+            "requested_at": requested_at,
+        })
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "current_round": self.current_round,
+            "limit": self.limit,
+            "can_revise": self.can_revise(),
+            "history": self.history,
+        }
+
+
+@dataclass
+class Order:
+    """Full order record linking a lead to a package purchase."""
+    order_id: str
+    lead_id: str
+    business_name: str
+    package_key: str
+    state: str = "quoted"
+    quote: QuoteDetails | None = None
+    payment: PaymentDetails | None = None
+    intake: IntakeChecklist | None = None
+    approval: OwnerApproval | None = None
+    revisions: RevisionRecord | None = None
+    delivery_tracking: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    state_history: list[dict[str, str]] = field(default_factory=list)
+    privacy_note_accepted: bool = False
+    custom_quote_triggers: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "order_id": self.order_id,
+            "lead_id": self.lead_id,
+            "business_name": self.business_name,
+            "package_key": self.package_key,
+            "state": self.state,
+            "quote": self.quote.to_dict() if self.quote else None,
+            "payment": self.payment.to_dict() if self.payment else None,
+            "intake": self.intake.to_dict() if self.intake else None,
+            "approval": self.approval.to_dict() if self.approval else None,
+            "revisions": self.revisions.to_dict() if self.revisions else None,
+            "delivery_tracking": self.delivery_tracking,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "state_history": self.state_history,
+            "privacy_note_accepted": self.privacy_note_accepted,
+            "custom_quote_triggers": self.custom_quote_triggers,
+        }

@@ -293,3 +293,76 @@ OPT_OUT_TOKENS = (
 # Send rate limit
 # ---------------------------------------------------------------------------
 MAX_SENDS_PER_DAY = 50
+
+# ---------------------------------------------------------------------------
+# Order states (P5 — Paid Operations Workflow)
+# ---------------------------------------------------------------------------
+ORDER_STATE_QUOTED = "quoted"
+ORDER_STATE_QUOTE_SENT = "quote_sent"
+ORDER_STATE_PAYMENT_PENDING = "payment_pending"
+ORDER_STATE_PAID = "paid"
+ORDER_STATE_INTAKE_NEEDED = "intake_needed"
+ORDER_STATE_IN_PRODUCTION = "in_production"
+ORDER_STATE_OWNER_REVIEW = "owner_review"
+ORDER_STATE_OWNER_APPROVED = "owner_approved"
+ORDER_STATE_DELIVERED = "delivered"
+ORDER_STATE_CLOSED = "closed"
+
+ORDER_STATES = (
+    ORDER_STATE_QUOTED,
+    ORDER_STATE_QUOTE_SENT,
+    ORDER_STATE_PAYMENT_PENDING,
+    ORDER_STATE_PAID,
+    ORDER_STATE_INTAKE_NEEDED,
+    ORDER_STATE_IN_PRODUCTION,
+    ORDER_STATE_OWNER_REVIEW,
+    ORDER_STATE_OWNER_APPROVED,
+    ORDER_STATE_DELIVERED,
+    ORDER_STATE_CLOSED,
+)
+
+# Production-approval blocking: these states must be reached before
+# production approval is allowed.
+ORDER_STATES_BEFORE_PRODUCTION = {
+    ORDER_STATE_QUOTED,
+    ORDER_STATE_QUOTE_SENT,
+    ORDER_STATE_PAYMENT_PENDING,
+    ORDER_STATE_PAID,
+    ORDER_STATE_INTAKE_NEEDED,
+}
+
+# ---------------------------------------------------------------------------
+# Payment terms (full upfront for all packages)
+# ---------------------------------------------------------------------------
+PAYMENT_METHOD_BANK_TRANSFER = "bank_transfer"
+PAYMENT_METHOD_MANUAL = "manual"
+
+PAYMENT_TERMS_FULL_UPFRONT = "full_upfront"
+
+# ---------------------------------------------------------------------------
+# Revision policy
+# ---------------------------------------------------------------------------
+DEFAULT_REVISION_LIMIT = 2  # rounds of revisions included in base price
+CUSTOM_REVISION_PRICE_YEN = 5000  # per additional revision round
+
+# ---------------------------------------------------------------------------
+# Quote expiry
+# ---------------------------------------------------------------------------
+QUOTE_EXPIRY_DAYS = 30
+
+# ---------------------------------------------------------------------------
+# Package 2 delivery/print cost assumptions (for operator reference)
+# ---------------------------------------------------------------------------
+PACKAGE_2_PRINT_COST_ESTIMATE_YEN = 3000  # typical print + lamination
+PACKAGE_2_DELIVERY_COST_ESTIMATE_YEN = 1000  # domestic courier
+
+# ---------------------------------------------------------------------------
+# Custom-quote triggers
+# ---------------------------------------------------------------------------
+CUSTOM_QUOTE_TRIGGERS = {
+    "large_menu": "Menu exceeds 40 items or 4 sections",
+    "multiple_sets": "Separate food, drink, course, or seasonal menus needed",
+    "oversized_print": "Non-standard sizes (larger than A4/Letter)",
+    "extra_copies": "More than 3 printed copies",
+    "frequent_updates": "Expected seasonal or monthly menu changes",
+}
