@@ -1,13 +1,13 @@
 """Mode B: PDF export and package assembly.
 
 Uses Playwright for HTML-to-PDF and SVG-to-PDF conversion.
-Applies watermark to all custom build output.
 """
 
 from __future__ import annotations
 
 import json
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,56 +20,112 @@ from .populate import populate_menu_svg, populate_menu_html, populate_ticket_mac
 # PDF generation via Playwright
 # ---------------------------------------------------------------------------
 
+PDF_RENDERER_SETUP_HINT = (
+    "Install project dependencies in a virtualenv, then run "
+    "`python3 -m playwright install chromium`."
+)
+
+
+class PdfExportError(RuntimeError):
+    """Raised when a print-ready PDF cannot be generated."""
+
+
+@dataclass(frozen=True)
+class PrintProfile:
+    paper_size: str = "A4"
+    orientation: str = "portrait"
+
+    @property
+    def landscape(self) -> bool:
+        return self.orientation == "landscape"
+
+
+def is_valid_pdf(path: Path) -> bool:
+    """Return True when path exists and has a PDF file signature."""
+    return path.exists() and path.is_file() and path.read_bytes()[:4] == b"%PDF"
+
+
+def _assert_valid_pdf(pdf_path: Path, source_path: Path) -> None:
+    if is_valid_pdf(pdf_path):
+        return
+    if pdf_path.exists():
+        pdf_path.unlink()
+    raise PdfExportError(
+        f"PDF export failed for {source_path.name}: renderer did not produce a valid PDF. "
+        f"{PDF_RENDERER_SETUP_HINT}"
+    )
+
+
 async def svg_to_pdf(svg_path: Path, pdf_path: Path) -> Path:
     """Render an SVG file to a print-ready PDF using Playwright."""
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         from playwright.async_api import async_playwright
+    except ImportError as exc:
+        raise PdfExportError(f"Playwright is required for PDF export. {PDF_RENDERER_SETUP_HINT}") from exc
 
+    try:
         async with async_playwright() as p:
             browser = await p.chromium.launch()
-            page = await browser.new_page()
-            await page.goto(f"file://{svg_path.resolve()}")
-            await page.pdf(
-                path=str(pdf_path),
-                print_background=True,
-                margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
-            )
-            await browser.close()
-    except ImportError:
-        # Fallback: copy SVG if Playwright not available.
-        # NOTE: The resulting file is NOT a valid PDF.
-        # Install playwright and run `playwright install chromium` for real PDF generation.
-        shutil.copy2(svg_path, pdf_path.with_suffix(".svg"))
+            try:
+                page = await browser.new_page()
+                await page.goto(f"file://{svg_path.resolve()}", wait_until="networkidle")
+                await page.emulate_media(media="print")
+                await page.pdf(
+                    path=str(pdf_path),
+                    print_background=True,
+                    margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
+                )
+            finally:
+                await browser.close()
+    except Exception as exc:
+        if pdf_path.exists():
+            pdf_path.unlink()
+        raise PdfExportError(
+            f"PDF export failed for {svg_path.name}. {PDF_RENDERER_SETUP_HINT}"
+        ) from exc
+
+    _assert_valid_pdf(pdf_path, svg_path)
 
     return pdf_path
 
 
-async def html_to_pdf(html_path: Path, pdf_path: Path) -> Path:
+async def html_to_pdf(html_path: Path, pdf_path: Path, *, print_profile: PrintProfile | None = None) -> Path:
     """Render an HTML file to a print-ready PDF using Playwright."""
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    profile = print_profile or PrintProfile()
 
     try:
         from playwright.async_api import async_playwright
+    except ImportError as exc:
+        raise PdfExportError(f"Playwright is required for PDF export. {PDF_RENDERER_SETUP_HINT}") from exc
 
+    try:
         async with async_playwright() as p:
             browser = await p.chromium.launch()
-            page = await browser.new_page()
-            await page.goto(f"file://{html_path.resolve()}")
-            await page.pdf(
-                path=str(pdf_path),
-                format="A3",
-                landscape=True,
-                print_background=True,
-                margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
-            )
-            await browser.close()
-    except ImportError:
-        # Fallback: copy HTML if Playwright not available.
-        # NOTE: The resulting file is NOT a valid PDF.
-        # Install playwright and run `playwright install chromium` for real PDF generation.
-        shutil.copy2(html_path, pdf_path.with_suffix(".html"))
+            try:
+                page = await browser.new_page()
+                await page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
+                await page.emulate_media(media="print")
+                await page.pdf(
+                    path=str(pdf_path),
+                    format=profile.paper_size,
+                    landscape=profile.landscape,
+                    print_background=True,
+                    prefer_css_page_size=False,
+                    margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
+                )
+            finally:
+                await browser.close()
+    except Exception as exc:
+        if pdf_path.exists():
+            pdf_path.unlink()
+        raise PdfExportError(
+            f"PDF export failed for {html_path.name}. {PDF_RENDERER_SETUP_HINT}"
+        ) from exc
+
+    _assert_valid_pdf(pdf_path, html_path)
 
     return pdf_path
 
@@ -90,7 +146,7 @@ def svg_to_pdf_sync(svg_path: Path, pdf_path: Path) -> Path:
         return asyncio.run(svg_to_pdf(svg_path, pdf_path))
 
 
-def html_to_pdf_sync(html_path: Path, pdf_path: Path) -> Path:
+def html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile: PrintProfile | None = None) -> Path:
     """Synchronous wrapper for html_to_pdf."""
     import asyncio
     try:
@@ -101,46 +157,9 @@ def html_to_pdf_sync(html_path: Path, pdf_path: Path) -> Path:
     if loop and loop.is_running():
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, html_to_pdf(html_path, pdf_path)).result()
+            return pool.submit(asyncio.run, html_to_pdf(html_path, pdf_path, print_profile=print_profile)).result()
     else:
-        return asyncio.run(html_to_pdf(html_path, pdf_path))
-
-
-# ---------------------------------------------------------------------------
-# Watermark application
-# ---------------------------------------------------------------------------
-
-_WATERMARK_TEXT = "SAMPLE"
-
-def apply_watermark_html(html_path: Path) -> Path:
-    """Add a watermark overlay to an HTML file."""
-    content = html_path.read_text(encoding="utf-8")
-    watermark_css = """
-    <style>
-    .watermark-overlay {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) rotate(-45deg);
-        font-size: 120px;
-        color: rgba(0,0,0,0.08);
-        pointer-events: none;
-        z-index: 9999;
-        font-weight: bold;
-        letter-spacing: 20px;
-        white-space: nowrap;
-    }
-    </style>
-    <div class="watermark-overlay">""" + _WATERMARK_TEXT + """</div>
-"""
-    # Insert before </body>
-    if "</body>" in content:
-        content = content.replace("</body>", f"{watermark_css}\n</body>")
-    else:
-        content += watermark_css
-
-    html_path.write_text(content, encoding="utf-8")
-    return html_path
+        return asyncio.run(html_to_pdf(html_path, pdf_path, print_profile=print_profile))
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +176,6 @@ async def build_custom_package(
     """Create a complete output package matching the confirmed template structure.
 
     Generates: populated SVGs, HTML previews, print-ready PDFs.
-    Applies watermark to all output.
     """
     ensure_dir(output_dir)
     slug = restaurant_name.lower().replace(" ", "_") if restaurant_name else "custom"
@@ -185,10 +203,6 @@ async def build_custom_package(
     if food_html_out.exists() and menu_data.get("sections"):
         populate_menu_html(template_path=food_html_out, data=menu_data, output_path=food_html_out)
 
-    # Apply watermark to HTML
-    if food_html_out.exists():
-        apply_watermark_html(food_html_out)
-
     # Generate PDF from the populated HTML
     if food_html_out.exists():
         await html_to_pdf(food_html_out, food_pdf_out)
@@ -207,7 +221,6 @@ async def build_custom_package(
     if drinks_html_src.exists():
         shutil.copy2(drinks_html_src, drinks_html_out)
         populate_menu_html(template_path=drinks_html_out, data=menu_data, output_path=drinks_html_out)
-        apply_watermark_html(drinks_html_out)
         await html_to_pdf(drinks_html_out, drinks_pdf_out)
 
     # --- Combined menu ---
@@ -219,7 +232,6 @@ async def build_custom_package(
         shutil.copy2(combined_html_src, combined_html_out)
         if menu_data.get("sections"):
             populate_menu_html(template_path=combined_html_out, data=menu_data, output_path=combined_html_out)
-        apply_watermark_html(combined_html_out)
         await html_to_pdf(combined_html_out, combined_pdf_out)
 
     # --- Ticket machine guide ---
@@ -238,7 +250,6 @@ async def build_custom_package(
 
         if ticket_html_src.exists():
             shutil.copy2(ticket_html_src, ticket_html_out)
-            apply_watermark_html(ticket_html_out)
             await html_to_pdf(ticket_html_out, ticket_pdf_path)
             ticket_pdf_out = ticket_pdf_path
 

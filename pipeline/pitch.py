@@ -4,9 +4,9 @@ from html import escape
 from typing import Any
 
 from .constants import (
-    PACKAGE_A_PRICE_YEN, PACKAGE_B_PRICE_YEN,
-    PACKAGE_A_KEY, PACKAGE_B_KEY,
-    PACKAGE_A_LABEL, PACKAGE_B_LABEL,
+    PACKAGE_1_PRICE_YEN,
+    PACKAGE_2_PRICE_YEN,
+    PACKAGE_3_PRICE_YEN,
 )
 from .models import PreviewMenu, TicketMachineHint
 
@@ -44,8 +44,9 @@ def build_pitch(
     # Package pricing section
     pricing_block = (
         f"\n\n【料金】\n"
-        f"・オンライン配送パッケージ：¥{PACKAGE_B_PRICE_YEN:,}（印刷用PDF・画像データ）\n"
-        f"・対面配送パッケージ：¥{PACKAGE_A_PRICE_YEN:,}（印刷・ラミネート加工・店舗までお届け）"
+        f"・オンライン納品：¥{PACKAGE_1_PRICE_YEN:,}（印刷用PDF・画像データ）\n"
+        f"・印刷・お届け：¥{PACKAGE_2_PRICE_YEN:,}（印刷・ラミネート加工・店舗までお届け）\n"
+        f"・QRメニューシステム：¥{PACKAGE_3_PRICE_YEN:,}（英語メニューページ・QRコード・案内サイン）"
     )
 
     subject = f"{business_name}様 — 英語メニュー翻訳サービスのご案内"

@@ -9,7 +9,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .email_templates import SUBJECT, BODY, LINE_INPERSON, LINE_MACHINE
+from .email_templates import (
+    SUBJECT,
+    BODY,
+    LINE_INPERSON,
+    LINE_MACHINE,
+    ENGLISH_BODY,
+    ENGLISH_LINE_INPERSON,
+    ENGLISH_LINE_MACHINE,
+    CONTACT_FORM_BODY,
+)
 from .constants import (
     CHRIS_CONTACT,
     GENERIC_MACHINE_PDF,
@@ -86,21 +95,37 @@ def build_outreach_email(
     # Single universal template for all business types
     subject = SUBJECT.replace("{店名}", business_name)
     body = BODY.replace("{店名}", business_name)
+    english_body = ENGLISH_BODY.replace("{store_name}", business_name)
 
     # Toggle in-person line
     if not include_inperson_line:
         body = _remove_inperson_line(body)
+        english_body = _remove_english_inperson_line(english_body)
 
     # Insert machine line for menu_and_machine classification
     include_machine_image = False
     if classification == "menu_and_machine":
         body = _insert_machine_line(body)
+        english_body = _insert_english_machine_line(english_body)
         include_machine_image = True
 
     return {
         "subject": subject,
         "body": body,
+        "english_body": english_body,
         "include_machine_image": include_machine_image,
+    }
+
+
+def build_contact_form_pitch() -> dict[str, str]:
+    """Return the locked contact-form pitch body.
+
+    Contact forms cannot receive attachments, so this is intentionally separate
+    from the normal e-mail outreach package.
+    """
+    return {
+        "body": CONTACT_FORM_BODY,
+        "channel": "form",
     }
 
 
@@ -118,4 +143,21 @@ def _insert_machine_line(body: str) -> str:
     """Insert the ticket machine line after the menu sample paragraph."""
     anchor = "実際に制作する際は、貴店のメニュー内容に合わせて作成いたします。"
     replacement = f"{anchor}\n{LINE_MACHINE}"
+    return body.replace(anchor, replacement, 1)
+
+
+def _remove_english_inperson_line(body: str) -> str:
+    """Remove the in-person delivery line from the English operator draft."""
+    line_with_newline = f"\n{ENGLISH_LINE_INPERSON}\n"
+    if line_with_newline in body:
+        body = body.replace(line_with_newline, "\n")
+    elif ENGLISH_LINE_INPERSON in body:
+        body = body.replace(ENGLISH_LINE_INPERSON, "")
+    return body
+
+
+def _insert_english_machine_line(body: str) -> str:
+    """Insert the ticket machine line after the sample paragraph."""
+    anchor = "When creating the actual version, I would prepare it to match your restaurant's menu content."
+    replacement = f"{anchor}\n{ENGLISH_LINE_MACHINE}"
     return body.replace(anchor, replacement, 1)

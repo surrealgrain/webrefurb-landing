@@ -1,7 +1,7 @@
 # WebRefurbMenu
 
 English menu translation pipeline for Japanese ramen and izakaya shops.
-Japan only. Ramen + izakaya only. Two fixed-price packages.
+Japan only. Ramen + izakaya only. Three fixed-price packages.
 
 ## Quick Commands
 
@@ -12,7 +12,7 @@ Japan only. Ramen + izakaya only. Two fixed-price packages.
 
 - **Market**: Japan only
 - **Categories**: Ramen and izakaya only (v1)
-- **Packages**: ¥30,000 remote / ¥48,000 in-person delivery + lamination
+- **Packages**: ¥30,000 online delivery / ¥45,000 printed + delivered / ¥65,000 QR menu system
 
 ## Rules
 

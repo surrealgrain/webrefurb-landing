@@ -102,7 +102,7 @@ def build_preview_html(
     package_label: str = "",
 ) -> str:
     """Render the illustrative preview as HTML."""
-    from .constants import PACKAGE_A_PRICE_YEN, PACKAGE_B_PRICE_YEN, PACKAGE_A_LABEL, PACKAGE_B_LABEL
+    from .constants import PACKAGE_1_PRICE_YEN, PACKAGE_2_PRICE_YEN, PACKAGE_3_PRICE_YEN
 
     section_html = ""
     for section in preview_menu.sections:
@@ -161,7 +161,7 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
 .machine-btn span {{ display:block; color:var(--muted); font-size:10pt; }}
 .machine-btn .price {{ color:var(--accent); font-weight:600; }}
 .disclaimer {{ margin-top:24px; padding:16px; background:var(--soft); border-radius:8px; color:var(--muted); font-size:10pt; line-height:1.6; }}
-.packages {{ margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }}
+.packages {{ margin-top:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }}
 .pkg {{ border:1px solid var(--line); border-radius:8px; padding:14px; background:#fff; }}
 .pkg h4 {{ margin:0 0 8px; color:var(--accent); }}
 .pkg .price {{ font-size:16pt; font-weight:700; }}
@@ -179,8 +179,8 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
 
 <div class="packages">
   <div class="pkg">
-    <h4>Remote Package</h4>
-    <div class="price">&yen;{PACKAGE_B_PRICE_YEN:,}</div>
+    <h4>Online Delivery</h4>
+    <div class="price">&yen;{PACKAGE_1_PRICE_YEN:,}</div>
     <ul>
       <li>Print-ready PDF + images</li>
       <li>Translation + layout</li>
@@ -189,13 +189,22 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
     </ul>
   </div>
   <div class="pkg">
-    <h4>In-Person Package</h4>
-    <div class="price">&yen;{PACKAGE_A_PRICE_YEN:,}</div>
+    <h4>Printed and Delivered</h4>
+    <div class="price">&yen;{PACKAGE_2_PRICE_YEN:,}</div>
     <ul>
-      <li>Everything in Remote</li>
+      <li>Everything in Online Delivery</li>
       <li>Professional printing</li>
       <li>Lamination</li>
       <li>Delivered to your shop</li>
+    </ul>
+  </div>
+  <div class="pkg">
+    <h4>QR Menu System</h4>
+    <div class="price">&yen;{PACKAGE_3_PRICE_YEN:,}</div>
+    <ul>
+      <li>Hosted English menu</li>
+      <li>QR code + sign</li>
+      <li>Reviewed before publish</li>
     </ul>
   </div>
 </div>

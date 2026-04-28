@@ -30,7 +30,7 @@ def run_custom_build(
     2. Translate to English with bilingual pairs
     3. Build structured menu data
     4. Populate template with custom content
-    5. Export to PDF with watermark
+    5. Export final customer-ready PDFs
     6. Return packaged result
     """
     # --- Output directory ---

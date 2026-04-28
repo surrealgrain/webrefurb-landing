@@ -9,9 +9,10 @@ from pipeline.outreach import (
     classify_business,
     select_outreach_assets,
     build_outreach_email,
+    build_contact_form_pitch,
     MachineOnlyNotSupportedError,
 )
-from pipeline.email_templates import SUBJECT, BODY, LINE_INPERSON, LINE_MACHINE
+from pipeline.email_templates import SUBJECT, BODY, LINE_INPERSON, LINE_MACHINE, CONTACT_FORM_BODY
 from pipeline.constants import GENERIC_MENU_PDF, GENERIC_MACHINE_PDF
 
 
@@ -136,6 +137,14 @@ class TestBuildOutreachEmail:
 
     def test_template_contains_inperson_line(self):
         assert LINE_INPERSON in BODY
+
+    def test_contact_form_pitch_uses_locked_body(self):
+        pitch = build_contact_form_pitch()
+        assert pitch["channel"] == "form"
+        assert pitch["body"] == CONTACT_FORM_BODY
+        assert "突然のご連絡にて失礼いたします。" in pitch["body"]
+        assert "https://webrefurb.com/ja" in pitch["body"]
+        assert "[chris@webrefurb.com](mailto:chris@webrefurb.com)" in pitch["body"]
 
     # -- Machine line and image tests -------------------------------------
 

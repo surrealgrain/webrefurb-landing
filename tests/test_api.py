@@ -31,10 +31,12 @@ class TestAPIEndpoints:
         # Override state root to temp directory
         import dashboard.app as dash_app
         monkeypatch.setattr(dash_app, "STATE_ROOT", tmp_path)
+        monkeypatch.setattr(dash_app, "QR_DOCS_ROOT", tmp_path / "docs")
         (tmp_path / "leads").mkdir()
         (tmp_path / "jobs").mkdir()
         (tmp_path / "sent").mkdir()
         (tmp_path / "uploads").mkdir()
+        (tmp_path / "docs").mkdir()
 
     def test_get_leads_empty(self):
         response = self.client.get("/api/leads")
@@ -271,6 +273,210 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
         assert response.json()["outreach_status"] == "sent"
+
+    def test_incoming_reply_detects_photo_attachments(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent", business_name="Photo Reply Ramen")
+        response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "form",
+                "from": "owner@example.test",
+                "subject": "メニュー写真",
+                "body": "メニュー写真を添付します。",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    },
+                    {"filename": "notes.txt", "content_type": "text/plain"},
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["channel"] == "form"
+
+        replies = self.client.get("/api/replies?channel=form").json()["replies"]
+        assert len(replies) == 1
+        assert replies[0]["business_name"] == "Photo Reply Ramen"
+        assert replies[0]["has_photos"] is True
+        assert replies[0]["photo_count"] == 1
+        assert replies[0]["stored_photo_count"] == 1
+        assert replies[0]["attachments"][0]["stored_path"]
+
+    def test_incoming_reply_without_photos_has_no_menu_handoff(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent")
+        response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "Re:",
+                "body": "興味があります。詳細を教えてください。",
+            },
+        )
+
+        assert response.status_code == 200
+        replies = self.client.get("/api/replies?channel=email").json()["replies"]
+        assert len(replies) == 1
+        assert replies[0]["has_photos"] is False
+        assert replies[0]["photo_count"] == 0
+
+    def test_incoming_reply_detects_japanese_photo_send_language(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent")
+        response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "メニュー写真",
+                "body": "メニューの写真を送付します。確認をお願いします。",
+            },
+        )
+
+        assert response.status_code == 200
+        replies = self.client.get("/api/replies?channel=email").json()["replies"]
+        assert len(replies) == 1
+        assert replies[0]["has_photos"] is True
+        assert replies[0]["photo_count"] == 0
+
+    def test_qr_create_requires_ready_reply(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QRメニュー",
+                "body": "QRコード付き英語メニューページをお願いします。",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+
+        response = self.client.post(
+            f"/api/qr/{reply_id}",
+            json={
+                "items": [
+                    {
+                        "name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "price": "¥900",
+                        "description": "Classic soy sauce ramen.",
+                        "ingredients": ["noodles", "soy sauce broth"],
+                        "section": "Ramen",
+                    }
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ready_for_review"
+        assert (tmp_path / "docs" / "menus" / "_drafts" / data["job_id"] / "index.html").exists()
+
+        sign = self.client.post(f"/api/qr/{data['job_id']}/sign")
+        assert sign.status_code == 200
+        assert sign.json()["qr_sign_url"].endswith("/qr_sign.html")
+        assert (tmp_path / "docs" / "menus" / "_drafts" / data["job_id"] / "qr_sign.html").exists()
+
+    def test_qr_publish_and_health(self, tmp_path):
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QR menu",
+                "body": "Please make the hosted QR menu.",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+        create = self.client.post(
+            f"/api/qr/{reply_id}",
+            json={
+                "items": [
+                    {
+                        "name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "description": "Classic soy sauce ramen.",
+                        "ingredients": ["noodles", "soy sauce broth"],
+                        "section": "Ramen",
+                    }
+                ]
+            },
+        ).json()
+
+        published = self.client.post(f"/api/qr/{create['job_id']}/publish")
+        assert published.status_code == 200
+        assert published.json()["live_url"] == "https://webrefurb.com/menus/qr-ramen/"
+
+        health = self.client.get("/api/qr/qr-ramen/health")
+        assert health.status_code == 200
+        assert health.json()["ok"] is True
+
+    def test_qr_package_approve_and_download(self, tmp_path, monkeypatch):
+        def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
+            pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
+            return pdf_path
+
+        monkeypatch.setattr("pipeline.qr.html_to_pdf_sync", fake_html_to_pdf_sync)
+        self._create_lead(tmp_path, outreach_status="sent", business_name="QR Ramen")
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@example.test",
+                "subject": "QR menu",
+                "body": "Please make the hosted QR menu.",
+                "attachments": [
+                    {
+                        "filename": "menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+        reply_id = reply_response.json()["reply_id"]
+        create = self.client.post(
+            f"/api/qr/{reply_id}",
+            json={
+                "items": [
+                    {
+                        "name": "Shoyu Ramen",
+                        "japanese_name": "醤油ラーメン",
+                        "description": "Classic soy sauce ramen.",
+                        "ingredients": ["noodles", "soy sauce broth"],
+                        "section": "Ramen",
+                    }
+                ]
+            },
+        ).json()
+        self.client.post(f"/api/qr/{create['job_id']}/sign")
+
+        approved = self.client.post(f"/api/qr/{create['job_id']}/approve")
+        assert approved.status_code == 200
+        assert approved.json()["package_key"] == "package_3_qr_menu_65k"
+        assert approved.json()["final_export_status"] == "ready"
+
+        download = self.client.get(f"/api/qr/{create['job_id']}/download")
+        assert download.status_code == 200
+        assert download.headers["content-type"] == "application/zip"
 
 
 # ---------------------------------------------------------------------------
@@ -843,6 +1049,20 @@ class TestStatusPersistence:
         assert response.status_code == 200
         assert "Edited draft" in response.text
 
+    def test_main_page_shows_menu_and_vending_tags(self):
+        self._create_lead(menu_evidence_found=True, machine_evidence_found=True)
+        response = self.client.get("/")
+        assert response.status_code == 200
+        assert '<span class="evidence-pill evidence-pill-menu">Menu</span>' in response.text
+        assert '<span class="evidence-pill evidence-pill-vending">Vending</span>' in response.text
+
+    def test_main_page_shows_single_evidence_tag(self):
+        self._create_lead(menu_evidence_found=True, machine_evidence_found=False)
+        response = self.client.get("/")
+        assert response.status_code == 200
+        assert '<span class="evidence-pill evidence-pill-menu">Menu</span>' in response.text
+        assert '<span class="evidence-pill evidence-pill-vending">Vending</span>' not in response.text
+
     def test_project_root_is_not_exposed_as_assets(self):
         response = self.client.get("/assets/.env")
         assert response.status_code == 404
@@ -859,3 +1079,123 @@ class TestStatusPersistence:
         response = self.client.get("/api/build/job123/preview")
         assert response.status_code == 200
         assert "preview" in response.text
+
+    def test_build_preview_allows_ready_for_review(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/build/job123/preview")
+        assert response.status_code == 200
+        assert "preview" in response.text
+
+    def test_build_review_reports_validation_errors(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/build/job123/review")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["package_key"] == "package_1_remote_30k"
+        assert data["validation"]["ok"] is False
+        assert "restaurant_menu_print_ready_combined.pdf_missing" in data["validation"]["errors"]
+
+    def test_build_preview_serves_relative_assets(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        (output_dir / "food_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/build/job123/food_menu_editable_vector.svg")
+
+        assert response.status_code == 200
+        assert response.text == "<svg></svg>"
+
+    def test_build_asset_blocks_path_traversal(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        (self.tmp_path / "secret.txt").write_text("secret", encoding="utf-8")
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/build/job123/../../secret.txt")
+
+        assert response.status_code == 404
+
+    def test_build_approve_blocks_until_review_passes(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            encoding="utf-8",
+        )
+
+        response = self.client.post("/api/build/job123/approve")
+
+        assert response.status_code == 422
+        assert "review blocked" in response.json()["detail"].lower()
+
+    def test_build_approve_and_download_final_export(self):
+        output_dir = self.tmp_path / "builds" / "job123"
+        output_dir.mkdir(parents=True)
+        for name in (
+            "restaurant_menu_print_ready_combined.pdf",
+            "food_menu_print_ready.pdf",
+            "drinks_menu_print_ready.pdf",
+        ):
+            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+        (output_dir / "food_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
+        (output_dir / "drinks_menu_editable_vector.svg").write_text("<svg></svg>", encoding="utf-8")
+        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (output_dir / "menu_data.json").write_text(
+            json.dumps({"sections": [{"title": "RAMEN", "items": [{"name": "Shoyu"}]}]}),
+            encoding="utf-8",
+        )
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            encoding="utf-8",
+        )
+
+        approved = self.client.post("/api/build/job123/approve")
+        assert approved.status_code == 200
+        assert approved.json()["final_export_status"] == "ready"
+
+        download = self.client.get("/api/build/job123/download")
+        assert download.status_code == 200
+        assert download.headers["content-type"] == "application/zip"
+
+    def test_packages_and_build_history_endpoints(self):
+        (self.tmp_path / "jobs" / "job123.json").write_text(
+            json.dumps({
+                "job_id": "job123",
+                "restaurant_name": "Hinode Ramen",
+                "status": "ready_for_review",
+                "package_key": "package_2_printed_delivered_45k",
+                "package_validation": {"ok": False, "errors": ["delivery_address_missing"], "warnings": []},
+            }),
+            encoding="utf-8",
+        )
+
+        packages = self.client.get("/api/packages")
+        assert packages.status_code == 200
+        assert [package["price_yen"] for package in packages.json()["packages"]] == [30000, 45000, 65000]
+
+        builds = self.client.get("/api/builds")
+        assert builds.status_code == 200
+        assert builds.json()["builds"][0]["package_key"] == "package_2_printed_delivered_45k"

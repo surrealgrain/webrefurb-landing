@@ -66,6 +66,8 @@ button, input, select, textarea { font: inherit; }
 .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 9999px; font-size: 9px; font-weight: 700; color: #fff; padding: 0 4px; margin-left: auto; }
 .badge-red { background: var(--error); }
 .badge-green { background: var(--success); }
+.badge-cyan { background: var(--accent); }
+.badge-quiet { background: rgba(255,255,255,0.16); color: #B8DDE4; }
 
 .search-activity {
   margin-top: auto; border-radius: 16px; border: 1px solid rgba(141,227,240,0.18);
@@ -78,6 +80,12 @@ button, input, select, textarea { font: inherit; }
 .search-activity.is-error { border-color: rgba(196,61,47,0.58); }
 .search-activity-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
 .search-activity-dot { width: 8px; height: 8px; border-radius: 9999px; background: #74A8B7; flex-shrink: 0; }
+.search-activity-clear {
+  margin-left: auto; height: 24px; padding: 0 9px; border-radius: 9999px;
+  border: 1px solid rgba(141,227,240,0.24); background: rgba(255,255,255,0.06);
+  color: #BEEAF0; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.search-activity-clear:hover { border-color: rgba(141,227,240,0.48); background: rgba(255,255,255,0.1); color: #fff; }
 .search-activity.is-active .search-activity-dot { background: var(--accent-light); animation: pulse-dot 1.25s ease-in-out infinite; }
 .search-activity.is-success .search-activity-dot { background: var(--success); }
 .search-activity.is-warning .search-activity-dot { background: var(--warning); }
@@ -167,6 +175,14 @@ button, input, select, textarea { font: inherit; }
   background: #F7FBFC; border: 1px solid var(--input-border); color: #666;
 }
 
+.evidence-pill {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 9px; font-size: 10px; font-weight: 700;
+  border: 1px solid transparent; letter-spacing: 0.02em;
+}
+.evidence-pill-menu { background: #EEF8F2; border-color: #BDE7CA; color: #166534; }
+.evidence-pill-vending { background: #FFF7ED; border-color: #FDBA74; color: #9A3412; }
+
 .lead-actions { display: flex; gap: 8px; align-items: center; }
 .btn-icon {
   width: 36px; height: 36px; padding: 0; border-radius: 9999px;
@@ -187,13 +203,33 @@ button, input, select, textarea { font: inherit; }
 
 /* Sent email list */
 .sent-list { display: flex; flex-direction: column; gap: 12px; }
-.sent-entry {
+.sent-entry, .reply-entry {
   border-radius: var(--radius-card); border: 1px solid var(--line);
   background: #fff; padding: 16px 20px;
 }
-.sent-entry-header { display: flex; justify-content: space-between; align-items: center; }
-.sent-entry-subject { font-weight: 600; }
+.sent-entry-header, .reply-entry-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.sent-entry-subject, .reply-entry-subject { font-weight: 600; }
 .sent-entry-date { font-size: 13px; color: var(--muted); }
+.reply-entry-meta { margin-top: 7px; font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+.reply-entry-body { margin-top: 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; color: var(--text-primary); }
+.reply-entry-flags, .reply-entry-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reply-channel-pill {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 9px; font-size: 10px; font-weight: 700;
+  border: 1px solid var(--input-border); background: #F7FBFC; color: #455A62;
+}
+.reply-photo-pill {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 9px; font-size: 10px; font-weight: 700;
+  border: 1px solid #BFE5EA; background: #ECFEFF; color: #0E7490;
+}
+.reply-qr-pill {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 9px; font-size: 10px; font-weight: 700;
+  border: 1px solid #C7D2FE; background: #EEF2FF; color: #3730A3;
+}
+.reply-entry-actions { margin-top: 12px; justify-content: flex-end; }
+.reply-entry.unread { border-color: #9EDAE5; box-shadow: inset 4px 0 0 #0E7490; }
 
 /* Modal */
 dialog {
@@ -285,6 +321,37 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 
 /* Build modal */
 .build-form { display: flex; flex-direction: column; gap: 16px; }
+.build-source-note {
+  display: none; padding: 12px; border-radius: 12px;
+  background: #ECFEFF; color: #0E7490; border: 1px solid #BFE5EA;
+  font-size: 13px; line-height: 1.45;
+}
+.build-status-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.build-review-frame {
+  width: 100%; height: min(58vh, 560px); border: 1px solid var(--line);
+  border-radius: 12px; background: #fff;
+}
+.build-review-summary {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+}
+.build-review-metric {
+  border: 1px solid var(--line); border-radius: 12px; background: #fff;
+  padding: 12px; min-width: 0;
+}
+.build-review-metric strong { display: block; font-size: 18px; margin-top: 3px; overflow-wrap: anywhere; }
+.build-review-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr); gap: 14px; min-height: 0; }
+.build-review-panel { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.qr-review-grid { display: grid; gap: 14px; }
+.qr-review-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  background: #fff; display: grid; gap: 8px;
+}
+.qr-review-label { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.qr-review-link { color: #0E7490; font-weight: 700; overflow-wrap: anywhere; }
+.qr-check-list { margin: 0; padding-left: 18px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+.qr-check-list li.is-error { color: var(--error); }
+.qr-check-list li.is-warning { color: #9A3412; }
+.qr-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
 .form-input, .form-textarea, .form-file {
@@ -324,6 +391,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   .preview-columns { grid-template-columns: 1fr; flex: initial; gap: 12px; }
   .preview-column { min-height: 220px; }
   .preview-column:first-child { min-height: 280px; }
+  .build-review-layout, .build-review-summary { grid-template-columns: 1fr; }
+  .build-review-frame { height: 420px; }
   dialog { width: 96vw; height: 94vh; }
   .controls-bar { align-items: stretch; }
   .control-spacer { margin-left: 0; }
@@ -381,13 +450,35 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <a class="nav-item" onclick="switchTab('sent')" id="nav-sent">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Sent
-        <span class="badge badge-red" id="sent-count">0</span>
+        <span class="badge badge-quiet" id="sent-count">0</span>
+      </a>
+      <a class="nav-item" onclick="switchTab('builds')" id="nav-builds">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
+        Builds
+      </a>
+      <a class="nav-item" onclick="switchTab('qr-menus')" id="nav-qr-menus">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M17.5 17.5h.01"/></svg>
+        QR Menus
+      </a>
+    </nav>
+    <div class="sidebar-section-title" style="margin-top:18px;">Replies</div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" onclick="switchTab('reply-email')" id="nav-reply-email">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+        E-mail
+        <span class="badge badge-quiet" id="reply-email-count">0</span>
+      </a>
+      <a class="nav-item" onclick="switchTab('reply-forms')" id="nav-reply-forms">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+        Forms
+        <span class="badge badge-quiet" id="reply-form-count">0</span>
       </a>
     </nav>
     <div class="search-activity" id="search-activity" aria-live="polite">
       <div class="search-activity-head">
         <span class="search-activity-dot" aria-hidden="true"></span>
         <span id="search-activity-title">Ready</span>
+        <button type="button" class="search-activity-clear" onclick="clearSearchActivity()">Clear</button>
       </div>
       <div class="search-activity-summary" id="search-activity-summary">Awaiting next search.</div>
       <ol class="search-activity-steps" id="search-activity-steps">
@@ -417,6 +508,12 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <div class="lead-meta">{{ lead.primary_category_v1|capitalize }} &middot; {{ lead.address|default('Unknown', true) }}</div>
           <div class="lead-badges">
             <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>
+            {% if lead.menu_evidence_found %}
+            <span class="evidence-pill evidence-pill-menu">Menu</span>
+            {% endif %}
+            {% if lead.machine_evidence_found %}
+            <span class="evidence-pill evidence-pill-vending">Vending</span>
+            {% endif %}
             {% if lead.outreach_classification %}
             <span class="classification-badge">{{ lead.outreach_classification }}</span>
             {% endif %}
@@ -428,7 +525,6 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <div class="lead-actions">
           {% set blocked_send = lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted', 'do_not_contact'] %}
           <button class="btn btn-secondary" onclick="openPreview('{{ lead.lead_id }}')">{{ 'View' if blocked_send else 'Preview' }}</button>
-          <button class="btn btn-primary" onclick="openBuild('{{ lead.lead_id }}')">Create Menu</button>
           <button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete {{ lead.business_name }}" onclick="openDeleteLead('{{ lead.lead_id }}', this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
           </button>
@@ -456,6 +552,65 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <p>No emails sent yet.</p>
+      </div>
+      </div>
+    </div>
+
+  <!-- Builds tab -->
+  <div class="tab-content" id="tab-builds">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Builds</h1>
+        <p class="page-kicker">Package review history, print packs, and approved customer exports.</p>
+      </div>
+      <button class="btn btn-secondary" onclick="loadBuilds()">Refresh</button>
+    </div>
+    <div class="sent-list" id="build-list">
+      <div class="empty-state"><p>No builds yet.</p></div>
+    </div>
+  </div>
+
+  <!-- Reply email tab -->
+  <div class="tab-content" id="tab-reply-email">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">E-mail Replies</h1>
+        <p class="page-kicker">Inbound responses from restaurants contacted by e-mail.</p>
+      </div>
+    </div>
+    <div class="sent-list" id="reply-email-list">
+      <div class="empty-state">
+        <p>No e-mail replies yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reply forms tab -->
+  <div class="tab-content" id="tab-reply-forms">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Form Replies</h1>
+        <p class="page-kicker">Responses that came back from contact-form outreach.</p>
+      </div>
+    </div>
+    <div class="sent-list" id="reply-form-list">
+      <div class="empty-state">
+        <p>No form replies yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR menus tab -->
+  <div class="tab-content" id="tab-qr-menus">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">QR Menus</h1>
+        <p class="page-kicker">Live hosted menus, health checks, versions, edits, and rollback controls.</p>
+      </div>
+    </div>
+    <div class="sent-list" id="qr-menu-list">
+      <div class="empty-state">
+        <p>No QR menus published yet.</p>
       </div>
     </div>
   </div>
@@ -521,16 +676,27 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   </div>
   <div class="modal-body">
     <form class="build-form" id="build-form" onsubmit="submitBuild(event)">
+      <input type="hidden" id="build-lead-id">
+      <input type="hidden" id="build-reply-id">
+      <input type="hidden" id="build-source">
+      <div class="build-source-note" id="build-source-note"></div>
       <div class="form-group">
         <label class="form-label">Restaurant Name *</label>
         <input type="text" class="form-input" id="build-name" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Package</label>
+        <select class="form-input" id="build-package">
+          <option value="package_1_remote_30k">Online Delivery — ¥30,000</option>
+          <option value="package_2_printed_delivered_45k">Printed and Delivered — ¥45,000</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Menu Items (type or paste)</label>
         <textarea class="form-textarea" id="build-menu-text" placeholder="Paste menu items here, one per line..."></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">Menu Photos</label>
+        <label class="form-label" id="build-photos-label">Menu Photos</label>
         <input type="file" class="form-file" id="build-photos" multiple accept="image/*">
       </div>
       <div class="form-group">
@@ -544,6 +710,41 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <div id="build-status" style="display:none;font-size:14px;padding:12px;border-radius:12px;background:#EEF8F2;color:#166534;"></div>
       <button type="submit" class="btn btn-primary" id="build-submit-btn" style="align-self:flex-start;">Build Custom Menu</button>
     </form>
+  </div>
+</dialog>
+
+<!-- Package Review Modal -->
+<dialog id="build-review-modal">
+  <div class="modal-header">
+    <div class="modal-heading">
+      <h2 id="build-review-title">Package Review</h2>
+      <div class="modal-subtitle">Approve only after checking the rendered menu and validation list.</div>
+    </div>
+    <button class="modal-close" onclick="closeBuildReviewModal()" aria-label="Close package review">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="build-review-layout">
+      <div class="build-review-panel">
+        <div class="build-review-summary" id="build-review-summary"></div>
+        <iframe class="build-review-frame" id="build-review-frame" title="Rendered menu preview"></iframe>
+      </div>
+      <div class="build-review-panel" id="build-review-content">
+        <div class="empty-state"><p>No package review loaded.</p></div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- QR Review Modal -->
+<dialog id="qr-modal">
+  <div class="modal-header">
+    <h2>QR Menu Review</h2>
+    <button class="modal-close" onclick="closeQrModal()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="qr-review-grid" id="qr-review-content">
+      <div class="empty-state"><p>No QR draft loaded.</p></div>
+    </div>
   </div>
 </dialog>
 
@@ -586,6 +787,8 @@ let draftTranslatePromise = null;
 const ENGLISH_INPERSON_LINE = 'Lamination and direct delivery to your restaurant are also available.';
 let searchActivityTimers = [];
 let pendingDeleteLead = null;
+let replyCountsSeen = false;
+let lastReplyUnreadTotal = 0;
 
 function escapeHtml(value) {
   return String(value || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
@@ -637,6 +840,14 @@ function restoreSearchActivity() {
   } catch {}
 }
 
+function clearSearchActivity() {
+  clearSearchActivityTimers();
+  try { sessionStorage.removeItem('lastSearchActivity'); } catch {}
+  setSearchActivity('idle', 'Ready', 'Awaiting next search.', [
+    { text: 'Search updates will appear here.', state: '' },
+  ]);
+}
+
 function scheduleSearchStep(delay, text) {
   searchActivityTimers.push(setTimeout(() => {
     const steps = Array.from(document.querySelectorAll('#search-activity-steps li')).map(li => ({
@@ -667,6 +878,9 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
   }
   if (noEmailCount) {
     steps.push({ text: 'Skipped ' + noEmailCount + ' qualified ' + plural(noEmailCount, 'restaurant') + ' without a business email.', state: 'done' });
+  }
+  if (data.email_reachability_mismatch) {
+    steps.push({ text: 'Saved lead email check disagreed with the scraper result; no outreach-ready card was counted.', state: 'done' });
   }
   if (addedCount > 0) {
     steps.push({ text: addedCount + ' email-reachable qualified ' + plural(addedCount, 'lead') + ' added to Leads.', state: 'done' });
@@ -716,6 +930,10 @@ document.addEventListener('keydown', function(e) {
     if (preview.open) { closePreviewModal(); return; }
     const build = document.getElementById('build-modal');
     if (build.open) { closeBuildModal(); return; }
+    const buildReview = document.getElementById('build-review-modal');
+    if (buildReview.open) { closeBuildReviewModal(); return; }
+    const qr = document.getElementById('qr-modal');
+    if (qr.open) { closeQrModal(); return; }
   }
 });
 
@@ -726,24 +944,39 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   document.getElementById('nav-' + tab).classList.add('active');
   if (tab === 'sent') loadSentEmails();
+  if (tab === 'builds') loadBuilds();
+  if (tab === 'qr-menus') loadQrMenus();
+  if (tab === 'reply-email') loadReplies('email', true);
+  if (tab === 'reply-forms') loadReplies('form', true);
 }
 
 // --- Search ---
+function buildSearchRequest(category, city) {
+  const searchCategory = category || 'all';
+  const cityLabel = city === 'all' ? 'Japan' : (city || 'Japan');
+  const categoryLabel = searchCategory === 'all' ? 'ramen shops and izakayas' : searchCategory === 'izakaya' ? 'izakayas' : 'ramen shops';
+  const searchQuery = searchCategory === 'all' ? 'ramen and izakaya restaurants ' + cityLabel : searchCategory + ' restaurants ' + cityLabel;
+  return {
+    query: searchQuery,
+    category: searchCategory,
+    city: cityLabel,
+    categoryLabel,
+    cityLabel,
+  };
+}
+
 async function runSearch() {
   const category = document.getElementById('sidebar-category').value;
   const city = document.getElementById('sidebar-city').value;
   const btn = document.getElementById('search-btn');
   const origText = btn.textContent;
-  const searchCategory = category === 'all' ? 'ramen' : category;
-  const categoryLabel = searchCategory === 'izakaya' ? 'izakayas' : 'ramen shops';
-  const cityLabel = city === 'all' ? 'Japan' : city;
-  const searchQuery = searchCategory + ' restaurants ' + cityLabel;
+  const scope = buildSearchRequest(category, city);
 
   btn.textContent = 'Searching...';
   btn.disabled = true;
   clearSearchActivityTimers();
-  setSearchActivity('active', 'Search running', 'Searching ' + categoryLabel + ' in ' + cityLabel + '...', [
-    { text: 'Searching ' + categoryLabel + ' in ' + cityLabel + '...', state: 'active' },
+  setSearchActivity('active', 'Search running', 'Searching ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', [
+    { text: 'Searching ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', state: 'active' },
   ]);
   scheduleSearchStep(900, 'Reviewing candidates from Maps...');
   scheduleSearchStep(2200, 'Checking restaurant websites for menu evidence...');
@@ -754,7 +987,7 @@ async function runSearch() {
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: searchQuery, category: searchCategory }),
+      body: JSON.stringify({ query: scope.query, category: scope.category, city: scope.city }),
     });
     clearSearchActivityTimers();
 
@@ -768,7 +1001,7 @@ async function runSearch() {
     }
 
     const data = await res.json();
-    const summary = summarizeSearchResult(data, categoryLabel, cityLabel);
+    const summary = summarizeSearchResult(data, scope.categoryLabel, scope.cityLabel);
     setSearchActivity(summary.state, summary.title, summary.summary, summary.steps);
     saveSearchActivity(summary.state, summary.title, summary.summary, summary.steps);
     if (data.leads > 0) {
@@ -852,7 +1085,7 @@ async function executeDeleteLead() {
   try {
     const res = await fetch('/api/leads/' + encodeURIComponent(id), { method: 'DELETE' });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Delete failed');
+    if (!res.ok && res.status !== 404) throw new Error(data.detail || 'Delete failed');
 
     if (card && card.parentNode) {
       card.remove();
@@ -863,7 +1096,10 @@ async function executeDeleteLead() {
       if (list) list.outerHTML = renderEmptyLeadsState();
     }
     closeDeleteLeadDialog();
-    showToast(name + ' deleted from Leads', 'success');
+    showToast(
+      res.status === 404 ? name + ' was already removed; clearing stale card' : name + ' deleted from Leads',
+      res.status === 404 ? 'info' : 'success'
+    );
   } catch (err) {
     showToast('Delete failed: ' + err.message, 'error');
     btn.disabled = false;
@@ -889,7 +1125,7 @@ async function saveDraft() {
   assetChecks.forEach((cb, i) => { if (cb.checked && selectedAssets[i]) checkedAssets.push(selectedAssets[i]); });
 
   try {
-    await fetch('/api/draft/' + currentLeadId, {
+    const res = await fetch('/api/draft/' + currentLeadId, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -901,12 +1137,16 @@ async function saveDraft() {
         include_machine_image: currentEmail.include_machine_image,
       }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || 'Draft save failed');
+    }
     draftDirty = false;
     setSaveState('Draft saved', 'saved');
   } catch (err) {
-    // Silent fail for draft saves — non-critical
     setSaveState('Draft save failed', 'error');
     console.warn('Draft save failed:', err);
+    throw err;
   }
 }
 
@@ -1328,6 +1568,48 @@ async function executeSend() {
 function openBuild(leadId) {
   currentLeadId = leadId;
   document.getElementById('build-form').reset();
+  document.getElementById('build-lead-id').value = leadId || '';
+  document.getElementById('build-reply-id').value = '';
+  document.getElementById('build-source').value = 'lead';
+  document.getElementById('build-photos-label').textContent = 'Menu Photos';
+  const sourceNote = document.getElementById('build-source-note');
+  sourceNote.style.display = 'none';
+  sourceNote.textContent = '';
+  const card = document.querySelector('[data-lead-id="' + leadId + '"]');
+  const nameEl = card ? card.querySelector('.lead-name') : null;
+  document.getElementById('build-name').value = nameEl ? nameEl.textContent.trim() : '';
+  document.getElementById('build-status').style.display = 'none';
+  document.getElementById('build-submit-btn').disabled = false;
+  document.getElementById('build-submit-btn').textContent = 'Build Custom Menu';
+  document.getElementById('build-modal').showModal();
+}
+
+function openBuildFromReply(btn) {
+  const leadId = btn.dataset.leadId || '';
+  const replyId = btn.dataset.replyId || '';
+  const businessName = btn.dataset.businessName || '';
+  const subject = btn.dataset.subject || '';
+  const channel = btn.dataset.channel || 'reply';
+  const photoCount = Number(btn.dataset.photoCount || 0);
+  const storedPhotoCount = Number(btn.dataset.storedPhotoCount || 0);
+  currentLeadId = leadId;
+  document.getElementById('build-form').reset();
+  document.getElementById('build-lead-id').value = leadId;
+  document.getElementById('build-reply-id').value = replyId;
+  document.getElementById('build-source').value = channel + '_reply';
+  document.getElementById('build-photos-label').textContent = 'Additional Menu Photos (optional)';
+  document.getElementById('build-name').value = businessName || leadId;
+  document.getElementById('build-notes').value = [
+    'Source reply: ' + (replyId || 'unknown'),
+    subject ? 'Subject: ' + subject : '',
+  ].filter(Boolean).join('\n');
+
+  const sourceNote = document.getElementById('build-source-note');
+  const readyCount = storedPhotoCount || photoCount;
+  sourceNote.textContent = readyCount
+    ? 'Using ' + readyCount + ' received ' + plural(readyCount, 'image') + '. Add extra photos only if needed.'
+    : 'Using the received reply photos. Add extra photos only if needed.';
+  sourceNote.style.display = 'block';
   document.getElementById('build-status').style.display = 'none';
   document.getElementById('build-submit-btn').disabled = false;
   document.getElementById('build-submit-btn').textContent = 'Build Custom Menu';
@@ -1353,6 +1635,10 @@ async function submitBuild(e) {
   form.append('name', document.getElementById('build-name').value);
   form.append('menu_text', document.getElementById('build-menu-text').value);
   form.append('notes', document.getElementById('build-notes').value);
+  form.append('lead_id', document.getElementById('build-lead-id').value);
+  form.append('reply_id', document.getElementById('build-reply-id').value);
+  form.append('source', document.getElementById('build-source').value);
+  form.append('package_key', document.getElementById('build-package').value);
 
   const photos = document.getElementById('build-photos').files;
   for (let i = 0; i < photos.length; i++) {
@@ -1391,13 +1677,31 @@ async function pollBuildStatus(jobId) {
     const res = await fetch('/api/build/' + jobId + '/status');
     const data = await res.json();
 
-    if (data.status === 'completed') {
-      statusEl.textContent = 'Build complete!';
+    if (data.status === 'ready_for_review') {
+      const review = await loadBuildReview(jobId);
+      const errors = (review.validation && review.validation.errors) || [];
+      const packageLabel = review.package_label || 'Package';
+      statusEl.innerHTML = ''
+        + '<div><strong>' + escapeHtml(packageLabel) + ' ready for review.</strong> '
+        + (errors.length ? escapeHtml(errors.length + ' issue' + (errors.length === 1 ? '' : 's') + ' must be fixed before final export.') : 'Validation passed.')
+        + '</div>'
+        + '<div class="build-status-actions">'
+        + '<button type="button" class="btn btn-secondary" onclick="showBuildReview(\'' + escapeHtml(jobId) + '\')">Review Package</button>'
+        + '</div>';
+      statusEl.style.background = errors.length ? '#FFF7ED' : '#EEF8F2';
+      statusEl.style.color = errors.length ? '#9A3412' : '#166534';
+      btn.disabled = false;
+      btn.textContent = 'Build Custom Menu';
+      showToast(packageLabel + ' is ready for review', errors.length ? 'info' : 'success');
+    } else if (data.status === 'completed') {
+      const downloadUrl = data.final_export_path ? '/api/build/' + encodeURIComponent(jobId) + '/download' : '';
+      statusEl.innerHTML = 'Package final export is ready.'
+        + (downloadUrl ? '<div class="build-status-actions"><a class="btn btn-success" href="' + downloadUrl + '">Download Final Export</a></div>' : '');
       statusEl.style.background = '#EEF8F2';
       statusEl.style.color = '#166534';
       btn.disabled = false;
       btn.textContent = 'Build Custom Menu';
-      showToast('Menu build completed successfully', 'success');
+      showToast('Package final export is ready', 'success');
     } else if (data.status === 'failed') {
       statusEl.textContent = 'Build failed: ' + (data.error || 'Unknown error');
       statusEl.style.background = '#FFF8F6';
@@ -1414,6 +1718,465 @@ async function pollBuildStatus(jobId) {
     statusEl.style.color = '#C43D2F';
     btn.disabled = false;
     btn.textContent = 'Build Custom Menu';
+  }
+}
+
+function closeBuildReviewModal() {
+  document.getElementById('build-review-modal').close();
+}
+
+async function loadBuildReview(jobId) {
+  const res = await fetch('/api/build/' + encodeURIComponent(jobId) + '/review');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Review unavailable');
+  return data;
+}
+
+async function showBuildReview(jobId) {
+  try {
+    const review = await loadBuildReview(jobId);
+    renderBuildReview(review);
+    document.getElementById('build-review-modal').showModal();
+  } catch (err) {
+    showToast('Review failed: ' + err.message, 'error');
+  }
+}
+
+function renderBuildReview(review) {
+  const validation = review.validation || {};
+  const errors = validation.errors || [];
+  const warnings = validation.warnings || [];
+  const artifacts = review.artifacts || [];
+  const printProfile = review.print_profile || validation.print_profile || null;
+  const isPrinted = review.package_key === 'package_2_printed_delivered_45k';
+  const actionErrors = isPrinted ? errors.filter(e => !['delivery_contact_name_missing', 'delivery_address_missing'].includes(e)) : errors;
+  const requiredReady = artifacts.filter(a => a.required && a.exists).length;
+  const requiredTotal = artifacts.filter(a => a.required).length;
+  const approved = review.review_status === 'approved' && review.final_export_status === 'ready';
+  const approvalBlocked = actionErrors.length > 0 || approved;
+  const approveDisabled = approvalBlocked ? 'disabled aria-disabled="true"' : '';
+  const approveTitle = actionErrors.length ? 'Resolve validation errors before final export' : approved ? 'Already approved' : 'Approve final export';
+  const approvalButton = isPrinted ? 'Approve Print Pack' : 'Approve Final Export';
+
+  document.getElementById('build-review-title').textContent =
+    (review.package_label || 'Package') + ' Review — ' + (review.restaurant_name || review.job_id);
+  document.getElementById('build-review-frame').src = review.preview_url || '';
+  document.getElementById('build-review-summary').innerHTML = `
+    <div class="build-review-metric">
+      <div class="qr-review-label">Package</div>
+      <strong>${escapeHtml(review.package_label || 'Package')}</strong>
+    </div>
+    <div class="build-review-metric">
+      <div class="qr-review-label">Validation</div>
+      <strong>${errors.length ? errors.length + ' blocked' : 'Passed'}</strong>
+    </div>
+    <div class="build-review-metric">
+      <div class="qr-review-label">Required Files</div>
+      <strong>${requiredReady} / ${requiredTotal}</strong>
+    </div>`;
+
+  const printCard = printProfile ? `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Print profile</div>
+      <ul class="qr-check-list">
+        <li>${escapeHtml(printProfile.paper_size || '')} ${escapeHtml(printProfile.orientation || '')}</li>
+        <li>${printProfile.duplex ? 'Duplex' : 'Single-sided'} · ${printProfile.laminated ? 'laminated' : 'not laminated'} · ${Number(printProfile.copy_count || 0)} copies</li>
+        <li>${escapeHtml(printProfile.physical_scope || '')}</li>
+        <li class="${printProfile.custom_quote_required ? 'is-error' : ''}">${escapeHtml(printProfile.reason || '')}</li>
+      </ul>
+    </div>` : '';
+  const deliveryCard = isPrinted && !approved ? `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Delivery</div>
+      <div class="form-group"><input class="form-input" id="delivery-contact-name" placeholder="Delivery contact name"></div>
+      <div class="form-group"><textarea class="form-textarea" id="delivery-address" style="min-height:80px;" placeholder="Delivery address"></textarea></div>
+      <div class="form-group"><input class="form-input" id="delivery-phone" placeholder="Phone (optional)"></div>
+      <div class="form-group"><textarea class="form-textarea" id="delivery-notes" style="min-height:70px;" placeholder="Delivery notes (optional)"></textarea></div>
+    </div>` : '';
+
+  document.getElementById('build-review-content').innerHTML = `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Review gate</div>
+      <ul class="qr-check-list">
+        ${errors.length ? errors.map(e => `<li class="is-error">${escapeHtml(e)}</li>`).join('') : '<li>Ready for operator approval</li>'}
+        ${warnings.map(w => `<li class="is-warning">${escapeHtml(w)}</li>`).join('')}
+      </ul>
+    </div>
+    ${printCard}
+    ${deliveryCard}
+    <div class="qr-review-card">
+      <div class="qr-review-label">Artifacts</div>
+      <ul class="qr-check-list">
+        ${artifacts.filter(a => a.required).map(a => `<li class="${a.exists ? '' : 'is-error'}">${escapeHtml(a.name)} · ${a.exists ? Math.round(Number(a.bytes || 0) / 1024) + ' KB' : 'missing'}</li>`).join('')}
+      </ul>
+    </div>
+    <div class="qr-review-card">
+      <div class="qr-review-label">Final export</div>
+      <div class="reply-entry-body">${approved ? '<a class="qr-review-link" href="' + escapeHtml(review.download_url || '') + '">Download approved ZIP</a>' : 'No final customer ZIP until review is approved.'}</div>
+      <div class="qr-actions">
+        <button class="btn btn-secondary" onclick="closeBuildReviewModal()">Close</button>
+        ${approved ? `<a class="btn btn-success" href="${escapeHtml(review.download_url || '')}">Download Final Export</a>` : `<button class="btn btn-success" title="${escapeHtml(approveTitle)}" ${approveDisabled} onclick="approvePackage('${escapeHtml(review.job_id || '')}', '${escapeHtml(review.package_key || '')}', this)">${approvalButton}</button>`}
+      </div>
+    </div>`;
+}
+
+async function approvePackage(jobId, packageKey, btn) {
+  if (!jobId || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Approving...';
+  const body = { package_key: packageKey || '' };
+  if (packageKey === 'package_2_printed_delivered_45k') {
+    body.delivery_contact_name = document.getElementById('delivery-contact-name')?.value || '';
+    body.delivery_address = document.getElementById('delivery-address')?.value || '';
+    body.delivery_phone = document.getElementById('delivery-phone')?.value || '';
+    body.delivery_notes = document.getElementById('delivery-notes')?.value || '';
+  }
+  try {
+    const res = await fetch('/api/build/' + encodeURIComponent(jobId) + '/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Approval failed');
+    showToast((data.package_label || 'Package') + ' final export approved', 'success');
+    const review = await loadBuildReview(jobId);
+    renderBuildReview(review);
+    const statusEl = document.getElementById('build-status');
+    if (statusEl && statusEl.style.display !== 'none') {
+      statusEl.innerHTML = 'Package final export is ready.'
+        + '<div class="build-status-actions"><a class="btn btn-success" href="' + escapeHtml(data.download_url || ('/api/build/' + encodeURIComponent(jobId) + '/download')) + '">Download Final Export</a></div>';
+      statusEl.style.background = '#EEF8F2';
+      statusEl.style.color = '#166534';
+    }
+    loadBuilds();
+  } catch (err) {
+    showToast('Approval blocked: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function loadBuilds() {
+  const list = document.getElementById('build-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state"><p>Loading builds...</p></div>';
+  try {
+    const res = await fetch('/api/builds');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not load builds');
+    const builds = data.builds || [];
+    if (!builds.length) {
+      list.innerHTML = '<div class="empty-state"><p>No builds yet.</p></div>';
+      return;
+    }
+    list.innerHTML = builds.map(build => {
+      const errors = (build.validation && build.validation.errors) || [];
+      const download = build.download_url ? `<a class="btn btn-success" href="${escapeHtml(build.download_url)}">Download</a>` : '';
+      return `
+        <div class="reply-entry">
+          <div class="reply-entry-header">
+            <span class="reply-entry-subject">${escapeHtml(build.restaurant_name || build.job_id || 'Build')}</span>
+            <span class="reply-entry-flags">
+              <span class="reply-channel-pill">${escapeHtml(build.package_label || '')} · ¥${Number(build.price_yen || 0).toLocaleString()}</span>
+              <span class="${errors.length ? 'reply-qr-pill' : 'reply-photo-pill'}">${errors.length ? errors.length + ' issue' : 'Ready'}</span>
+            </span>
+          </div>
+          <div class="reply-entry-meta">Status: ${escapeHtml(build.status || '')} · Review: ${escapeHtml(build.review_status || '')} · Created: ${escapeHtml(build.created_at || '')}</div>
+          <div class="qr-actions" style="margin-top:12px;">
+            <button class="btn btn-secondary" onclick="showBuildReview('${escapeHtml(build.job_id || '')}')">Review</button>
+            ${download}
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<div class="empty-state"><p>Could not load builds.</p></div>';
+    showToast(err.message, 'error');
+  }
+}
+
+// --- QR Menu Review ---
+function closeQrModal() {
+  document.getElementById('qr-modal').close();
+}
+
+async function createQrFromReply(btn) {
+  if (btn.disabled) return;
+  const replyId = btn.dataset.replyId;
+  if (!replyId) { showToast('Reply id missing', 'error'); return; }
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Creating...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(replyId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'QR creation failed');
+    const reviewRes = await fetch('/api/qr/' + encodeURIComponent(data.job_id) + '/review');
+    const review = await reviewRes.json();
+    if (!reviewRes.ok) throw new Error(review.detail || 'Could not load QR review');
+    renderQrReview(review);
+    document.getElementById('qr-modal').showModal();
+    showToast('QR draft created', 'success');
+  } catch (err) {
+    showToast('QR failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function renderQrReview(review) {
+  const content = document.getElementById('qr-review-content');
+  const validation = review.publish_validation || review.validation || {};
+  const completeness = review.completeness || {};
+  const errors = validation.errors || [];
+  const warnings = validation.warnings || [];
+  const draftUrl = review.draft_url || '';
+  const qrUrl = review.qr_asset_url || '';
+  const signUrl = review.qr_sign_url || '';
+  const publishDisabled = errors.length ? 'disabled' : '';
+  const publishTitle = errors.length ? 'Resolve validation errors before approval' : 'Approve QR Menu System';
+  const missingDescriptions = completeness.missing_descriptions || [];
+  const missingIngredients = completeness.missing_ingredients || [];
+  content.innerHTML = `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Package</div>
+      <div><strong>${escapeHtml(review.package_label || 'QR Menu System')}</strong> · ¥${Number(review.price_yen || 65000).toLocaleString()}</div>
+      <div class="qr-review-label">Draft page</div>
+      <a class="qr-review-link" href="${escapeHtml(draftUrl)}" target="_blank" rel="noopener">${escapeHtml(draftUrl || 'Draft unavailable')}</a>
+      <div class="qr-review-label">QR asset</div>
+      <a class="qr-review-link" href="${escapeHtml(qrUrl)}" target="_blank" rel="noopener">${escapeHtml(qrUrl || 'QR unavailable')}</a>
+      ${signUrl ? `<div class="qr-review-label">QR sign</div><a class="qr-review-link" href="${escapeHtml(signUrl)}" target="_blank" rel="noopener">${escapeHtml(signUrl)}</a>` : ''}
+    </div>
+    <div class="qr-review-card">
+      <div class="qr-review-label">Completeness</div>
+      <ul class="qr-check-list">
+        <li>${Number(completeness.item_count || 0)} menu ${plural(completeness.item_count || 0, 'item')}</li>
+        <li>${Number(completeness.photo_count || 0)} stored ${plural(completeness.photo_count || 0, 'photo')}</li>
+        <li class="${missingDescriptions.length ? 'is-warning' : ''}">${missingDescriptions.length ? missingDescriptions.length + ' missing descriptions' : 'Descriptions complete'}</li>
+        <li class="${missingIngredients.length ? 'is-warning' : ''}">${missingIngredients.length ? missingIngredients.length + ' missing ingredient lists' : 'Ingredients complete'}</li>
+      </ul>
+    </div>
+    <div class="qr-review-card">
+      <div class="qr-review-label">Publish validation</div>
+      <ul class="qr-check-list">
+        ${errors.length ? errors.map(e => `<li class="is-error">${escapeHtml(e)}</li>`).join('') : '<li>Ready to publish after operator review</li>'}
+        ${warnings.map(w => `<li class="is-warning">${escapeHtml(w)}</li>`).join('')}
+      </ul>
+      <div class="qr-actions">
+        <button class="btn btn-secondary" onclick="closeQrModal()">Close</button>
+        <button class="btn btn-secondary" onclick="createQrSign('${escapeHtml(review.job_id || '')}', this)">Create QR Sign</button>
+        <button class="btn btn-success" title="${publishTitle}" ${publishDisabled} onclick="approveQrPackage('${escapeHtml(review.job_id || '')}', this)">Approve Package 3</button>
+      </div>
+    </div>`;
+}
+
+async function createQrSign(jobId, btn) {
+  if (!jobId || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Creating...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/sign', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Sign creation failed');
+    btn.textContent = 'Open QR Sign';
+    btn.onclick = () => window.open(data.qr_sign_url, '_blank', 'noopener');
+    showToast('QR sign created', 'success');
+  } catch (err) {
+    showToast('QR sign failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function publishQrJob(jobId, btn) {
+  if (!jobId || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Publishing...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/publish', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Publish failed');
+    renderQrPublished(data);
+    showToast('QR menu published', 'success');
+  } catch (err) {
+    showToast('Publish blocked: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function approveQrPackage(jobId, btn) {
+  if (!jobId || btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Approving...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(jobId) + '/approve', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Approval failed');
+    renderQrPublished(data);
+    showToast('QR Menu System approved', 'success');
+    loadQrMenus();
+  } catch (err) {
+    showToast('QR approval blocked: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function renderQrPublished(data) {
+  const content = document.getElementById('qr-review-content');
+  const health = data.health || {};
+  content.innerHTML = `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Live URL</div>
+      <a class="qr-review-link" href="${escapeHtml(data.live_url || '')}" target="_blank" rel="noopener">${escapeHtml(data.live_url || '')}</a>
+      <div class="qr-review-label">Version</div>
+      <div>${escapeHtml(data.published_version_id || '')}</div>
+      <div class="qr-review-label">Health</div>
+      <div>${health.ok ? 'Healthy' : 'Needs attention'}</div>
+      <div class="qr-actions">
+        <button class="btn btn-secondary" onclick="closeQrModal()">Close</button>
+        ${data.download_url ? `<a class="btn btn-success" href="${escapeHtml(data.download_url)}">Download Package ZIP</a>` : ''}
+      </div>
+    </div>`;
+}
+
+async function loadQrMenus() {
+  const list = document.getElementById('qr-menu-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state"><p>Loading QR menus...</p></div>';
+  try {
+    const res = await fetch('/api/qr-menus');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not load QR menus');
+    const menus = data.menus || [];
+    if (!menus.length) {
+      list.innerHTML = '<div class="empty-state"><p>No QR menus published yet.</p></div>';
+      return;
+    }
+    list.innerHTML = menus.map(menu => {
+      const menuId = escapeHtml(menu.menu_id || '');
+      const name = escapeHtml(menu.restaurant_name || menu.menu_id || 'QR menu');
+      const liveUrl = escapeHtml(menu.live_url || '');
+      const signUrl = menu.current_version ? '/menus/' + menuId + '/versions/' + escapeHtml(menu.current_version || '') + '/qr_sign.html' : '';
+      const currentVersion = escapeHtml(menu.current_version || 'No live version');
+      const health = menu.health || {};
+      const versions = menu.versions || [];
+      const previousVersions = versions.filter(v => v !== menu.current_version);
+      const rollbackOptions = previousVersions.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      const audit = (menu.audit || []).slice(-4).reverse().map(entry => {
+        return `<li>${escapeHtml(entry.action || '')} · ${escapeHtml(entry.at || '')}</li>`;
+      }).join('');
+      return `
+        <div class="reply-entry">
+          <div class="reply-entry-header">
+            <span class="reply-entry-subject">${name}</span>
+            <span class="reply-entry-flags">
+              <span class="reply-channel-pill">${escapeHtml(menu.status || 'draft')}</span>
+              <span class="${health.ok ? 'reply-photo-pill' : 'reply-qr-pill'}">${health.ok ? 'Healthy' : 'Check'}</span>
+            </span>
+          </div>
+          <div class="reply-entry-meta">Version: ${currentVersion}</div>
+          ${liveUrl ? `<div class="reply-entry-body"><a class="qr-review-link" href="${liveUrl}" target="_blank" rel="noopener">${liveUrl}</a>${signUrl ? `<br><a class="qr-review-link" href="${signUrl}" target="_blank" rel="noopener">QR sign</a>` : ''}</div>` : '<div class="reply-entry-body">No live URL yet.</div>'}
+          <div class="qr-review-card" style="margin-top:12px;">
+            <div class="qr-review-label">Version history</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${versions.map(escapeHtml).join(' · ') || 'No versions yet'}</div>
+            ${audit ? `<div class="qr-review-label">Recent audit</div><ul class="qr-check-list">${audit}</ul>` : ''}
+            <div class="qr-actions">
+              <button class="btn btn-secondary" onclick="createQrEditDraft('${menuId}', this)">Edit Draft</button>
+              <select class="search-select" style="height:36px;max-width:260px;" data-menu-id="${menuId}">
+                <option value="">Previous version</option>
+                ${rollbackOptions}
+              </select>
+              <button class="btn btn-secondary" ${rollbackOptions ? '' : 'disabled'} onclick="rollbackQrMenu('${menuId}', this)">Rollback</button>
+              <button class="btn btn-primary" onclick="refreshQrHealth('${menuId}', this)">Check Health</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<div class="empty-state"><p>Could not load QR menus.</p></div>';
+    showToast(err.message, 'error');
+  }
+}
+
+async function createQrEditDraft(menuId, btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Creating...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(menuId) + '/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not create edit draft');
+    const reviewRes = await fetch('/api/qr/' + encodeURIComponent(data.job_id) + '/review');
+    const review = await reviewRes.json();
+    if (!reviewRes.ok) throw new Error(review.detail || 'Could not load edit draft');
+    renderQrReview(review);
+    document.getElementById('qr-modal').showModal();
+    showToast('Edit draft created without changing live menu', 'success');
+  } catch (err) {
+    showToast('Edit draft failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function rollbackQrMenu(menuId, btn) {
+  const select = document.querySelector('select[data-menu-id="' + menuId + '"]');
+  const versionId = select ? select.value : '';
+  if (!versionId) { showToast('Choose a previous version first', 'error'); return; }
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Rolling back...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(menuId) + '/rollback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version_id: versionId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Rollback failed');
+    showToast('Rollback active: ' + data.current_version, 'success');
+    loadQrMenus();
+  } catch (err) {
+    showToast('Rollback failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function refreshQrHealth(menuId, btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Checking...';
+  try {
+    const res = await fetch('/api/qr/' + encodeURIComponent(menuId) + '/health');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Health check failed');
+    showToast(data.ok ? 'QR menu is healthy' : 'QR menu needs attention', data.ok ? 'success' : 'error');
+    loadQrMenus();
+  } catch (err) {
+    showToast('Health check failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
   }
 }
 
@@ -1453,6 +2216,130 @@ async function loadSentEmails() {
       </div>`;
     }).join('');
   } catch {}
+}
+
+function updateReplyBadges(counts) {
+  const emailBadge = document.getElementById('reply-email-count');
+  const formBadge = document.getElementById('reply-form-count');
+  const emailUnread = counts ? Number(counts.email_unread || 0) : 0;
+  const formUnread = counts ? Number(counts.form_unread || 0) : 0;
+  const unreadTotal = emailUnread + formUnread;
+  if (replyCountsSeen && unreadTotal > lastReplyUnreadTotal) {
+    showToast('New reply received', 'info');
+  }
+  replyCountsSeen = true;
+  lastReplyUnreadTotal = unreadTotal;
+  if (emailBadge) {
+    emailBadge.textContent = emailUnread;
+    emailBadge.className = 'badge ' + (emailUnread ? 'badge-red' : 'badge-quiet');
+    emailBadge.style.display = emailUnread || Number(counts?.email_total || 0) ? '' : 'none';
+  }
+  if (formBadge) {
+    formBadge.textContent = formUnread;
+    formBadge.className = 'badge ' + (formUnread ? 'badge-red' : 'badge-quiet');
+    formBadge.style.display = formUnread || Number(counts?.form_total || 0) ? '' : 'none';
+  }
+}
+
+async function loadReplyCounts() {
+  try {
+    const res = await fetch('/api/replies');
+    const data = await res.json();
+    updateReplyBadges(data.counts || {});
+  } catch {}
+}
+
+async function loadReplies(channel, markRead) {
+  const listId = channel === 'form' ? 'reply-form-list' : 'reply-email-list';
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state"><p>Loading replies...</p></div>';
+
+  try {
+    const res = await fetch('/api/replies?channel=' + encodeURIComponent(channel));
+    const data = await res.json();
+    const replies = data.replies || [];
+    updateReplyBadges(data.counts || {});
+
+    if (replies.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No ' + (channel === 'form' ? 'form' : 'e-mail') + ' replies yet.</p></div>';
+    } else {
+      list.innerHTML = replies.map(reply => {
+        const safeSubject = escapeHtml(reply.subject || (channel === 'form' ? 'Contact form response' : 'E-mail reply'));
+        const safeFrom = escapeHtml(reply.from || 'Unknown sender');
+        const safeLeadId = escapeHtml(reply.lead_id || '');
+        const safeReplyId = escapeHtml(reply.reply_id || '');
+        const safeBusinessName = escapeHtml(reply.business_name || '');
+        const safeBody = escapeHtml(reply.body || '');
+        const received = reply.received_at ? new Date(reply.received_at).toLocaleString() : '';
+        const unreadClass = reply.read_at ? '' : ' unread';
+        const photoCount = Number(reply.photo_count || 0);
+        const storedPhotoCount = Number(reply.stored_photo_count || 0);
+        const photoLabel = storedPhotoCount
+          ? storedPhotoCount + ' ' + plural(storedPhotoCount, 'photo') + ' ready'
+          : photoCount
+            ? photoCount + ' ' + plural(photoCount, 'photo') + ' received'
+            : 'Photos mentioned';
+        const photoPill = reply.has_photos ? `<span class="reply-photo-pill">${photoLabel}</span>` : '';
+        const qrPill = reply.qr_ready ? '<span class="reply-qr-pill">QR ready</span>' : '';
+        const menuButton = storedPhotoCount > 0 ? `
+              <button
+                type="button"
+                class="btn btn-primary"
+                style="height:32px;font-size:12px;padding:0 14px;"
+                data-lead-id="${safeLeadId}"
+                data-reply-id="${safeReplyId}"
+                data-business-name="${safeBusinessName}"
+                data-subject="${safeSubject}"
+                data-channel="${channel}"
+                data-photo-count="${photoCount}"
+                data-stored-photo-count="${storedPhotoCount}"
+                onclick="openBuildFromReply(this)"
+              >Create Menu</button>` : '';
+        const qrButton = reply.qr_ready ? `
+              <button
+                type="button"
+                class="btn btn-secondary"
+                style="height:32px;font-size:12px;padding:0 14px;"
+                data-reply-id="${safeReplyId}"
+                onclick="createQrFromReply(this)"
+              >Create QR</button>` : '';
+        const createAction = menuButton || qrButton ? `
+            <div class="reply-entry-actions">
+              ${menuButton}
+              ${qrButton}
+            </div>` : '';
+        return `
+          <div class="reply-entry${unreadClass}">
+            <div class="reply-entry-header">
+              <span class="reply-entry-subject">${safeSubject}</span>
+              <span class="reply-entry-flags">
+                ${photoPill}
+                ${qrPill}
+                <span class="reply-channel-pill">${channel === 'form' ? 'Form' : 'E-mail'}</span>
+              </span>
+            </div>
+            <div class="reply-entry-meta">From: ${safeFrom} &middot; Lead: ${safeLeadId} &middot; ${escapeHtml(received)}</div>
+            <div class="reply-entry-body">${safeBody}</div>
+            ${createAction}
+          </div>`;
+      }).join('');
+    }
+
+    if (markRead) {
+      const readRes = await fetch('/api/replies/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel }),
+      });
+      if (readRes.ok) {
+        list.querySelectorAll('.reply-entry.unread').forEach(entry => entry.classList.remove('unread'));
+        loadReplyCounts();
+      }
+    }
+  } catch {
+    list.innerHTML = '<div class="empty-state"><p>Could not load replies.</p></div>';
+  }
 }
 
 function toggleReply(btn) {
@@ -1540,6 +2427,12 @@ async function toggleDNC(leadId, btn) {
 // Init
 restoreSearchActivity();
 loadSentEmails();
+loadReplyCounts();
+setInterval(loadReplyCounts, 45000);
+const initialReviewJob = new URLSearchParams(window.location.search).get('review_job');
+if (initialReviewJob) {
+  showBuildReview(initialReviewJob);
+}
 </script>
 
 </body>

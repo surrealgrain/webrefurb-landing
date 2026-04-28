@@ -42,6 +42,24 @@ def main() -> None:
     outreach_cmd.add_argument("--address", default="")
     outreach_cmd.add_argument("--no-inperson", action="store_true", help="Omit in-person delivery line")
 
+    # contact-crawl
+    contact_cmd = sub.add_parser("contact-crawl", help="Discover Japanese ramen/izakaya sites and crawl contact points")
+    contact_cmd.add_argument("--city", required=True, help="Target city or ward, e.g. Fukuoka or 福岡")
+    contact_cmd.add_argument(
+        "--category",
+        action="append",
+        choices=["ラーメン", "居酒屋", "ramen", "izakaya"],
+        default=[],
+        help="Category to discover; repeat for both ramen and izakaya",
+    )
+    contact_cmd.add_argument("--places-api-key", default=None, help="Google Places API key; defaults to GOOGLE_PLACES_API_KEY")
+    contact_cmd.add_argument("--directory-url", action="append", default=[], help="Tabelog/HotPepper category URL to crawl")
+    contact_cmd.add_argument("--max-places", type=int, default=20, help="Max Google Places results per category")
+    contact_cmd.add_argument("--max-directory-detail-pages", type=int, default=12)
+    contact_cmd.add_argument("--concurrency", type=int, default=4)
+    contact_cmd.add_argument("--output-json", default=None, help="Write full JSON output to this path")
+    contact_cmd.add_argument("--output-csv", default=None, help="Write lead CSV output to this path")
+
     # build (Mode B)
     build_cmd = sub.add_parser("build", help="Custom menu build from owner data")
     build_cmd.add_argument("--name", required=True, help="Restaurant name")
@@ -191,6 +209,41 @@ def main() -> None:
             "assets": [str(p) for p in assets],
             "subject": email["subject"],
             "body": email["body"],
+        }, indent=2, ensure_ascii=False))
+
+    elif args.command == "contact-crawl":
+        import asyncio
+        from pathlib import Path as _P
+
+        from .contact_crawler import default_places_api_key, run_contact_pipeline, write_results_csv
+        from .utils import write_json
+
+        categories = args.category or ["ラーメン", "居酒屋"]
+        api_key = args.places_api_key if args.places_api_key is not None else default_places_api_key()
+        result = asyncio.run(run_contact_pipeline(
+            city=args.city,
+            categories=categories,
+            places_api_key=api_key,
+            directory_urls=args.directory_url,
+            max_places_per_category=args.max_places,
+            max_directory_detail_pages=args.max_directory_detail_pages,
+            concurrency=args.concurrency,
+        ))
+
+        if args.output_json:
+            write_json(_P(args.output_json), result)
+        if args.output_csv:
+            write_results_csv(_P(args.output_csv), result["results"])
+        print(json.dumps({
+            "run_id": result["run_id"],
+            "city": result["city"],
+            "categories": result["categories"],
+            "discovered_targets": result["discovered_targets"],
+            "results_with_email": result["results_with_email"],
+            "results_with_line": result["results_with_line"],
+            "results_with_form_only": result["results_with_form_only"],
+            "output_json": args.output_json,
+            "output_csv": args.output_csv,
         }, indent=2, ensure_ascii=False))
 
     elif args.command == "build":

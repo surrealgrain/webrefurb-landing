@@ -141,13 +141,13 @@ def recommend_package(
     tourist_exposure_score: float,
     lead_score_v1: int,
 ) -> str:
-    """Recommend package: PACKAGE_A_KEY, PACKAGE_B_KEY, or 'none'."""
+    """Recommend package: printed/delivered, online delivery, or 'none'."""
     if not english_menu_issue:
         return "none"
 
-    # Package A (in-person, ¥48k) for high-value leads
+    # Printed and delivered (¥45k) for high-value leads
     if machine_evidence_found or tourist_exposure_score >= 0.65 or lead_score_v1 >= 70:
         return PACKAGE_A_KEY
 
-    # Package B (remote, ¥30k) for standard leads
+    # Online delivery (¥30k) for standard leads
     return PACKAGE_B_KEY

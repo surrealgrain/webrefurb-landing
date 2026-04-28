@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Pricing | WebRefurb</title>
+<meta name="description" content="Simple packages for English menus and ordering support.">
+<link rel="canonical" href="https://webrefurb.com/pricing">
+<link rel="alternate" hreflang="en" href="https://webrefurb.com/pricing">
+<link rel="alternate" hreflang="ja" href="https://webrefurb.com/ja/pricing">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #F9F8F5;
+  --surface: #F1F0ED;
+  --surface-elevated: #FEFDFB;
+  --text: #0C0C0B;
+  --text-secondary: #3A3935;
+  --text-tertiary: #6E6D68;
+  --text-muted: #9D9C97;
+  --border: rgba(12, 12, 11, 0.06);
+  --border-strong: rgba(12, 12, 11, 0.12);
+  --accent-green: #2D8A4E;
+  --accent-blue: #1A6FB5;
+  --accent-amber: #D4920B;
+  --accent-cyan: #0E7A8A;
+  --accent-red: #C74B3B;
+  --accent-indigo: #6B7BD8;
+  --cta-bg: #0C0C0B;
+  --cta-text: #F9F8F5;
+  --cta-hover: #2C2C2A;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 150ms var(--ease-out);
+  --transition-med: 300ms var(--ease-out);
+}
+
+[data-theme="dark"] {
+  --bg: #0C0C0B;
+  --surface: #151514;
+  --surface-elevated: #1A1A19;
+  --text: #F9F8F5;
+  --text-secondary: #D4D3CE;
+  --text-tertiary: #9D9C97;
+  --text-muted: #6E6D68;
+  --border: rgba(249, 248, 245, 0.08);
+  --border-strong: rgba(249, 248, 245, 0.14);
+  --cta-bg: #F9F8F5;
+  --cta-text: #0C0C0B;
+  --cta-hover: #E0DFDC;
+}
+
+html {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100%;
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  transition: background var(--transition-med), color var(--transition-med);
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+.ambient-blob {
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+}
+
+.ambient-blob--1 {
+  width: 500px;
+  height: 500px;
+  top: -100px;
+  right: -100px;
+  background: var(--accent-cyan);
+  opacity: 0.07;
+}
+
+.ambient-blob--2 {
+  width: 400px;
+  height: 400px;
+  bottom: -50px;
+  left: -100px;
+  background: var(--accent-amber);
+  opacity: 0.05;
+}
+
+/* ── Navigation ── */
+
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 20px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  opacity: 0;
+  animation: fadeIn 0.6s var(--ease-out) forwards;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(249, 248, 245, 0.7);
+  transition: background var(--transition-med);
+}
+
+[data-theme="dark"] .nav {
+  background: rgba(12, 12, 11, 0.7);
+}
+
+.nav__left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nav__back {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+.nav__back:hover {
+  opacity: 0.7;
+}
+
+.lang-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lang-toggle a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.lang-toggle a:hover {
+  color: var(--text);
+}
+
+.lang-toggle a.active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lang-toggle__sep {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  background: var(--surface-elevated);
+  border-color: var(--border-strong);
+  transform: scale(1.05);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke var(--transition-fast);
+}
+
+.theme-toggle:hover svg {
+  stroke: var(--text-secondary);
+}
+
+.theme-toggle .icon-moon,
+.theme-toggle .icon-sun { display: none; }
+
+[data-theme="light"] .theme-toggle .icon-moon,
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+
+.nav__cta-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(12, 12, 11, 0.12);
+}
+
+.btn-cta:hover {
+  background: var(--cta-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(12, 12, 11, 0.16);
+}
+
+.btn-cta svg {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--transition-fast);
+}
+
+.btn-cta:hover svg {
+  transform: translateX(1px);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.btn-outline:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+/* ── Main Content ── */
+
+.main {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100px 40px 24px;
+}
+
+/* ── Pricing Section ── */
+
+.pricing-section {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  opacity: 0;
+  animation: slideUp 0.8s var(--ease-out) 0.2s forwards;
+}
+
+.pricing-section__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pricing-section__title {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.pricing-section__sub {
+  font-size: clamp(14px, 1.5vw, 16px);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 440px;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+.pricing-card {
+  position: relative;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 350ms var(--ease-out);
+}
+
+.pricing-card:hover {
+  border-color: var(--border-strong);
+}
+
+.pricing-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--accent-green);
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.pricing-card:hover::before { opacity: 1; }
+
+.pricing-card--online::before { background: var(--accent-green); }
+.pricing-card--printed::before { background: var(--accent-blue); }
+.pricing-card--qr::before { background: var(--accent-cyan); }
+
+.pricing-card__name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.pricing-card__price {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.pricing-card__desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.pricing-section__note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── Footer ── */
+
+.footer {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 0 0;
+  opacity: 0;
+  animation: fadeIn 0.8s var(--ease-out) 0.5s forwards;
+}
+
+.footer__line {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 16px;
+}
+
+.footer__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer__copy {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.footer__links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.footer__link {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footer__link:hover {
+  color: var(--text-secondary);
+}
+
+/* ── Animations ── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Focus styles ── */
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
+}
+
+/* ── Reduced motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .nav,
+  .pricing-section,
+  .footer {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Tablet ─ */
+
+@media (max-width: 900px) {
+  .nav {
+    padding: 16px 24px;
+  }
+
+  .main {
+    padding: 88px 24px 28px;
+  }
+
+  .pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Mobile ─ */
+
+@media (max-width: 640px) {
+  .nav {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .nav__left {
+    gap: 12px;
+  }
+
+  .nav__right {
+    gap: 8px;
+  }
+
+  .lang-toggle {
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .theme-toggle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .main {
+    padding: 80px 16px 24px;
+  }
+
+  .nav__back {
+    font-size: 16px;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+
+  .pricing-card {
+    padding: 24px 20px 20px;
+  }
+
+  .pricing-card::before {
+    left: 20px;
+    right: 20px;
+  }
+
+  .pricing-card__price {
+    font-size: 24px;
+  }
+
+  .btn-cta {
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+
+  .btn-outline {
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+
+  .footer__content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .btn-cta {
+    font-size: 10px;
+    padding: 8px 12px;
+    gap: 5px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Ambient blobs -->
+<div class="ambient-blob ambient-blob--1" aria-hidden="true"></div>
+<div class="ambient-blob ambient-blob--2" aria-hidden="true"></div>
+
+<!-- Navigation -->
+<nav class="nav" aria-label="Main navigation">
+  <div class="nav__left">
+    <a class="nav__back" href="/">WebRefurb</a>
+    <div class="lang-toggle">
+      <a href="/pricing.html" class="active">English</a>
+      <span class="lang-toggle__sep">|</span>
+      <a href="/ja/pricing.html">日本語</a>
+    </div>
+  </div>
+  <div class="nav__right">
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+      <svg class="icon-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <a class="btn-cta" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20sample&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20sample%20English%20menu.%0A%0ARestaurant%20name%3A%20%0ALocation%3A%20%0A%0AThanks%2C">
+      Request a free sample
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+
+  <!-- Pricing Section -->
+  <section class="pricing-section" aria-label="Pricing">
+    <div class="pricing-section__header">
+      <h1 class="pricing-section__title">Pricing</h1>
+      <p class="pricing-section__sub">Simple packages for English menus and ordering support.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card pricing-card--online">
+        <span class="pricing-card__name">Online Delivery</span>
+        <span class="pricing-card__price">&#165;30,000</span>
+        <p class="pricing-card__desc">Print-ready English menu files delivered online.</p>
+      </div>
+      <div class="pricing-card pricing-card--printed">
+        <span class="pricing-card__name">Printed and Delivered</span>
+        <span class="pricing-card__price">&#165;45,000</span>
+        <p class="pricing-card__desc">Printed and laminated menus delivered directly to your restaurant, sized compactly for your menu and shop.</p>
+      </div>
+      <div class="pricing-card pricing-card--qr">
+        <span class="pricing-card__name">QR Menu System</span>
+        <span class="pricing-card__price">&#165;65,000</span>
+        <p class="pricing-card__desc">A hosted English menu page with item descriptions, photos if provided, ingredients when confirmed by the restaurant, QR code, and "Scan for English Menu" sign.</p>
+      </div>
+    </div>
+    <p class="pricing-section__note">Larger menus, extra pages, additional copies, or combined packages can be quoted separately.</p>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" aria-label="Footer">
+    <div class="footer__line"></div>
+    <div class="footer__content">
+      <p class="footer__copy">&copy; 2026 WebRefurb. All rights reserved.</p>
+      <div class="footer__links">
+        <a class="footer__link" href="mailto:chris@webrefurb.com">chris@webrefurb.com</a>
+      </div>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+(function() {
+  var html = document.documentElement;
+  html.setAttribute('data-theme', 'light');
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    var current = html.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+  });
+})();
+</script>
+
+</body>
+</html>
