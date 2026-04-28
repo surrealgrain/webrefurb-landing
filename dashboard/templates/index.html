@@ -456,15 +456,6 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Kobe">Kobe</option>
         <option value="Nagoya">Nagoya</option>
       </select>
-      <select class="search-select" id="sidebar-route" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
-        <option value="all">All Contact Routes</option>
-        <option value="email">Email</option>
-        <option value="contact_form">Contact Form</option>
-        <option value="line">LINE</option>
-        <option value="instagram">Instagram</option>
-        <option value="phone">Phone</option>
-        <option value="walk_in">Walk-in</option>
-      </select>
       <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search</button>
     </div>
   </div>
@@ -830,11 +821,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <!-- Delete Lead Dialog -->
 <dialog id="delete-lead-dialog" class="compact-dialog">
   <div style="padding:24px;">
-    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Delete lead?</h3>
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Clear lead?</h3>
     <p id="delete-lead-text" style="font-size:14px;color:#666;margin-bottom:20px;line-height:1.5;"></p>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="closeDeleteLeadDialog()">Cancel</button>
-      <button class="btn btn-danger" id="delete-lead-confirm-btn" onclick="executeDeleteLead()">Delete</button>
+      <button class="btn btn-danger" id="delete-lead-confirm-btn" onclick="executeDeleteLead()">Clear</button>
     </div>
   </div>
 </dialog>
@@ -857,6 +848,7 @@ let pendingDeleteLead = null;
 let replyCountsSeen = false;
 let lastReplyUnreadTotal = 0;
 let currentContactAction = 'send_email';
+const DISMISSED_LEADS_STORAGE_KEY = 'webrefurbmenu.dismissedLeadIds';
 const ESTABLISHMENT_PROFILE_LABELS = {
   unknown: 'Manual Review',
   ramen_only: 'Ramen Only',
@@ -1288,7 +1280,8 @@ async function runSearch() {
 function filterLeads() {
   const category = document.getElementById('sidebar-category').value;
   const city = document.getElementById('sidebar-city').value;
-  const route = document.getElementById('sidebar-route').value;
+  const routeSelect = document.getElementById('sidebar-route');
+  const route = routeSelect ? routeSelect.value : 'all';
 
   const cards = document.querySelectorAll('.lead-card');
   if (category === 'all' && city === 'all' && route === 'all') {
@@ -1313,6 +1306,43 @@ function renderEmptyLeadsState() {
     '</div>';
 }
 
+function loadDismissedLeadIds() {
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_LEADS_STORAGE_KEY);
+    if (!raw) return [];
+    const ids = JSON.parse(raw);
+    return Array.isArray(ids) ? ids.filter(id => typeof id === 'string' && id.trim()) : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveDismissedLeadIds(ids) {
+  window.localStorage.setItem(DISMISSED_LEADS_STORAGE_KEY, JSON.stringify(Array.from(new Set(ids))));
+}
+
+function clearLeadCard(card) {
+  if (card && card.parentNode) {
+    card.remove();
+  }
+  const count = updateLeadsCount();
+  if (count === 0) {
+    const list = document.getElementById('lead-list');
+    if (list) list.outerHTML = renderEmptyLeadsState();
+  }
+}
+
+function applyDismissedLeadCards() {
+  const dismissed = new Set(loadDismissedLeadIds());
+  if (dismissed.size === 0) return;
+  document.querySelectorAll('#lead-list .lead-card').forEach(card => {
+    const leadId = card.dataset.leadId || '';
+    if (dismissed.has(leadId)) {
+      clearLeadCard(card);
+    }
+  });
+}
+
 function updateLeadsCount() {
   const count = document.querySelectorAll('#lead-list .lead-card').length;
   const badge = document.getElementById('leads-count');
@@ -1329,9 +1359,9 @@ function openDeleteLead(leadId, btn) {
     card: card,
   };
   document.getElementById('delete-lead-text').textContent =
-    'Delete ' + pendingDeleteLead.name + ' from Leads? This removes it from the local queue immediately.';
+    'Clear ' + pendingDeleteLead.name + ' from this dashboard? This only hides it in this browser.';
   document.getElementById('delete-lead-confirm-btn').disabled = false;
-  document.getElementById('delete-lead-confirm-btn').textContent = 'Delete';
+  document.getElementById('delete-lead-confirm-btn').textContent = 'Clear';
   document.getElementById('delete-lead-dialog').showModal();
 }
 
@@ -1345,30 +1375,19 @@ async function executeDeleteLead() {
   const { id, name, card } = pendingDeleteLead;
   const btn = document.getElementById('delete-lead-confirm-btn');
   btn.disabled = true;
-  btn.textContent = 'Deleting...';
+  btn.textContent = 'Clearing...';
 
   try {
-    const res = await fetch('/api/leads/' + encodeURIComponent(id), { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok && res.status !== 404) throw new Error(data.detail || 'Delete failed');
-
-    if (card && card.parentNode) {
-      card.remove();
-    }
-    const count = updateLeadsCount();
-    if (count === 0) {
-      const list = document.getElementById('lead-list');
-      if (list) list.outerHTML = renderEmptyLeadsState();
-    }
+    const dismissed = loadDismissedLeadIds();
+    dismissed.push(id);
+    saveDismissedLeadIds(dismissed);
+    clearLeadCard(card);
     closeDeleteLeadDialog();
-    showToast(
-      res.status === 404 ? name + ' was already removed; clearing stale card' : name + ' deleted from Leads',
-      res.status === 404 ? 'info' : 'success'
-    );
+    showToast(name + ' cleared from this dashboard', 'success');
   } catch (err) {
-    showToast('Delete failed: ' + err.message, 'error');
+    showToast('Clear failed: ' + err.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Delete';
+    btn.textContent = 'Clear';
   }
 }
 
@@ -2945,6 +2964,7 @@ async function toggleDNC(leadId, btn) {
 
 // Init
 restoreSearchActivity();
+applyDismissedLeadCards();
 loadSentEmails();
 loadReplyCounts();
 setInterval(loadReplyCounts, 45000);

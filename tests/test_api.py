@@ -1506,7 +1506,7 @@ class TestStatusPersistence:
     def test_build_preview_survives_memory_reset(self):
         output_dir = self.tmp_path / "builds" / "job123"
         output_dir.mkdir(parents=True)
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text("<html>preview</html>", encoding="utf-8")
         (self.tmp_path / "jobs" / "job123.json").write_text(
             json.dumps({"job_id": "job123", "status": "completed", "output_dir": str(output_dir)}),
             encoding="utf-8",
@@ -1519,7 +1519,7 @@ class TestStatusPersistence:
     def test_build_preview_allows_ready_for_review(self):
         output_dir = self.tmp_path / "builds" / "job123"
         output_dir.mkdir(parents=True)
-        (output_dir / "restaurant_menu_print_master.html").write_text("<html>preview</html>", encoding="utf-8")
+        (output_dir / "food_menu.html").write_text("<html>preview</html>", encoding="utf-8")
         (self.tmp_path / "jobs" / "job123.json").write_text(
             json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
             encoding="utf-8",

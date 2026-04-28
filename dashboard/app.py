@@ -1538,9 +1538,9 @@ async def api_build_preview(job_id: str):
         raise HTTPException(status_code=404, detail="Preview not available")
 
     output_dir = Path(job.get("output_dir", ""))
-    preview_path = output_dir / "restaurant_menu_print_master.html"
+    preview_path = output_dir / "food_menu.html"
     if not preview_path.exists():
-        preview_path = output_dir / "food_menu_browser_preview.html"
+        preview_path = output_dir / "drinks_menu.html"
     if not preview_path.exists():
         raise HTTPException(status_code=404, detail="Preview file not found")
 
