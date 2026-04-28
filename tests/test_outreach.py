@@ -175,7 +175,7 @@ class TestBuildOutreachEmail:
             classification="menu_only",
             establishment_profile="ramen_only",
         )
-        assert "ラーメンの種類やトッピング" in email["body"]
+        assert "ラーメンの種類・トッピング・セットメニュー" in email["body"]
         assert "券売機" not in email["body"]
         assert email["include_menu_image"] is True
         assert email["include_machine_image"] is False
@@ -185,7 +185,7 @@ class TestBuildOutreachEmail:
             business_name="テスト",
             classification="menu_and_machine",
         )
-        assert "ラーメンの種類やトッピング" in email["body"]
+        assert "ラーメンの種類・トッピング・セットメニュー" in email["body"]
         assert "券売機" in email["body"]
         assert "メニューと券売機ガイド" in email["body"]
         assert email["include_menu_image"] is True
@@ -197,7 +197,8 @@ class TestBuildOutreachEmail:
             classification="menu_only",
             establishment_profile="izakaya_food_and_drinks",
         )
-        assert "お料理やドリンクの内容" in email["body"]
+        assert "料理やドリンクの内容" in email["body"]
+        assert "コースや飲み放題" in email["body"]
         assert "スタッフの方が個別にご説明する手間" in email["body"]
         assert "券売機" not in email["body"]
 

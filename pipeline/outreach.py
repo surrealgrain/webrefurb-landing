@@ -62,12 +62,12 @@ _SITUATIONS = {
         "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
         "intro_en": "My name is Chris, and I create English menus for restaurants.",
         "focus_ja": (
-            "海外からのお客様にも、ラーメンの種類やトッピングが伝わる英語メニューをお作りしております。\n"
-            "英語メニューがあれば、お客様ご自身でメニュー内容をご確認いただけるようになります。"
+            "海外からのお客様にも、ラーメンの種類・トッピング・セットメニューが伝わる英語メニューをお作りしております。\n"
+            "英語メニューがあれば、混雑時でもお客様ご自身で内容をご確認・ご注文いただけるため、スタッフのご負担も減ります。"
         ),
         "focus_en": (
-            "I create English menus that convey ramen types and toppings to overseas customers.\n"
-            "With an English menu, customers can check the menu contents themselves."
+            "I create English menus that clearly convey ramen types, toppings, and set menus to overseas customers.\n"
+            "With an English menu, customers can check the menu and order on their own even during busy hours, reducing the burden on your staff."
         ),
         "sample_ja": (
             "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
@@ -84,12 +84,12 @@ _SITUATIONS = {
         "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
         "intro_en": "My name is Chris, and I create English menus for restaurants.",
         "focus_ja": (
-            "海外からのお客様にも、ラーメンの種類やトッピングが伝わる英語メニューに加え、券売機の英語ガイドもお作りしております。\n"
-            "メニューと券売機ガイドがあれば、お客様ご自身でメニューの確認からご注文まで迷わず行えるようになります。"
+            "海外からのお客様にも、ラーメンの種類・トッピング・セットメニューが伝わる英語メニューと、券売機の操作ガイドをお作りしております。\n"
+            "メニューと券売機ガイドが揃えば、混雑時でもお客様が迷わずご注文いただけるようになります。"
         ),
         "focus_en": (
-            "I create English menus that convey ramen types and toppings, as well as English ticket machine guides.\n"
-            "With a menu and machine guide, customers can go from checking the menu to ordering without hesitation."
+            "I create English menus that clearly convey ramen types, toppings, and set menus, plus English ticket machine guides.\n"
+            "With both a menu and machine guide, customers can order without hesitation even during peak hours."
         ),
         "sample_ja": (
             "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
@@ -106,12 +106,12 @@ _SITUATIONS = {
         "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
         "intro_en": "My name is Chris, and I create English menus for restaurants.",
         "focus_ja": (
-            "海外からのお客様にも、お料理やドリンクの内容が伝わる英語メニューをお作りしております。\n"
-            "英語メニューがあれば、お客様ご自身でメニュー内容をご確認いただけるため、スタッフの方が個別にご説明する手間も省けます。"
+            "海外からのお客様にも、料理やドリンクの内容、コースや飲み放題のルールが伝わる英語メニューをお作りしております。\n"
+            "食材の英語表記もありますので、アレルギーや苦手な食材の確認もお客様ご自身でできます。スタッフの方が個別にご説明する手間も省けます。"
         ),
         "focus_en": (
-            "I create English menus that convey food and drink details to overseas customers.\n"
-            "With an English menu, customers can check the menu themselves, saving staff the effort of explaining individually."
+            "I create English menus that clearly convey food and drink details, course options, and nomihodai rules to overseas customers.\n"
+            "Ingredient labels in English help customers check for allergies and preferences on their own, reducing the time staff spend explaining individually."
         ),
         "sample_ja": (
             "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
@@ -129,11 +129,11 @@ _SITUATIONS = {
         "intro_en": "My name is Chris, and I create English menus and ordering guides for restaurants.",
         "focus_ja": (
             "海外からのお客様にも券売機の操作が分かるよう、英語の注文ガイドをお作りしております。\n"
-            "注文ガイドがあれば、お客様ご自身で券売機からご注文いただけるようになります。"
+            "注文ガイドがあれば、混雑時でもお客様ご自身で券売機からご注文いただけるようになります。"
         ),
         "focus_en": (
             "I create English ordering guides that help overseas customers understand ticket machine operations.\n"
-            "With an ordering guide, customers can order from the ticket machine themselves."
+            "With an ordering guide, customers can order from the ticket machine themselves, even during busy hours."
         ),
         "sample_ja": (
             "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"

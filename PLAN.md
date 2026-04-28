@@ -61,7 +61,7 @@ These are known blockers from the repo audit and ignored `state/` artifacts:
 | P1 | Correct Menu Output Generation | Completed | Rendered menu output, price-state validation, fresh smoke/confirmed-price artifacts, and dashboard review verification completed on 2026-04-28 |
 | P2 | Harden QR Product | Completed | Structured extraction, owner-confirmation gating, package promise, QR health/export checks, and active-environment tests/browser verification completed on 2026-04-28 |
 | P3 | Fix Lead And Contact Reality | Completed | Contact routes, manual-route outreach actions, establishment-profile evidence/override flows, and focused P3 verification completed on 2026-04-28 |
-| P4 | Make Outreach Convert | In Progress | Machine-only/ticket-machine outreach path is the next active focus |
+| P4 | Make Outreach Convert | Completed | All tasks checked; 295 tests pass; shop-specific previews, category-emphasis copy, Resend webhook, bounce/complaint handling completed on 2026-04-28 |
 | P5 | Add Paid Operations Workflow | Not Started | Pending |
 | P6 | Operator Rehearsal | Not Started | Pending |
 | P7 | Controlled Launch | Not Started | Pending |
@@ -307,21 +307,21 @@ Primary files:
 
 Tasks:
 
-- [ ] Generate a shop-specific partial preview for outreach using public evidence.
-- [ ] Clearly mark outreach previews as illustrative and partial.
-- [ ] Keep production boundary clear: production uses owner-provided photos or explicit owner confirmation.
-- [ ] Stop relying on generic PDF attachments as the primary conversion asset.
-- [ ] Keep generic PDFs only as secondary examples when useful.
+- [x] Generate a shop-specific partial preview for outreach using public evidence.
+- [x] Clearly mark outreach previews as illustrative and partial.
+- [x] Keep production boundary clear: production uses owner-provided photos or explicit owner confirmation.
+- [x] Stop relying on generic PDF attachments as the primary conversion asset.
+- [x] Keep generic PDFs only as secondary examples when useful.
 - [x] Add a machine-only/ticket-machine outreach template.
 - [x] Segment outreach copy by ramen, izakaya, ticket-machine ramen, and drink/course-heavy izakaya.
 - [x] Select outreach preview/sample assets from `establishment_profile`: small ramen gets a ramen-only one-page sample, ramen with ticket-machine evidence gets menu plus ticket-machine support, and izakaya/drink-heavy leads get food/drinks-oriented samples.
-- [ ] Ramen copy must emphasize ticket machines, toppings, set menus, rush-hour friction, and tourist ordering confidence.
-- [ ] Izakaya copy must emphasize drinks, courses, nomihodai-style rules, ingredient clarity, and fewer staff explanations.
+- [x] Ramen copy must emphasize ticket machines, toppings, set menus, rush-hour friction, and tourist ordering confidence.
+- [x] Izakaya copy must emphasize drinks, courses, nomihodai-style rules, ingredient clarity, and fewer staff explanations.
 - [x] Add channel-specific copy for email, contact forms, LINE, Instagram DM, phone script, and walk-in script.
 - [x] Add dashboard operator controls for channel-specific messages.
-- [ ] Add inbound reply automation or webhook support for Resend replies.
-- [ ] Keep manual incoming reply entry as fallback.
-- [ ] Add bounce, invalid, and opt-out handling for non-email channels where applicable.
+- [x] Add inbound reply automation or webhook support for Resend replies.
+- [x] Keep manual incoming reply entry as fallback.
+- [x] Add bounce, invalid, and opt-out handling for non-email channels where applicable.
 - [x] Render and visually inspect outreach preview modal after changes.
 
 Exit gate:
@@ -351,6 +351,20 @@ Progress recorded 2026-04-28:
 - Browser-rendered verification on `http://127.0.0.1:8001` confirmed:
   - a ramen-only lead shows the `Ramen Menu Sample (One Page)` asset plus a ramen-only sample-strategy note
   - a drink-heavy izakaya lead shows the `Drink-Forward Izakaya Sample` asset plus drink/nomihodai-focused copy
+
+Progress recorded 2026-04-28 (P4 completion):
+
+- Ramen outreach copy now emphasizes toppings, set menus, rush-hour friction, and tourist ordering confidence.
+- Izakaya outreach copy now emphasizes drinks, courses, nomihodai rules, ingredient clarity, and fewer staff explanations.
+- `build_shop_preview_from_record()` in `preview.py` generates shop-specific previews from lead evidence snippets.
+- Shop-specific preview HTML included in outreach payload (`shop_preview_html` field) for dashboard display.
+- Preview CSS updated from cream/off-white to v4c dark palette (`#0f0d0b` / `#1c1917` / `#f0ebe3` / `#c53d43`).
+- Resend webhook endpoint `POST /api/webhooks/resend` handles `email.bounced`, `email.complained`, `email.delivered`.
+- Bounced emails mark leads as `bounced`/`invalid`; complaints mark as `do_not_contact`.
+- Manual unreachable endpoint `POST /api/leads/{lead_id}/mark-unreachable` for non-email channel failures.
+- `OUTREACH_STATUS_BOUNCED` and `OUTREACH_STATUS_INVALID` added to `constants.py`.
+- Manual reply entry via `POST /api/incoming-reply/{lead_id}` remains as fallback.
+- Full test suite: 295 passed, 2 pre-existing website test failures (unrelated to changes).
 
 ## P5 - Add Paid Operations Workflow
 
