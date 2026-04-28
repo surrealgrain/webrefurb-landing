@@ -1,6 +1,6 @@
 # WebRefurbMenu Handoff
 
-Updated: 2026-04-28
+Updated: 2026-04-28 (GLM)
 
 ## Current State
 
@@ -8,118 +8,59 @@ Updated: 2026-04-28
 - Active execution plan: `PLAN.md`
 - Active phase: `P4 - Make Outreach Convert`
 - Phase status: in progress
-- Working tree is dirty (uncommitted changes from this session)
-- `P1` is complete and recorded in `PLAN.md`.
-- `P2` is complete and recorded in `PLAN.md`.
-- `P3` is complete and recorded in `PLAN.md`.
-- Current focus: outreach template rewrite, reply translation, Japanese website copy audit, v4c menu design
+- Working tree: **clean** (all changes committed)
+- `P1` through `P3` complete and recorded in `PLAN.md`.
+- Current focus: v4c dark template migration (COMPLETE), full system audit needed, then continue P4
 
-## Completed This Session
+## GLM Session — v4c Pipeline Migration
 
-### 1. Menu Design v4c — COMPLETE
-All templates redesigned to dark izakaya style. See `MENU_DESIGN_V4_HANDOFF.md` for full details.
-- Palette: `#0f0d0b` bg, `#1c1917` surface, `#f0ebe3` text, `#c53d43` accent
-- Fonts: Outfit (English), Shippori Mincho (kanji)
-- Templates: izakaya food, izakaya drinks, ramen food, ramen drinks, ticket machine guide, QR code sign
+### What was done
+Migrated the entire production pipeline from old cream SVG templates to v4c dark HTML templates. 10 files changed, 673 insertions, 722 deletions. Commit: `8cd0885`.
 
-### 2. Outreach Template Rewrite — COMPLETE
-- **Old**: 8 per-profile email body variants in `email_templates.py`
-- **New**: 5 situation-based templates in `outreach.py` keyed on physical ordering problem:
-  - `ramen_menu` — ramen shop with paper menu
-  - `ramen_menu_and_machine` — ramen shop with both menu and ticket machine
-  - `izakaya_menu` — izakaya with paper menu
-  - `machine_only` — shop with ticket machine only
-  - `unknown` — generic fallback
-- Profile still determines which sample PDF gets attached
-- `email_templates.py` stripped to: subjects + LINE short-form templates + contact form body
-- `build_outreach_email()` in `outreach.py` assembles from shared structure + situation parts
-- All outreach copy passed 5-pass Japanese verification
-
-### 3. Reply Translation System — COMPLETE
-- **`pipeline/translate_reply.py`** — LLM-powered English→Japanese translation for operator replies
-  - `translate_reply(english_text, business_name=None, model="google/gemini-2.0-flash-001")`
-  - System prompt encodes 5-pass verification rules (grammar, naturalness, politeness, tone, formatting)
-  - Uses OpenRouter API via `pipeline/llm_client.py`
-- **`dashboard/app.py`** — `POST /api/translate-reply` endpoint
-- **`dashboard/templates/index.html`** — "Translate to Japanese" button in reply compose area
-
-### 4. Japanese Website Copy Audit — COMPLETE
-All Japanese copy on `docs/ja/` verified and corrected for natural language.
-
-**index.html fixes (7):**
-- 「接客や注文時の負担を減らす」→「海外からのお客様へのご説明の手間を減らし、お客様ご自身でメニュー内容をご確認いただけるようにします」
-- 「スムーズな注文導線」→「スムーズな注文の流れ」(導線 is UX jargon)
-- Rewrote insight about ordering confusion — warmer tone, confident phrasing
-- 「一般的な翻訳サービスではありません」→「単なる翻訳サービスではありません」
-- 「3つの固定料金パッケージです」→「3つの料金プランをご用意しています」
-- 「印刷用の英語メニューデータをオンラインで納品します」→「印刷用データをオンラインでお届けします」
-- 「別途お見積りできます」→「別途ご相談に応じます」(fixed 謙譲語 mismatch)
-
-**pricing.html fixes (6):**
-- 「内容量」→「メニューの内容」(内容量 = net weight, wrong compound)
-- 「ホスティング」→「Web掲載」(tech jargon restaurant owners won't know)
-- Simplified dense QR description
-- 「軽微修正」→「軽微な修正」(missing particle)
-- 「書き出しデータ引き渡し後の公開終了を選べます」→「データをお渡ししての公開終了をお選びいただけます」
-- 「別途お見積もりとなります」→「別途お見積もりいたします」(謙譲語 for speaker's action)
-
-### 5. QR Code Sign Template — COMPLETE
-- `assets/templates/qr_code_sign.html` — A6 (105mm × 148mm) table/counter sign
-- English-only (no kanji except seal stamp) — audience is tourists
-- "Scan for English Menu" headline, camera icon hint, QR placeholder
-
-## Test Results (Last Run)
-
-- 295 passed, 2 pre-existing website test failures (unrelated to changes)
-
-## Files Changed This Session
+### Files changed and what they do
 
 | File | Change |
 |---|---|
-| `pipeline/outreach.py` | Rewritten — situation-based templates |
-| `pipeline/email_templates.py` | Stripped to subjects + LINE + contact form |
-| `pipeline/translate_reply.py` | New — LLM reply translation |
-| `dashboard/app.py` | Added translate-reply endpoint |
-| `dashboard/templates/index.html` | Translate button in replies area |
-| `assets/templates/qr_code_sign.html` | New — A6 QR sign |
-| `assets/templates/*.html` | All menu templates replaced with v4c dark designs |
-| `docs/ja/index.html` | Japanese copy corrections (7 edits) |
-| `docs/ja/pricing.html` | Japanese copy corrections (6 edits) |
-| `tests/test_outreach.py` | Rewritten for situation-based approach |
-| `tests/test_api.py` | Updated assertions for new template labels |
-| `MENU_DESIGN_V4_HANDOFF.md` | Updated with QR sign + design decisions |
+| `pipeline/constants.py` | Template paths now point to `assets/templates/*.html` instead of old SVG/cream paths |
+| `pipeline/render.py` | Added v3 regex for v4c HTML sections (`<div class="section-header"><span class="section-title">`), added `_build_v4c_items_html()` for bilingual item rendering, added `_replace_panel_title()` |
+| `pipeline/populate.py` | Added `populate_menu_html()` — handles food/drinks split, flat sections, drinks-panel removal, seal text replacement |
+| `pipeline/export.py` | `build_custom_package()` now selects ramen vs izakaya template based on `menu_type`, generates A5 PDFs via `html_to_pdf()` with `device_scale_factor=2` and `prefer_css_page_size=True`. Removed SVG pipeline functions kept only for backward compat. |
+| `pipeline/package_export.py` | Added `_html_text_report()` (parses v4c HTML for validation), `TEMPLATE_PLACEHOLDER_ITEMS` (loaded from 4 v4c templates at module init), fixed `_write_package2_print_pack()` to use `food_menu.html` not old `food_menu_browser_preview.html` |
+| `pipeline/email_templates.py` | Removed "WebRefurbの" from contact form body |
+| `pipeline/outreach.py` | Removed "from WebRefurb" from English contact form body |
+| `dashboard/app.py` | Email send flow: v4c template selection by profile (ramen/izakaya), CID inline JPEGs only (no PDF attachments), removed WEBREFURB from test email body |
+| `tests/test_api.py` | Updated 3 tests for v4c file structure |
+| `tests/test_custom_build.py` | Rewrote `_write_package_output` helper, added `_write_validation_output` helper, converted all SVG tests to HTML, fixed mock signatures for new kwargs |
 
-## Uncommitted Changes in Working Tree
+### Test results
+- **295 passed, 2 pre-existing website failures** (pricing.html link + pricing content — unrelated to v4c)
+- All pipeline, API, and custom build tests pass
 
-- `MENU_DESIGN_V4_HANDOFF.md` — staged edits
-- `assets/templates/v4c_food_mockup.html` — deleted
-- All files listed above in "Files Changed This Session" are uncommitted
+### Key design decisions
+- v4c HTML templates use `data-section` attributes to match sections (e.g. `data-section="ramen"`, `data-section="sides-add-ons"`)
+- `_replace_section()` tries v3 (v4c HTML) first, then v2, then v1 — backward compatible
+- `device_scale_factor=2` for print quality; viewport `495x700`; A5 from CSS `@page { size: 148mm 210mm }`
+- Email sends CID inline JPEGs only — no file attachments (user feedback: "attachment screams scam")
+- WEBREFURB removed from all email body text (headers/footers sufficient)
 
-## Key Architecture Notes
-
-- **Translation 5-pass system** saved as memory reference (`translation_verification.md`)
-- **FROM name**: always `Chris（クリス）` — never plain "Chris" (see memory: `from_name_japanese.md`)
-- **Outreach situations**: 5 types, not 8 profiles — see `_SITUATIONS` dict in `outreach.py`
-- **Seal stamp**: auto-sizes via `data-length`, name from `locked_business_name` only
-- **v4c design tokens**: `#0f0d0b` / `#1c1917` / `#f0ebe3` / `#c53d43`
-
-## Pending / Next Steps
-
-1. **Commit** — all changes from this session are uncommitted
-2. **Pipeline renderer regex update** — `_replace_section()` in `render.py` still expects v1/v2 HTML structure. v4c templates use different section markup. Known gap that will break automated PDF generation.
-3. **Seal checksum verification** — SHA256 of `locked_business_name` at render/send time (see memory: `seal_name_checksum.md`)
-4. **Template auto-selection** — pipeline should auto-select template based on `establishment_profile`
-5. **Preview.py CSS** — still uses old cream/off-white palette, not v4c dark style
-6. **Consider izakaya section reordering** — for pure izakaya, Small Plates should lead instead of Ramen
-7. **Continue P4** — generate more shop-specific outreach previews, reduce reliance on generic PDF attachments
+### Known gaps / things to check in audit
+1. `_normalise_build_package()` in `package_export.py` does NOT recognize Package 3 key `package_3_qr_menu_65k` — will fail on Package 3 builds
+2. `TEMPLATE_PLACEHOLDER_ITEMS` loaded at module init from template files — if templates missing, set is empty (silent failure)
+3. Outreach sample PDFs in `state/builds/` still reference old cream designs — need regeneration
+4. `_svg_text_report()`, `_allowed_static_svg_text()`, SVG populate functions in `populate.py` may be dead code now
+5. `_ensure_menu_jpeg()` / `_ensure_machine_jpeg()` in dashboard may cache stale JPEGs from old templates — cache invalidation needed
+6. No test coverage for izakaya template population (all tests use ramen templates)
+7. Preview endpoint in `dashboard/app.py` may still look for old file names like `restaurant_menu_print_master.html`
+8. 2 website tests fail: `test_homepage_titles_and_language_links` expects `href="/pricing.html"` not found, `test_homepages_include_pricing_content` expects `30,000円` not found in Japanese page
 
 ## Previous Session History
 
 - P0 complete, P1 complete, P2 complete, P3 complete
-- Business name hardening: `locked_business_name` is authoritative, two-source verification
-- Contact routes: email, LINE, Instagram, phone, walk-in, contact form, map URL
-- Profile-aware outreach with sample-strategy labels in dashboard
-- QR hardening: needs-extraction state, owner confirmation, Package 3 promise
+- Outreach rewrite: 5 situation-based templates replacing 8 per-profile variants
+- Reply translation system with 5-pass Japanese verification
+- QR code sign template (A6)
+- Japanese website copy audit (13 fixes across index.html + pricing.html)
+- Business name hardening, contact routes, QR hardening
 - See git log for full history
 
 ## Execution Freeze
