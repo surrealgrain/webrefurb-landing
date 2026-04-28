@@ -34,7 +34,7 @@ def main() -> None:
     # render
     render_cmd = sub.add_parser("render", help="Render menu HTML from template + JSON")
     render_cmd.add_argument("--content", default=None, help="Path to menu_content.json")
-    render_cmd.add_argument("--template", default=None, help="Path to master_menu.html")
+    render_cmd.add_argument("--template", default=None, help="Path to template HTML")
     render_cmd.add_argument("--output", default=None, help="Output HTML path (default: stdout)")
 
     # outreach

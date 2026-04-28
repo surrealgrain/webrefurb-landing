@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    TEMPLATE: master-menu v4c
+    STATUS: MOCKUP — food panel only
+    STYLE: izakaya — dark warm surface, light text, kanji prominent, red vermillion accent
+  -->
+  <title>Menu v4c — Izakaya Style</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Shippori+Mincho:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* Dark warm palette — aged wood / charcoal paper */
+      --color-bg: #0f0d0b;
+      --color-surface: #1c1917;
+      --color-text: #f0ebe3;
+      --color-text-secondary: rgba(240, 235, 227, 0.5);
+      --color-kanji: rgba(240, 235, 227, 0.55);
+      --color-rule: rgba(240, 235, 227, 0.1);
+      --color-rule-strong: rgba(240, 235, 227, 0.2);
+      --color-accent: #c53d43;
+
+      /* Fonts */
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Outfit', sans-serif;
+      --font-kanji: 'Shippori Mincho', serif;
+
+      /* Typography */
+      --title-size: 24px;
+      --title-weight: 600;
+      --title-spacing: 8px;
+      --section-title-size: 13px;
+      --section-title-weight: 600;
+      --section-title-spacing: 4px;
+      --body-size: 14px;
+      --body-weight: 400;
+      --body-spacing: 0.3px;
+      --body-leading: 1.7;
+      --kanji-size: 12px;
+      --kanji-weight: 400;
+
+      /* Spacing */
+      --panel-pad: 24px 32px 28px;
+      --grid-gap: 16px;
+      --section-pad: 0;
+      --section-gap: 10px;
+      --item-pad: 4px 0;
+
+      --max-width: 520px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: var(--color-bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ═══════════════════════════════════════════
+       WRAPPER — dark washi surface
+       ═══════════════════════════════════════════ */
+    .menu-wrapper {
+      max-width: var(--max-width);
+      width: 100%;
+      background-color: var(--color-surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Film grain texture */
+    .menu-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.12;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    /* Subtle warm glow from top */
+    .menu-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(200, 160, 100, 0.06) 0%, transparent 60%);
+    }
+
+    .menu-panel {
+      padding: var(--panel-pad);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       HEADER — title + red seal mark
+       ═══════════════════════════════════════════ */
+    .panel-header {
+      text-align: center;
+      padding-bottom: 22px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--color-rule);
+    }
+
+    .menu-title {
+      font-family: var(--font-heading);
+      font-size: var(--title-size);
+      font-weight: var(--title-weight);
+      color: var(--color-text);
+      letter-spacing: var(--title-spacing);
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    /* Hanko seal — auto-sizing red stamp */
+    .seal-mark {
+      display: flex;
+      justify-content: center;
+      padding-bottom: 14px;
+    }
+
+    .seal-stamp {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.8px solid var(--color-accent);
+      border-radius: 2px;
+      padding: 6px 10px;
+      opacity: 0.65;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .seal-stamp[data-length="1"] { padding: 8px 10px; font-size: 16px; }
+    .seal-stamp[data-length="2"] { padding: 7px 10px; font-size: 14px; }
+    .seal-stamp[data-length="3"] { padding: 6px 10px; font-size: 12px; }
+    .seal-stamp[data-length="4"] { padding: 6px 9px; font-size: 11px; }
+    .seal-stamp[data-length="5"] { padding: 5px 8px; font-size: 10px; }
+    .seal-stamp[data-length="6"] { padding: 5px 8px; font-size: 9.5px; }
+
+    .seal-text {
+      font-family: var(--font-kanji);
+      font-weight: 700;
+      color: var(--color-accent);
+      letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════
+       SECTIONS — clean vertical stack
+       ═══════════════════════════════════════════ */
+    .sections-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      flex: 1;
+    }
+
+    .section {
+      padding: var(--section-pad);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 0 8px;
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: var(--section-title-size);
+      font-weight: var(--section-title-weight);
+      color: var(--color-accent);
+      text-transform: uppercase;
+      letter-spacing: var(--section-title-spacing);
+      line-height: 1;
+    }
+
+    .section-kanji {
+      font-family: var(--font-kanji);
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--color-kanji);
+      margin-left: auto;
+    }
+
+    /* Thin divider after each section */
+    .section + .section {
+      border-top: 1px solid var(--color-rule);
+    }
+
+    /* ═══════════════════════════════════════════
+       MENU ITEMS — bilingual rows
+       ═══════════════════════════════════════════ */
+    .menu-items {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .menu-items li {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: var(--item-pad);
+      line-height: var(--body-leading);
+    }
+
+    .item-en {
+      font-family: var(--font-body);
+      font-size: var(--body-size);
+      font-weight: var(--body-weight);
+      color: var(--color-text);
+      letter-spacing: var(--body-spacing);
+    }
+
+    .item-jp {
+      font-family: var(--font-kanji);
+      font-size: var(--kanji-size);
+      font-weight: var(--kanji-weight);
+      color: var(--color-kanji);
+      white-space: nowrap;
+      margin-left: 16px;
+      flex-shrink: 0;
+    }
+
+    @media print {
+      @page { size: 148mm 210mm; margin: 0; }
+      body { padding: 0; min-height: auto; background: none; }
+      .menu-wrapper { max-width: none; width: 100%; height: 100vh; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="menu-wrapper">
+  <div class="menu-panel" id="food-panel">
+
+    <div class="panel-header">
+      <div class="seal-mark" aria-hidden="true">
+        <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">博多らーめん亭</span></span>
+      </div>
+      <h1 class="menu-title" data-slot="panel-title">Food Menu</h1>
+    </div>
+
+    <div class="sections-stack">
+
+      <div class="section" data-section="ramen">
+        <div class="section-header">
+          <span class="section-title" data-slot="section-title">Ramen</span>
+          <span class="section-kanji">ラーメン</span>
+        </div>
+        <ul class="menu-items" data-slot="section-items">
+          <li data-slot="item"><span class="item-en">Soy Sauce Ramen</span><span class="item-jp">醤油ラーメン</span></li>
+          <li data-slot="item"><span class="item-en">Miso Ramen</span><span class="item-jp">味噌ラーメン</span></li>
+          <li data-slot="item"><span class="item-en">Spicy Pork Bone Ramen</span><span class="item-jp">辛味豚骨ラーメン</span></li>
+          <li data-slot="item"><span class="item-en">Vegetable Ramen</span><span class="item-jp">野菜ラーメン</span></li>
+          <li data-slot="item"><span class="item-en">Creamy Chicken Broth Ramen</span><span class="item-jp">鶏白湯ラーメン</span></li>
+          <li data-slot="item"><span class="item-en">Salt Ramen</span><span class="item-jp">塩ラーメン</span></li>
+          <li data-slot="item"><span class="item-en">Spicy Sesame Ramen</span><span class="item-jp">担々麺</span></li>
+          <li data-slot="item"><span class="item-en">Black Garlic Ramen</span><span class="item-jp">黒にんにくラーメン</span></li>
+        </ul>
+      </div>
+
+      <div class="section" data-section="small-plates">
+        <div class="section-header">
+          <span class="section-title" data-slot="section-title">Small Plates</span>
+          <span class="section-kanji">小皿料理</span>
+        </div>
+        <ul class="menu-items" data-slot="section-items">
+          <li data-slot="item"><span class="item-en">Pan-Fried Dumplings</span><span class="item-jp">餃子</span></li>
+          <li data-slot="item"><span class="item-en">Steamed Soybeans</span><span class="item-jp">枝豆</span></li>
+          <li data-slot="item"><span class="item-en">Fried Chicken</span><span class="item-jp">唐揚げ</span></li>
+          <li data-slot="item"><span class="item-en">Seaweed Salad</span><span class="item-jp">海藻サラダ</span></li>
+          <li data-slot="item"><span class="item-en">Deep-Fried Tofu in Broth</span><span class="item-jp">揚げ出し豆腐</span></li>
+          <li data-slot="item"><span class="item-en">Crispy Brussels Sprouts</span><span class="item-jp">芽キャベツの揚げ物</span></li>
+          <li data-slot="item"><span class="item-en">Octopus Balls</span><span class="item-jp">たこ焼き</span></li>
+          <li data-slot="item"><span class="item-en">Cucumber Vinegar Salad</span><span class="item-jp">酢の物</span></li>
+        </ul>
+      </div>
+
+      <div class="section" data-section="skewers">
+        <div class="section-header">
+          <span class="section-title" data-slot="section-title">Grilled Skewers</span>
+          <span class="section-kanji">焼き鳥</span>
+        </div>
+        <ul class="menu-items" data-slot="section-items">
+          <li data-slot="item"><span class="item-en">Grilled Chicken Thigh</span><span class="item-jp">もも</span></li>
+          <li data-slot="item"><span class="item-en">Chicken &amp; Leek Skewer</span><span class="item-jp">ねぎま</span></li>
+          <li data-slot="item"><span class="item-en">Chicken Meatball Skewer</span><span class="item-jp">つくね</span></li>
+          <li data-slot="item"><span class="item-en">Grilled Pork Belly</span><span class="item-jp">豚バラ</span></li>
+          <li data-slot="item"><span class="item-en">Grilled Mushroom</span><span class="item-jp">しいたけ</span></li>
+          <li data-slot="item"><span class="item-en">Blistered Shishito Peppers</span><span class="item-jp">ししとう</span></li>
+          <li data-slot="item"><span class="item-en">Grilled Beef Skewer</span><span class="item-jp">牛串</span></li>
+          <li data-slot="item"><span class="item-en">Crispy Chicken Skin</span><span class="item-jp">鶏皮</span></li>
+        </ul>
+      </div>
+
+      <div class="section" data-section="rice-noodles">
+        <div class="section-header">
+          <span class="section-title" data-slot="section-title">Rice &amp; Noodles</span>
+          <span class="section-kanji">ご飯・麺</span>
+        </div>
+        <ul class="menu-items" data-slot="section-items">
+          <li data-slot="item"><span class="item-en">Chicken Cutlet Curry</span><span class="item-jp">チキンカツカレー</span></li>
+          <li data-slot="item"><span class="item-en">Stir-Fried Noodles</span><span class="item-jp">焼きそば</span></li>
+          <li data-slot="item"><span class="item-en">Garlic Fried Rice</span><span class="item-jp">ガーリックチャーハン</span></li>
+          <li data-slot="item"><span class="item-en">Tempura Udon Noodle Soup</span><span class="item-jp">天ぷらうどん</span></li>
+          <li data-slot="item"><span class="item-en">Spicy Stir-Fried Udon</span><span class="item-jp">ピリ辛焼うどん</span></li>
+          <li data-slot="item"><span class="item-en">Rice Ball Platter</span><span class="item-jp">おにぎり盛り合わせ</span></li>
+          <li data-slot="item"><span class="item-en">Omelette Rice</span><span class="item-jp">オムライス</span></li>
+          <li data-slot="item"><span class="item-en">Beef Curry</span><span class="item-jp">ビーフカレー</span></li>
+        </ul>
+      </div>
+
+    </div>
+
+
+  </div>
+</div>
+
+</body>
+</html>
