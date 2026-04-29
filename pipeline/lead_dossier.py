@@ -225,7 +225,7 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
         reasons.append("no_supported_contact_route")
     if not any(item.get("customer_preview_eligible") for item in proof_items):
         reasons.append("no_customer_safe_proof_item")
-    if _record_contains_bad_preview(record):
+    if _record_contains_bad_preview(record) or record.get("legacy_pitch_blocked_reason"):
         reasons.append("saved_preview_or_pitch_contains_blocked_content")
     if dossier.get("menu_complexity_state") == "large_custom_quote":
         reasons.append("large_menu_requires_custom_quote")
@@ -274,6 +274,12 @@ def migrate_lead_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "launch_readiness_status",
         "launch_readiness_reasons",
         "outreach_status",
+        "pitch_draft",
+        "pitch_available",
+        "preview_available",
+        "preview_blocked_reason",
+        "legacy_pitch_draft",
+        "legacy_pitch_blocked_reason",
     ):
         if before.get(key) != after.get(key):
             changes.append(key)
@@ -316,6 +322,11 @@ def _migrate_package_fields(record: dict[str, Any]) -> None:
     pitch = record.get("pitch_draft")
     if pitch and bracketed_fallback_found(str(pitch)):
         record["legacy_pitch_blocked_reason"] = "bracketed_fallback_translation"
+        record.setdefault("legacy_pitch_draft", pitch)
+        record["pitch_draft"] = None
+        record["pitch_available"] = False
+        record["preview_available"] = False
+        record["preview_blocked_reason"] = "legacy_pitch_contains_bracketed_fallback"
 
 
 def _ticket_machine_state(record: dict[str, Any]) -> str:

@@ -73,10 +73,36 @@ def test_chain_like_record_cannot_remain_launch_ready():
 def test_bracketed_preview_forces_manual_review():
     migrated, _ = migrate_lead_record(_ready_record(
         pitch_draft={"native": {"body": "醤油ラーメン -> [醤油ラーメン]"}},
+        pitch_available=True,
+        preview_available=True,
     ))
 
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
     assert "saved_preview_or_pitch_contains_blocked_content" in migrated["launch_readiness_reasons"]
+    assert migrated["pitch_draft"] is None
+    assert migrated["legacy_pitch_draft"]["native"]["body"] == "醤油ラーメン -> [醤油ラーメン]"
+    assert migrated["pitch_available"] is False
+    assert migrated["preview_available"] is False
+    assert migrated["preview_blocked_reason"] == "legacy_pitch_contains_bracketed_fallback"
+
+
+def test_already_solved_english_record_cannot_remain_launch_ready():
+    migrated, _ = migrate_lead_record(_ready_record(
+        english_availability="usable_complete",
+        english_menu_issue=False,
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert "already_has_usable_english_solution" in migrated["launch_readiness_reasons"]
+
+
+def test_multilingual_qr_record_cannot_remain_launch_ready():
+    migrated, _ = migrate_lead_record(_ready_record(
+        evidence_snippets=["Multilingual QR mobile order English support available ラーメン メニュー"],
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert "multilingual_qr_or_ordering_solution_present" in migrated["launch_readiness_reasons"]
 
 
 def test_state_migration_persists_changed_leads(tmp_path):
