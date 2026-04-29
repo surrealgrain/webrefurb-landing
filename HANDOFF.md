@@ -80,12 +80,18 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 5 focused command covering package scoring, search persistence, and dashboard recommendation display passed with `21 passed`.
 - Phase 5 full command `.venv/bin/python -m pytest tests/ -q` passed with `350 passed`.
 - Phase 5 `git diff --check` was clean.
+- Phase 6 verified outreach remains shop-specific diagnosis copy rather than a price-led pitch.
+- Phase 6 tightened commercial email contact lines with sender, contact URL/email, and opt-out wording.
+- Phase 6 tests cover diagnosis elements, unknown ticket-machine and English-menu check phrasing, no all-price cold pitch, sender/contact/opt-out, forbidden customer-facing terms, do-not-contact blocking, and message variant persistence.
+- Phase 6 focused command `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py::TestDraftSaveAndLoad::test_outreach_returns_business_name tests/test_api.py::TestAPIEndpoints::test_outreach_blocked_for_do_not_contact -q` passed with `46 passed`.
+- Phase 6 full command `.venv/bin/python -m pytest tests/ -q` passed with `353 passed`.
+- Phase 6 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 6 unless the worktree shows uncommitted Phase 5 changes.
+2. Continue from Phase 7 unless the worktree shows uncommitted Phase 6 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.

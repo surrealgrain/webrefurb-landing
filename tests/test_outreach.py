@@ -157,6 +157,20 @@ class TestBuildOutreachEmail:
         assert "仕上がりのイメージをご覧いただくためのものです。" in email["body"]
         assert "不要" in email["body"]
 
+    def test_email_includes_sender_contact_and_opt_out(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+        )
+
+        assert "送信者：Chris（クリス） / WebRefurb" in email["body"]
+        assert "連絡先：chris@webrefurb.com / https://webrefurb.com/ja" in email["body"]
+        assert "不要" in email["body"]
+        assert "Sender: Chris / WebRefurb" in email["english_body"]
+        assert "Contact: chris@webrefurb.com / https://webrefurb.com/ja" in email["english_body"]
+        assert "I will not contact you again" in email["english_body"]
+
     def test_subject_contains_placeholder(self):
         assert "{店名}" in SUBJECT
 
@@ -241,6 +255,19 @@ class TestBuildOutreachEmail:
         assert "Counter-Ready Ordering Kit" not in combined
         assert "Live QR English Menu" not in combined
 
+    def test_email_starts_with_shop_specific_diagnosis_elements(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="izakaya_drink_heavy",
+            lead_dossier={"english_menu_state": "missing", "izakaya_rules_state": "nomihodai_found"},
+        )
+
+        assert "公開メニューや店舗情報を拝見" in email["body"]
+        assert "飲み放題やコースのルール" in email["body"]
+        assert "確認用サンプル" in email["body"]
+        assert "現在お使いのメニューのお写真" in email["body"]
+
     def test_unknown_ticket_machine_state_uses_check_phrasing(self):
         email = build_outreach_email(
             business_name="テスト",
@@ -251,6 +278,17 @@ class TestBuildOutreachEmail:
 
         assert "券売機の有無は公開情報だけでは断定せず" in email["body"]
         assert "check whether a menu guide, ticket-machine guide, or both are useful" in email["english_body"]
+
+    def test_unknown_english_menu_state_uses_check_phrasing(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="izakaya_food_and_drinks",
+            lead_dossier={"english_menu_state": "unknown", "izakaya_rules_state": "drinks_found"},
+        )
+
+        assert "英語メニューの有無は念のため確認" in email["body"]
+        assert "first check whether you already have complete English ordering support" in email["english_body"]
 
     def test_menu_and_machine_attaches_both_pdfs(self):
         assets = select_outreach_assets("menu_and_machine")
