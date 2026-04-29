@@ -6,6 +6,59 @@ Implement the 2026-04-29 audit as a pre-launch hardening pass before `P7 Control
 
 This plan keeps the three fixed prices and existing package keys, but changes the product framing from “translation service” to “English ordering system” across qualification, outreach, quotes, dashboard, and public pages.
 
+## Execution Checklist
+
+### Done
+
+- [x] Saved this Product Audit Hardening Plan in `PLAN.md` as the only active plan.
+- [x] Marked the older phase plan obsolete in `HANDOFF.md`.
+- [x] Backed up `state/` before migration.
+- [x] Migrated stale lead state to current package keys/readiness fields.
+- [x] Quarantined the stale Tsukada Nojo record as disqualified / do-not-contact.
+- [x] Added tests proving stale package keys, bracketed previews, and chain-like records cannot remain launch-ready.
+- [x] Added persisted `lead_evidence_dossier`, `proof_items`, and `launch_readiness_status` while preserving binary `lead: true|false`.
+- [x] Added required dossier states for ticket machines, English menus, menu complexity, and izakaya rules.
+- [x] Added dashboard readiness display and outreach gating based on dossier readiness.
+- [x] Reworked search defaults and qualification toward friction-first ramen/izakaya evidence.
+- [x] Added hard disqualification for already-solved English/multilingual QR, chain/franchise-like, and out-of-scope records.
+- [x] Updated package recommendation logic for ramen ticket machines, ramen without machines, izakaya drink/course friction, and custom quote gates.
+- [x] Reworked outreach to shop-specific diagnosis copy instead of price-led cold pitches.
+- [x] Added unknown-evidence check phrasing, sender identity, opt-out wording, do-not-contact preservation, and message variant logging.
+- [x] Hardened previews against bad snippets, boilerplate, reservation-only copy, bracketed fallbacks, unconfirmed prices, and no-proof previews.
+- [x] Removed unsafe stale public QR draft placeholders.
+- [x] Added dashboard lead dossier modal visibility and browser screenshots for the dossier view.
+- [x] Updated customer-facing package labels while preserving package keys and prices.
+- [x] Updated quote/order/dashboard/site copy toward English ordering systems/materials and risk reversal.
+- [x] Added controlled launch batch records under `state/launch_batches/`.
+- [x] Added batch 2 blocking until batch 1 is reviewed.
+- [x] Added per-lead launch measurement fields: dossier states, selected channel, message variant, proof asset, package, contacted timestamp, reply status, objection, opt-out/bounce, operator minutes, and outcome.
+- [x] Verified current code with `.venv/bin/python -m pytest tests/ -q` (`332 passed`) and `git diff --check`.
+
+### Next
+
+- [ ] Wait for explicit launch authorization from the user. No real outreach starts before this.
+- [ ] After authorization, select the first controlled launch batch of 5-10 launch-ready shops.
+- [ ] Ensure the first batch includes at least one ramen ticket-machine lead and one izakaya drink/course lead.
+- [ ] Create the first batch record under `state/launch_batches/`.
+- [ ] Manually review every selected lead dossier, proof item, channel, message variant, and recommended package before contact.
+- [ ] Run the final gate again before contact: `.venv/bin/python -m pytest tests/ -q` and `git diff --check`.
+
+### Left To Do After Authorized Batch 1
+
+- [ ] Send only the authorized first controlled batch through approved channels.
+- [ ] Record per-lead contacted timestamp, reply/no reply, objection, opt-out/bounce, operator minutes, and outcome.
+- [ ] Review batch 1 results before any batch 2 work.
+- [ ] Update scoring, search terms, outreach wording, and package recommendation from batch 1 results.
+- [ ] Keep batch 2 blocked until batch 1 review is saved.
+- [ ] Repeat final tests and diff checks after any scoring/search/outreach/package changes.
+
+### Blocked
+
+- [ ] Real outreach is blocked until explicit launch authorization.
+- [ ] Controlled launch batch 1 is blocked until explicit launch authorization.
+- [ ] Controlled launch batch 2 is blocked until batch 1 has been reviewed.
+- [ ] Any lead without customer-safe proof remains manual review or skipped, not contacted.
+
 ## Phases
 
 ### Phase 1: Reconcile Plan And State

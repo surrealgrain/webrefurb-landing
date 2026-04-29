@@ -12,6 +12,8 @@ Do not resume from the obsolete P0/P1/P2/P3/P4/P5/P6/P7 plan text. That plan was
 
 Current plan: `Product Audit Hardening Plan`
 
+Start with the `Execution Checklist` near the top of `PLAN.md`. It is the clearest status source for what is done, what is next, what remains after authorization, and what is blocked.
+
 Phases:
 
 1. Reconcile Plan And State
