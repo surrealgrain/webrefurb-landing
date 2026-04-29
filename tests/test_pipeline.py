@@ -255,6 +255,38 @@ class TestBinaryLead:
         )
         assert result.lead is False
 
+    @pytest.mark.parametrize(
+        ("business_name", "category", "html"),
+        [
+            ("カフェ テスト", "ramen", "<html><body><h1>カフェ</h1><p>ラーメン メニュー</p></body></html>"),
+            ("ホテル居酒屋 テスト", "izakaya", "<html><body><h1>ホテル居酒屋</h1><p>飲み放題 コース 居酒屋 メニュー</p></body></html>"),
+            ("懐石ラーメン テスト", "ramen", "<html><body><h1>懐石</h1><p>ラーメン メニュー</p></body></html>"),
+        ],
+    )
+    def test_excluded_business_types_from_audit_are_rejected(self, business_name, category, html):
+        result = qualify_candidate(
+            business_name=business_name,
+            website="https://example.test",
+            category=category,
+            pages=[{"url": "https://example.test", "html": html}],
+            address="東京都渋谷区",
+        )
+
+        assert result.lead is False
+        assert result.rejection_reason == "excluded_business_type_v1"
+
+    def test_social_only_site_rejected_even_with_menu_evidence(self):
+        result = qualify_candidate(
+            business_name="小さなラーメン",
+            website="https://instagram.com/small_ramen",
+            category="ramen",
+            pages=[_ramen_page(url="https://instagram.com/small_ramen")],
+            address="東京都渋谷区",
+        )
+
+        assert result.lead is False
+        assert result.rejection_reason == "directory_or_social_only"
+
     def test_negative_score_rejected(self):
         """Negative evidence score (food-only photos, storefront only) → rejected."""
         html = """
@@ -309,6 +341,18 @@ class TestInvalidPageGuard:
             address="東京都渋谷区",
         )
         assert result.lead is False
+
+    def test_placeholder_or_coming_soon_page_rejected_as_stale_status(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": "<html><body><h1>テストラーメン</h1><p>coming soon under construction ラーメン メニュー</p></body></html>"}],
+            address="東京都渋谷区",
+        )
+
+        assert result.lead is False
+        assert result.rejection_reason == "placeholder/password/coming-soon page"
 
     def test_invalid_page_mixed_with_valid(self):
         """When invalid pages are mixed with valid ones, valid evidence still counts."""
