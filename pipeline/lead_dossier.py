@@ -12,7 +12,7 @@ from .constants import (
     PACKAGE_3_KEY,
     OUTREACH_STATUS_DO_NOT_CONTACT,
 )
-from .evidence import is_chain_business
+from .evidence import has_chain_or_franchise_infrastructure, is_chain_business
 from .utils import read_json, write_json
 
 
@@ -142,6 +142,8 @@ def snippet_rejection_reason(snippet: str) -> str:
         return "boilerplate_or_reservation_text"
     if any(token.lower() in lowered for token in _CHAIN_SNIPPET_TOKENS):
         return "chain_or_unrelated_brand_text"
+    if has_chain_or_franchise_infrastructure(cleaned):
+        return "chain_or_unrelated_brand_text"
     if len(cleaned) > 220:
         return "snippet_too_long_for_customer_preview"
     if not any(token.lower() in lowered for token in _MENU_LIKE_TOKENS):
@@ -218,7 +220,7 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
         reasons.append("not_a_binary_true_lead")
     if category not in {"ramen", "izakaya"}:
         reasons.append("outside_v1_category")
-    if is_chain_business(str(record.get("business_name") or "")):
+    if is_chain_business(str(record.get("business_name") or "")) or _record_has_chain_infrastructure(record, proof_items):
         reasons.append("chain_or_franchise_like_business")
     if dossier.get("english_menu_state") == "usable_complete":
         reasons.append("already_has_usable_english_solution")
@@ -357,6 +359,23 @@ def _ticket_machine_state(record: dict[str, Any]) -> str:
     if _record_category(record) == "izakaya":
         return "absent"
     return "unknown"
+
+
+def _record_has_chain_infrastructure(record: dict[str, Any], proof_items: list[dict[str, Any]] | None = None) -> bool:
+    parts: list[str] = [
+        str(record.get("business_name") or ""),
+        str(record.get("website") or ""),
+        str(record.get("source_query") or ""),
+    ]
+    parts.extend(str(item) for item in record.get("evidence_snippets") or [])
+    parts.extend(str(item) for item in record.get("evidence_urls") or [])
+    source_urls = record.get("source_urls") or {}
+    if isinstance(source_urls, dict):
+        parts.extend(str(item) for item in source_urls.get("evidence_urls") or [])
+    for item in proof_items or []:
+        parts.append(str(item.get("snippet") or ""))
+        parts.append(str(item.get("url") or ""))
+    return has_chain_or_franchise_infrastructure(" ".join(parts))
 
 
 def _english_menu_state(record: dict[str, Any]) -> str:

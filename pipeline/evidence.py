@@ -9,7 +9,8 @@ from .constants import (
     IZAKAYA_MENU_TERMS, IZAKAYA_CATEGORY_TERMS, COURSE_DRINK_PLAN_TERMS,
     _FOOD_DRINK_TOKENS, _DIRECTORY_HOST_TOKENS, _PURCHASE_CRITICAL_TOKENS,
     _IMAGE_LOCKED_TOKENS, _MENU_LINK_TOKENS, _ENGLISH_LINK_TOKENS,
-    _CHAIN_SEED_NAMES, _BRANCH_PATTERN_RE, _CAPTCHA_TOKENS,
+    _CHAIN_SEED_NAMES, _BRANCH_PATTERN_RE, _ROMAJI_BRANCH_SUFFIXES,
+    _CAPTCHA_TOKENS,
     _JS_EMPTY_INDICATORS, _FILENAME_MENU_PATTERNS, _UNREADABLE_IMAGE_TOKENS,
     _MENU_ITEM_SEP_RE, PRICE_RE, EXCLUDED_BUSINESS_TOKENS,
 )
@@ -130,7 +131,74 @@ def is_chain_business(business_name: str) -> bool:
         return True
     if _BRANCH_PATTERN_RE.search(business_name):
         return True
+    if any(suffix in business_name for suffix in _ROMAJI_BRANCH_SUFFIXES):
+        return True
     return False
+
+
+_CHAIN_INFRA_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("franchise_recruiting", re.compile(r"(?i)(fc募集|franchise|フランチャイズ|加盟店募集|加盟募集)")),
+    ("numbered_branch_store", re.compile(r"\d+\s*号店")),
+    ("store_directory_with_chain_context", re.compile(
+        r"((店舗一覧|店舗検索|店舗リスト|全店舗|店舗情報一覧).{0,32}(全国|チェーン|フランチャイズ|ブランド|店舗数|\d{2,}\s*店舗)"
+        r"|(全国|チェーン|フランチャイズ|ブランド|店舗数|\d{2,}\s*店舗).{0,32}(店舗一覧|店舗検索|店舗リスト|全店舗|店舗情報一覧))"
+    )),
+    ("store_directory_standalone", re.compile(r"(店舗一覧|店舗情報一覧|全店舗)")),
+    ("chain_expansion", re.compile(r"(チェーン店|チェーン展開|全国展開|多店舗展開)")),
+    ("multi_location_expansion", re.compile(r"(全国|各地|複数|多店舗).{0,24}(店舗|展開|運営)")),
+    ("large_store_count", re.compile(r"(店舗数|全国).{0,16}\d{2,}\s*店舗|\d{2,}\s*店舗.{0,18}(展開|運営)")),
+    ("brand_portfolio", re.compile(r"(ブランド一覧|外食ブランド|運営店舗|系列店舗|グループ店舗)")),
+)
+
+
+def chain_or_franchise_signal_reason(text: str, *, business_name: str = "") -> str:
+    """Return a strong chain/franchise signal reason from page/search text."""
+    haystack = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not haystack and not business_name:
+        return ""
+
+    # Check business name against seed names and romaji branch suffixes
+    lowered_name = business_name.lower()
+    if any(chain in lowered_name for chain in _CHAIN_SEED_NAMES):
+        return "known_chain_brand"
+    if _BRANCH_PATTERN_RE.search(business_name):
+        return "branch_name_suffix"
+    if any(suffix in business_name for suffix in _ROMAJI_BRANCH_SUFFIXES):
+        return "romaji_branch_suffix"
+
+    # Check text content
+    lowered = haystack.lower()
+    if any(chain in lowered for chain in _CHAIN_SEED_NAMES):
+        return "known_chain_brand"
+    for reason, pattern in _CHAIN_INFRA_PATTERNS:
+        if pattern.search(haystack):
+            return reason
+    if _looks_like_multi_store_listing(haystack):
+        return "multi_store_listing"
+    return ""
+
+
+def has_chain_or_franchise_infrastructure(text: str, *, business_name: str = "") -> bool:
+    return bool(chain_or_franchise_signal_reason(text, business_name=business_name))
+
+
+def _looks_like_multi_store_listing(text: str) -> bool:
+    """Catch official pages that list several branches without saying franchise."""
+    if not text:
+        return False
+    context = ("店舗一覧", "店舗紹介", "店舗情報", "店舗リスト", "会社概要", "株式会社", "有限会社", "展開", "グループ")
+    if not any(token in text for token in context):
+        return False
+    if "店舗一覧" in text and "展開" in text:
+        return True
+
+    store_names = {
+        match.group(0)
+        for match in re.finditer(r"[\w\u3040-\u30ff\u3400-\u9fff]{2,18}(?:本店|店)", text)
+    }
+    tel_blocks = re.findall(r"(?i)(?:tel|電話|電話番号)\s*[:：]?\s*\d{2,4}[-ー−]?\d{2,4}", text)
+    address_blocks = re.findall(r"(?:東京都|大阪府|京都府|北海道|福岡県|神奈川県|千葉県|埼玉県|兵庫県|愛知県).{0,24}(?:区|市|町|村)", text)
+    return len(store_names) >= 3 and (len(tel_blocks) >= 2 or len(address_blocks) >= 2)
 
 
 def is_excluded_business(business_name: str, category: str = "") -> bool:

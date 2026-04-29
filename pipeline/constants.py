@@ -180,6 +180,9 @@ _CHAIN_SEED_NAMES = (
     "kura sushi", "hamazushi",
     "saizeriya", "gusto", "jonathan's", "royal host",
     "dennys", "joyfull", "bamiyan",
+    "jangara", "kyushu jangara",
+    "abura gumi", "tokyo abura",
+    "ramen gyukaku",
     # Japanese variants
     "一蘭", "一風堂", "afuri", "麺屋武蔵", "天下一品",
     "山頭火", "風雲児", "凪", "鬼金棒",
@@ -188,10 +191,22 @@ _CHAIN_SEED_NAMES = (
     "松屋", "すき家", "吉野家",
     "くら寿司", "はま寿司",
     "サイゼリヤ", "ガスト", "ジョナサン", "ロイヤルホスト",
-    "デニーズ", "ジョイフル", "バーミヤン",
+    "デニーズ", "ジョイフル", "バーミヤン", "新時代",
+    "九州じゃんがら", "じゃんがら", "油そば", "東京油組",
 )
 
-_BRANCH_PATTERN_RE = __import__("re").compile(r"\d+号店|支店|[市區町村駅]\w{1,6}店")
+_BRANCH_PATTERN_RE = __import__("re").compile(
+    r"\d+号店"
+    r"|支店"
+    r"|[市區町村駅]\w{0,6}店"
+    r"|\s+(?!本店)\w{2,8}店$"
+    r"|\b\w{2,12}\s+Ten\b"
+    r"|\b\w{2,12}\s+Branch\b"
+    r"|\b\w{2,12}\s+Shop\b"
+)
+
+# Romaji branch suffixes to detect in business names
+_ROMAJI_BRANCH_SUFFIXES = (" Ten", " Branch", " Shop")
 
 _CAPTCHA_TOKENS = (
     "captcha", "recaptcha", "cf-challenge", "please verify",

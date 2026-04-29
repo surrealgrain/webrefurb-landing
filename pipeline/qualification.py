@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .html_parser import extract_page_payload
@@ -8,7 +9,7 @@ from .evidence import (
     classify_primary_category, has_public_website, has_social_url_only,
     has_english_intent, looks_high_quality_english, image_locked_evidence,
     _count_japanese_chars, _count_latin_words, _sentences_near,
-    _unique_snippets,
+    _unique_snippets, has_chain_or_franchise_infrastructure,
 )
 from .scoring import (
     compute_tourist_exposure_score, compute_lead_score_v1,
@@ -66,6 +67,14 @@ def qualify_candidate(
             decision_reason="No physical/visitable location evidence found.",
         )
 
+    # Japan location gate
+    if not _is_japan_address(address, phone=phone):
+        return _reject(
+            business_name=business_name, website=website, category=category,
+            assessment=assessment, rejection_reason="not_in_japan",
+            decision_reason="Rejected: location is not in Japan.",
+        )
+
     # Chain exclusion
     if is_chain_business(business_name):
         return _reject(
@@ -73,7 +82,7 @@ def qualify_candidate(
             assessment=assessment, rejection_reason="chain_business",
             decision_reason="Rejected: known chain or multi-location brand.",
         )
-    if _has_franchise_or_multi_location_infrastructure(combined_text):
+    if _has_franchise_or_multi_location_infrastructure(combined_text, business_name=business_name):
         return _reject(
             business_name=business_name, website=website, category=category,
             assessment=assessment, rejection_reason="chain_or_franchise_infrastructure",
@@ -475,13 +484,37 @@ def _has_multilingual_ordering_solution(text: str) -> bool:
     ))
 
 
-def _has_franchise_or_multi_location_infrastructure(text: str) -> bool:
-    lowered = str(text or "").lower()
-    return any(token in lowered for token in (
-        "fc募集",
-        "franchise",
-        "フランチャイズ",
-    ))
+def _has_franchise_or_multi_location_infrastructure(text: str, *, business_name: str = "") -> bool:
+    return has_chain_or_franchise_infrastructure(text, business_name=business_name)
+
+
+# Japanese prefecture prefixes for address detection
+_JP_PREFECTURE_PREFIXES = (
+    "東京都", "大阪府", "京都府", "北海道",
+    "神奈川県", "千葉県", "埼玉県", "愛知県", "兵庫県", "福岡県",
+    "静岡県", "茨城県", "広島県", "宮城県", "長野県", "新潟県",
+    "富山県", "石川県", "福井県", "山梨県", "岐阜県", "三重県",
+    "滋賀県", "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県",
+    "山口県", "徳島県", "香川県", "愛媛県", "高知県",
+    "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+)
+
+
+def _is_japan_address(address: str, *, phone: str = "") -> bool:
+    """Return True if the address or phone indicates a Japan location."""
+    combined = f"{address} {phone}"
+    if not combined.strip():
+        return False
+    # Explicit Japan indicators
+    if "Japan" in combined or "日本" in combined or "〒" in combined:
+        return True
+    # Japanese prefecture in address
+    if any(pref in combined for pref in _JP_PREFECTURE_PREFIXES):
+        return True
+    # Japanese phone prefix (+81 or 0 followed by area code digits)
+    if re.search(r"(?:\+81[-\s]?|^0)[1-9]\d{0,3}[-\s]?\d{1,4}", phone):
+        return True
+    return False
 
 
 def _menu_complexity_state_for_qualification(primary_category: str, assessment: Any, evidence_snippets: list[str]) -> str:

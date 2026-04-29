@@ -383,6 +383,13 @@ def create_lead_record(
     contact_records = normalise_lead_contacts({"contacts": contacts or []})
     primary_contact = next((contact for contact in contact_records if contact.get("actionable")), None)
     email_contact = next((contact for contact in contact_records if contact.get("type") == "email"), None)
+    from .outreach import classify_business, select_outreach_assets
+    outreach_classification = classify_business(qualification)
+    outreach_assets = select_outreach_assets(
+        outreach_classification,
+        contact_type=str((primary_contact or {}).get("type") or "email"),
+        establishment_profile=qualification.establishment_profile,
+    )
 
     record = {
         # Identity
@@ -478,8 +485,9 @@ def create_lead_record(
 
         # Outreach tracking
         "outreach_status": OUTREACH_STATUS_NEW,
-        "outreach_classification": None,
-        "outreach_assets_selected": [],
+        "outreach_classification": outreach_classification,
+        "outreach_assets_selected": [str(path) for path in outreach_assets],
+        "outreach_asset_template_family": "dark_v4c" if outreach_assets else "none_contact_form",
         "outreach_sent_at": None,
         "outreach_draft_body": None,
         "outreach_include_inperson": True,

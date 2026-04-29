@@ -82,6 +82,7 @@ AGGREGATOR_HOST_TOKENS = (
 )
 TRACKING_QUERY_PREFIXES = ("utm_",)
 TRACKING_QUERY_KEYS = {"fbclid", "gclid", "yclid", "mc_cid", "mc_eid"}
+BLOCKED_LINE_IDS = {"@context", "@graph", "@type", "@id", "@language", "@value"}
 
 
 @dataclass(frozen=True)
@@ -201,7 +202,11 @@ def extract_contact_signals(html: str, text: str = "") -> ContactSignals:
     decoded = urllib.parse.unquote(f"{html or ''}\n{text or ''}")
     emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded) if _usable_email(email)])
     line_links = _ordered_unique([match.group(0) for match in LINE_LINK_RE.finditer(decoded)])
-    line_ids = _ordered_unique([match.group(0) for match in LINE_ID_RE.finditer(decoded) if "@" not in match.group(0)[1:]])
+    line_ids = _ordered_unique([
+        match.group(0)
+        for match in LINE_ID_RE.finditer(decoded)
+        if "@" not in match.group(0)[1:] and match.group(0).lower() not in BLOCKED_LINE_IDS
+    ])
     instagram_handles = _ordered_unique([match.group(1).lower() for match in INSTAGRAM_RE.finditer(decoded)])
     has_form = bool(re.search(r"(?is)<form\b", html or ""))
     return ContactSignals(
