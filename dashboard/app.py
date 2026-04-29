@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import concurrent.futures
 import json
 import logging
 import os
@@ -81,6 +82,8 @@ def _dashboard_email_preview_html(
     *,
     include_menu_image: bool,
     include_machine_image: bool,
+    business_name: str = "",
+    establishment_profile: str = "unknown",
 ) -> str:
     """Render the dashboard preview from the same HTML email builder."""
     from pipeline.email_html import build_pitch_email_html, LOGO_CID, MENU_CID, MACHINE_CID
@@ -93,9 +96,59 @@ def _dashboard_email_preview_html(
     )
     # Replace CID references with dashboard-local SVG/PNG paths for in-browser display
     html_body = html_body.replace(f"cid:{LOGO_CID}", "/assets/webrefurb-email-logo.svg")
-    html_body = html_body.replace(f"cid:{MENU_CID}", _inline_preview_svg("English ordering sample", "Menu / Order Guide"))
-    html_body = html_body.replace(f"cid:{MACHINE_CID}", _inline_preview_svg("Ticket machine sample", "Button Map"))
+    if include_menu_image:
+        menu_preview = _dashboard_inline_rendered_preview_data_uri(
+            _menu_template_for_profile(establishment_profile),
+            business_name=business_name,
+            stem="menu",
+        ) or _inline_preview_svg("English ordering sample", "Menu / Order Guide")
+        html_body = html_body.replace(f"cid:{MENU_CID}", menu_preview)
+    if include_machine_image:
+        machine_preview = _dashboard_inline_rendered_preview_data_uri(
+            PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html",
+            business_name=business_name,
+            stem="machine",
+        ) or _inline_preview_svg("Ticket machine sample", "Button Map")
+        html_body = html_body.replace(f"cid:{MACHINE_CID}", machine_preview)
     return html_body
+
+
+def _menu_template_for_profile(establishment_profile: str) -> Path:
+    templates = PROJECT_ROOT / "assets" / "templates"
+    profile = str(establishment_profile or "").lower()
+    if "izakaya" in profile:
+        return templates / "izakaya_food_menu.html"
+    return templates / "ramen_food_menu.html"
+
+
+def _dashboard_inline_rendered_preview_data_uri(template_path: Path, *, business_name: str, stem: str) -> str:
+    """Render the actual dark menu template for dashboard preview images."""
+    try:
+        with tempfile.TemporaryDirectory(prefix="wrm-dashboard-preview-") as tmp_dir:
+            source = _personalised_email_html(str(template_path), business_name, tmp_dir, stem)
+            if not source:
+                return ""
+            jpeg = _render_dashboard_preview_jpeg(source)
+            if not jpeg or not Path(jpeg).exists():
+                return ""
+            encoded = base64.b64encode(Path(jpeg).read_bytes()).decode("ascii")
+            return f"data:image/jpeg;base64,{encoded}"
+    except Exception:
+        return ""
+
+
+def _render_dashboard_preview_jpeg(source: str | Path) -> Path | None:
+    """Run Playwright rendering outside FastAPI's event-loop thread."""
+    from pipeline.email_html import _ensure_menu_jpeg
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return _ensure_menu_jpeg(source)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_ensure_menu_jpeg, source)
+        return future.result(timeout=20)
 
 
 def _inline_preview_svg(title: str, label: str) -> str:
@@ -787,6 +840,8 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             body,
             include_menu_image=draft["include_menu_image"],
             include_machine_image=record.get("outreach_include_machine_image", draft["include_machine_image"]),
+            business_name=record["business_name"],
+            establishment_profile=profile["effective"],
         ),
         "shop_preview_html": shop_preview_html,
         "include_inperson": include_inperson,
@@ -946,6 +1001,8 @@ async def api_translate_draft(request: Request):
             japanese_body,
             include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
+            business_name=business_name,
+            establishment_profile=establishment_profile,
         ),
     }
 
@@ -1056,22 +1113,15 @@ async def api_send(lead_id: str, request: Request):
 
     _log("send_attempted", f"to={to_email}", lead_id=lead_id)
 
-    # Pick v4c dark template based on establishment profile
-    V4C_TEMPLATES = PROJECT_ROOT / "assets" / "templates"
-
     menu_html = None
     if include_menu_image:
-        ep = profile["effective"]
-        if "izakaya" in ep:
-            menu_html = V4C_TEMPLATES / "izakaya_food_menu.html"
-        else:
-            menu_html = V4C_TEMPLATES / "ramen_food_menu.html"
+        menu_html = _menu_template_for_profile(profile["effective"])
         if not menu_html.exists():
             raise HTTPException(status_code=400, detail="Required menu preview image source file not found")
 
     machine_html = None
     if include_machine_image:
-        machine_html = V4C_TEMPLATES / "ticket_machine_guide.html"
+        machine_html = PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"
 
     try:
         result = await _send_email_resend(
