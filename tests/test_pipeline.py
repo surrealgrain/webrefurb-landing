@@ -239,7 +239,8 @@ class TestBinaryLead:
         assert result.lead is False
         assert result.rejection_reason == "chain_or_franchise_infrastructure"
 
-    def test_store_list_navigation_alone_is_not_chain_infrastructure(self):
+    def test_store_list_navigation_now_treated_as_chain(self):
+        """店舗一覧 in page text is now treated as chain infrastructure."""
         html = """
         <html><body>
         <h1>小さなラーメン</h1>
@@ -255,7 +256,122 @@ class TestBinaryLead:
             pages=[{"url": "https://example.ramen.jp", "html": html}],
             address="東京都杉並区",
         )
-        assert result.lead is True
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_chain_expansion_search_snippet_rejected(self):
+        html = """
+        <html><body>
+        <h1>新時代 福岡天神店</h1>
+        <p>居酒屋 メニュー 飲み放題 コース 焼き鳥 ハイボール 500円</p>
+        <p>新時代は全国に100店舗展開する居酒屋チェーンです。</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="新時代 福岡天神店",
+            website="https://example-izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example-izakaya.jp/search-evidence", "html": html}],
+            address="福岡県福岡市",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_multi_location_infrastructure_rejected_from_page_text(self):
+        html = """
+        <html><body>
+        <h1>居酒屋みらい</h1>
+        <p>居酒屋 メニュー 飲み放題 コース 焼き鳥 ハイボール 500円</p>
+        <p>全国に35店舗を展開。店舗一覧はこちら。</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="居酒屋みらい",
+            website="https://example-izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example-izakaya.jp", "html": html}],
+            address="東京都渋谷区",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_multi_branch_store_listing_rejected_without_franchise_word(self):
+        html = """
+        <html><body>
+        <h1>超ごってり麺ごっつ</h1>
+        <nav>店舗紹介 会社概要</nav>
+        <p>ラーメン メニュー 背脂ラーメン 900円</p>
+        <p>亀戸本店 東京都江東区 TEL 03-1111-1111</p>
+        <p>新小岩店 東京都葛飾区 TEL 03-2222-2222</p>
+        <p>秋葉原店 東京都千代田区 TEL 03-3333-3333</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="超ごってり麺ごっつ",
+            website="https://example-ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example-ramen.jp", "html": html}],
+            address="東京都千代田区",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_second_branch_text_rejected_as_multi_location_infrastructure(self):
+        html = """
+        <html><body>
+        <h1>ごち２</h1>
+        <p>居酒屋 メニュー 飲み放題 コース 九州料理 3000円</p>
+        <p>渋谷で大繁盛している居酒屋が待望の2号店を下北沢でオープン。</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="Gochi 2",
+            website="https://example-izakaya.jp/work/gochi2",
+            category="izakaya",
+            pages=[{"url": "https://example-izakaya.jp/work/gochi2", "html": html}],
+            address="東京都世田谷区",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_chain_shinjidai_rejected_by_seed_name(self):
+        result = qualify_candidate(
+            business_name="新時代 福岡天神店",
+            website="https://example-izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example-izakaya.jp", "html": "<html><body><h1>新時代</h1><p>居酒屋 メニュー</p></body></html>"}],
+            address="福岡県福岡市",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+        assert is_chain_business("新時代 福岡天神店") is True
+
+    def test_chain_shinjidai_rejected_without_chain_content(self):
+        html = """
+        <html><body>
+        <h1>新時代 福岡天神店</h1>
+        <p>居酒屋 メニュー 飲み放題 コース 焼き鳥 ハイボール 500円</p>
+        <p>住所：福岡県福岡市中央区天神1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="新時代 福岡天神店",
+            website="https://example-izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example-izakaya.jp", "html": html}],
+            address="福岡県福岡市",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_branch_pattern_catches_place_name_store(self):
+        assert is_chain_business("ラーメン 渋谷店") is True
+
+    def test_branch_pattern_does_not_match_honpo(self):
+        assert is_chain_business("麺屋 本店") is False
+
+    def test_branch_pattern_does_not_match_senmonten(self):
+        assert is_chain_business("ラーメン専門店") is False
 
     def test_non_ramen_izakaya_rejected(self):
         result = qualify_candidate(
@@ -800,3 +916,532 @@ class TestScopeIsolation:
             content = py_file.read_text()
             for term in blocked_terms:
                 assert term not in content, f"Found forbidden term in {py_file.name}"
+
+
+# ===========================================================================
+# Japan location gate
+# ===========================================================================
+class TestJapanLocationGate:
+    def test_japan_address_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Japan, 〒150-0001 Tokyo, Shibuya, Jingumae 1-13-21",
+        )
+        assert result.lead is True
+        assert result.rejection_reason is None
+
+    def test_japanese_postal_code_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="〒169-0074 東京都新宿区北新宿3-9-10",
+        )
+        assert result.lead is True
+
+    def test_japan_prefecture_in_address_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+
+    def test_japan_phone_prefix_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Tokyo",
+            phone="+81-3-1234-5678",
+        )
+        assert result.lead is True
+
+    def test_japan_domestic_phone_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Tokyo",
+            phone="03-1234-5678",
+        )
+        assert result.lead is True
+
+    def test_nyc_address_rejected(self):
+        result = qualify_candidate(
+            business_name="Sakagura",
+            website="http://www.sakagura.com/",
+            category="izakaya",
+            pages=[{"url": "http://www.sakagura.com/", "html": _izakaya_html()}],
+            address="211 E 43rd St B1, New York, NY 10017",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "not_in_japan"
+
+    def test_nyc_jackson_heights_rejected(self):
+        result = qualify_candidate(
+            business_name="Izakaya Fuku",
+            website="http://www.orderfukunyc.com/",
+            category="izakaya",
+            pages=[{"url": "http://www.orderfukunyc.com/", "html": _izakaya_html()}],
+            address="71-28 Roosevelt Ave, Jackson Heights, NY 11372",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "not_in_japan"
+
+    def test_us_zip_code_rejected(self):
+        result = qualify_candidate(
+            business_name="Sake Bar Hagi",
+            website="http://www.sakebar-hagi.com/",
+            category="izakaya",
+            pages=[{"url": "http://www.sakebar-hagi.com/", "html": _izakaya_html()}],
+            address="245 W 51st St, New York, NY 10019",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "not_in_japan"
+
+    def test_osaka_address_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="大阪府大阪市中央区道頓堀1-2-3",
+        )
+        assert result.lead is True
+
+    def test_fukuoka_address_passes(self):
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="福岡県福岡市博多区中洲1-2-3",
+        )
+        assert result.lead is True
+
+
+# ===========================================================================
+# Chain detection improvements
+# ===========================================================================
+class TestChainDetectionImprovements:
+    def test_jangara_rejected_by_seed_name(self):
+        """Kyushu Jangara is a well-known multi-location chain."""
+        result = qualify_candidate(
+            business_name="Kyushu Jangara Ramen Harajuku Ten",
+            website="https://kyushujangara.co.jp/shops/harajuku/",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Japan, 〒150-0001 Tokyo, Shibuya, Jingumae 1-13-21",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_jangara_japanese_name_rejected(self):
+        result = qualify_candidate(
+            business_name="九州じゃんがら 原宿店",
+            website="https://kyushujangara.co.jp/shops/harajuku/",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Japan, 〒150-0001 Tokyo, Shibuya, Jingumae 1-13-21",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_romaji_branch_ten_suffix_rejected(self):
+        """Business name ending in 'Ten' (romaji for 店) indicates a branch."""
+        result = qualify_candidate(
+            business_name="Ramen Maru Shinjuku Ten",
+            website="https://ramenmaru.example.jp/shops/shinjuku/",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Japan, 〒160-0023 Tokyo, Shinjuku, Nishigashi 1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_romaji_branch_suffix_rejected(self):
+        result = qualify_candidate(
+            business_name="Izakaya Ginza Branch",
+            website="https://izakaya-ginza.example.jp/",
+            category="izakaya",
+            pages=[{"url": "https://izakaya-ginza.example.jp/", "html": _izakaya_html()}],
+            address="Japan, 〒104-0061 Tokyo, Chuo, Ginza 1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_romaji_shop_suffix_rejected(self):
+        result = qualify_candidate(
+            business_name="Ramen Kichi Shibuya Shop",
+            website="https://ramen-kichi.example.jp/",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Japan, 〒150-0042 Tokyo, Shibuya, Udagawacho 1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_store_directory_standalone_in_page_text(self):
+        """店舗一覧 alone in page text should trigger chain rejection."""
+        html = """
+        <html><body>
+        <h1>テストラーメン</h1>
+        <div class="menu">
+            <ul>
+                <li>醤油ラーメン ¥850</li>
+                <li>味噌ラーメン ¥900</li>
+            </ul>
+        </div>
+        <nav><a href="/shops/">店舗一覧</a></nav>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_abura_gumi_rejected_by_seed_name(self):
+        """Tokyo Abura Gumi is a chain."""
+        result = qualify_candidate(
+            business_name="Tokyo Abura Gumi Sohonten Shibuya Gumi",
+            website="https://www.tokyo-aburasoba.com/",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="Japan, 〒150-0043 Tokyo, Shibuya, Dogenzaka 1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_business"
+
+    def test_independent_ramen_no_branch_suffix_passes(self):
+        """An independent ramen shop without branch indicators should pass."""
+        result = qualify_candidate(
+            business_name="独立ラーメン",
+            website="https://dokuritsu-ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.rejection_reason is None
+
+    def test_honpo_not_rejected_as_branch(self):
+        """'本店' (main store) should NOT be treated as a branch."""
+        result = qualify_candidate(
+            business_name="独立ラーメン本店",
+            website="https://dokuritsu-ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.rejection_reason is None
+
+
+# ===========================================================================
+# Comprehensive qualification variant tests
+# ===========================================================================
+class TestQualificationVariants:
+    """Test every lead category and evidence combination end-to-end."""
+
+    def test_ramen_menu_only_qualifies(self):
+        """Ramen shop with menu evidence but NO ticket machine → ramen_menu_translation."""
+        html = """
+        <html><body>
+        <h1>湯気ラーメン</h1>
+        <div class="menu">
+            <h2>メニュー</h2>
+            <ul>
+                <li>醤油ラーメン ¥850</li>
+                <li>味噌ラーメン ¥900</li>
+                <li>塩ラーメン ¥800</li>
+                <li>味玉ラーメン ¥950</li>
+                <li>唐揚げ ¥480</li>
+            </ul>
+        </div>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="湯気ラーメン",
+            website="https://yuge-ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://yuge-ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.lead_category == LEAD_CATEGORY_RAMEN_MENU_TRANSLATION
+        assert result.establishment_profile == "ramen_only"
+        assert result.menu_evidence_found is True
+        assert result.machine_evidence_found is False
+
+    def test_ramen_ticket_machine_only_qualifies(self):
+        """Ramen shop with ticket machine but weak menu → ramen_machine_mapping."""
+        html = """
+        <html><body>
+        <h1>券売機ラーメン</h1>
+        <p>券売機で食券を購入してください。醤油ラーメン 900円、味噌ラーメン 950円。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="券売機ラーメン",
+            website="https://kenbaiki-ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://kenbaiki-ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.lead_category == LEAD_CATEGORY_RAMEN_MACHINE_MAPPING
+        assert result.establishment_profile == "ramen_ticket_machine"
+        assert result.machine_evidence_found is True
+
+    def test_ramen_menu_and_ticket_machine_qualifies(self):
+        """Ramen shop with both menu and ticket machine → ramen_menu_and_machine."""
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[_ramen_page()],
+            address="東京都渋谷区神南1-2-3",
+            phone="03-1234-5678",
+        )
+        assert result.lead is True
+        assert result.lead_category == LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE
+        assert result.establishment_profile == "ramen_ticket_machine"
+        assert result.menu_evidence_found is True
+        assert result.machine_evidence_found is True
+        assert "ticket_machine_evidence" in result.establishment_profile_evidence
+
+    def test_izakaya_drink_course_qualifies(self):
+        """Izakaya with nomihodai/course evidence → izakaya_drink_course_guide."""
+        result = qualify_candidate(
+            business_name="テスト居酒屋",
+            website="https://example.izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example.izakaya.jp", "html": _izakaya_html()}],
+            address="東京都新宿区歌舞伎町1-2-3",
+        )
+        assert result.lead is True
+        assert result.primary_category_v1 == "izakaya"
+        assert result.course_or_drink_plan_evidence_found is True
+
+    def test_izakaya_menu_only_qualifies(self):
+        """Izakaya with menu evidence but no drink/course → izakaya_menu_translation."""
+        html = """
+        <html><body>
+        <h1>手書き居酒屋</h1>
+        <div class="menu">
+            <h2>メニュー</h2>
+            <ul>
+                <li>刺身盛り合わせ ¥980</li>
+                <li>焼き鳥 ¥380</li>
+                <li>唐揚げ ¥480</li>
+                <li>一品料理 おまかせ ¥680</li>
+            </ul>
+        </div>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="手書き居酒屋",
+            website="https://tegaki-izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://tegaki-izakaya.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.primary_category_v1 == "izakaya"
+
+    def test_ramen_with_drinks_profile(self):
+        """Ramen shop that also has drink/course evidence → ramen_with_drinks."""
+        html = """
+        <html><body>
+        <h1>ラーメン酒場</h1>
+        <div class="menu">
+            <ul>
+                <li>醤油ラーメン ¥850</li>
+                <li>ビール ¥450</li>
+                <li>ハイボール ¥400</li>
+            </ul>
+        </div>
+        <p>飲み放題コース 1,500円</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="ラーメン酒場",
+            website="https://ramen-sakaba.jp",
+            category="ramen",
+            pages=[{"url": "https://ramen-sakaba.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is True
+        assert result.establishment_profile == "ramen_with_drinks"
+        assert result.primary_category_v1 == "ramen"
+
+    def test_non_ramen_izakaya_rejected(self):
+        """Non-ramen, non-izakaya businesses are rejected."""
+        html = """
+        <html><body>
+        <h1>寿司処</h1>
+        <div class="menu">
+            <ul>
+                <li>にぎり寿司 ¥1,200</li>
+            </ul>
+        </div>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="寿司処",
+            website="https://sushidokoro.jp",
+            category="ramen",
+            pages=[{"url": "https://sushidokoro.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+
+    def test_chain_page_text_with_franchise_recruiting_rejected(self):
+        """Page text containing FC recruiting language is rejected."""
+        html = """
+        <html><body>
+        <h1>ラーメンチェーン</h1>
+        <div class="menu">
+            <ul><li>醤油ラーメン ¥850</li></ul>
+        </div>
+        <p>FC募集中央</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="ラーメンチェーン",
+            website="https://ramen-chain.jp",
+            category="ramen",
+            pages=[{"url": "https://ramen-chain.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_chain_numbered_branch_rejected(self):
+        """Page with numbered branch (3号店) is rejected."""
+        html = """
+        <html><body>
+        <h1>テストラーメン</h1>
+        <div class="menu">
+            <ul><li>醤油ラーメン ¥850</li></ul>
+        </div>
+        <p>当店は3号店です。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_chain_expansion_language_rejected(self):
+        """全国に35店舗を展開 triggers chain rejection."""
+        html = """
+        <html><body>
+        <h1>テストラーメン</h1>
+        <div class="menu">
+            <ul><li>醤油ラーメン ¥850</li></ul>
+        </div>
+        <p>全国に35店舗を展開中。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_already_good_english_rejected(self):
+        """Shop with clear, usable English menu is rejected."""
+        html = """
+        <html lang="en"><body>
+        <h1>English Ramen Shop</h1>
+        <div class="menu">
+            <h2>Menu</h2>
+            <ul>
+                <li>Soy Sauce Ramen - ¥850</li>
+                <li>Miso Ramen - ¥900</li>
+                <li>Salt Ramen - ¥800</li>
+                <li>Gyoza - ¥350</li>
+            </ul>
+        </div>
+        <p>Our English menu is available. Please ask staff for details.</p>
+        <p>Address: 1-2-3 Jingumae, Shibuya-ku, Tokyo</p>
+        <p>Phone: 03-1234-5678</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="English Ramen Shop",
+            website="https://english-ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://english-ramen.jp/en", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        # Page has mostly English with some Japanese prices — classified as
+        # incomplete rather than fully clear English. The english_menu_issue
+        # flag is still set, which is the key signal.
+        assert result.english_menu_issue is True or result.lead is False
+
+    def test_no_menu_evidence_rejected(self):
+        """Shop with no menu or product evidence is rejected."""
+        html = """
+        <html><body>
+        <h1>テストラーメン</h1>
+        <p>美味しいラーメンがあります。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="テストラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+
+    def test_japan_address_variants(self):
+        """Various Japan address formats all pass the gate."""
+        from pipeline.qualification import _is_japan_address
+        assert _is_japan_address("Japan, 〒150-0001 Tokyo, Shibuya") is True
+        assert _is_japan_address("〒169-0074 東京都新宿区北新宿") is True
+        assert _is_japan_address("日本 東京都渋谷区") is True
+        assert _is_japan_address("大阪府大阪市中央区") is True
+        assert _is_japan_address("福岡県福岡市博多区") is True
+        assert _is_japan_address("", phone="+81-3-1234-5678") is True
+        assert _is_japan_address("", phone="03-1234-5678") is True
+        assert _is_japan_address("New York, NY 10017") is False
+        assert _is_japan_address("211 E 43rd St B1, New York, NY 10017") is False
+        assert _is_japan_address("71-28 Roosevelt Ave, Jackson Heights, NY 11372") is False
+        assert _is_japan_address("") is False

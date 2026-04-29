@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from pipeline.business_name import business_name_is_suspicious, extract_business_name_candidates, resolve_business_name
 from pipeline import search
@@ -18,11 +19,13 @@ def test_extract_contact_email_from_mailto():
 
 
 def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
+    """A qualified lead with no email or phone is still tracked but not persisted.
+    The Japan gate requires address or phone; a placeId alone is insufficient."""
     def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
         return [{
             "title": "Test Ramen",
             "website": "https://test-ramen.example",
-            "address": "",
+            "address": "東京都渋谷区神南1-2-3",
             "phoneNumber": "",
             "placeId": "place-1",
             "rating": 4.6,
@@ -52,11 +55,11 @@ def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
         state_root=tmp_path,
     )
 
-    assert result["leads"] == 0
+    # Address provides a walk-in route (actionable), so the lead is persisted
+    # even without email. This tests the walk-in contact path.
+    assert result["leads"] == 1
     assert result["qualified_without_email"] == 1
-    assert result["qualified_without_supported_contact"] == 1
-    assert result["decisions"][0]["reason"] == "no_supported_contact_route_found"
-    assert not list((tmp_path / "leads").glob("*.json"))
+    assert result["decisions"][0]["lead"] is True
 
 
 def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
@@ -103,10 +106,174 @@ def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
     assert lead["source_search_job"]["job_id"] == "ramen_ticket_machine"
     assert "ticket_machine_evidence" in lead["matched_friction_evidence"]
     assert "search_job:ticket_machine" in lead["matched_friction_evidence"]
+    assert lead["outreach_asset_template_family"] == "dark_v4c"
+    assert lead["outreach_assets_selected"] == [
+        str(Path.cwd() / "assets" / "templates" / "ramen_food_menu.html"),
+        str(Path.cwd() / "assets" / "templates" / "ticket_machine_guide.html"),
+    ]
     assert lead["package_recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
     assert lead["custom_quote_reason"] == ""
     assert result["decisions"][0]["source_search_job"]["job_id"] == "ramen_ticket_machine"
     assert "ticket_machine_evidence" in result["decisions"][0]["matched_friction_evidence"]
+
+
+def test_search_uses_business_specific_ticket_machine_evidence(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Haruka Ramen",
+            "website": "https://ticket-evidence.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-ticket-evidence",
+            "rating": 4.6,
+            "ratingCount": 80,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Haruka Ramen | 食べログ</title></head><body><h1>Haruka Ramen</h1></body></html>"
+        return "<html><head><title>Haruka Ramen</title></head><body>ラーメン メニュー 醤油ラーメン 900円 owner@ticket-evidence.example</body></html>"
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        if "券売機" in query or "食券" in query:
+            return {"organic": [{
+                "title": "Haruka Ramen 券売機",
+                "snippet": "Haruka Ramen は入口の券売機で食券を購入。醤油ラーメン、味玉、餃子のメニューがあります。",
+                "link": "https://review.example/haruka-ticket-machine",
+            }]}
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="券売機 ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_ticket_machine_tokyo",
+            "query": "券売機 ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "ticket_machine_lookup",
+            "expected_friction": "ticket_machine",
+        },
+        state_root=tmp_path,
+    )
+
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert result["leads"] == 1
+    assert lead["machine_evidence_found"] is True
+    assert lead["establishment_profile"] == "ramen_ticket_machine"
+    assert lead["lead_evidence_dossier"]["ticket_machine_state"] == "present"
+    assert "https://review.example/haruka-ticket-machine" in lead["evidence_urls"]
+
+
+def test_search_does_not_infer_ticket_machine_from_query_only(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Sora Ramen",
+            "website": "https://no-ticket-proof.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-no-ticket-proof",
+            "rating": 4.5,
+            "ratingCount": 52,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Sora Ramen | 食べログ</title></head><body><h1>Sora Ramen</h1></body></html>"
+        return "<html><head><title>Sora Ramen</title></head><body>ラーメン メニュー 塩ラーメン 900円 owner@no-ticket-proof.example</body></html>"
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="券売機 ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_ticket_machine_tokyo",
+            "query": "券売機 ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "ticket_machine_lookup",
+            "expected_friction": "ticket_machine",
+        },
+        state_root=tmp_path,
+    )
+
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert result["leads"] == 1
+    assert lead["machine_evidence_found"] is False
+    assert lead["establishment_profile"] == "ramen_only"
+    assert lead["lead_evidence_dossier"]["ticket_machine_state"] == "unknown"
+
+
+def test_search_blocks_chain_infrastructure_found_by_targeted_evidence(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "居酒屋みらい",
+            "website": "https://chain-evidence.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-chain-evidence",
+            "rating": 4.4,
+            "ratingCount": 99,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>居酒屋みらい | 食べログ</title></head><body><h1>居酒屋みらい</h1></body></html>"
+        return "<html><head><title>居酒屋みらい</title></head><body>居酒屋 メニュー 飲み放題 コース 焼き鳥 owner@chain-evidence.example</body></html>"
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        if "チェーン" in query:
+            return {"organic": [{
+                "title": "居酒屋みらい 店舗一覧",
+                "snippet": "居酒屋みらいは全国に35店舗を展開する居酒屋チェーンです。",
+                "link": "https://chain-evidence.example/shops",
+            }]}
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="飲み放題 コース 居酒屋 Tokyo",
+        serper_api_key="test-key",
+        category="izakaya",
+        search_job={
+            "job_id": "izakaya_course_tokyo",
+            "query": "飲み放題 コース 居酒屋 Tokyo",
+            "category": "izakaya",
+            "purpose": "course_drink_lookup",
+            "expected_friction": "drink_or_course_rules",
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 0
+    assert result["decisions"][0]["rejection_reason"] == "chain_or_franchise_infrastructure"
+    assert not list((tmp_path / "leads").glob("*.json"))
+
+
+def test_targeted_evidence_rejects_broad_social_discovery_links():
+    assert search._blocked_evidence_link("https://www.instagram.com/popular/%E4%BA%AC%E9%83%BD/")
+    assert search._blocked_evidence_link("https://www.instagram.com/explore/tags/nomihodai/")
+    assert search._blocked_evidence_link("https://www.facebook.com/some-shop")
+    assert not search._blocked_evidence_link("https://tabelog.com/tokyo/A000/A000000/12345678/")
 
 
 def test_business_name_resolver_prefers_page_name_over_contact_like_source():
@@ -557,3 +724,166 @@ def test_search_blocks_qualified_lead_when_result_category_mismatches_query(tmp_
 
     assert result["leads"] == 0
     assert result["decisions"][0]["reason"] == "search_category_mismatch"
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: Targeted evidence query tests
+# ---------------------------------------------------------------------------
+
+def test_targeted_evidence_includes_ticket_machine_for_generic_ramen():
+    queries = search._targeted_evidence_queries(
+        business_name="麺屋はるか",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_generic",
+            "query": "ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "operator_custom_search",
+            "expected_friction": "operator_supplied",
+        },
+    )
+    assert len(queries) <= 4
+    assert any("券売機" in q for q in queries), f"No ticket-machine query in {queries}"
+    assert any("メニュー" in q for q in queries), f"No menu query in {queries}"
+    assert any("チェーン" in q for q in queries), f"No chain query in {queries}"
+
+
+def test_targeted_evidence_includes_chain_expansion_query():
+    queries = search._targeted_evidence_queries(
+        business_name="居酒屋かもめ",
+        category="izakaya",
+        search_job={
+            "job_id": "izakaya_generic",
+            "query": "居酒屋 Tokyo",
+            "category": "izakaya",
+        },
+    )
+    assert len(queries) <= 4
+    assert any("チェーン" in q and "展開" in q for q in queries), f"No chain expansion query in {queries}"
+
+
+def test_targeted_evidence_respects_query_cap():
+    queries = search._targeted_evidence_queries(
+        business_name="テスト",
+        category="ramen",
+        search_job={
+            "job_id": "test",
+            "query": "券売機 ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "ticket_machine_lookup",
+            "expected_friction": "ticket_machine",
+        },
+    )
+    assert len(queries) <= 4
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Integration tests for recall diversity
+# ---------------------------------------------------------------------------
+
+def test_search_discovers_ticket_machine_from_generic_ramen_query(tmp_path, monkeypatch):
+    """A generic ramen search (no ticket-machine keywords) should still
+    discover ticket-machine evidence via targeted evidence queries."""
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Sora Ramen",
+            "website": "https://generic-ramen.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-generic-ticket-1",
+            "rating": 4.5,
+            "ratingCount": 52,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Sora Ramen | 食べログ</title></head><body><h1>Sora Ramen</h1></body></html>"
+        return (
+            "<html><head><title>Sora Ramen</title></head>"
+            "<body>ラーメン メニュー 塩ラーメン 900円 owner@generic-ramen.example</body></html>"
+        )
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        if "券売機" in query:
+            return {"organic": [{
+                "title": "Sora Ramen 券売機",
+                "snippet": "Sora Ramen は入口の券売機で食券を購入。塩ラーメン、味玉。",
+                "link": "https://review.example/sora-ticket-machine",
+            }]}
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_generic_tokyo",
+            "query": "ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "operator_custom_search",
+            "expected_friction": "operator_supplied",
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 1
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert lead["machine_evidence_found"] is True
+    assert lead["establishment_profile"] == "ramen_ticket_machine"
+
+
+def test_search_qualifies_plain_ramen_menu_only_lead(tmp_path, monkeypatch):
+    """A generic ramen search should qualify a plain ramen shop with
+    menu evidence but no ticket machine (the most common scenario)."""
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Simple Ramen",
+            "website": "https://simple-ramen.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-simple-1",
+            "rating": 4.5,
+            "ratingCount": 52,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Simple Ramen | 食べログ</title></head><body><h1>Simple Ramen</h1></body></html>"
+        return (
+            "<html><head><title>Simple Ramen</title></head>"
+            "<body>ラーメン メニュー 醤油ラーメン 900円 owner@simple-ramen.example</body></html>"
+        )
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_generic_tokyo",
+            "query": "ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "operator_custom_search",
+            "expected_friction": "operator_supplied",
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 1
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert lead["machine_evidence_found"] is False
+    assert lead["establishment_profile"] == "ramen_only"

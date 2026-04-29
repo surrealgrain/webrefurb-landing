@@ -70,6 +70,18 @@ def test_chain_like_record_cannot_remain_launch_ready():
     assert "chain_or_franchise_like_business" in migrated["launch_readiness_reasons"]
 
 
+def test_chain_infrastructure_snippet_cannot_remain_launch_ready():
+    migrated, _ = migrate_lead_record(_ready_record(
+        business_name="居酒屋みらい",
+        primary_category_v1="izakaya",
+        evidence_snippets=["飲み放題 コース 焼き鳥 メニュー 全国に35店舗を展開"],
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert migrated["outreach_status"] == "do_not_contact"
+    assert "chain_or_franchise_like_business" in migrated["launch_readiness_reasons"]
+
+
 def test_bracketed_preview_forces_manual_review():
     migrated, _ = migrate_lead_record(_ready_record(
         pitch_draft={"native": {"body": "醤油ラーメン -> [醤油ラーメン]"}},

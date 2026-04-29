@@ -42,8 +42,11 @@ def test_all_category_fans_out_to_ramen_and_izakaya_for_specific_city():
     assert "site:hotpepper.jp 居酒屋 Kyoto 飲み放題" in queries
     assert "site:tabelog.com 居酒屋 Kyoto メニュー" in queries
     assert "居酒屋 公式 メニュー Kyoto" in queries
-    assert {"ramen_multilingual_qr_check", "ramen_mobile_order_check", "ramen_english_ticket_machine_check"} <= job_ids
-    assert {"izakaya_multilingual_qr_check", "izakaya_mobile_order_check"} <= job_ids
+    assert {"ramen_ticket_machine", "ramen_meal_ticket", "ramen_official_menu"} <= job_ids
+    assert {"izakaya_nomihodai_course", "izakaya_oshinagaki", "izakaya_official_menu"} <= job_ids
+    # Negative-check jobs are NOT included — qualification detects these from page content
+    assert "ramen_english_menu_check" not in job_ids
+    assert "izakaya_multilingual_qr_check" not in job_ids
     assert all(job["purpose"] for job in jobs)
     assert all(job["expected_friction"] for job in jobs)
 

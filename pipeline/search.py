@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import html as html_lib
+import threading
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -11,7 +13,28 @@ from .business_name import business_name_is_suspicious, business_names_match, ex
 from .contact_crawler import extract_contact_signals
 from .utils import utc_now, write_json, ensure_dir
 from .qualification import qualify_candidate
-from .evidence import _count_japanese_chars
+
+
+# ---------------------------------------------------------------------------
+# Cross-job dedup: prevents parallel search jobs from processing the same
+# candidate twice (each duplicate would burn 5-6 Serper web search credits).
+# ---------------------------------------------------------------------------
+_in_flight_keys: set[str] = set()
+_in_flight_lock = threading.Lock()
+
+
+def _try_mark_in_flight(key: str) -> bool:
+    with _in_flight_lock:
+        if key in _in_flight_keys:
+            return False
+        _in_flight_keys.add(key)
+        return True
+
+
+def _clear_in_flight(key: str) -> None:
+    with _in_flight_lock:
+        _in_flight_keys.discard(key)
+from .evidence import _count_japanese_chars, has_chain_or_franchise_infrastructure
 
 
 def _fetch_page(url: str, timeout_seconds: int = 10) -> str:
@@ -337,6 +360,11 @@ def _address_search_token(address: str) -> str:
     return first_part or str(address or "").strip()
 
 
+def _normalize_domain(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url or "").strip())
+    return (parsed.netloc.lower().removeprefix("www.") or "")
+
+
 def _find_tabelog_candidate_url(
     *,
     business_name: str,
@@ -574,6 +602,133 @@ def verify_business_name(
     }
 
 
+def _targeted_evidence_queries(
+    *,
+    business_name: str,
+    category: str,
+    search_job: dict[str, str],
+) -> list[str]:
+    name = str(business_name or "").strip()
+    if not name:
+        return []
+    category_value = str(category or "").strip().lower()
+    expected = str(search_job.get("expected_friction") or "").lower()
+    purpose = str(search_job.get("purpose") or "").lower()
+    source_query = str(search_job.get("query") or "").lower()
+
+    queries: list[str] = []
+    wants_ticket_lookup = (
+        category_value == "ramen"
+        and (
+            "ticket" in expected
+            or "machine" in expected
+            or "ticket" in purpose
+            or "machine" in purpose
+            or "券売機" in source_query
+            or "食券" in source_query
+        )
+    )
+    if category_value == "ramen":
+        if wants_ticket_lookup:
+            queries.extend([
+                f'"{name}" 券売機 食券',
+                f'"{name}" 食券 ラーメン',
+            ])
+        else:
+            queries.extend([
+                f'"{name}" メニュー ラーメン',
+                f'"{name}" 券売機 食券',
+            ])
+
+    if category_value == "izakaya":
+        queries.extend([
+            f'"{name}" 飲み放題 コース',
+            f'"{name}" お品書き メニュー',
+        ])
+
+    queries.append(f'"{name}" チェーン 展開 フランチャイズ')
+    return list(dict.fromkeys(queries))[:4]
+
+
+def _result_text(result: dict[str, Any]) -> str:
+    return " ".join(str(result.get(key) or "") for key in ("title", "snippet", "link"))
+
+
+def _blocked_evidence_link(link: str) -> bool:
+    parsed = urllib.parse.urlparse(str(link or ""))
+    host = parsed.netloc.lower().removeprefix("www.")
+    return any(domain in host for domain in (
+        "instagram.com", "facebook.com", "twitter.com", "x.com",
+        "youtube.com", "tiktok.com", "pinterest.com",
+    ))
+
+
+def _business_result_matches_name(text: str, business_name: str) -> bool:
+    from .business_name import business_names_match
+    lowered = text.lower()
+    name_parts = [p for p in re.split(r"[\s\u3000|－\-\u2010\u2011\u2012\u2013\u2014\u2015]+", business_name) if p]
+    if any(part.lower() in lowered for part in name_parts):
+        return True
+    return False
+
+
+def _result_has_qualification_signal(text: str, category: str) -> bool:
+    from .constants import TICKET_MACHINE_TERMS, RAMEN_MENU_TERMS, IZAKAYA_MENU_TERMS
+    lowered = text.lower()
+    if category == "ramen":
+        if any(term in lowered for term in TICKET_MACHINE_TERMS):
+            return True
+        if any(term.lower() in lowered for term in RAMEN_MENU_TERMS):
+            return True
+    if category == "izakaya" and any(term.lower() in lowered for term in IZAKAYA_MENU_TERMS):
+        return True
+    if has_chain_or_franchise_infrastructure(text):
+        return True
+    return False
+
+
+def _collect_targeted_evidence_pages(
+    *,
+    business_name: str,
+    category: str,
+    search_job: dict[str, str],
+    serper_api_key: str,
+    timeout_seconds: int = 8,
+) -> list[dict[str, str]]:
+    pages: list[dict[str, str]] = []
+    seen_links: set[str] = set()
+    for evidence_query in _targeted_evidence_queries(
+        business_name=business_name,
+        category=category,
+        search_job=search_job,
+    ):
+        try:
+            data = run_web_search(query=evidence_query, api_key=serper_api_key, timeout_seconds=timeout_seconds)
+        except Exception:
+            continue
+        for result in data.get("organic") or []:
+            link = str(result.get("link") or "").strip()
+            text = _result_text(result)
+            if not link or link in seen_links:
+                continue
+            if _blocked_evidence_link(link):
+                continue
+            if not _business_result_matches_name(text, business_name):
+                continue
+            if not _result_has_qualification_signal(text, category):
+                continue
+            seen_links.add(link)
+            title = html_lib.escape(str(result.get("title") or "Search evidence"))
+            snippet = html_lib.escape(str(result.get("snippet") or ""))
+            pages.append({
+                "url": link,
+                "html": f"<html><body><h1>{title}</h1><p>{snippet}</p></body></html>",
+            })
+            if len(pages) >= 2:
+                return pages
+    return pages
+
+
 def search_and_qualify(
     *,
     query: str,
@@ -626,139 +781,159 @@ def search_and_qualify(
             })
             continue
 
-        try:
-            website_html = _fetch_page(website)
-            pages = [{"url": website, "html": website_html}]
-        except Exception as exc:
-            decisions.append({"business_name": source_name, "lead": False, "reason": "fetch_failed", "error": str(exc)})
-            continue
-
-        name_check = verify_business_name(
-            source_name=source_name,
-            website=website,
-            html=website_html,
-            address=str(place.get("address", "")),
-            serper_api_key=serper_api_key,
-            category=category,
-        )
-        business_name = str(name_check.get("business_name") or "")
-        business_name_source = str(name_check.get("business_name_source") or "")
-        verified_by = list(name_check.get("verified_by") or [])
-        if business_name_is_suspicious(business_name):
+        # Cross-job dedup: skip if another parallel job is already processing
+        dedup_key = str(place.get("placeId") or "") or _normalize_domain(website)
+        if not _try_mark_in_flight(dedup_key):
             decisions.append({
                 "business_name": source_name,
                 "lead": False,
-                "reason": "invalid_business_name_detected",
-                "business_name_source": business_name_source,
+                "reason": "already_tracked",
             })
             continue
-        if len(verified_by) < 2:
-            # Allow through when Google Maps signals are strong enough on their own
-            if _google_confidence_override(place) and not bool(name_check.get("name_conflict")):
-                verified_by = verified_by + ["google_confidence_override"]
-            else:
+
+        try:
+            try:
+                website_html = _fetch_page(website)
+                pages = [{"url": website, "html": website_html}]
+            except Exception as exc:
+                decisions.append({"business_name": source_name, "lead": False, "reason": "fetch_failed", "error": str(exc)})
+                continue
+
+            name_check = verify_business_name(
+                source_name=source_name,
+                website=website,
+                html=website_html,
+                address=str(place.get("address", "")),
+                serper_api_key=serper_api_key,
+                category=category,
+            )
+            business_name = str(name_check.get("business_name") or "")
+            business_name_source = str(name_check.get("business_name_source") or "")
+            verified_by = list(name_check.get("verified_by") or [])
+            if business_name_is_suspicious(business_name):
                 decisions.append({
-                    "business_name": business_name or source_name,
+                    "business_name": source_name,
                     "lead": False,
-                    "reason": "business_name_conflict" if name_check.get("name_conflict") else "business_name_unverified",
+                    "reason": "invalid_business_name_detected",
                     "business_name_source": business_name_source,
-                    "business_name_verified_by": verified_by,
-                    "official_name": name_check.get("official_name", ""),
                 })
                 continue
+            if len(verified_by) < 2:
+                # Allow through when Google Maps signals are strong enough on their own
+                if _google_confidence_override(place) and not bool(name_check.get("name_conflict")):
+                    verified_by = verified_by + ["google_confidence_override"]
+                else:
+                    decisions.append({
+                        "business_name": business_name or source_name,
+                        "lead": False,
+                        "reason": "business_name_conflict" if name_check.get("name_conflict") else "business_name_unverified",
+                        "business_name_source": business_name_source,
+                        "business_name_verified_by": verified_by,
+                        "official_name": name_check.get("official_name", ""),
+                    })
+                    continue
 
-        qualification = qualify_candidate(
-            business_name=business_name,
-            website=website,
-            category=category,
-            pages=pages,
-            rating=place.get("rating"),
-            reviews=place.get("ratingCount") or place.get("reviews"),
-            address=place.get("address", ""),
-            phone=place.get("phoneNumber", ""),
-            place_id=place.get("placeId", ""),
-            map_url=str(place.get("link") or place.get("mapUrl") or ""),
-            latitude=place_lat,
-            longitude=place_lng,
-        )
+            pages.extend(_collect_targeted_evidence_pages(
+                business_name=business_name,
+                category=category,
+                search_job=source_search_job,
+                serper_api_key=serper_api_key,
+            ))
 
-        decision = qualification.to_dict()
-        decision["business_name_source"] = business_name_source
-        decision["business_name_verified_by"] = verified_by
-        if qualification.lead and category in {"ramen", "izakaya"} and qualification.primary_category_v1 != category:
-            decision["lead"] = False
-            decision["reason"] = "search_category_mismatch"
-            decision["requested_category"] = category
-            decisions.append(decision)
-            continue
-
-        if qualification.lead:
-            contact_routes = discover_contact_routes(
-                website,
-                website_html,
-                phone=str(place.get("phoneNumber", "")),
-                address=str(place.get("address", "")),
+            qualification = qualify_candidate(
+                business_name=business_name,
+                website=website,
+                category=category,
+                pages=pages,
+                rating=place.get("rating"),
+                reviews=place.get("ratingCount") or place.get("reviews"),
+                address=place.get("address", ""),
+                phone=place.get("phoneNumber", ""),
+                place_id=place.get("placeId", ""),
                 map_url=str(place.get("link") or place.get("mapUrl") or ""),
+                latitude=place_lat,
+                longitude=place_lng,
             )
-            actionable_routes = [route for route in contact_routes if route.get("actionable")]
-            email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
-            decision["contact_route_types"] = [str(route.get("type") or "") for route in contact_routes]
-            decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
 
-            if not email_contact:
-                qualified_without_email += 1
-            if not actionable_routes:
-                qualified_without_supported_contact += 1
+            decision = qualification.to_dict()
+            decision["business_name_source"] = business_name_source
+            decision["business_name_verified_by"] = verified_by
+            if qualification.lead and category in {"ramen", "izakaya"} and qualification.primary_category_v1 != category:
                 decision["lead"] = False
-                decision["reason"] = "no_supported_contact_route_found"
+                decision["reason"] = "search_category_mismatch"
+                decision["requested_category"] = category
                 decisions.append(decision)
                 continue
-            if not email_contact:
-                qualified_with_non_email_contact += 1
 
-            from .preview import build_preview_menu, build_preview_html
-            from .pitch import build_pitch
-            from .record import create_lead_record, persist_lead_record
+            if qualification.lead:
+                contact_routes = discover_contact_routes(
+                    website,
+                    website_html,
+                    phone=str(place.get("phoneNumber", "")),
+                    address=str(place.get("address", "")),
+                    map_url=str(place.get("link") or place.get("mapUrl") or ""),
+                )
+                actionable_routes = [route for route in contact_routes if route.get("actionable")]
+                email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
+                decision["contact_route_types"] = [str(route.get("type") or "") for route in contact_routes]
+                decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
 
-            preview_menu = build_preview_menu(
-                assessment=qualification,
-                snippets=qualification.evidence_snippets,
-                business_name=business_name,
-            )
-            preview_html = build_preview_html(
-                preview_menu=preview_menu,
-                ticket_machine_hint=None,
-                business_name=business_name,
-            )
-            pitch = build_pitch(
-                business_name=business_name,
-                category=qualification.primary_category_v1,
-                preview_menu=preview_menu,
-                ticket_machine_hint=None,
-                recommended_package=qualification.recommended_primary_package,
-            )
-            record = create_lead_record(
-                qualification=qualification,
-                preview_html=preview_html,
-                pitch_draft=pitch,
-                contacts=contact_routes,
-                source_query=query,
-                source_search_job=source_search_job,
-                matched_friction_evidence=_matched_friction_evidence(decision, source_search_job),
-                state_root=state_root,
-            )
-            record["business_name_source"] = business_name_source
-            record["business_name_verified_by"] = verified_by
-            if name_check.get("tabelog_url"):
-                record["business_name_tabelog_url"] = name_check["tabelog_url"]
-            if name_check.get("ramendb_url"):
-                record["business_name_ramendb_url"] = name_check["ramendb_url"]
-            persist_lead_record(record, state_root=state_root)
-            results.append(record)
-            decision["email_found"] = bool(email_contact)
-            decision["lead_id"] = record["lead_id"]
+                if not email_contact:
+                    qualified_without_email += 1
+                if not actionable_routes:
+                    qualified_without_supported_contact += 1
+                    decision["lead"] = False
+                    decision["reason"] = "no_supported_contact_route_found"
+                    decisions.append(decision)
+                    continue
+                if not email_contact:
+                    qualified_with_non_email_contact += 1
 
-        decisions.append(decision)
+                from .preview import build_preview_menu, build_preview_html
+                from .pitch import build_pitch
+                from .record import create_lead_record, persist_lead_record
+
+                preview_menu = build_preview_menu(
+                    assessment=qualification,
+                    snippets=qualification.evidence_snippets,
+                    business_name=business_name,
+                )
+                preview_html = build_preview_html(
+                    preview_menu=preview_menu,
+                    ticket_machine_hint=None,
+                    business_name=business_name,
+                )
+                pitch = build_pitch(
+                    business_name=business_name,
+                    category=qualification.primary_category_v1,
+                    preview_menu=preview_menu,
+                    ticket_machine_hint=None,
+                    recommended_package=qualification.recommended_primary_package,
+                )
+                record = create_lead_record(
+                    qualification=qualification,
+                    preview_html=preview_html,
+                    pitch_draft=pitch,
+                    contacts=contact_routes,
+                    source_query=query,
+                    source_search_job=source_search_job,
+                    matched_friction_evidence=_matched_friction_evidence(decision, source_search_job),
+                    state_root=state_root,
+                )
+                record["business_name_source"] = business_name_source
+                record["business_name_verified_by"] = verified_by
+                if name_check.get("tabelog_url"):
+                    record["business_name_tabelog_url"] = name_check["tabelog_url"]
+                if name_check.get("ramendb_url"):
+                    record["business_name_ramendb_url"] = name_check["ramendb_url"]
+                persist_lead_record(record, state_root=state_root)
+                results.append(record)
+                decision["email_found"] = bool(email_contact)
+                decision["lead_id"] = record["lead_id"]
+
+            decisions.append(decision)
+        finally:
+            _clear_in_flight(dedup_key)
 
     run_id = f"wrm-search-{utc_now().replace(':', '').replace('-', '').replace('+00:00', 'z').lower()}"
     decisions = [

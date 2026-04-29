@@ -71,6 +71,18 @@ def test_extract_contact_signals_finds_email_line_instagram_and_forms():
     assert signals.has_form is True
 
 
+def test_extract_contact_signals_ignores_json_ld_at_keys_as_line_ids():
+    html = """
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@graph":[],"@type":"Restaurant"}
+    </script>
+    """
+
+    signals = extract_contact_signals(html)
+
+    assert signals.line_ids == []
+
+
 def test_contact_candidate_urls_prefers_same_site_contact_links():
     anchors = [
         {"href": "/contact", "text": "お問い合わせ"},

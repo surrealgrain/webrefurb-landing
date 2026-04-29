@@ -85,10 +85,6 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="ramen_menu_photo", query=f"ラーメン メニュー 写真 {place}", category="ramen", purpose="menu_photo_lookup", expected_friction="menu_photo"),
         _job(job_id="ramen_ramendb", query=f"site:ramendb.supleks.jp ラーメン {place}", category="ramen", purpose="ramendb_lookup", expected_friction="independent_ramen_listing"),
         _job(job_id="ramen_official_menu", query=f"ラーメン 公式 メニュー {place}", category="ramen", purpose="official_menu_lookup", expected_friction="official_menu"),
-        _job(job_id="ramen_english_menu_check", query=f"英語メニュー ラーメン {place}", category="ramen", purpose="english_solution_check", expected_friction="english_menu_check"),
-        _job(job_id="ramen_multilingual_qr_check", query=f"多言語 QR ラーメン {place}", category="ramen", purpose="english_solution_check", expected_friction="multilingual_qr_check"),
-        _job(job_id="ramen_mobile_order_check", query=f"モバイルオーダー ラーメン {place}", category="ramen", purpose="english_solution_check", expected_friction="mobile_order_check"),
-        _job(job_id="ramen_english_ticket_machine_check", query=f"英語 券売機 ラーメン {place}", category="ramen", purpose="english_solution_check", expected_friction="english_ticket_machine_check"),
     ]
     izakaya_jobs = [
         _job(job_id="izakaya_nomihodai_course", query=f"飲み放題 コース 居酒屋 {place}", category="izakaya", purpose="drink_course_lookup", expected_friction="nomihodai_or_course"),
@@ -98,9 +94,6 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="izakaya_tabelog_menu", query=f"site:tabelog.com 居酒屋 {place} メニュー", category="izakaya", purpose="tabelog_lookup", expected_friction="independent_izakaya_listing"),
         _job(job_id="izakaya_official_menu", query=f"居酒屋 公式 メニュー {place}", category="izakaya", purpose="official_menu_lookup", expected_friction="official_menu"),
         _job(job_id="izakaya_social_menu", query=f"Instagram 居酒屋 メニュー {place}", category="izakaya", purpose="social_menu_lookup", expected_friction="social_menu_photo"),
-        _job(job_id="izakaya_english_menu_check", query=f"英語メニュー 居酒屋 {place}", category="izakaya", purpose="english_solution_check", expected_friction="english_menu_check"),
-        _job(job_id="izakaya_multilingual_qr_check", query=f"多言語 QR 居酒屋 {place}", category="izakaya", purpose="english_solution_check", expected_friction="multilingual_qr_check"),
-        _job(job_id="izakaya_mobile_order_check", query=f"モバイルオーダー 居酒屋 {place}", category="izakaya", purpose="english_solution_check", expected_friction="mobile_order_check"),
     ]
     if value == "all":
         return [*ramen_jobs, *izakaya_jobs]
