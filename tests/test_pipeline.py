@@ -15,7 +15,7 @@ from pipeline.scoring import (
 )
 from pipeline.models import QualificationResult
 from pipeline.constants import (
-    PACKAGE_A_KEY, PACKAGE_B_KEY,
+    PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY, PACKAGE_A_KEY, PACKAGE_B_KEY,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MACHINE_MAPPING,
     LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE,
@@ -351,6 +351,25 @@ class TestAlreadyGoodEnglish:
         )
         assert result.lead is False
 
+    def test_multilingual_qr_or_ordering_solution_rejected(self):
+        html = """
+        <html><body>
+        <h1>多言語QR対応ラーメン</h1>
+        <p>醤油ラーメン 味玉 トッピング メニュー 券売機 食券</p>
+        <p>Multilingual QR and English QR mobile order English support are available.</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="多言語QR対応ラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "already_has_multilingual_ordering_solution"
+
 
 # ===========================================================================
 # Scoring tests
@@ -430,6 +449,42 @@ class TestScoring:
             lead_score_v1=40,
         )
         assert pkg == PACKAGE_B_KEY
+
+    def test_package_recommendation_custom_quote_for_large_menu(self):
+        pkg = recommend_package(
+            category="izakaya",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            menu_complexity_state="large_custom_quote",
+            tourist_exposure_score=0.3,
+            lead_score_v1=40,
+        )
+        assert pkg == "custom_quote"
+
+    def test_package_recommendation_izakaya_friction_uses_qr_or_print_package(self):
+        course_pkg = recommend_package(
+            category="izakaya",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            izakaya_rules_state="nomihodai_found",
+            tourist_exposure_score=0.3,
+            lead_score_v1=40,
+        )
+        drinks_pkg = recommend_package(
+            category="izakaya",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            izakaya_rules_state="drinks_found",
+            tourist_exposure_score=0.3,
+            lead_score_v1=40,
+        )
+
+        assert course_pkg == PACKAGE_3_KEY
+        assert drinks_pkg == PACKAGE_2_KEY
+
+    def test_package_recommendation_uses_current_package_keys(self):
+        assert PACKAGE_A_KEY == PACKAGE_2_KEY
+        assert PACKAGE_B_KEY == PACKAGE_1_KEY
 
 
 # ===========================================================================

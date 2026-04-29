@@ -226,6 +226,32 @@ class TestBuildOutreachEmail:
         assert "ラーメン" not in email["body"]
         assert "お料理やドリンク" not in email["body"]
 
+    def test_cold_outreach_does_not_lead_with_all_prices(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+        )
+        combined = email["body"] + "\n" + email["english_body"]
+
+        assert "¥30,000" not in combined
+        assert "¥45,000" not in combined
+        assert "¥65,000" not in combined
+        assert "English Ordering Files" not in combined
+        assert "Counter-Ready Ordering Kit" not in combined
+        assert "Live QR English Menu" not in combined
+
+    def test_unknown_ticket_machine_state_uses_check_phrasing(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+            lead_dossier={"ticket_machine_state": "unknown", "english_menu_state": "missing"},
+        )
+
+        assert "券売機の有無は公開情報だけでは断定せず" in email["body"]
+        assert "check whether a menu guide, ticket-machine guide, or both are useful" in email["english_body"]
+
     def test_menu_and_machine_attaches_both_pdfs(self):
         assets = select_outreach_assets("menu_and_machine")
         assert GENERIC_MENU_PDF in assets

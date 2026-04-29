@@ -80,3 +80,22 @@ def test_website_visible_copy_has_no_em_dashes():
         text = _visible_text(_read(name))
         assert "—" not in text
         assert "–" not in text
+
+
+def test_public_menu_samples_do_not_expose_unsafe_placeholders():
+    docs_menu_root = DOCS_ROOT / "menus"
+    unsafe_patterns = (
+        "[[",
+        "OCR required",
+        "menu image detected",
+        r"\[[^\]]*[\u3040-\u30ff\u3400-\u9fff][^\]]*\]",
+    )
+
+    for path in docs_menu_root.rglob("*"):
+        if path.is_file() and path.suffix.lower() in {".html", ".json"}:
+            content = path.read_text(encoding="utf-8")
+            for pattern in unsafe_patterns:
+                if pattern.startswith("\\["):
+                    assert re.search(pattern, content) is None, f"Unsafe placeholder in {path}"
+                else:
+                    assert pattern not in content, f"Unsafe placeholder in {path}"

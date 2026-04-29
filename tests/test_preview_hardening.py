@@ -48,3 +48,19 @@ def test_shop_preview_returns_none_when_no_safe_customer_proof():
     })
 
     assert html is None
+
+
+def test_preview_blocks_bracketed_fallback_and_reservation_only_snippets():
+    html = build_shop_preview_from_record(record={
+        "business_name": "Unsafe Lead",
+        "establishment_profile": "ramen_only",
+        "evidence_snippets": [
+            "醤油ラーメン -> [醤油ラーメン]",
+            "公式サイトからのご予約 reservation calendar",
+        ],
+        "evidence_classes": ["official_html_menu"],
+        "menu_evidence_found": True,
+        "machine_evidence_found": False,
+    })
+
+    assert html is None
