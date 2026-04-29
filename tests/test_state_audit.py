@@ -125,6 +125,16 @@ def test_expected_dark_assets_maps_profiles():
     ]
 
 
+def test_izakaya_dark_template_does_not_show_ramen_menu_items():
+    html = (PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html").read_text(encoding="utf-8")
+
+    assert "Signature Dishes" in html
+    assert "名物料理" in html
+    assert "Soy Sauce Ramen" not in html
+    assert "Creamy Chicken Broth Ramen" not in html
+    assert "醤油ラーメン" not in html
+
+
 def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
     lead = _write_lead(
         tmp_path,

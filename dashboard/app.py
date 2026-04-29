@@ -151,6 +151,19 @@ def _render_dashboard_preview_jpeg(source: str | Path) -> Path | None:
         return future.result(timeout=20)
 
 
+def _safe_draft_assets_for_record(record: dict[str, Any], requested_assets: Any) -> list[str]:
+    """Prevent stale browser state from re-saving legacy sample assets."""
+    from pipeline.state_audit import expected_dark_assets
+
+    expected = expected_dark_assets(record)
+    requested = [str(asset) for asset in requested_assets or []]
+    if not requested:
+        return []
+    if all(asset in expected for asset in requested):
+        return requested
+    return expected
+
+
 def _inline_preview_svg(title: str, label: str) -> str:
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
 <rect width="1200" height="760" fill="#0f0d0b"/>
@@ -893,7 +906,7 @@ async def api_save_draft(lead_id: str, request: Request):
 
     # Persist draft assets and toggles
     if "assets" in body:
-        record["outreach_assets_selected"] = body["assets"]
+        record["outreach_assets_selected"] = _safe_draft_assets_for_record(record, body["assets"])
     if "include_inperson" in body:
         record["outreach_include_inperson"] = body["include_inperson"]
     if "include_machine_image" in body:

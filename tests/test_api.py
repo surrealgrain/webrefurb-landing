@@ -1220,6 +1220,30 @@ class TestDraftSaveAndLoad:
         assert stored["outreach_draft_subject"] == "テスト件名"
         assert stored["outreach_draft_manually_edited"] is True
 
+    def test_save_draft_replaces_stale_browser_asset_paths(self):
+        self._create_lead(
+            establishment_profile="izakaya_drink_heavy",
+            primary_category_v1="izakaya",
+            outreach_classification="menu_only",
+        )
+        stale_asset = "/Users/chrisparker/Desktop/WebRefurbMenu/glm_menu_template_package_BROWSER_CHECKED_bilingual_right_verified/restaurant_menu_print_ready_combined.pdf"
+
+        response = self.client.post(
+            "/api/draft/wrm-draft-test",
+            json={
+                "body": "Edited body content",
+                "english_body": "Edited English content",
+                "subject": "テスト件名",
+                "assets": [stale_asset],
+            },
+        )
+
+        assert response.status_code == 200
+        stored = json.loads((self.tmp_path / "leads" / "wrm-draft-test.json").read_text(encoding="utf-8"))
+        assert stored["outreach_assets_selected"] == [
+            "/Users/chrisparker/Desktop/WebRefurbMenu/assets/templates/izakaya_food_menu.html"
+        ]
+
     def test_save_draft_lead_not_found(self):
         response = self.client.post(
             "/api/draft/nonexistent",
