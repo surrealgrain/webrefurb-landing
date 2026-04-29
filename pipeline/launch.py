@@ -39,6 +39,9 @@ def create_launch_batch(
         lead = ensure_lead_dossier(lead)
         if lead.get("launch_readiness_status") != READINESS_READY:
             raise LaunchBatchError(f"lead_not_ready:{lead_id}")
+        measurement_missing = _missing_launch_measurement_fields(lead)
+        if measurement_missing:
+            raise LaunchBatchError(f"lead_launch_measurement_incomplete:{lead_id}:{','.join(measurement_missing)}")
         profile = str(lead.get("establishment_profile") or "")
         category_profiles.add(profile)
         entries.append(_launch_entry_from_lead(lead))
@@ -52,6 +55,7 @@ def create_launch_batch(
     batch_id = "launch-" + hashlib.sha1(("|".join(lead_ids) + utc_now()).encode("utf-8")).hexdigest()[:10]
     batch = {
         "batch_id": batch_id,
+        "batch_number": len(previous) + 1,
         "created_at": utc_now(),
         "reviewed_at": "",
         "notes": notes,
@@ -148,6 +152,25 @@ def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
         "operator_minutes": 0,
         "outcome": {},
     }
+
+
+def _missing_launch_measurement_fields(lead: dict[str, Any]) -> list[str]:
+    missing: list[str] = []
+    primary_contact = lead.get("primary_contact") or {}
+    if not primary_contact:
+        contacts = [c for c in lead.get("contacts") or [] if c.get("actionable")]
+        primary_contact = contacts[0] if contacts else {}
+    if not primary_contact.get("type"):
+        missing.append("selected_channel")
+    if not str(lead.get("message_variant") or "").strip():
+        missing.append("message_variant")
+    proof_asset = (lead.get("outreach_assets_selected") or [""])[0]
+    proof_items = lead.get("proof_items") or (lead.get("lead_evidence_dossier") or {}).get("proof_items") or []
+    if not proof_asset and not any(item.get("customer_preview_eligible") for item in proof_items):
+        missing.append("proof_asset")
+    if not str(lead.get("recommended_primary_package") or "").strip():
+        missing.append("recommended_package")
+    return missing
 
 
 def _batch_path(state_root: Path, batch_id: str) -> Path:

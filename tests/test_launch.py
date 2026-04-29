@@ -58,6 +58,7 @@ def test_create_launch_batch_requires_first_batch_review_before_second(tmp_path)
 
     batch = create_launch_batch(lead_ids=lead_ids, state_root=tmp_path)
     assert batch["lead_count"] == 5
+    assert batch["batch_number"] == 1
     assert batch["leads"][0]["dossier_states"]["english_menu_state"] == "missing"
     assert batch["leads"][0]["reply_status"] == "not_contacted"
     assert batch["leads"][0]["opt_out"] is False
@@ -88,6 +89,25 @@ def test_create_launch_batch_persists_dossier_and_rejects_duplicate_leads(tmp_pa
     assert stored["launch_batch_id"] == batch["batch_id"]
     assert stored["lead_evidence_dossier"]["ready_to_contact"] is True
     assert stored["launch_readiness_status"] == "ready_for_outreach"
+
+
+def test_create_launch_batch_requires_measurement_fields(tmp_path):
+    lead_ids = _write_leads(tmp_path, [
+        "ramen_ticket_machine",
+        "izakaya_drink_heavy",
+        "ramen_only",
+        "ramen_only",
+        "izakaya_course_heavy",
+    ])
+    first_path = tmp_path / "leads" / f"{lead_ids[0]}.json"
+    first = json.loads(first_path.read_text(encoding="utf-8"))
+    first["message_variant"] = ""
+    first["outreach_assets_selected"] = []
+    first["proof_items"] = []
+    first_path.write_text(json.dumps(first), encoding="utf-8")
+
+    with pytest.raises(LaunchBatchError, match="lead_launch_measurement_incomplete"):
+        create_launch_batch(lead_ids=lead_ids, state_root=tmp_path)
 
 
 def test_record_launch_outcome_tracks_opt_out_bounce_minutes_and_lead_copy(tmp_path):

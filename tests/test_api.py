@@ -694,6 +694,7 @@ class TestAPIEndpoints:
                 recommended_primary_package="package_2_printed_delivered_45k",
                 outreach_assets_selected=["/tmp/sample.pdf"],
                 message_variant=f"email:menu_only:{profile}",
+                contacts=[{"type": "email", "value": f"{lead_id}@example.test", "actionable": True}],
             )
         return lead_ids
 
