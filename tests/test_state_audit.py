@@ -112,7 +112,7 @@ def test_expected_dark_assets_maps_profiles():
         "primary_category_v1": "izakaya",
         "establishment_profile": "izakaya_course_heavy",
         "outreach_classification": "menu_only",
-    }) == [str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html")]
+    }) == [str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_drinks_menu.html")]
     assert expected_dark_assets({
         "lead": True,
         "outreach_status": "draft",
@@ -133,6 +133,68 @@ def test_izakaya_dark_template_does_not_show_ramen_menu_items():
     assert "Soy Sauce Ramen" not in html
     assert "Creamy Chicken Broth Ramen" not in html
     assert "醤油ラーメン" not in html
+
+
+def test_izakaya_food_drinks_template_contains_drinks_and_rules():
+    html = (PROJECT_ROOT / "assets" / "templates" / "izakaya_food_drinks_menu.html").read_text(encoding="utf-8")
+
+    assert "Food Menu" in html
+    assert "Drinks Menu" in html
+    assert "Nomihodai" in html
+    assert "Course Flow" in html
+    assert "data-slot=\"seal-text\"" in html
+    assert "Creamy Chicken Broth Ramen" not in html
+
+
+def test_state_audit_rejects_izakaya_food_only_template_when_claiming_food_drinks(tmp_path):
+    _write_lead(
+        tmp_path,
+        primary_category_v1="izakaya",
+        establishment_profile="izakaya_drink_heavy",
+        outreach_classification="menu_only",
+        machine_evidence_found=False,
+        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html")],
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
+    assert "izakaya_food_drinks_claim_uses_food_only_template" in _codes(result)
+
+
+def test_state_audit_rejects_saved_draft_claiming_attachment_without_assets(tmp_path):
+    _write_lead(
+        tmp_path,
+        contacts=[{"type": "contact_form", "actionable": True}],
+        outreach_assets_selected=[],
+        outreach_draft_body="添付のサンプルをご覧ください。",
+        outreach_draft_english_body="Please review the attached sample.",
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "draft_mentions_attachment_without_assets" in _codes(result)
+
+
+def test_repair_state_leads_clears_attachment_claim_draft_when_route_has_no_assets(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        contacts=[{"type": "contact_form", "actionable": True}],
+        outreach_assets_selected=[],
+        outreach_draft_body="添付のサンプルをご覧ください。",
+        outreach_draft_english_body="Please review the attached sample.",
+        outreach_draft_subject="英語メニュー制作のご提案",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["outreach_draft_body"] is None
+    assert repaired["outreach_draft_english_body"] is None
+    assert repaired["outreach_draft_subject"] is None
 
 
 def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
@@ -194,3 +256,9 @@ def test_repair_state_leads_updates_launch_smoke_proof_asset(tmp_path):
 
     assert result["ok"] is True
     assert repaired_smoke["leads"][0]["proof_asset"] == expected_dark_assets(lead)[0]
+
+
+def test_repository_state_audit_has_no_findings():
+    result = audit_state_leads(state_root=PROJECT_ROOT / "state")
+
+    assert result["ok"] is True, result["findings"]
