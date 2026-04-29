@@ -14,6 +14,7 @@ This is the active plan. It replaces every older phase plan and every prior comp
   - focused tests for that phase;
   - evidence recorded in `HANDOFF.md`;
   - `git diff --check`;
+  - `.venv/bin/python -m pipeline.cli audit-state` whenever lead state or outreach preview/send behavior is touched;
   - a commit.
 - Real outreach is not a separate permission problem anymore; it is a later phase in this plan. It happens only after the audit gates in Phases 0-10 pass.
 - Do not scale beyond the first controlled batch until Phase 12 review is complete.
@@ -463,8 +464,11 @@ Run these before every commit that claims a phase is complete:
 
 ```bash
 .venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pipeline.cli audit-state
 git diff --check
 git status --short
 ```
+
+If `audit-state` fails because of deterministic persisted-state drift, run `.venv/bin/python -m pipeline.cli audit-state --repair`, inspect the repaired records, then rerun the full command set above.
 
 For UI-facing phases, also run browser/render verification and save screenshots under `state/qa-screenshots/`.

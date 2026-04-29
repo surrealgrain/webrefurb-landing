@@ -1245,6 +1245,23 @@ class TestDraftSaveAndLoad:
         stored = json.loads((self.tmp_path / "leads" / "wrm-draft-test.json").read_text(encoding="utf-8"))
         assert stored["message_variant"] == "email:menu_machine_unconfirmed:ramen_only"
 
+    def test_outreach_preview_uses_locked_name_not_poisoned_current_name(self):
+        self._create_lead(
+            business_name="QA Phase10 Ramen",
+            locked_business_name="青空ラーメン",
+            business_name_locked=True,
+            business_name_locked_at="2026-04-28T00:00:00+00:00",
+            business_name_lock_reason="two_source_verification",
+        )
+
+        response = self.client.get("/api/outreach/wrm-draft-test")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["business_name"] == "青空ラーメン"
+        assert data["body"].startswith("青空ラーメン ご担当者様")
+        assert "QA Phase10 Ramen ご担当者様" not in data["body"]
+        assert "QA Phase10 Ramen ご担当者様" not in data["preview_html"]
+
     def test_preview_get_loads_saved_draft(self):
         """Opening preview should load the persisted draft, not regenerate."""
         self._create_lead(
@@ -1498,6 +1515,29 @@ class TestSendSafety:
         )
         assert stored["outreach_status"] == "sent"
         assert stored["outreach_draft_body"] == "Saved body"
+
+    def test_send_uses_locked_name_for_inline_sample_seal(self):
+        from pipeline.constants import GENERIC_MENU_PDF
+
+        self._create_lead(
+            business_name="QA Phase10 Ramen",
+            locked_business_name="青空ラーメン",
+            business_name_locked=True,
+            business_name_locked_at="2026-04-28T00:00:00+00:00",
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(GENERIC_MENU_PDF)],
+            outreach_draft_subject="Saved subject",
+            outreach_draft_body="Saved body",
+        )
+        with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = {"id": "mock-send"}
+            response = self.client.post(
+                "/api/send/wrm-send-test",
+                json={"email": "test@test.com"},
+            )
+
+        assert response.status_code == 200
+        assert mock_send.await_args.kwargs["business_name"] == "青空ラーメン"
 
     def test_self_test_send_does_not_mark_lead_sent(self, monkeypatch):
         from pipeline.constants import GENERIC_MENU_PDF

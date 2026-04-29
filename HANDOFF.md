@@ -143,6 +143,24 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
   - `state/qa-screenshots/outreach-editor-fullpage-dark-preview-live.png`
   - `state/qa-screenshots/outreach-preview-dark-menu-visible.png`
 - Post-UI verification `.venv/bin/python -m pytest tests/ -q` passed with `375 passed`; `git diff --check` was clean.
+- Follow-up audit gap found: the prior smoke/browser audit verified regenerated preview output but did not explicitly scan persisted lead `outreach_assets_selected` state for stale cream/sample assets, and did not test a poisoned current `business_name` with a valid `locked_business_name`.
+- Persisted lead asset migration completed for current local leads:
+  - ramen/menu leads now select `assets/templates/ramen_food_menu.html`
+  - ramen ticket-machine leads now select `assets/templates/ramen_food_menu.html` plus `assets/templates/ticket_machine_guide.html`
+  - izakaya leads now select `assets/templates/izakaya_food_menu.html`
+  - disqualified Tsukada remains `do_not_contact` and now has no selected outreach asset
+- Customer-facing dashboard preview and send paths now use `authoritative_business_name()` so `locked_business_name` wins over a poisoned/stale `business_name` for greetings, draft generation, and inline sample seals.
+- Regression tests now cover locked-name precedence in outreach preview and send-time inline sample personalization.
+- Lead-state scan confirmed no current lead JSON references legacy cream assets such as `state/builds`, `phase10-sample-*`, `glm_menu_template*`, or old package PDFs.
+- Post-fix verification `.venv/bin/python -m pytest tests/ -q` passed with `377 passed`; `git diff --check` was clean.
+- Permanent state audit added:
+  - command: `.venv/bin/python -m pipeline.cli audit-state`
+  - repair command: `.venv/bin/python -m pipeline.cli audit-state --repair`
+  - checks: stale cream/sample assets, wrong profile-to-template mapping, DNC/disqualified records with selected assets, non-binary `lead`, suspicious authoritative names, divergent `business_name` vs `locked_business_name`, and poisoned saved customer-facing text
+  - repair normalizes deterministic asset drift and locked-name divergence, then reruns the audit
+  - current result: `ok=true`, `checked=8`, `findings=[]`
+- `PLAN.md` final verification now includes `audit-state` whenever lead state or outreach preview/send behavior is touched.
+- `AGENTS.md` quick commands now include `audit-state`.
 - No real outreach was sent.
 
 ## Resume Instructions

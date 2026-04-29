@@ -1,0 +1,147 @@
+"""Tests for persisted state drift audits."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from pipeline.constants import PROJECT_ROOT
+from pipeline.state_audit import audit_state_leads, expected_dark_assets, repair_state_leads
+
+
+def _write_lead(tmp_path: Path, **overrides):
+    leads = tmp_path / "leads"
+    leads.mkdir(exist_ok=True)
+    lead = {
+        "lead_id": "wrm-audit",
+        "business_name": "監査ラーメン",
+        "lead": True,
+        "outreach_status": "draft",
+        "launch_readiness_status": "ready_for_outreach",
+        "primary_category_v1": "ramen",
+        "establishment_profile": "ramen_ticket_machine",
+        "outreach_classification": "menu_and_machine",
+        "machine_evidence_found": True,
+        "outreach_assets_selected": [
+            str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html"),
+            str(PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"),
+        ],
+    }
+    lead.update(overrides)
+    path = leads / f"{lead['lead_id']}.json"
+    path.write_text(json.dumps(lead, ensure_ascii=False), encoding="utf-8")
+    return lead
+
+
+def _codes(result):
+    return {finding["code"] for finding in result["findings"]}
+
+
+def test_state_audit_accepts_correct_dark_assets(tmp_path):
+    _write_lead(tmp_path)
+    result = audit_state_leads(state_root=tmp_path)
+    assert result["ok"] is True
+    assert result["checked"] == 1
+
+
+def test_state_audit_rejects_legacy_cream_assets(tmp_path):
+    _write_lead(
+        tmp_path,
+        outreach_assets_selected=[
+            str(PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf")
+        ],
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "legacy_or_cream_asset_reference" in _codes(result)
+    assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
+
+
+def test_state_audit_rejects_wrong_profile_template(tmp_path):
+    _write_lead(
+        tmp_path,
+        primary_category_v1="izakaya",
+        establishment_profile="izakaya_drink_heavy",
+        outreach_classification="menu_only",
+        machine_evidence_found=False,
+        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html")],
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
+
+
+def test_state_audit_rejects_dnc_records_with_assets(tmp_path):
+    _write_lead(
+        tmp_path,
+        outreach_status="do_not_contact",
+        launch_readiness_status="disqualified",
+        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html")],
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
+
+
+def test_state_audit_rejects_poisoned_name_when_locked_name_exists(tmp_path):
+    _write_lead(
+        tmp_path,
+        business_name="QA Phase10 Ramen",
+        locked_business_name="青空ラーメン",
+        business_name_locked=True,
+        outreach_draft_body="QA Phase10 Ramen ご担当者様\n\n本文",
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "business_name_diverges_from_locked_name" in _codes(result)
+    assert "poisoned_name_in_customer_text" in _codes(result)
+
+
+def test_expected_dark_assets_maps_profiles():
+    assert expected_dark_assets({
+        "lead": True,
+        "outreach_status": "draft",
+        "primary_category_v1": "izakaya",
+        "establishment_profile": "izakaya_course_heavy",
+        "outreach_classification": "menu_only",
+    }) == [str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html")]
+    assert expected_dark_assets({
+        "lead": True,
+        "outreach_status": "draft",
+        "primary_category_v1": "ramen",
+        "establishment_profile": "ramen_ticket_machine",
+        "outreach_classification": "menu_and_machine",
+    }) == [
+        str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html"),
+        str(PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"),
+    ]
+
+
+def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        business_name="QA Phase10 Ramen",
+        locked_business_name="青空ラーメン",
+        business_name_locked=True,
+        outreach_draft_body="QA Phase10 Ramen ご担当者様\n\n本文",
+        outreach_assets_selected=[
+            str(PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf")
+        ],
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert result["repaired"][0]["lead_id"] == "wrm-audit"
+    assert repaired["business_name"] == "青空ラーメン"
+    assert "青空ラーメン ご担当者様" in repaired["outreach_draft_body"]
+    assert repaired["outreach_assets_selected"] == expected_dark_assets(repaired)
