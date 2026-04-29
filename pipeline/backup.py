@@ -17,6 +17,7 @@ STATE_BACKUP_DIRS = (
     "qr_jobs",
     "qr_menus",
     "launch_batches",
+    "launch_smoke_tests",
 )
 
 

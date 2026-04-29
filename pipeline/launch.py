@@ -29,6 +29,31 @@ def create_launch_batch(
     if len(set(lead_ids)) != len(lead_ids):
         raise LaunchBatchError("duplicate_lead_in_batch")
 
+    entries, ready_leads = validate_launch_leads(lead_ids=lead_ids, state_root=state_root)
+
+    batch_id = "launch-" + hashlib.sha1(("|".join(lead_ids) + utc_now()).encode("utf-8")).hexdigest()[:10]
+    batch = {
+        "batch_id": batch_id,
+        "batch_number": len(previous) + 1,
+        "created_at": utc_now(),
+        "reviewed_at": "",
+        "notes": notes,
+        "lead_count": len(entries),
+        "leads": entries,
+    }
+    path = _batch_path(state_root, batch_id)
+    ensure_dir(path.parent)
+    write_json(path, batch)
+
+    for lead in ready_leads:
+        lead["launch_batch_id"] = batch_id
+        persist_lead_record(lead, state_root=state_root)
+
+    return batch
+
+
+def validate_launch_leads(*, lead_ids: list[str], state_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Validate launch lead readiness and return launch entries plus loaded leads."""
     entries: list[dict[str, Any]] = []
     ready_leads: list[dict[str, Any]] = []
     category_profiles: set[str] = set()
@@ -51,26 +76,7 @@ def create_launch_batch(
         raise LaunchBatchError("missing_ramen_ticket_machine_candidate")
     if not any(profile in {"izakaya_drink_heavy", "izakaya_course_heavy"} for profile in category_profiles):
         raise LaunchBatchError("missing_izakaya_drink_or_course_candidate")
-
-    batch_id = "launch-" + hashlib.sha1(("|".join(lead_ids) + utc_now()).encode("utf-8")).hexdigest()[:10]
-    batch = {
-        "batch_id": batch_id,
-        "batch_number": len(previous) + 1,
-        "created_at": utc_now(),
-        "reviewed_at": "",
-        "notes": notes,
-        "lead_count": len(entries),
-        "leads": entries,
-    }
-    path = _batch_path(state_root, batch_id)
-    ensure_dir(path.parent)
-    write_json(path, batch)
-
-    for lead in ready_leads:
-        lead["launch_batch_id"] = batch_id
-        persist_lead_record(lead, state_root=state_root)
-
-    return batch
+    return entries, ready_leads
 
 
 def record_launch_outcome(

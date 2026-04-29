@@ -23,7 +23,7 @@ def test_load_project_env_reads_dotenv_file(tmp_path, monkeypatch):
 
 def test_backup_state_archives_required_directories(tmp_path):
     state_root = tmp_path / "state"
-    for name in ("leads", "sent", "jobs", "orders", "replies", "uploads", "builds", "qr_jobs", "qr_menus"):
+    for name in ("leads", "sent", "jobs", "orders", "replies", "uploads", "builds", "qr_jobs", "qr_menus", "launch_batches", "launch_smoke_tests"):
         path = state_root / name
         path.mkdir(parents=True, exist_ok=True)
         (path / f"{name}.txt").write_text(name, encoding="utf-8")
@@ -33,13 +33,14 @@ def test_backup_state_archives_required_directories(tmp_path):
 
     assert archive_path.exists()
     assert set(result["included_directories"]) == {
-        "leads", "sent", "jobs", "orders", "replies", "uploads", "builds", "qr_jobs", "qr_menus"
+        "leads", "sent", "jobs", "orders", "replies", "uploads", "builds", "qr_jobs", "qr_menus", "launch_batches", "launch_smoke_tests"
     }
     with zipfile.ZipFile(archive_path) as archive:
         names = set(archive.namelist())
     assert "leads/leads.txt" in names
     assert "orders/orders.txt" in names
     assert "qr_menus/qr_menus.txt" in names
+    assert "launch_smoke_tests/launch_smoke_tests.txt" in names
 
 
 def test_validate_package_output_blocks_approval_when_fallback_used(tmp_path):
