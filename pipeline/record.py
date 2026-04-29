@@ -62,13 +62,13 @@ CONTACT_PRIORITY = {
     "contact_form": 1,
     "line": 2,
     "instagram": 3,
-    "phone": 4,
-    "walk_in": 5,
+    "walk_in": 4,
+    "phone": 5,
     "map_url": 6,
     "website": 7,
 }
 
-ACTIONABLE_CONTACT_TYPES = {"email", "contact_form", "line", "instagram", "phone", "walk_in"}
+ACTIONABLE_CONTACT_TYPES = {"email", "contact_form"}
 
 
 def authoritative_business_name(lead: dict[str, Any]) -> str:
@@ -136,9 +136,13 @@ def _build_contact_record(
     if cleaned_confidence not in {"high", "medium", "low"}:
         cleaned_confidence = "medium"
     cleaned_discovered_at = str(discovered_at or "").strip()
-    if actionable is None:
-        actionable = contact_type in ACTIONABLE_CONTACT_TYPES
+    if contact_type not in ACTIONABLE_CONTACT_TYPES:
+        actionable = False
+    elif actionable is None:
+        actionable = True
     cleaned_status = str(status or "").strip() or ("discovered" if actionable else "reference_only")
+    if not actionable and cleaned_status == "discovered":
+        cleaned_status = "reference_only"
     return {
         "type": contact_type,
         "value": cleaned_value,
@@ -291,7 +295,7 @@ def get_primary_contact(lead: dict[str, Any]) -> dict[str, Any] | None:
     for contact in contacts:
         if contact.get("actionable"):
             return contact
-    return contacts[0] if contacts else None
+    return None
 
 
 def get_primary_email_contact(lead: dict[str, Any]) -> dict[str, Any] | None:

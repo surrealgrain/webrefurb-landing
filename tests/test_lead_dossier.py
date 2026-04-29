@@ -72,6 +72,40 @@ def test_migration_maps_legacy_package_and_marks_ready():
     assert "recommended_primary_package" in changes
 
 
+def test_migration_marks_unsupported_contacts_reference_only():
+    migrated, changes = migrate_lead_record(_ready_record(
+        primary_contact={"type": "phone", "value": "03-0000-0000", "actionable": True, "status": "discovered"},
+        contacts=[
+            {"type": "phone", "value": "03-0000-0000", "actionable": True, "status": "discovered"},
+            {"type": "instagram", "value": "shop_account", "actionable": True, "status": "discovered"},
+            {"type": "line", "value": "https://line.me/shop", "actionable": True, "status": "discovered"},
+            {"type": "walk_in", "value": "東京都渋谷区1-1", "actionable": True, "status": "discovered"},
+            {"type": "contact_form", "value": "https://example.test/contact", "actionable": True, "status": "discovered"},
+        ],
+    ))
+
+    unsupported = [contact for contact in migrated["contacts"] if contact["type"] in {"phone", "instagram", "line", "walk_in"}]
+    assert unsupported
+    assert all(contact["actionable"] is False for contact in unsupported)
+    assert all(contact["status"] == "reference_only" for contact in unsupported)
+    assert migrated["primary_contact"]["type"] == "contact_form"
+    assert migrated["has_supported_contact_route"] is True
+    assert "contacts" in changes
+    assert "primary_contact" in changes
+
+
+def test_phone_only_record_cannot_remain_launch_ready():
+    migrated, changes = migrate_lead_record(_ready_record(
+        contacts=[{"type": "phone", "value": "03-0000-0000", "actionable": True, "status": "discovered"}],
+    ))
+
+    assert migrated["contacts"][0]["actionable"] is False
+    assert migrated["contacts"][0]["status"] == "reference_only"
+    assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
+    assert "contacts" in changes
+
+
 def test_chain_like_record_cannot_remain_launch_ready():
     migrated, _ = migrate_lead_record(_ready_record(business_name="Tsukada Nojo Shibuya Miyamasuzaka"))
 

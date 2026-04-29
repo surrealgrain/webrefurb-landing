@@ -309,10 +309,6 @@ class TestBuildManualOutreachMessage:
         ("channel", "expected_label", "expected_phrase"),
         [
             ("contact_form", "Contact Form Message", "https://webrefurb.com/ja"),
-            ("line", "LINE Message", "そのままご返信ください"),
-            ("instagram", "Instagram DM", "DMでご返信"),
-            ("phone", "Phone Script", "メールかLINEでお送りいただけますでしょうか"),
-            ("walk_in", "Walk-in Script", "お写真を見せていただけますでしょうか"),
         ],
     )
     def test_manual_channels_return_route_specific_copy(self, channel, expected_label, expected_phrase):
@@ -326,25 +322,14 @@ class TestBuildManualOutreachMessage:
         assert draft["channel_label"] == expected_label
         assert expected_phrase in draft["body"]
 
-    def test_manual_machine_only_copy_mentions_ticket_machine(self):
-        draft = build_manual_outreach_message(
-            business_name="テスト",
-            classification="machine_only",
-            channel="line",
-        )
-        assert "券売機" in draft["body"]
-        assert draft["include_menu_image"] is False
-        assert draft["include_machine_image"] is True
-
-    def test_manual_phone_copy_has_clean_photo_request(self):
-        draft = build_manual_outreach_message(
-            business_name="テスト",
-            classification="menu_only",
-            channel="phone",
-        )
-        assert "メールかLINEでお送りいただけますでしょうか。確認用のサンプル" in draft["body"]
-        assert "でしょうか。," not in draft["body"]
-        assert "でしょうか。、" not in draft["body"]
+    @pytest.mark.parametrize("channel", ["line", "instagram", "phone", "walk_in"])
+    def test_unsupported_manual_channels_raise(self, channel):
+        with pytest.raises(ValueError, match="Unsupported manual outreach channel"):
+            build_manual_outreach_message(
+                business_name="テスト",
+                classification="menu_only",
+                channel=channel,
+            )
 
     def test_manual_contact_form_uses_locked_body(self):
         draft = build_manual_outreach_message(
@@ -356,14 +341,14 @@ class TestBuildManualOutreachMessage:
         assert draft["include_menu_image"] is False
         assert draft["include_machine_image"] is False
 
-    def test_manual_izakaya_mentions_staff_explanation(self):
+    def test_manual_contact_form_uses_locked_body_for_izakaya(self):
         draft = build_manual_outreach_message(
             business_name="テスト",
             classification="menu_only",
-            channel="instagram",
+            channel="contact_form",
             establishment_profile="izakaya_drink_heavy",
         )
-        assert "スタッフの個別説明を減らせます" in draft["body"]
+        assert draft["body"] == CONTACT_FORM_BODY
 
 
 # ---------------------------------------------------------------------------

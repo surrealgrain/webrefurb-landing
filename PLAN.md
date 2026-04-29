@@ -220,12 +220,10 @@ Exact steps:
    - contact info;
    - opt-out wording;
    - do-not-contact handling.
-7. Alternate channels must be route-appropriate:
-   - contact form;
-   - LINE;
-   - Instagram;
-   - phone;
-   - walk-in.
+7. Approved outreach channels must be route-appropriate:
+   - email;
+   - contact form.
+   Phone, LINE, Instagram, and walk-in routes are reference-only metadata; they never make a lead launch-ready and cannot be selected for outreach.
 8. Log message variant for controlled launch measurement.
 9. Add tests for diagnosis copy, check phrasing, no all-price cold pitch, sender identity, opt-out, and forbidden terms.
 

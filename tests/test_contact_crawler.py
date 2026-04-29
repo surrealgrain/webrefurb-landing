@@ -51,7 +51,7 @@ def test_dedupe_targets_by_domain_merges_sources():
     assert deduped[0].source == "google_places+tabelog"
 
 
-def test_extract_contact_signals_finds_email_line_instagram_and_forms():
+def test_extract_contact_signals_finds_email_and_forms_only():
     html = """
     <html><body>
       <a href="mailto:Owner@Example-Ramen.jp">お問い合わせ</a>
@@ -65,9 +65,6 @@ def test_extract_contact_signals_finds_email_line_instagram_and_forms():
     signals = extract_contact_signals(html)
 
     assert signals.emails == ["owner@example-ramen.jp"]
-    assert signals.line_links == ["https://lin.ee/abc123"]
-    assert signals.line_ids == ["@example-ramen"]
-    assert signals.instagram_handles == ["example_ramen"]
     assert signals.has_form is True
 
 
@@ -86,7 +83,7 @@ def test_extract_contact_signals_ignores_telemetry_ingest_emails():
     assert signals.emails == ["owner@real-ramen.jp"]
 
 
-def test_extract_contact_signals_ignores_json_ld_at_keys_as_line_ids():
+def test_extract_contact_signals_ignores_unsupported_social_routes():
     html = """
     <script type="application/ld+json">
     {"@context":"https://schema.org","@graph":[],"@type":"Restaurant"}
@@ -97,7 +94,8 @@ def test_extract_contact_signals_ignores_json_ld_at_keys_as_line_ids():
 
     signals = extract_contact_signals(html)
 
-    assert signals.line_ids == []
+    assert signals.emails == []
+    assert signals.has_form is False
 
 
 def test_contact_candidate_urls_prefers_same_site_contact_links():

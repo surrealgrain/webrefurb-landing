@@ -216,7 +216,7 @@ class TestSentExclusion:
         assert stored["lead_evidence_dossier"]["proof_items"] == []
         assert stored["proof_items"] == []
         assert stored["launch_readiness_status"] == "manual_review"
-        assert stored["launch_readiness_reasons"] == ["no_customer_safe_proof_item"]
+        assert stored["launch_readiness_reasons"] == ["no_supported_contact_route", "no_customer_safe_proof_item"]
         assert stored["message_variant"] == ""
         assert stored["launch_batch_id"] == ""
         assert stored["launch_outcome"] == {}
@@ -257,7 +257,7 @@ class TestSendSafetyGuards:
         for token in ("ai", "automation", "llm", "gpt"):
             assert token not in body_lower
 
-        for channel in ("contact_form", "line", "instagram", "phone", "walk_in"):
+        for channel in ("contact_form",):
             draft = build_manual_outreach_message(
                 business_name="テスト",
                 classification="machine_only",

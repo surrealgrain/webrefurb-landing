@@ -392,16 +392,8 @@ class TestAPIEndpoints:
         assert data["business_name"] == "青空ラーメン"
         assert data["body"].startswith("青空ラーメン ご担当者様")
 
-    @pytest.mark.parametrize(
-        ("contact_type", "expected_phrase"),
-        [
-            ("line", "そのままご返信ください"),
-            ("instagram", "DMでご返信"),
-            ("phone", "メールかLINEでお送りいただけますでしょうか"),
-            ("walk_in", "お写真を見せていただけますでしょうか"),
-        ],
-    )
-    def test_outreach_preview_uses_route_specific_manual_copy(self, tmp_path, contact_type, expected_phrase):
+    @pytest.mark.parametrize("contact_type", ["line", "instagram", "phone", "walk_in"])
+    def test_outreach_preview_rejects_unsupported_manual_routes(self, tmp_path, contact_type):
         value = "03-1234-5678" if contact_type == "phone" else "route-value"
         self._create_lead(
             tmp_path,
@@ -413,13 +405,8 @@ class TestAPIEndpoints:
         )
 
         response = self.client.get(f"/api/outreach/wrm-test-{contact_type}-route")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["send_enabled"] is False
-        assert data["contact_action"] == "manual_outreach"
-        assert data["draft_channel"] == contact_type
-        assert data["subject"] == ""
-        assert expected_phrase in data["body"]
+        assert response.status_code == 422
+        assert "not launch-ready" in response.json()["detail"]
 
     def test_outreach_preview_returns_profile_aware_asset_labels(self, tmp_path):
         self._create_lead(
@@ -1546,7 +1533,7 @@ class TestSendSafety:
         )
         assert response.status_code == 409
 
-    @pytest.mark.parametrize("status", ["bounced", "invalid", "skipped", "rejected", "needs_review", "contacted_form", "contacted_line", "contacted_instagram", "called", "visited"])
+    @pytest.mark.parametrize("status", ["bounced", "invalid", "skipped", "rejected", "needs_review", "contacted_form"])
     def test_send_blocked_for_non_sendable_statuses(self, status):
         self._create_lead(outreach_status=status)
         response = self.client.post(

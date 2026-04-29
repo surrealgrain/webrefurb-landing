@@ -192,22 +192,22 @@ def test_mock_email_payloads_verify_ready_profiles(tmp_path):
     assert izakaya_payload["selected_package"] == "package_3_qr_menu_65k"
 
 
-def test_oracle_does_not_require_email_payload_for_non_email_ready_route(tmp_path):
+def test_oracle_does_not_require_email_payload_for_contact_form_ready_route(tmp_path):
     records, labels = _records_and_labels(tmp_path)
     target_id = "wrm-sim-ready-simple-ramen"
     target = next(record for record in records if record["lead_id"] == target_id)
     target["contacts"] = [{
-        "type": "phone",
-        "value": "075-111-2233",
-        "href": "tel:0751112233",
-        "label": "Shop phone",
+        "type": "contact_form",
+        "value": "https://aosora-ramen.example.jp/contact",
+        "href": "https://aosora-ramen.example.jp/contact",
+        "label": "Contact form",
         "actionable": True,
         "confidence": "high",
     }]
     target["primary_contact"] = target["contacts"][0]
     target["email"] = ""
     labels = {
-        key: ({**value, "contact_route_expected": "phone"} if key == target_id else value)
+        key: ({**value, "contact_route_expected": "contact_form"} if key == target_id else value)
         for key, value in labels.items()
     }
 
@@ -421,7 +421,7 @@ def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_
     assert {"ramen_ticket_machine", "izakaya_course_nomihodai", "mobile_order_check"} <= {
         item["evidence_profile"] for item in strata
     }
-    assert {"email", "line", "website_only"} <= {item["contact_route_profile"] for item in strata}
+    assert {"email", "contact_form", "website_only"} <= {item["contact_route_profile"] for item in strata}
     assert len(queue["low_confidence_drafts"]) == 8
     assert queue["expected_ready_second_pass_required"]
 

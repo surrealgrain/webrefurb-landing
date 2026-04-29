@@ -198,7 +198,7 @@ def discover_contact_routes(
             source_url=map_url or website,
             confidence="high",
             discovered_at=discovered_at,
-            actionable=True,
+            actionable=False,
         )
     if address:
         _append_contact_route(
@@ -211,7 +211,7 @@ def discover_contact_routes(
             source_url=map_url or website,
             confidence="high",
             discovered_at=discovered_at,
-            actionable=True,
+            actionable=False,
         )
     if map_url:
         _append_contact_route(
@@ -264,56 +264,12 @@ def discover_contact_routes(
                 discovered_at=discovered_at,
                 actionable=True,
             )
-        for line_link in signals.line_links:
-            href = line_link if line_link.startswith(("http://", "https://")) else f"https://{line_link}"
-            _append_contact_route(
-                contacts,
-                seen,
-                contact_type="line",
-                value=line_link,
-                label="LINE",
-                href=href,
-                source=source,
-                source_url=source_url,
-                confidence="high",
-                discovered_at=discovered_at,
-                actionable=True,
-            )
-        for line_id in signals.line_ids:
-            _append_contact_route(
-                contacts,
-                seen,
-                contact_type="line",
-                value=line_id,
-                label=f"LINE {line_id}",
-                source=source,
-                source_url=source_url,
-                confidence="medium",
-                discovered_at=discovered_at,
-                actionable=True,
-            )
-        for handle in signals.instagram_handles:
-            _append_contact_route(
-                contacts,
-                seen,
-                contact_type="instagram",
-                value=f"@{handle}",
-                label=f"Instagram @{handle}",
-                href=f"https://www.instagram.com/{handle}/",
-                source=source,
-                source_url=source_url,
-                confidence="high",
-                discovered_at=discovered_at,
-                actionable=True,
-            )
 
     priority = {
         "email": 0,
         "contact_form": 1,
-        "line": 2,
-        "instagram": 3,
-        "phone": 4,
-        "walk_in": 5,
+        "walk_in": 2,
+        "phone": 3,
         "map_url": 6,
         "website": 7,
     }
