@@ -13,6 +13,19 @@ class LaunchBatchError(ValueError):
     pass
 
 
+POSITIVE_REPLY_STATUSES = {
+    "positive",
+    "positive_reply",
+    "interested",
+    "owner_interested",
+    "owner_requested_sample",
+    "owner_requested_quote",
+    "quote_requested",
+    "sample_requested",
+}
+NON_RESPONSE_REPLY_STATUSES = {"", "not_contacted", "no_reply", "bounced"}
+
+
 def create_launch_batch(
     *,
     lead_ids: list[str],
@@ -109,14 +122,91 @@ def record_launch_outcome(
     raise LaunchBatchError("lead_not_in_batch")
 
 
-def review_launch_batch(*, batch_id: str, state_root: Path, notes: str = "") -> dict[str, Any]:
+def review_launch_batch(
+    *,
+    batch_id: str,
+    state_root: Path,
+    notes: str = "",
+    iteration_decisions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     batch = load_launch_batch(batch_id=batch_id, state_root=state_root)
     if not batch:
         raise LaunchBatchError("batch_not_found")
-    batch["reviewed_at"] = utc_now()
+    reviewed_at = utc_now()
+    batch["reviewed_at"] = reviewed_at
     batch["review_notes"] = notes
+    batch["phase_12_review"] = build_launch_batch_review(
+        batch=batch,
+        reviewed_at=reviewed_at,
+        notes=notes,
+        iteration_decisions=iteration_decisions,
+    )
     write_json(_batch_path(state_root, batch_id), batch)
     return batch
+
+
+def build_launch_batch_review(
+    *,
+    batch: dict[str, Any],
+    reviewed_at: str | None = None,
+    notes: str = "",
+    iteration_decisions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Summarize observed Batch 1 outcomes for the Phase 12 gate."""
+    entries = list(batch.get("leads") or [])
+    contacted = [entry for entry in entries if _was_contacted(entry)]
+    responses = [entry for entry in contacted if _has_owner_response(entry)]
+    positives = [entry for entry in responses if _is_positive_reply(entry)]
+    objections = [
+        {
+            "lead_id": entry.get("lead_id"),
+            "business_name": entry.get("business_name"),
+            "objection": str(entry.get("objection") or (entry.get("outcome") or {}).get("objection") or "").strip(),
+        }
+        for entry in contacted
+        if str(entry.get("objection") or (entry.get("outcome") or {}).get("objection") or "").strip()
+    ]
+    opt_outs = [entry for entry in contacted if _truthy(entry.get("opt_out")) or _reply_status(entry) == "opted_out"]
+    bounces = [entry for entry in contacted if _truthy(entry.get("bounce")) or _reply_status(entry) == "bounced"]
+    no_replies = [entry for entry in contacted if _reply_status(entry) in {"", "no_reply", "not_contacted"}]
+
+    summary = {
+        "lead_count": len(entries),
+        "contacted_count": len(contacted),
+        "response_count": len(responses),
+        "response_rate": _rate(len(responses), len(contacted)),
+        "positive_reply_count": len(positives),
+        "positive_reply_rate": _rate(len(positives), len(contacted)),
+        "no_reply_count": len(no_replies),
+        "objection_count": len(objections),
+        "opt_out_count": len(opt_outs),
+        "bounce_count": len(bounces),
+        "operator_minutes_total": sum(_operator_minutes(entry) for entry in contacted),
+        "operator_minutes_average": _rate(sum(_operator_minutes(entry) for entry in contacted), len(contacted)),
+    }
+
+    review = {
+        "reviewed_at": reviewed_at or utc_now(),
+        "notes": notes,
+        "summary": summary,
+        "positive_replies": [_brief_entry(entry) for entry in positives],
+        "objections": objections,
+        "opt_outs": [_brief_entry(entry) for entry in opt_outs],
+        "bounces": [_brief_entry(entry) for entry in bounces],
+        "channel_performance": _group_performance(contacted, key="selected_channel"),
+        "package_fit": _package_fit_summary(contacted, objections=objections, positive_count=len(positives)),
+        "proof_asset_performance": _group_performance(contacted, key="proof_asset", fallback="customer_safe_proof_item_only"),
+        "iteration_decisions": _iteration_decisions(
+            summary=summary,
+            objections=objections,
+            overrides=iteration_decisions,
+        ),
+        "batch_2_gate": {
+            "phase_12_review_recorded": True,
+            "next_phase": "Phase 13 may select Batch 2 only after this saved review, using approved email/contact-form routes.",
+        },
+    }
+    return review
 
 
 def load_launch_batch(*, batch_id: str, state_root: Path) -> dict[str, Any] | None:
@@ -175,6 +265,153 @@ def _missing_launch_measurement_fields(lead: dict[str, Any]) -> list[str]:
 
 def _batch_path(state_root: Path, batch_id: str) -> Path:
     return state_root / "launch_batches" / f"{batch_id}.json"
+
+
+def _was_contacted(entry: dict[str, Any]) -> bool:
+    return bool(str(entry.get("contacted_at") or "").strip()) or _reply_status(entry) not in {"", "not_contacted"}
+
+
+def _has_owner_response(entry: dict[str, Any]) -> bool:
+    status = _reply_status(entry)
+    return status not in NON_RESPONSE_REPLY_STATUSES
+
+
+def _is_positive_reply(entry: dict[str, Any]) -> bool:
+    status = _reply_status(entry)
+    outcome = str((entry.get("outcome") or {}).get("outcome") or "").strip().lower()
+    return status in POSITIVE_REPLY_STATUSES or outcome in POSITIVE_REPLY_STATUSES
+
+
+def _reply_status(entry: dict[str, Any]) -> str:
+    return str(entry.get("reply_status") or (entry.get("outcome") or {}).get("reply_status") or "").strip().lower()
+
+
+def _operator_minutes(entry: dict[str, Any]) -> int:
+    try:
+        return max(0, int(entry.get("operator_minutes") or (entry.get("outcome") or {}).get("operator_minutes") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _rate(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(numerator / denominator, 4)
+
+
+def _brief_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "lead_id": entry.get("lead_id"),
+        "business_name": entry.get("business_name"),
+        "selected_channel": entry.get("selected_channel", ""),
+        "reply_status": _reply_status(entry),
+        "recommended_package": entry.get("recommended_package", ""),
+    }
+
+
+def _group_performance(
+    entries: list[dict[str, Any]],
+    *,
+    key: str,
+    fallback: str = "unknown",
+) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        group_key = str(entry.get(key) or "").strip() or fallback
+        grouped.setdefault(group_key, []).append(entry)
+
+    performance: dict[str, Any] = {}
+    for group_key, group_entries in sorted(grouped.items()):
+        responses = [entry for entry in group_entries if _has_owner_response(entry)]
+        positives = [entry for entry in responses if _is_positive_reply(entry)]
+        performance[group_key] = {
+            "contacted_count": len(group_entries),
+            "response_count": len(responses),
+            "response_rate": _rate(len(responses), len(group_entries)),
+            "positive_reply_count": len(positives),
+            "positive_reply_rate": _rate(len(positives), len(group_entries)),
+            "no_reply_count": sum(1 for entry in group_entries if _reply_status(entry) in {"", "no_reply", "not_contacted"}),
+            "opt_out_count": sum(1 for entry in group_entries if _truthy(entry.get("opt_out")) or _reply_status(entry) == "opted_out"),
+            "bounce_count": sum(1 for entry in group_entries if _truthy(entry.get("bounce")) or _reply_status(entry) == "bounced"),
+            "operator_minutes_total": sum(_operator_minutes(entry) for entry in group_entries),
+        }
+    return performance
+
+
+def _package_fit_summary(
+    entries: list[dict[str, Any]],
+    *,
+    objections: list[dict[str, Any]],
+    positive_count: int,
+) -> dict[str, Any]:
+    recommendations: dict[str, Any] = {}
+    for package_key, group in _group_entries(entries, key="recommended_package", fallback="unknown").items():
+        recommendations[package_key] = {
+            "contacted_count": len(group),
+            "positive_reply_count": sum(1 for entry in group if _is_positive_reply(entry)),
+            "objection_count": sum(1 for entry in group if str(entry.get("objection") or "").strip()),
+        }
+
+    if positive_count or objections:
+        assessment = "Observed replies exist; inspect objections and positive package requests before changing recommendation rules."
+    else:
+        assessment = "No replies or package-fit objections observed yet; recommendation rules remain unchanged."
+
+    return {
+        "recommendations": recommendations,
+        "observed_package_mismatch_count": 0,
+        "assessment": assessment,
+    }
+
+
+def _group_entries(
+    entries: list[dict[str, Any]],
+    *,
+    key: str,
+    fallback: str,
+) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        group_key = str(entry.get(key) or "").strip() or fallback
+        grouped.setdefault(group_key, []).append(entry)
+    return grouped
+
+
+def _iteration_decisions(
+    *,
+    summary: dict[str, Any],
+    objections: list[dict[str, Any]],
+    overrides: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if summary["positive_reply_count"] or summary["opt_out_count"] or summary["bounce_count"] or objections:
+        default_reason = "Observed outcomes require operator review before changing launch rules."
+    else:
+        default_reason = "No positive replies, objections, opt-outs, or bounces were observed."
+
+    decisions: dict[str, Any] = {
+        "scoring_update": {
+            "action": "no_change",
+            "reason": default_reason,
+        },
+        "search_terms_update": {
+            "action": "no_change",
+            "reason": "All contacted leads remain waiting or uninformative; lead-quality evidence is insufficient to adjust search terms.",
+        },
+        "outreach_wording_update": {
+            "action": "no_change",
+            "reason": "No reply or objection identified a wording problem.",
+        },
+        "package_recommendation_update": {
+            "action": "no_change",
+            "reason": "No package-fit objection or conversion was observed.",
+        },
+    }
+    for key, value in (overrides or {}).items():
+        if isinstance(value, dict) and isinstance(decisions.get(key), dict):
+            decisions[key] = {**decisions[key], **value}
+        else:
+            decisions[key] = value
+    return decisions
 
 
 def _normalise_launch_outcome(outcome: dict[str, Any]) -> dict[str, Any]:

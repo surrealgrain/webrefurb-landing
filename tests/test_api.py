@@ -594,10 +594,20 @@ class TestAPIEndpoints:
 
         reviewed = self.client.post(
             f"/api/launch-batches/{batch['batch_id']}/review",
-            json={"notes": "reviewed before batch 2"},
+            json={
+                "notes": "reviewed before batch 2",
+                "iteration_decisions": {
+                    "scoring_update": {
+                        "action": "no_change",
+                        "reason": "No replies yet.",
+                    },
+                },
+            },
         )
         assert reviewed.status_code == 200
         assert reviewed.json()["reviewed_at"]
+        assert reviewed.json()["phase_12_review"]["summary"]["lead_count"] == 5
+        assert reviewed.json()["phase_12_review"]["iteration_decisions"]["scoring_update"]["reason"] == "No replies yet."
 
     def test_launch_outcome_api_records_opt_out_and_operator_minutes(self, tmp_path):
         lead_ids = self._write_launch_ready_leads(tmp_path)
