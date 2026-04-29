@@ -370,6 +370,12 @@ Goal: run the first launch as a measurement system, not a send blast.
 
 Exact steps:
 
+0. Run a no-send real-world smoke test before external contact:
+   - use real public shop evidence;
+   - use the same launch-readiness gates as a real batch;
+   - create a rehearsal record outside `state/launch_batches/`;
+   - do not mark any lead contacted;
+   - do not let rehearsal records satisfy or block real Batch 1.
 1. Select 5-10 launch-ready shops.
 2. Batch must include:
    - at least one ramen ticket-machine lead;

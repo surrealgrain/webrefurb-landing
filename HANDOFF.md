@@ -120,12 +120,16 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 11 full command `.venv/bin/python -m pytest tests/ -q` passed with `363 passed`.
 - Phase 11 `git diff --check` was clean.
 - Phase 11 real Batch 1 outreach was not sent in this thread. Current checked-in code is ready to create the controlled batch, but the local real lead state does not contain 5-10 real launch-ready shops with both required profiles.
+- Phase 11 no-send smoke testing was added as a rehearsal gate before external contact.
+- No-send smoke test `smoke-65e39d8e3b` was created under ignored state using five public-evidence rehearsal leads; it includes two ramen ticket-machine leads and two izakaya drink/course leads.
+- Smoke test `smoke-65e39d8e3b` is reviewed, has `external_send_performed=false`, `send_allowed=false`, `counts_as_launch_batch=false`, and every lead remains `reply_status=not_contacted` with empty `contacted_at`.
+- Smoke leads have `launch_batch_id=""`; the smoke test did not create or block a real `state/launch_batches/` record.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 11 real batch selection/outreach only after 5-10 real launch-ready leads are available; Phase 12 depends on real Batch 1 outcomes.
+2. Continue from Phase 11 no-send real-world smoke testing, then real batch selection/outreach only after 5-10 real launch-ready leads are available; Phase 12 depends on real Batch 1 outcomes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.

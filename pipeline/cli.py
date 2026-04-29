@@ -80,6 +80,12 @@ def main() -> None:
     harden_cmd = sub.add_parser("harden-state", help="Migrate lead records through launch-readiness gates")
     harden_cmd.add_argument("--state-root", default=None, help="Override state root")
 
+    smoke_cmd = sub.add_parser("launch-smoke", help="Create a no-send launch rehearsal from ready leads")
+    smoke_cmd.add_argument("--lead-id", action="append", required=True, help="Lead ID to include; repeat 5-10 times")
+    smoke_cmd.add_argument("--state-root", default=None, help="Override state root")
+    smoke_cmd.add_argument("--notes", default="", help="Operator notes for the rehearsal")
+    smoke_cmd.add_argument("--scenario", default="real_world_no_send", help="Smoke-test scenario label")
+
     args = parser.parse_args()
 
     if args.command == "search":
@@ -304,6 +310,19 @@ def main() -> None:
 
         result = migrate_state_leads(
             state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.command == "launch-smoke":
+        from pathlib import Path as _P
+
+        from .launch_smoke import create_launch_smoke_test
+
+        result = create_launch_smoke_test(
+            lead_ids=args.lead_id,
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+            notes=args.notes,
+            scenario=args.scenario,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
