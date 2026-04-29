@@ -46,6 +46,7 @@ IZAKAYA_RULES_STATES = {
 READINESS_READY = "ready_for_outreach"
 READINESS_MANUAL = "manual_review"
 READINESS_DISQUALIFIED = "disqualified"
+SUPPORTED_OUTREACH_CONTACT_TYPES = {"email", "contact_form"}
 
 _JP_PREFECTURE_PREFIXES = (
     "東京都", "大阪府", "京都府", "北海道",
@@ -303,6 +304,7 @@ def _has_japan_location_evidence(text: str) -> bool:
 def ensure_lead_dossier(record: dict[str, Any]) -> dict[str, Any]:
     updated = deepcopy(record)
     _migrate_package_fields(updated)
+    _normalise_contact_actionability(updated)
     category = _record_category(updated)
     if category in {"ramen", "izakaya"} and not updated.get("primary_category_v1"):
         updated["primary_category_v1"] = category
@@ -316,6 +318,7 @@ def ensure_lead_dossier(record: dict[str, Any]) -> dict[str, Any]:
     updated["proof_items"] = dossier["proof_items"]
     updated["launch_readiness_status"] = status
     updated["launch_readiness_reasons"] = reasons
+    updated["has_supported_contact_route"] = _has_supported_contact(updated)
     updated.setdefault("message_variant", "")
     updated.setdefault("launch_batch_id", "")
     updated.setdefault("launch_outcome", {})
@@ -345,6 +348,9 @@ def migrate_lead_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "preview_blocked_reason",
         "legacy_pitch_draft",
         "legacy_pitch_blocked_reason",
+        "contacts",
+        "primary_contact",
+        "has_supported_contact_route",
     ):
         if before.get(key) != after.get(key):
             changes.append(key)
@@ -504,9 +510,44 @@ def _proof_strength(proof_items: list[dict[str, Any]]) -> str:
 
 def _has_supported_contact(record: dict[str, Any]) -> bool:
     contacts = record.get("contacts") or []
-    if any(contact.get("actionable") for contact in contacts if isinstance(contact, dict)):
+    if any(
+        contact.get("actionable") and str(contact.get("type") or "") in SUPPORTED_OUTREACH_CONTACT_TYPES
+        for contact in contacts
+        if isinstance(contact, dict)
+    ):
         return True
-    return bool(record.get("email") or record.get("phone"))
+    return bool(record.get("email"))
+
+
+def _normalise_contact_actionability(record: dict[str, Any]) -> None:
+    contacts = record.get("contacts")
+    if not isinstance(contacts, list):
+        return
+
+    first_supported: dict[str, Any] | None = None
+    for contact in contacts:
+        if not isinstance(contact, dict):
+            continue
+        contact_type = str(contact.get("type") or "").strip().lower()
+        if contact_type not in SUPPORTED_OUTREACH_CONTACT_TYPES:
+            contact["actionable"] = False
+            if not str(contact.get("status") or "").strip() or contact.get("status") == "discovered":
+                contact["status"] = "reference_only"
+            continue
+        if contact.get("actionable") is not False and first_supported is None:
+            first_supported = contact
+
+    primary = record.get("primary_contact")
+    if isinstance(primary, dict):
+        primary_type = str(primary.get("type") or "").strip().lower()
+        if primary_type not in SUPPORTED_OUTREACH_CONTACT_TYPES:
+            primary["actionable"] = False
+            if not str(primary.get("status") or "").strip() or primary.get("status") == "discovered":
+                primary["status"] = "reference_only"
+            if first_supported is not None:
+                record["primary_contact"] = deepcopy(first_supported)
+    elif first_supported is not None:
+        record["primary_contact"] = deepcopy(first_supported)
 
 
 def _has_multilingual_solution(record: dict[str, Any]) -> bool:

@@ -77,11 +77,11 @@ def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
         state_root=tmp_path,
     )
 
-    # Address provides a walk-in route (actionable), so the lead is persisted
-    # even without email. This tests the walk-in contact path.
-    assert result["leads"] == 1
-    assert result["qualified_without_email"] == 1
-    assert result["decisions"][0]["lead"] is True
+    # Address and phone are reference metadata only; without e-mail or a contact form,
+    # the candidate is not persisted for outreach.
+    assert result["leads"] == 0
+    assert result["qualified_without_supported_contact"] == 1
+    assert result["decisions"][0]["lead"] is False
 
 
 def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
@@ -389,7 +389,7 @@ def test_search_persists_non_email_lead_with_supported_contact_route(tmp_path, m
     assert lead["email"] == ""
     assert lead["has_supported_contact_route"] is True
     assert lead["primary_contact"]["type"] == "contact_form"
-    assert {contact["type"] for contact in lead["contacts"]} >= {"contact_form", "instagram", "phone", "walk_in", "map_url", "website"}
+    assert {contact["type"] for contact in lead["contacts"]} >= {"contact_form", "phone", "walk_in", "map_url", "website"}
     assert lead["map_url"] == "https://maps.google.com/?cid=form-ramen"
     for contact in lead["contacts"]:
         assert contact["confidence"] in {"high", "medium", "low"}
@@ -400,7 +400,9 @@ def test_search_persists_non_email_lead_with_supported_contact_route(tmp_path, m
     walk_in_contact = next(contact for contact in lead["contacts"] if contact["type"] == "walk_in")
     map_contact = next(contact for contact in lead["contacts"] if contact["type"] == "map_url")
     assert phone_contact["source_url"] == "https://maps.google.com/?cid=form-ramen"
+    assert phone_contact["actionable"] is False
     assert walk_in_contact["source_url"] == "https://maps.google.com/?cid=form-ramen"
+    assert walk_in_contact["actionable"] is False
     assert map_contact["href"] == "https://maps.google.com/?cid=form-ramen"
     assert map_contact["actionable"] is False
 
@@ -422,7 +424,7 @@ def test_search_uses_page_name_when_source_name_is_contact_like(tmp_path, monkey
             return "<html><head><title>麺屋はるか | 食べログ</title></head><body><h1>麺屋はるか</h1></body></html>"
         return """
         <html><head><title>麺屋はるか | Official Site</title></head>
-        <body><h1>麺屋はるか</h1>ラーメン メニュー 醤油ラーメン 900円</body></html>
+        <body><h1>麺屋はるか</h1>ラーメン メニュー 醤油ラーメン 900円 owner@name-fix.example</body></html>
         """
 
     monkeypatch.setattr(search, "run_search", fake_run_search)

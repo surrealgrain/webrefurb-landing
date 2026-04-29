@@ -25,14 +25,10 @@ from .constants import (
 )
 from .models import QualificationResult
 
-SUPPORTED_MANUAL_CHANNELS = {"contact_form", "line", "instagram", "phone", "walk_in"}
+SUPPORTED_MANUAL_CHANNELS = {"contact_form"}
 
 MANUAL_CHANNEL_LABELS = {
     "contact_form": "Contact Form Message",
-    "line": "LINE Message",
-    "instagram": "Instagram DM",
-    "phone": "Phone Script",
-    "walk_in": "Walk-in Script",
 }
 
 
@@ -370,7 +366,6 @@ def build_manual_outreach_message(
         "I can also handle lamination and delivery to your restaurant."
         if include_inperson_line else ""
     )
-    phone_photo_line_ja = _phone_photo_request_jp(str(tmpl["photo_ja"]))
     include_menu_image = situation != "machine_only"
     include_machine_image = situation in ("ramen_menu_and_machine", "machine_only")
 
@@ -390,94 +385,8 @@ def build_manual_outreach_message(
             "Thank you for your time.",
             "Chris",
         ])
-    elif channel == "line":
-        body = _join_paragraphs([
-            f"{business_name} ご担当者様",
-            f"突然のご連絡失礼いたします。{tmpl['intro_ja']}",
-            diagnosis_ja,
-            tmpl["sample_ja"],
-            tmpl["photo_ja"],
-            support_line_jp,
-            "詳しくはこちらです。https://webrefurb.com/ja",
-            "不要なご連絡でしたら「不要」とご返信ください。",
-            "ご興味がございましたら、そのままご返信ください。",
-            "Chris（クリス）",
-        ])
-        english_body = _join_paragraphs([
-            f"Hello {business_name} team,",
-            tmpl["intro_en"],
-            diagnosis_en,
-            tmpl["sample_en"],
-            tmpl["photo_en"],
-            support_line_en,
-            "Details: https://webrefurb.com/ja",
-            "If this is not relevant, please reply and I will not contact you again.",
-            "If you are interested, please reply here.",
-            "Chris",
-        ])
-    elif channel == "instagram":
-        body = _join_paragraphs([
-            f"{business_name} ご担当者様",
-            f"突然のDM失礼いたします。{tmpl['intro_ja']}",
-            diagnosis_ja,
-            tmpl["sample_ja"],
-            tmpl["photo_ja"],
-            support_line_jp,
-            "不要なご連絡でしたら「不要」とご返信ください。",
-            "ご興味がございましたら、DMでご返信いただけますと幸いです。",
-            "詳細: https://webrefurb.com/ja",
-            "Chris（クリス）",
-        ])
-        english_body = _join_paragraphs([
-            f"Hello {business_name} team,",
-            tmpl["intro_en"],
-            diagnosis_en,
-            tmpl["sample_en"],
-            tmpl["photo_en"],
-            support_line_en,
-            "If this is not relevant, please reply and I will not contact you again.",
-            "If you are interested, please reply by DM.",
-            "Details: https://webrefurb.com/ja",
-            "Chris",
-        ])
-    elif channel == "phone":
-        body = _join_paragraphs([
-            f"お忙しいところ失礼いたします。{tmpl['intro_ja']}",
-            diagnosis_ja,
-            tmpl["sample_ja"],
-            phone_photo_line_ja,
-            support_line_jp,
-            "詳細は https://webrefurb.com/ja でもご覧いただけます。",
-            "ありがとうございました。",
-        ])
-        english_body = _join_paragraphs([
-            "Hello, this is Chris. " + tmpl["intro_en"],
-            diagnosis_en,
-            tmpl["sample_en"],
-            tmpl["photo_en"].replace("please send photos of", "could you send photos of"),
-            support_line_en,
-            "You can also see details at https://webrefurb.com/ja.",
-            "Thank you for your time.",
-        ])
-    else:  # walk_in
-        body = _join_paragraphs([
-            f"こんにちは。{tmpl['intro_ja']}",
-            diagnosis_ja,
-            tmpl["sample_ja"],
-            tmpl["photo_ja"].replace("お送りいただけましたら、ご確認用のサンプルをお作りいたします。", "もしご興味があれば、お写真を見せていただけますでしょうか。"),
-            support_line_jp,
-            "詳しくは https://webrefurb.com/ja をご覧ください。",
-            "どうぞよろしくお願いいたします。",
-        ])
-        english_body = _join_paragraphs([
-            "Hello, " + tmpl["intro_en"],
-            diagnosis_en,
-            tmpl["sample_en"],
-            tmpl["photo_en"].replace("please send photos of your current", "could you show me photos of your current"),
-            support_line_en,
-            "Please see https://webrefurb.com/ja for details.",
-            "Thank you very much.",
-        ])
+    else:
+        raise ValueError(f"Unsupported manual outreach channel: {channel}")
 
     return {
         "subject": "",
@@ -493,15 +402,6 @@ def build_manual_outreach_message(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-def _phone_photo_request_jp(photo_line: str) -> str:
-    """Convert the written photo request into a natural phone-script ask."""
-    cleaned = str(photo_line or "").strip()
-    prefix = cleaned.split("のお写真をお送りいただけましたら", 1)[0]
-    if prefix:
-        return f"{prefix}のお写真を、メールかLINEでお送りいただけますでしょうか。確認用のサンプルをお作りいたします。"
-    return "現在お使いのメニューのお写真を、メールかLINEでお送りいただけますでしょうか。確認用のサンプルをお作りいたします。"
-
 
 def _diagnosis_blocks(
     *,

@@ -20,10 +20,6 @@ DEFAULT_USER_AGENT = "webrefurb-menu-contact-crawler/0.1"
 
 
 EMAIL_RE = re.compile(r"(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b")
-LINE_LINK_RE = re.compile(r"(?i)\b(?:https?://)?(?:lin\.ee/[a-z0-9_-]+|line\.me/(?:R/)?ti/p/[a-z0-9@._-]+)\b")
-LINE_ID_RE = re.compile(r"(?<![a-z0-9._%+-])@[a-z0-9._-]{3,32}\b", re.IGNORECASE)
-INSTAGRAM_RE = re.compile(r"(?i)\b(?:https?://)?(?:www\.)?instagram\.com/([a-z0-9._]{2,30})/?\b")
-
 CONTACT_URL_TOKENS = (
     "contact",
     "contacts",
@@ -101,27 +97,6 @@ AGGREGATOR_HOST_TOKENS = (
 )
 TRACKING_QUERY_PREFIXES = ("utm_",)
 TRACKING_QUERY_KEYS = {"fbclid", "gclid", "yclid", "mc_cid", "mc_eid"}
-BLOCKED_LINE_IDS = {
-    "@charset",
-    "@container",
-    "@context",
-    "@font-face",
-    "@graph",
-    "@id",
-    "@import",
-    "@keyframes",
-    "@language",
-    "@media",
-    "@namespace",
-    "@newrelic",
-    "@page",
-    "@property",
-    "@supports",
-    "@type",
-    "@value",
-}
-
-
 @dataclass(frozen=True)
 class DiscoveryTarget:
     name: str
@@ -138,9 +113,6 @@ class DiscoveryTarget:
 @dataclass(frozen=True)
 class ContactSignals:
     emails: list[str] = field(default_factory=list)
-    line_ids: list[str] = field(default_factory=list)
-    line_links: list[str] = field(default_factory=list)
-    instagram_handles: list[str] = field(default_factory=list)
     has_form: bool = False
     llm_mock_used: bool = False
     llm_mock_reason: str = ""
@@ -153,9 +125,6 @@ class CrawlResult:
     city: str
     website: str
     extracted_email: str
-    line_id: str
-    line_link: str
-    instagram_handle: str
     contact_url: str
     source: str
     source_url: str
@@ -245,21 +214,10 @@ def _usable_email(email: str) -> bool:
 
 def extract_contact_signals(html: str, text: str = "") -> ContactSignals:
     decoded = urllib.parse.unquote(f"{html or ''}\n{text or ''}")
-    visible_text = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", decoded)
     emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded) if _usable_email(email)])
-    line_links = _ordered_unique([match.group(0) for match in LINE_LINK_RE.finditer(decoded)])
-    line_ids = _ordered_unique([
-        match.group(0)
-        for match in LINE_ID_RE.finditer(visible_text)
-        if "@" not in match.group(0)[1:] and match.group(0).lower() not in BLOCKED_LINE_IDS
-    ])
-    instagram_handles = _ordered_unique([match.group(1).lower() for match in INSTAGRAM_RE.finditer(visible_text)])
     has_form = bool(re.search(r"(?is)<form\b", html or ""))
     return ContactSignals(
         emails=emails,
-        line_ids=line_ids,
-        line_links=line_links,
-        instagram_handles=instagram_handles,
         has_form=has_form,
     )
 
@@ -271,7 +229,7 @@ def mock_llm_parse_contact_points(text: str, *, contact_intent: bool) -> Contact
     that an LLM fallback would have been invoked when the page has contact intent but no regex hit.
     """
     signals = extract_contact_signals("", text)
-    if not contact_intent or signals.emails or signals.line_ids or signals.line_links or signals.instagram_handles:
+    if not contact_intent or signals.emails or signals.has_form:
         return signals
     return ContactSignals(
         llm_mock_used=True,
@@ -554,7 +512,7 @@ async def crawl_target_contacts(
     max_contact_pages: int = 5,
     navigation_timeout_ms: int = 20_000,
 ) -> CrawlResult:
-    """Phase 2: deep crawl a single domain for email, LINE, forms, and contact URLs."""
+    """Phase 2: deep crawl a single domain for email, contact forms, and contact URLs."""
     homepage = await context.new_page()
     homepage.set_default_navigation_timeout(navigation_timeout_ms)
     notes: list[str] = []
@@ -574,9 +532,6 @@ async def crawl_target_contacts(
                 city=target.city,
                 website=target.website,
                 extracted_email="",
-                line_id="",
-                line_link="",
-                instagram_handle="",
                 contact_url="",
                 source=target.source,
                 source_url=target.source_url,
@@ -612,7 +567,7 @@ async def crawl_target_contacts(
                     if not signals.emails and contact_intent:
                         signals = _merge_signals(signals, mock_llm_parse_contact_points(page_text, contact_intent=True))
                     all_signals = _merge_signals(all_signals, signals)
-                    if signals.emails or signals.line_ids or signals.line_links or signals.has_form:
+                    if signals.emails or signals.has_form:
                         contact_url = url
                     if all_signals.emails:
                         break
@@ -631,10 +586,7 @@ async def crawl_target_contacts(
             city=target.city,
             website=target.website,
             extracted_email=all_signals.emails[0] if all_signals.emails else "",
-            line_id=all_signals.line_ids[0] if all_signals.line_ids else "",
-            line_link=all_signals.line_links[0] if all_signals.line_links else "",
-            instagram_handle=all_signals.instagram_handles[0] if all_signals.instagram_handles else "",
-            contact_url=contact_url if (all_signals.emails or all_signals.line_ids or all_signals.line_links or all_signals.has_form) else "",
+            contact_url=contact_url if (all_signals.emails or all_signals.has_form) else "",
             source=target.source,
             source_url=target.source_url,
             place_id=target.place_id,
@@ -719,7 +671,6 @@ async def run_contact_pipeline(
         "categories": categories,
         "discovered_targets": len(targets),
         "results_with_email": sum(1 for result in crawl_results if result.extracted_email),
-        "results_with_line": sum(1 for result in crawl_results if result.line_id or result.line_link),
         "results_with_form_only": sum(1 for result in crawl_results if result.has_contact_form and not result.extracted_email),
         "targets": [asdict(target) for target in targets],
         "results": [asdict(result) for result in crawl_results],
@@ -729,9 +680,6 @@ async def run_contact_pipeline(
 def _merge_signals(left: ContactSignals, right: ContactSignals) -> ContactSignals:
     return ContactSignals(
         emails=_ordered_unique([*left.emails, *right.emails]),
-        line_ids=_ordered_unique([*left.line_ids, *right.line_ids]),
-        line_links=_ordered_unique([*left.line_links, *right.line_links]),
-        instagram_handles=_ordered_unique([*left.instagram_handles, *right.instagram_handles]),
         has_form=left.has_form or right.has_form,
         llm_mock_used=left.llm_mock_used or right.llm_mock_used,
         llm_mock_reason=left.llm_mock_reason or right.llm_mock_reason,
@@ -750,9 +698,6 @@ def write_results_csv(path: Path, results: list[dict[str, Any]]) -> None:
         "Type",
         "City",
         "Extracted Email",
-        "LINE ID",
-        "LINE Link",
-        "Instagram",
         "Contact URL",
         "Website",
         "Source",
@@ -768,9 +713,6 @@ def write_results_csv(path: Path, results: list[dict[str, Any]]) -> None:
                 "Type": result.get("business_type", ""),
                 "City": result.get("city", ""),
                 "Extracted Email": result.get("extracted_email", ""),
-                "LINE ID": result.get("line_id", ""),
-                "LINE Link": result.get("line_link", ""),
-                "Instagram": result.get("instagram_handle", ""),
                 "Contact URL": result.get("contact_url", ""),
                 "Website": result.get("website", ""),
                 "Source": result.get("source", ""),

@@ -43,7 +43,7 @@ LABEL_PACKAGE_VALUES = {
     "custom_quote",
     "none",
 }
-LABEL_CONTACT_ROUTE_VALUES = {"email", "contact_form", "line", "instagram", "phone", "walk_in", "none"}
+LABEL_CONTACT_ROUTE_VALUES = {"email", "contact_form", "none"}
 LABEL_TICKET_MACHINE_VALUES = {"present", "absent", "unknown", "already_english_supported"}
 LABEL_ENGLISH_MENU_VALUES = {"missing", "weak_partial", "image_only", "usable_complete", "unknown"}
 LABEL_PROOF_VALUES = {"gold", "operator_only", "none"}
@@ -383,9 +383,9 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
     if website:
         append("website", website, label="Official website", href=website, source="homepage", source_url=website, confidence="high", actionable=False)
     if phone:
-        append("phone", phone, href=f"tel:{re.sub(r'\D', '', phone)}", source="maps_listing", source_url=map_url or website, confidence="high")
+        append("phone", phone, href=f"tel:{re.sub(r'\D', '', phone)}", source="maps_listing", source_url=map_url or website, confidence="high", actionable=False)
     if address:
-        append("walk_in", address, label="Walk-in route", source="maps_listing", source_url=map_url or website, confidence="high")
+        append("walk_in", address, label="Walk-in route", source="maps_listing", source_url=map_url or website, confidence="high", actionable=False)
     if map_url:
         append("map_url", map_url, label="Map listing", href=map_url, source="maps_listing", source_url=map_url, confidence="high", actionable=False)
 
@@ -399,12 +399,6 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
             append("email", email, href=f"mailto:{email}", source=source, source_url=source_url, confidence="high")
         if signals.has_form:
             append("contact_form", source_url, label="Contact form", href=source_url, source=source, source_url=source_url)
-        for line_ref in [*signals.line_links, *signals.line_ids]:
-            href = line_ref if str(line_ref).startswith(("http://", "https://")) else f"https://line.me/R/ti/p/{str(line_ref).lstrip('@')}"
-            append("line", str(line_ref), label="LINE", href=href, source=source, source_url=source_url, confidence="high")
-        for handle in signals.instagram_handles:
-            append("instagram", handle, label="Instagram", href=f"https://instagram.com/{handle}", source=source, source_url=source_url)
-
     return normalise_lead_contacts({
         "contacts": raw_contacts,
         "website": website,
@@ -938,7 +932,7 @@ def _draft_label_for_annotation(annotation: dict[str, Any]) -> dict[str, Any]:
     candidate = annotation["candidate"]
     contact_expected = annotation["contact_route_profile"]
     if contact_expected not in LABEL_CONTACT_ROUTE_VALUES:
-        contact_expected = "phone" if candidate.get("phone") else "none"
+        contact_expected = "none"
     package_expected = _draft_package_expected(annotation)
     readiness_expected = "manual_review"
     rejection_reason = "needs_operator_label"
@@ -1029,7 +1023,7 @@ def _label_template() -> dict[str, Any]:
         "readiness_expected": "ready_for_outreach|manual_review|disqualified",
         "rejection_reason_expected": "",
         "package_expected": "package_1_remote_30k|package_2_printed_delivered_45k|package_3_qr_menu_65k|custom_quote|none",
-        "contact_route_expected": "email|contact_form|line|instagram|phone|walk_in|none",
+        "contact_route_expected": "email|contact_form|none",
         "inline_assets_expected": ["ramen_food_menu", "ticket_machine_guide"],
         "ticket_machine_state_expected": "present|absent|unknown|already_english_supported",
         "english_menu_state_expected": "missing|weak_partial|image_only|usable_complete|unknown",
@@ -1200,14 +1194,8 @@ def _contact_route_profile(candidate: dict[str, Any], text: str) -> str:
     website = str(candidate.get("website") or "").lower()
     if re.search(r"mailto:|[\w.+-]+@[\w.-]+\.[a-z]{2,}", text):
         return "email"
-    if "line.me" in text or "lin.ee" in text or "line official" in text:
-        return "line"
-    if "instagram.com" in website or "instagram.com" in text:
-        return "instagram"
     if re.search(r"\bcontact\s+form\b|\binquiry\b|/contact\b|お問い合わせ", text):
         return "contact_form"
-    if candidate.get("phone"):
-        return "phone"
     if website:
         return "website_only"
     return "none"

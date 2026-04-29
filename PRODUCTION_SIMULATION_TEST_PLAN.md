@@ -20,6 +20,7 @@ Build a repeatable, evidence-producing simulation that proves the pipeline can d
 ## Non-Negotiables
 
 - No real outreach is sent during any simulation phase.
+- Supported outreach routes are email and contact forms only. Phone, LINE, Instagram, and walk-in routes are reference-only metadata and never make a candidate launch-ready.
 - No test may rely on ten random restaurants as proof of production readiness.
 - Broad discovery must be stratified by market, category, search job, package profile, and rejection class.
 - Every important dashboard state must have a screenshot artifact.
@@ -230,7 +231,7 @@ Each labeled candidate should capture:
   "readiness_expected": "ready_for_outreach|manual_review|disqualified",
   "rejection_reason_expected": "",
   "package_expected": "package_1_remote_30k|package_2_printed_delivered_45k|package_3_qr_menu_65k|custom_quote|none",
-  "contact_route_expected": "email|contact_form|line|instagram|phone|walk_in|none",
+  "contact_route_expected": "email|contact_form|none",
   "inline_assets_expected": ["ramen_food_menu", "ticket_machine_guide"],
   "ticket_machine_state_expected": "present|absent|unknown|already_english_supported",
   "english_menu_state_expected": "missing|weak_partial|image_only|usable_complete|unknown",
@@ -344,7 +345,7 @@ Steps:
    - Serper place ID;
    - normalized domain;
    - business name + address;
-   - phone.
+   - phone as reference metadata only, not as an outreach route.
 6. Record skipped duplicates with source jobs that found them.
 7. Fetch first-party website, likely contact pages, and targeted evidence pages.
 8. Store failed fetches as first-class records.

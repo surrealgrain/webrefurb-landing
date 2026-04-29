@@ -967,52 +967,35 @@ function plural(value, singular, pluralLabel) {
 function contactTypeLabel(type) {
   if (!type) return 'Contact';
   if (type === 'contact_form') return 'Contact Form';
+  if (type === 'map_url') return 'Map Listing';
   if (type === 'walk_in') return 'Walk-in';
   return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function manualContactButtonLabel(contactType) {
   if (contactType === 'contact_form') return 'Mark Form Contacted';
-  if (contactType === 'line') return 'Mark LINE Contacted';
-  if (contactType === 'instagram') return 'Mark Instagram Contacted';
-  if (contactType === 'phone') return 'Mark Called';
-  if (contactType === 'walk_in') return 'Mark Visited';
   return 'Mark Contacted';
 }
 
 function manualCopyButtonLabel(contactType) {
   if (contactType === 'contact_form') return 'Copy Form Message';
-  if (contactType === 'line') return 'Copy LINE Message';
-  if (contactType === 'instagram') return 'Copy Instagram DM';
-  if (contactType === 'phone') return 'Copy Phone Script';
-  if (contactType === 'walk_in') return 'Copy Walk-in Script';
   return 'Copy Draft';
 }
 
 function draftChannelLabel(channel) {
   if (!channel || channel === 'email') return 'Email Draft';
   if (channel === 'contact_form') return 'Contact Form Message';
-  if (channel === 'line') return 'LINE Message';
-  if (channel === 'instagram') return 'Instagram DM';
-  if (channel === 'phone') return 'Phone Script';
-  if (channel === 'walk_in') return 'Walk-in Script';
   return contactTypeLabel(channel);
 }
 
 function assetPanelLabel(channel) {
   if (channel === 'contact_form') return 'Attachments';
-  if (channel === 'line' || channel === 'instagram') return 'Suggested sample files';
-  if (channel === 'phone' || channel === 'walk_in') return 'Reference files';
   return 'Included files';
 }
 
 function subjectPlaceholder(channel) {
   if (!channel || channel === 'email') return '';
   if (channel === 'contact_form') return 'No subject for contact-form outreach';
-  if (channel === 'line') return 'No subject for LINE outreach';
-  if (channel === 'instagram') return 'No subject for Instagram DM outreach';
-  if (channel === 'phone') return 'No subject for phone outreach';
-  if (channel === 'walk_in') return 'No subject for walk-in outreach';
   return 'No subject for this channel';
 }
 
@@ -1101,10 +1084,15 @@ function renderContactRoutes(data) {
   panel.style.display = '';
   const primary = data.primary_contact || contacts[0] || null;
   const primaryLabel = primary ? (primary.label || primary.value || contactTypeLabel(primary.type)) : 'No saved route';
-  summary.textContent = 'Primary route: ' + primaryLabel + '. ' + (data.contact_action_note || '');
+  const supportedTypes = new Set(['email', 'contact_form']);
+  const supportedContacts = contacts.filter(contact => supportedTypes.has(contact.type));
+  summary.textContent = supportedContacts.length
+    ? 'Primary route: ' + primaryLabel + '. ' + (data.contact_action_note || '')
+    : 'No supported outreach route. Email or a contact form is required.';
   list.innerHTML = contacts.map(contact => {
     const label = contact.label || contact.value || contactTypeLabel(contact.type);
-    return '<span class="contact-route-chip">' + escapeHtml(contactTypeLabel(contact.type)) + ': ' + escapeHtml(label) + '</span>';
+    const suffix = supportedTypes.has(contact.type) ? '' : ' (reference only)';
+    return '<span class="contact-route-chip">' + escapeHtml(contactTypeLabel(contact.type)) + ': ' + escapeHtml(label) + escapeHtml(suffix) + '</span>';
   }).join('');
 }
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .lead_dossier import ensure_lead_dossier, READINESS_READY
-from .record import load_lead, persist_lead_record
+from .record import get_primary_contact, load_lead, persist_lead_record
 from .utils import ensure_dir, read_json, utc_now, write_json
 
 
@@ -133,10 +133,7 @@ def list_launch_batches(*, state_root: Path) -> list[dict[str, Any]]:
 
 def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
     dossier = lead.get("lead_evidence_dossier") or {}
-    primary_contact = lead.get("primary_contact") or {}
-    if not primary_contact:
-        contacts = [c for c in lead.get("contacts") or [] if c.get("actionable")]
-        primary_contact = contacts[0] if contacts else {}
+    primary_contact = get_primary_contact(lead) or {}
     return {
         "lead_id": lead.get("lead_id"),
         "business_name": lead.get("business_name"),
@@ -162,10 +159,7 @@ def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
 
 def _missing_launch_measurement_fields(lead: dict[str, Any]) -> list[str]:
     missing: list[str] = []
-    primary_contact = lead.get("primary_contact") or {}
-    if not primary_contact:
-        contacts = [c for c in lead.get("contacts") or [] if c.get("actionable")]
-        primary_contact = contacts[0] if contacts else {}
+    primary_contact = get_primary_contact(lead) or {}
     if not primary_contact.get("type"):
         missing.append("selected_channel")
     if not str(lead.get("message_variant") or "").strip():

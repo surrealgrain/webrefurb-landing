@@ -305,7 +305,6 @@ def main() -> None:
             "categories": result["categories"],
             "discovered_targets": result["discovered_targets"],
             "results_with_email": result["results_with_email"],
-            "results_with_line": result["results_with_line"],
             "results_with_form_only": result["results_with_form_only"],
             "output_json": args.output_json,
             "output_csv": args.output_csv,

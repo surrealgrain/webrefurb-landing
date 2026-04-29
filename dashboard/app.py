@@ -281,20 +281,12 @@ BLOCKED_SEND_STATUSES = {
     "rejected",
     "needs_review",
     "contacted_form",
-    "contacted_line",
-    "contacted_instagram",
-    "called",
-    "visited",
 }
 
 BLOCKED_REGENERATE_STATUSES = BLOCKED_SEND_STATUSES - {"rejected", "needs_review"}
 
 MANUAL_CONTACT_STATUS_BY_ROUTE = {
     "contact_form": "contacted_form",
-    "line": "contacted_line",
-    "instagram": "contacted_instagram",
-    "phone": "called",
-    "walk_in": "visited",
 }
 
 ESTABLISHMENT_PROFILE_LABELS = {
@@ -796,18 +788,6 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     if primary_contact_type == "contact_form":
         contact_action = "use_contact_form"
         contact_action_note = "Use this no-attachment version in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
-    elif primary_contact_type and primary_contact_type != "email":
-        contact_action = "manual_outreach"
-        if primary_contact_type == "line":
-            contact_action_note = "Use this shorter LINE version and send any sample files manually if they help. Dashboard e-mail sending stays disabled for this lead."
-        elif primary_contact_type == "instagram":
-            contact_action_note = "Use this shorter Instagram DM version and send any sample files manually if they help. Dashboard e-mail sending stays disabled for this lead."
-        elif primary_contact_type == "phone":
-            contact_action_note = "Use this phone script during the call. Dashboard e-mail sending stays disabled for this lead."
-        elif primary_contact_type == "walk_in":
-            contact_action_note = "Use this in-person script during the visit. Dashboard e-mail sending stays disabled for this lead."
-        else:
-            contact_action_note = f"Use this draft as the basis for {primary_contact_type.replace('_', ' ')} outreach. Dashboard e-mail sending stays disabled for this lead."
     else:
         contact_action = "send_email"
         contact_action_note = "This lead has a saved business e-mail route."
