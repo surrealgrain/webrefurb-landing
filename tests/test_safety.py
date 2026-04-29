@@ -200,6 +200,27 @@ class TestSentExclusion:
         assert record["source_urls"]["evidence_urls"] == ["https://test-ramen.com/menu"]
         assert record["evidence_snippets"] == ["メニュー 醤油ラーメン 900円"]
 
+    def test_lead_record_persists_phase_2_readiness_fields(self, tmp_state):
+        qual = _make_qual()
+        object.__setattr__(qual, "lead_evidence_dossier", {"ticket_machine_state": "unknown"})
+        object.__setattr__(qual, "proof_items", [{"source_type": "official_or_shop_site"}])
+        object.__setattr__(qual, "launch_readiness_status", "manual_review")
+        object.__setattr__(qual, "launch_readiness_reasons", ["no_customer_safe_proof_item"])
+
+        record = _persist(qual, tmp_state)
+        stored = load_lead(record["lead_id"], state_root=tmp_state)
+
+        assert isinstance(stored["lead"], bool)
+        assert stored["lead_evidence_dossier"]["ticket_machine_state"] == "unknown"
+        assert stored["lead_evidence_dossier"]["english_menu_state"] == "unknown"
+        assert stored["lead_evidence_dossier"]["proof_items"] == []
+        assert stored["proof_items"] == []
+        assert stored["launch_readiness_status"] == "manual_review"
+        assert stored["launch_readiness_reasons"] == ["no_customer_safe_proof_item"]
+        assert stored["message_variant"] == ""
+        assert stored["launch_batch_id"] == ""
+        assert stored["launch_outcome"] == {}
+
 
 class TestBusinessNameLocking:
     def test_persist_promotes_verified_name_to_locked_name(self, tmp_state):

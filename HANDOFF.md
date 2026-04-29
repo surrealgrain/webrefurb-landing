@@ -54,6 +54,12 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 1 focused command `.venv/bin/python -m pytest tests/test_lead_dossier.py -q` passed with `8 passed`.
 - Phase 1 full command `.venv/bin/python -m pytest tests/ -q` passed with `334 passed`.
 - Phase 1 `git diff --check` was clean.
+- Phase 2 verified persisted lead fields for `lead_evidence_dossier`, `proof_items`, `launch_readiness_status`, `launch_readiness_reasons`, `message_variant`, `launch_batch_id`, and `launch_outcome`.
+- Phase 2 fixed new lead creation so `message_variant`, `launch_batch_id`, and `launch_outcome` are written at record creation.
+- Phase 2 dashboard now shows disqualified lead cards as blocked/read-only cards while ordinary do-not-contact records remain hidden.
+- Phase 2 focused command covering readiness persistence, dashboard readiness cards, outreach payload dossiers, non-ready outreach rejection, and dossier tests passed with `13 passed`.
+- Phase 2 full command `.venv/bin/python -m pytest tests/ -q` passed with `336 passed`.
+- Phase 2 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
