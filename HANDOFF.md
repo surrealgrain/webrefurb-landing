@@ -124,6 +124,10 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - No-send smoke test `smoke-65e39d8e3b` was created under ignored state using five public-evidence rehearsal leads; it includes two ramen ticket-machine leads and two izakaya drink/course leads.
 - Smoke test `smoke-65e39d8e3b` is reviewed, has `external_send_performed=false`, `send_allowed=false`, `counts_as_launch_batch=false`, and every lead remains `reply_status=not_contacted` with empty `contacted_at`.
 - Smoke leads have `launch_batch_id=""`; the smoke test did not create or block a real `state/launch_batches/` record.
+- Fresh production-readiness no-send smoke test `smoke-76fde53b8a` was run and reviewed on 2026-04-29.
+- Smoke test `smoke-76fde53b8a` checked five public-evidence rehearsal leads: source URLs returned HTTP 200, proof assets exist, drafts exist, sender/opt-out text exists, no lead has `outreach_sent_at`, and no lead has a real launch batch ID.
+- After smoke test `smoke-76fde53b8a`, `state/launch_batches/` remained empty.
+- Post-smoke verification `.venv/bin/python -m pytest tests/ -q` passed with `366 passed`; `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
