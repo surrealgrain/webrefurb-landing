@@ -145,3 +145,42 @@ def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
     assert repaired["business_name"] == "青空ラーメン"
     assert "青空ラーメン ご担当者様" in repaired["outreach_draft_body"]
     assert repaired["outreach_assets_selected"] == expected_dark_assets(repaired)
+
+
+def test_state_audit_rejects_legacy_launch_smoke_proof_asset(tmp_path):
+    lead = _write_lead(tmp_path)
+    smoke_dir = tmp_path / "launch_smoke_tests"
+    smoke_dir.mkdir()
+    (smoke_dir / "smoke-test.json").write_text(json.dumps({
+        "smoke_test_id": "smoke-test",
+        "leads": [{
+            "lead_id": lead["lead_id"],
+            "proof_asset": str(PROJECT_ROOT / "state" / "qa-screenshots" / "phase10-sample-ramen-preview-desktop.png"),
+        }],
+    }), encoding="utf-8")
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "launch_proof_asset_does_not_match_dark_profile" in _codes(result)
+    assert "legacy_or_cream_asset_reference" in _codes(result)
+
+
+def test_repair_state_leads_updates_launch_smoke_proof_asset(tmp_path):
+    lead = _write_lead(tmp_path)
+    smoke_dir = tmp_path / "launch_smoke_tests"
+    smoke_dir.mkdir()
+    smoke_path = smoke_dir / "smoke-test.json"
+    smoke_path.write_text(json.dumps({
+        "smoke_test_id": "smoke-test",
+        "leads": [{
+            "lead_id": lead["lead_id"],
+            "proof_asset": str(PROJECT_ROOT / "state" / "qa-screenshots" / "phase10-sample-ramen-preview-desktop.png"),
+        }],
+    }), encoding="utf-8")
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired_smoke = json.loads(smoke_path.read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired_smoke["leads"][0]["proof_asset"] == expected_dark_assets(lead)[0]

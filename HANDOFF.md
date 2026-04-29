@@ -156,11 +156,15 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Permanent state audit added:
   - command: `.venv/bin/python -m pipeline.cli audit-state`
   - repair command: `.venv/bin/python -m pipeline.cli audit-state --repair`
-  - checks: stale cream/sample assets, wrong profile-to-template mapping, DNC/disqualified records with selected assets, non-binary `lead`, suspicious authoritative names, divergent `business_name` vs `locked_business_name`, and poisoned saved customer-facing text
-  - repair normalizes deterministic asset drift and locked-name divergence, then reruns the audit
-  - current result: `ok=true`, `checked=8`, `findings=[]`
+  - checks: stale cream/sample assets, wrong profile-to-template mapping, DNC/disqualified records with selected assets, non-binary `lead`, suspicious authoritative names, divergent `business_name` vs `locked_business_name`, poisoned saved customer-facing text, and stale proof assets in launch smoke/batch records
+  - repair normalizes deterministic asset drift, locked-name divergence, and launch smoke/batch proof assets, then reruns the audit
+  - current result: `ok=true`, `checked=10`, `findings=[]`
 - `PLAN.md` final verification now includes `audit-state` whenever lead state or outreach preview/send behavior is touched.
 - `AGENTS.md` quick commands now include `audit-state`.
+- Runtime state repair after user report updated `wrm-qa-phase10-ramen` from old `glm_menu_template...pdf` / `ticket_machine_guide_template...pdf` assets to dark `assets/templates/ramen_food_menu.html` plus `assets/templates/ticket_machine_guide.html`.
+- Runtime smoke-test records `smoke-65e39d8e3b` and `smoke-76fde53b8a` now use dark template proof assets instead of old `phase10-sample-*.png` screenshots.
+- Fresh dashboard API/browser check on `127.0.0.1:8771` confirmed `wrm-qa-phase10-ramen` and `wrm-smoke-nakano-tong` return dark JPEG preview HTML with no `cid:`, no SVG fallback, and no old asset references.
+- Screenshot saved under ignored state: `state/qa-screenshots/outreach-preview-dark-menu-visible-after-state-repair.png`.
 - No real outreach was sent.
 
 ## Resume Instructions
