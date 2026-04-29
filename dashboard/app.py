@@ -552,6 +552,7 @@ async def api_search(request: Request):
                     serper_api_key=serper_api_key,
                     category=job["category"],
                     state_root=STATE_ROOT,
+                    search_job=job,
                 ),
             )
             for job in search_jobs

@@ -65,12 +65,20 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 3 focused command covering binary lead, invalid page, already-good-English, chain, and excluded-business tests passed with `28 passed`.
 - Phase 3 full command `.venv/bin/python -m pytest tests/ -q` passed with `341 passed`.
 - Phase 3 `git diff --check` was clean.
+- Phase 4 replaced remaining dashboard generic search query defaults with friction-first scope queries.
+- Phase 4 expanded search fan-out with explicit ramen ticket-machine, meal-ticket, menu-photo, RamenDB, official-menu, English-menu, multilingual-QR, mobile-order, and English ticket-machine checks.
+- Phase 4 expanded izakaya fan-out with nomihodai/course, oshinagaki, menu-photo, Hotpepper, Tabelog, official-menu, social-menu, English-menu, multilingual-QR, and mobile-order checks.
+- Phase 4 stores `source_search_job` and `matched_friction_evidence` on persisted lead records and search decisions.
+- Phase 4 rejects old generic override queries like `ramen restaurants Kyoto` as active defaults and preserves only non-generic operator custom searches.
+- Phase 4 focused command `.venv/bin/python -m pytest tests/test_search_scope.py tests/test_search.py -q` passed with `29 passed`.
+- Phase 4 full command `.venv/bin/python -m pytest tests/ -q` passed with `343 passed`.
+- Phase 4 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Start at Phase 0.
+2. Continue from Phase 5 unless the worktree shows uncommitted Phase 4 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.

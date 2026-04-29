@@ -1296,7 +1296,9 @@ function buildSearchRequest(category, city) {
   const searchCategory = category || 'all';
   const cityLabel = city === 'all' ? 'Japan' : (city || 'Japan');
   const categoryLabel = searchCategory === 'all' ? 'ramen shops and izakayas' : searchCategory === 'izakaya' ? 'izakayas' : 'ramen shops';
-  const searchQuery = searchCategory === 'all' ? 'ramen and izakaya restaurants ' + cityLabel : searchCategory + ' restaurants ' + cityLabel;
+  let searchQuery = 'ordering-friction ramen izakaya ' + cityLabel;
+  if (searchCategory === 'ramen') searchQuery = '券売機 ラーメン ' + cityLabel;
+  if (searchCategory === 'izakaya') searchQuery = '飲み放題 コース 居酒屋 ' + cityLabel;
   return {
     query: searchQuery,
     category: searchCategory,
