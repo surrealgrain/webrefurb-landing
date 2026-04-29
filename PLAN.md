@@ -1,165 +1,464 @@
-# Product Audit Hardening Plan
+# Product Audit Implementation Plan
 
-## Summary
+Source audit: `PRODUCT_AUDIT_2026-04-29.md`
 
-Implement the 2026-04-29 audit in `PRODUCT_AUDIT_2026-04-29.md` as a pre-launch hardening pass before `P7 Controlled Launch`. Real outreach remains frozen until every gate below passes, `PLAN.md` is updated, state is backed up, and launch authorization is explicit.
+This is the active plan. It replaces every older phase plan and every prior completion checklist.
 
-This plan keeps the three fixed prices and existing package keys, but changes the product framing from “translation service” to “English ordering system” across qualification, outreach, quotes, dashboard, and public pages.
+## Operating Rules
 
-## Execution Checklist
+- Treat all prior implementation as untrusted until re-verified against this plan.
+- Do not mark a phase complete from memory, commit history, or previous handoff text.
+- Complete phases in order.
+- Each phase must end with:
+  - code/state changes, if needed;
+  - focused tests for that phase;
+  - evidence recorded in `HANDOFF.md`;
+  - `git diff --check`;
+  - a commit.
+- Real outreach is not a separate permission problem anymore; it is a later phase in this plan. It happens only after the audit gates in Phases 0-10 pass.
+- Do not scale beyond the first controlled batch until Phase 12 review is complete.
 
-### Done
+## Phase 0: Source Lock And Baseline Audit
 
-- [x] Saved this Product Audit Hardening Plan in `PLAN.md` as the only active plan.
-- [x] Marked the older phase plan obsolete in `HANDOFF.md`.
-- [x] Backed up `state/` before migration.
-- [x] Migrated stale lead state to current package keys/readiness fields.
-- [x] Quarantined the stale Tsukada Nojo record as disqualified / do-not-contact.
-- [x] Added tests proving stale package keys, bracketed previews, and chain-like records cannot remain launch-ready.
-- [x] Added persisted `lead_evidence_dossier`, `proof_items`, and `launch_readiness_status` while preserving binary `lead: true|false`.
-- [x] Added required dossier states for ticket machines, English menus, menu complexity, and izakaya rules.
-- [x] Added dashboard readiness display and outreach gating based on dossier readiness.
-- [x] Reworked search defaults and qualification toward friction-first ramen/izakaya evidence.
-- [x] Added hard disqualification for already-solved English/multilingual QR, chain/franchise-like, and out-of-scope records.
-- [x] Updated package recommendation logic for ramen ticket machines, ramen without machines, izakaya drink/course friction, and custom quote gates.
-- [x] Reworked outreach to shop-specific diagnosis copy instead of price-led cold pitches.
-- [x] Added unknown-evidence check phrasing, sender identity, opt-out wording, do-not-contact preservation, and message variant logging.
-- [x] Hardened previews against bad snippets, boilerplate, reservation-only copy, bracketed fallbacks, unconfirmed prices, and no-proof previews.
-- [x] Removed unsafe stale public QR draft placeholders.
-- [x] Added dashboard lead dossier modal visibility and browser screenshots for the dossier view.
-- [x] Updated customer-facing package labels while preserving package keys and prices.
-- [x] Updated quote/order/dashboard/site copy toward English ordering systems/materials and risk reversal.
-- [x] Added controlled launch batch records under `state/launch_batches/`.
-- [x] Added batch 2 blocking until batch 1 is reviewed.
-- [x] Added per-lead launch measurement fields: dossier states, selected channel, message variant, proof asset, package, contacted timestamp, reply status, objection, opt-out/bounce, operator minutes, and outcome.
-- [x] Verified current code with `.venv/bin/python -m pytest tests/ -q` (`332 passed`) and `git diff --check`.
+Goal: prove the plan is based on `PRODUCT_AUDIT_2026-04-29.md` and establish the current repo truth.
 
-### Next
+Exact steps:
 
-- [ ] Wait for explicit launch authorization from the user. No real outreach starts before this.
-- [ ] After authorization, select the first controlled launch batch of 5-10 launch-ready shops.
-- [ ] Ensure the first batch includes at least one ramen ticket-machine lead and one izakaya drink/course lead.
-- [ ] Create the first batch record under `state/launch_batches/`.
-- [ ] Manually review every selected lead dossier, proof item, channel, message variant, and recommended package before contact.
-- [ ] Run the final gate again before contact: `.venv/bin/python -m pytest tests/ -q` and `git diff --check`.
+1. Read `PRODUCT_AUDIT_2026-04-29.md` completely.
+2. Confirm `PLAN.md` names `PRODUCT_AUDIT_2026-04-29.md` as the source audit.
+3. Confirm `HANDOFF.md`, `AGENTS.md`, and `CLAUDE.md` do not point agents back to the obsolete old plan.
+4. Run `git status --short` and record whether the tree is clean.
+5. Run `.venv/bin/python -m pytest tests/ -q`.
+6. Run `git diff --check`.
+7. Record the test count, diff-check result, and any dirty files in `HANDOFF.md`.
 
-### Left To Do After Authorized Batch 1
+Acceptance criteria:
 
-- [ ] Send only the authorized first controlled batch through approved channels.
-- [ ] Record per-lead contacted timestamp, reply/no reply, objection, opt-out/bounce, operator minutes, and outcome.
-- [ ] Review batch 1 results before any batch 2 work.
-- [ ] Update scoring, search terms, outreach wording, and package recommendation from batch 1 results.
-- [ ] Keep batch 2 blocked until batch 1 review is saved.
-- [ ] Repeat final tests and diff checks after any scoring/search/outreach/package changes.
+- `PLAN.md` is the only active plan.
+- `HANDOFF.md` says this plan is based on `PRODUCT_AUDIT_2026-04-29.md`.
+- Current repo status and test baseline are recorded.
+- No phase after Phase 0 is marked done yet.
 
-### Blocked
+## Phase 1: State Backup And Stale-State Reconciliation
 
-- [ ] Real outreach is blocked until explicit launch authorization.
-- [ ] Controlled launch batch 1 is blocked until explicit launch authorization.
-- [ ] Controlled launch batch 2 is blocked until batch 1 has been reviewed.
-- [ ] Any lead without customer-safe proof remains manual review or skipped, not contacted.
+Goal: eliminate stale state failure modes called out by the audit before any launch work.
 
-## Phases
+Exact steps:
 
-### Phase 1: Reconcile Plan And State
+1. Create a timestamped zip backup of `state/` under `state/backups/`.
+2. Inspect every file under `state/leads/`.
+3. For each lead, verify:
+   - package keys use only current package keys;
+   - no old package price or label is customer-facing;
+   - `lead` remains strictly boolean;
+   - stale warning examples are quarantined.
+4. Specifically inspect the Tsukada Nojo record.
+5. Mark chain-like, already-solved, bad-preview, or stale unsafe records as `do_not_contact`, `disqualified`, or `manual_review` with explicit reasons.
+6. Add or update migration code so future stale records are repaired automatically.
+7. Add tests proving:
+   - legacy package keys map to current keys;
+   - chain-like records cannot remain launch-ready;
+   - already-solved English/multilingual records cannot remain launch-ready;
+   - bracketed preview records cannot remain customer-visible.
 
-- Update [PLAN.md](/Users/chrisparker/Desktop/WebRefurbMenu/PLAN.md) with new audit-hardening phases between completed P6 and blocked P7.
-- Back up `state/` before any migration.
-- Migrate stale lead records:
-  - Map obsolete package keys/prices to current package keys.
-  - Flag any chain-like, already-solved, or bad-preview records as `do_not_contact` or `needs_manual_review`.
-  - Specifically quarantine the Tsukada Nojo stale record from outreach and mark why.
-- Add tests proving stale package keys, bracketed previews, and chain-like records cannot remain launch-ready.
+Acceptance criteria:
 
-### Phase 2: Lead Evidence Dossier
+- `state/backups/` contains a fresh backup.
+- Tsukada Nojo is quarantined with an explicit reason.
+- No launch-ready lead contains stale package keys, bad preview snippets, or chain-like status.
+- Focused migration tests pass.
 
-- Add a persisted `lead_evidence_dossier` / `launch_readiness` structure while preserving binary `lead: true|false`.
-- Required states:
-  - `ticket_machine_state`: `present`, `absent`, `unknown`, `already_english_supported`
-  - `english_menu_state`: `missing`, `weak_partial`, `image_only`, `usable_complete`, `unknown`
-  - `menu_complexity_state`: `simple`, `medium`, `large_custom_quote`
-  - `izakaya_rules_state`: `none_found`, `drinks_found`, `courses_found`, `nomihodai_found`, `unknown`
-- Store proof items with source type, URL, snippet/screenshot path, operator visibility, customer-preview eligibility, and rejection reason.
-- Make dashboard lead cards show readiness: `ready_for_outreach`, `manual_review`, or `disqualified`.
-- Gate outreach generation on dossier readiness, not just `menu_evidence_found` or `machine_evidence_found`.
+## Phase 2: Lead Evidence Dossier Gate
 
-### Phase 3: Friction-First Search And Qualification
+Goal: implement the audit's launch-readiness audit as the required gate before outreach.
 
-- Replace generic search defaults in [pipeline/search_scope.py](/Users/chrisparker/Desktop/WebRefurbMenu/pipeline/search_scope.py) with friction-first jobs:
-  - Ramen: `券売機 ラーメン {area}`, `食券 ラーメン {area}`, `ラーメン メニュー 写真 {area}`, RamenDB/official-site lookups.
-  - Izakaya: `飲み放題 コース 居酒屋 {area}`, `お品書き 居酒屋 {area}`, `居酒屋 メニュー 写真 {area}`, Hotpepper/Tabelog/official/social lookups.
-  - English-solution checks: English menu, multilingual QR, and existing ordering support.
-- Add hard disqualification for `english_menu_state=usable_complete`, multilingual QR already present, known chain/franchise infrastructure, or out-of-scope category.
-- Treat unknown machine/English/menu-complexity evidence as manual review or check-phrased outreach, never as a positive assumption.
-- Update package recommendation logic:
-  - Ramen + ticket machine: Package 2 by default, Package 1 only when print-yourself is clearly acceptable.
-  - Ramen without machine: Package 1 for simple menus, Package 2 for counter-ready printed use.
-  - Izakaya with drink/course/nomihodai friction: Package 3 if updates are likely, Package 2 if printed table menus are stable.
-  - Large/complex menus: custom quote gate.
+Exact steps:
 
-### Phase 4: Shop-Specific Diagnosis Outreach
+1. Add or verify persisted lead fields:
+   - `lead_evidence_dossier`;
+   - `proof_items`;
+   - `launch_readiness_status`;
+   - `launch_readiness_reasons`;
+   - `message_variant`;
+   - `launch_outcome`.
+2. Preserve binary `lead: true|false`; never add `maybe`.
+3. Implement the required dossier states:
+   - `ticket_machine_state`: `present`, `absent`, `unknown`, `already_english_supported`;
+   - `english_menu_state`: `missing`, `weak_partial`, `image_only`, `usable_complete`, `unknown`;
+   - `menu_complexity_state`: `simple`, `medium`, `large_custom_quote`;
+   - `izakaya_rules_state`: `none_found`, `drinks_found`, `courses_found`, `nomihodai_found`, `unknown`.
+4. Proof items must store:
+   - source type;
+   - URL;
+   - snippet or screenshot path;
+   - operator visibility;
+   - customer-preview eligibility;
+   - rejection reason.
+5. Dashboard lead cards must show readiness:
+   - `ready_for_outreach`;
+   - `manual_review`;
+   - `disqualified`.
+6. Outreach generation APIs must reject non-ready leads with explicit reasons.
 
-- Replace the old price-led pitch path in [pipeline/outreach.py](/Users/chrisparker/Desktop/WebRefurbMenu/pipeline/outreach.py) and retire or rewrite `pipeline/pitch.py`.
-- First message must answer: why this shop, what friction was found, what proof/sample is available, and the low-effort next step.
-- Do not lead with all three prices in cold outreach. Show only the recommended outcome internally and let pricing live on the site/quote flow.
-- If evidence is unknown, use check phrasing such as “I wanted to check whether...” instead of asserting ticket machines or English gaps.
-- Add sender identity, contact info, and opt-out wording to commercial email paths; preserve do-not-contact handling for all channels.
-- Add message variant logging for controlled launch measurement.
+Acceptance criteria:
 
-### Phase 5: Preview And Sample Quality Gates
+- A lead cannot generate outreach from only `menu_evidence_found` or `machine_evidence_found`.
+- Unknown or unsafe dossier states become manual review unless the outreach is explicitly check-phrased.
+- Unit and API tests cover ready, manual review, and disqualified paths.
 
-- Harden [pipeline/preview.py](/Users/chrisparker/Desktop/WebRefurbMenu/pipeline/preview.py):
-  - Reject snippets that look like calendar text, headers/footers, search/tel boilerplate, reservation-only copy, or unrelated chain pages.
-  - Block bracketed fallback translations from all customer-visible previews.
-  - Do not show prices in outreach previews unless owner-confirmed.
-  - If no safe proof item exists, block customer preview and require manual review.
-- Redesign sample proof around operational clarity:
-  - Ramen samples show toppings, sets, noodle/soup choices, add-ons, and ticket-machine mapping when proven.
-  - Izakaya samples show drinks, courses, nomihodai rules, shared plates, and owner-confirmed ingredient notes only.
-  - QR samples show a real hosted menu flow plus QR sign.
-- Add rendered/browser verification for homepage, pricing pages, outreach modal, lead dossier view, sample previews, and QR page.
+## Phase 3: Restaurant Fit And Disqualification Rules
 
-### Phase 6: Positioning, Packages, Risk Reversal
+Goal: make the target market match the audit's no-brainer customer.
 
-- Keep package keys and prices, but rename customer-facing labels:
-  - `package_1_remote_30k`: English Ordering Files, ¥30,000
-  - `package_2_printed_delivered_45k`: Counter-Ready Ordering Kit, ¥45,000
-  - `package_3_qr_menu_65k`: Live QR English Menu, ¥65,000
-- Update constants, quote scope, invoice artifacts, dashboard selectors, website English/Japanese copy, and tests.
-- Replace “translation service” language with “English ordering system/materials” while still describing translation as one included component.
-- Add explicit risk reversal everywhere relevant: owner approval before delivery, one correction window, no price/allergen claims without owner confirmation, and clear custom-quote limits.
-- Public site first viewport should show proof of actual outputs: menu, ticket-machine guide, QR sign, and before/after ordering clarity.
+Exact steps:
 
-### Phase 7: Controlled Launch Measurement
+1. Gate for Japan physical location evidence.
+2. Gate for v1 categories only:
+   - ramen;
+   - izakaya.
+3. Gate for active business status when evidence exists.
+4. Add independence/multi-location review:
+   - independent or likely small operator can continue;
+   - chain/franchise-like records disqualify or require manual review.
+5. Add out-of-scope disqualification for hotel, cafe, sushi, yakiniku, kaiseki, and other non-v1 categories.
+6. Add already-solved disqualification for:
+   - usable complete English menu;
+   - multilingual QR ordering system;
+   - English-supported ticket machine or ordering flow;
+   - chain infrastructure that already solves ordering.
+7. Add tests for each pass, manual review, and hard disqualification case.
 
-- Add launch batch records under `state/launch_batches/`.
-- Track per lead: dossier states, selected channel, message variant, proof asset, recommended package, contacted timestamp, reply/no reply, objection, opt-out/bounce, operator minutes, and outcome.
-- Dashboard must block batch 2 until batch 1 has been reviewed.
-- First batch remains 5-10 shops, including at least one ramen ticket-machine lead and one izakaya drink/course lead.
-- After batch review, update scoring, search terms, outreach wording, and package recommendation before scaling.
+Acceptance criteria:
 
-## Public Interfaces And Data Changes
+- The system favors independent ramen/izakaya shops in Japan.
+- Chains, out-of-scope categories, and already-solved shops do not receive generic outreach.
+- Tsukada Nojo-style failures are impossible to mark launch-ready.
 
-- `QualificationResult` gains dossier/readiness fields, but `lead` remains strictly boolean.
-- Lead JSON gains `lead_evidence_dossier`, `launch_readiness_status`, `proof_items`, `message_variant`, and launch outcome fields.
-- Package labels change customer-facing names only; package keys and prices remain stable.
-- Dashboard APIs for outreach must reject non-ready leads with explicit reasons instead of generating weak drafts.
-- Quote/order APIs continue using current package keys, with updated labels, scope text, correction window, and risk-reversal copy.
+## Phase 4: Friction-First Search
 
-## Test Plan
+Goal: replace generic lead generation with fewer, stronger high-friction candidates.
 
-- Unit tests for dossier state derivation, already-solved rejection, chain/franchise rejection, package recommendation, stale-state migration, and friction-first search query generation.
-- Preview tests proving bad snippets, bracketed fallback translations, unconfirmed prices, and no-proof previews are blocked.
-- Outreach tests proving diagnosis copy, unknown-state check phrasing, no all-price cold pitch, sender identity, opt-out handling, and no AI/automation/internal-tool language.
-- Website tests for new package names, fixed prices, ordering-system positioning, no HVAC references, and no forbidden customer-facing terms.
-- Integration tests for lead -> dossier -> outreach draft -> quote -> payment/intake -> owner approval -> final export.
-- Browser/render verification for dashboard lead dossier, outreach modal, homepage, pricing pages, sample menu previews, and QR menu/sign.
-- Final gate: `.venv/bin/python -m pytest tests/ -q` and `git diff --check`.
+Exact steps:
 
-## Assumptions
+1. Replace generic search defaults such as `ramen restaurants Kyoto`.
+2. Add ramen search jobs:
+   - `券売機 ラーメン {area}`;
+   - `食券 ラーメン {area}`;
+   - `ラーメン メニュー 写真 {area}`;
+   - `RamenDB {area}`;
+   - official site/menu/photo lookups.
+3. Add izakaya search jobs:
+   - `飲み放題 コース 居酒屋 {area}`;
+   - `お品書き 居酒屋 {area}`;
+   - `居酒屋 メニュー 写真 {area}`;
+   - Hotpepper/Tabelog/official/social lookups.
+4. Add English-solution checks:
+   - English menu;
+   - multilingual QR;
+   - existing mobile order support;
+   - English ticket-machine support.
+5. Store the search job and matched friction evidence on each candidate.
+6. Add tests for generated queries and candidate evidence classification.
 
-- No real outreach is sent during this work.
-- Fixed prices remain ¥30,000, ¥45,000, and ¥65,000.
-- Package keys stay unchanged for compatibility.
-- Existing P5/P6 paid operations work is treated as completed, then extended by the new audit gates.
-- If proof cannot be safely shown to an owner, the lead is manual review or skipped, not contacted.
+Acceptance criteria:
+
+- Search is optimized for proven ordering friction, not raw lead volume.
+- Every candidate carries source evidence for why it was found.
+- Tests prove friction-first queries are generated for ramen and izakaya.
+
+## Phase 5: Offer Fit And Package Recommendation
+
+Goal: recommend the package that matches the proven operational problem.
+
+Exact steps:
+
+1. Preserve package keys and prices:
+   - `package_1_remote_30k`: JPY 30,000;
+   - `package_2_printed_delivered_45k`: JPY 45,000;
+   - `package_3_qr_menu_65k`: JPY 65,000.
+2. Use customer-facing labels:
+   - English Ordering Files;
+   - Counter-Ready Ordering Kit;
+   - Live QR English Menu.
+3. Implement recommendation defaults:
+   - ramen with ticket machine: Package 2 by default;
+   - ramen with ticket machine and clear print-yourself fit: Package 1;
+   - ramen without machine and simple menu: Package 1;
+   - ramen without machine but counter-ready need: Package 2;
+   - izakaya with drinks/courses/nomihodai and frequent changes: Package 3;
+   - izakaya with stable table menus and staff explanation burden: Package 2;
+   - large/complex menus: custom quote gate.
+4. Store recommendation reason and custom-quote reason.
+5. Add tests for every recommendation branch.
+
+Acceptance criteria:
+
+- Cold outreach does not lead with all three prices.
+- Internal dashboard shows the recommended package and reason.
+- Large or complex menus cannot be forced into a fixed package without review.
+
+## Phase 6: Shop-Specific Diagnosis Outreach
+
+Goal: replace service-introduction copy with audit-specific diagnosis copy.
+
+Exact steps:
+
+1. Rewrite outreach generation so the first message answers:
+   - why this shop;
+   - what exact ordering friction was found;
+   - what proof/sample is available;
+   - what low-effort next step the owner should take.
+2. Do not lead with all three prices in cold outreach.
+3. If `ticket_machine_state` is unknown, use check phrasing.
+4. If `english_menu_state` is unknown, use check phrasing.
+5. Never mention AI, automation, scraping, internal tools, or pipeline mechanics in customer-facing copy.
+6. Commercial email paths must include:
+   - sender identity;
+   - contact info;
+   - opt-out wording;
+   - do-not-contact handling.
+7. Alternate channels must be route-appropriate:
+   - contact form;
+   - LINE;
+   - Instagram;
+   - phone;
+   - walk-in.
+8. Log message variant for controlled launch measurement.
+9. Add tests for diagnosis copy, check phrasing, no all-price cold pitch, sender identity, opt-out, and forbidden terms.
+
+Acceptance criteria:
+
+- Outreach feels like a shop-specific diagnosis, not a mass pitch.
+- Unknown evidence is never asserted as fact.
+- Do-not-contact records cannot generate outreach.
+
+## Phase 7: Preview And Proof Quality Gates
+
+Goal: make customer-visible proof safe enough to build trust.
+
+Exact steps:
+
+1. Harden preview generation to reject:
+   - calendar text;
+   - headers/footers;
+   - search/tel boilerplate;
+   - reservation-only copy;
+   - unrelated chain pages;
+   - bracketed fallback translations;
+   - stale or mismatched sample assets.
+2. Do not show prices in outreach previews unless owner-confirmed.
+3. If no safe proof item exists, require manual review.
+4. Ramen samples must show operational clarity:
+   - toppings;
+   - sets;
+   - noodle/soup choices;
+   - add-ons;
+   - ticket-machine mapping when proven.
+5. Izakaya samples must show:
+   - drinks;
+   - courses;
+   - nomihodai rules;
+   - shared plates;
+   - owner-confirmed ingredient notes only.
+6. QR samples must show:
+   - hosted menu flow;
+   - QR sign;
+   - update-policy clarity.
+7. Add tests proving unsafe snippets and previews are blocked.
+
+Acceptance criteria:
+
+- No bracketed fallback or scraped junk reaches a customer preview.
+- Proof shown to owners is tied to actual safe evidence.
+- Preview tests cover unsafe and safe paths.
+
+## Phase 8: Public Positioning, Package Copy, And Risk Reversal
+
+Goal: make the website and quote/order copy match the audit thesis.
+
+Exact steps:
+
+1. Replace customer-facing "translation service" framing with "English ordering system/materials."
+2. Keep translation described only as one included component.
+3. Update homepage first viewport to show actual outputs:
+   - menu;
+   - ticket-machine guide;
+   - QR sign;
+   - before/after ordering clarity.
+4. Update pricing pages in English and Japanese.
+5. Update quote scope, invoice artifacts, order flow, dashboard selectors, and package descriptions.
+6. Add risk reversal everywhere relevant:
+   - owner approval before delivery;
+   - one correction window;
+   - no price claims without owner confirmation;
+   - no allergen claims without owner confirmation;
+   - clear custom-quote limits.
+7. Add tests for package names, prices, positioning, no HVAC references, and forbidden customer-facing terms.
+
+Acceptance criteria:
+
+- Public copy sells operational ordering clarity, not generic translation.
+- Package labels and fixed prices are stable.
+- Risk reversal is present in site, quote, order, and delivery artifacts.
+
+## Phase 9: Paid Operations And P5 Reconciliation
+
+Goal: make the quote-to-delivery path launch-ready before real orders.
+
+Exact steps:
+
+1. Inspect quote, invoice, payment, intake, privacy, revision, production, owner review, approval, delivery, and follow-up code.
+2. Reconcile any mismatch between current implementation and this plan.
+3. Ensure every package can move through:
+   - lead;
+   - contact;
+   - reply;
+   - quote;
+   - payment pending;
+   - paid;
+   - intake;
+   - production;
+   - owner review;
+   - approval;
+   - delivery/follow-up.
+4. Rehearse Package 1, Package 2, and Package 3 with safe test data.
+5. Verify privacy and owner-confirmation gates before final export.
+6. Add or update integration tests for the full flow.
+
+Acceptance criteria:
+
+- Paid work cannot begin without quote, payment, intake, and owner-confirmation gates.
+- Final exports cannot ship without owner approval.
+- All three packages have rehearsal evidence.
+
+## Phase 10: Browser And Render Verification
+
+Goal: verify the product visually and operationally, not just by unit tests.
+
+Exact steps:
+
+1. Start the local dashboard/site as needed.
+2. Capture desktop and mobile screenshots for:
+   - dashboard lead card;
+   - lead evidence dossier view;
+   - outreach modal;
+   - homepage;
+   - pricing pages;
+   - sample ramen preview;
+   - sample izakaya preview;
+   - QR menu;
+   - QR sign.
+3. Check for:
+   - unreadable text;
+   - overlapping UI;
+   - missing proof;
+   - stale placeholders;
+   - bracketed fallback text;
+   - forbidden customer-facing language.
+4. Save screenshots under `state/qa-screenshots/`.
+5. Fix every visual or content defect found.
+
+Acceptance criteria:
+
+- Browser verification covers the actual screens owners/operators will see.
+- Screenshots are saved and named clearly.
+- No known visual/content defect remains untracked.
+
+## Phase 11: Controlled Launch Batch 1
+
+Goal: run the first launch as a measurement system, not a send blast.
+
+Exact steps:
+
+1. Select 5-10 launch-ready shops.
+2. Batch must include:
+   - at least one ramen ticket-machine lead;
+   - at least one izakaya drink/course/nomihodai lead.
+3. For each selected lead, manually inspect:
+   - restaurant fit;
+   - ordering friction;
+   - proof strength;
+   - channel fit;
+   - offer fit;
+   - outreach copy;
+   - sample/proof asset.
+4. Create a launch batch record under `state/launch_batches/`.
+5. Run `.venv/bin/python -m pytest tests/ -q`.
+6. Run `git diff --check`.
+7. Send only the selected batch through approved channels.
+8. Record for each lead:
+   - dossier states;
+   - selected channel;
+   - message variant;
+   - proof asset;
+   - recommended package;
+   - contacted timestamp;
+   - reply/no reply;
+   - objection;
+   - opt-out/bounce;
+   - operator minutes;
+   - outcome.
+
+Acceptance criteria:
+
+- Batch 1 contains 5-10 reviewed leads.
+- Every contacted lead has a measurement record.
+- No batch 2 work starts before Phase 12.
+
+## Phase 12: Batch Review And Iteration
+
+Goal: learn from batch 1 before scaling.
+
+Exact steps:
+
+1. Review every batch 1 outcome.
+2. Summarize:
+   - response rate;
+   - positive replies;
+   - objections;
+   - opt-outs/bounces;
+   - channel performance;
+   - operator time;
+   - package fit;
+   - proof asset performance.
+3. Update scoring from observed outcomes.
+4. Update search terms from observed lead quality.
+5. Update outreach wording from replies and objections.
+6. Update package recommendation if package fit was wrong.
+7. Record the review in the batch record.
+8. Run tests and diff check.
+
+Acceptance criteria:
+
+- Batch 1 review is recorded before batch 2.
+- Search, scoring, outreach, or recommendation changes are made when evidence supports them.
+- Scaling is based on observed lead profile, not volume pressure.
+
+## Phase 13: Batch 2 And Repeatable Launch Loop
+
+Goal: scale only after the repeatable lead profile is clearer.
+
+Exact steps:
+
+1. Confirm batch 1 review is saved.
+2. Select batch 2 using updated scoring/search/outreach rules.
+3. Repeat Phase 11 measurement.
+4. Repeat Phase 12 review.
+5. Continue only while lead quality and owner response justify volume.
+
+Acceptance criteria:
+
+- Batch 2 cannot be created until batch 1 review exists.
+- Every batch produces measurement and a recorded decision.
+
+## Final Verification Command Set
+
+Run these before every commit that claims a phase is complete:
+
+```bash
+.venv/bin/python -m pytest tests/ -q
+git diff --check
+git status --short
+```
+
+For UI-facing phases, also run browser/render verification and save screenshots under `state/qa-screenshots/`.
