@@ -767,7 +767,7 @@ def _load_template_placeholder_items() -> set[str]:
     """Load placeholder item text from v4c HTML templates."""
     items: set[str] = set()
     for template_name in (
-        "ramen_food_menu.html", "izakaya_food_menu.html",
+        "ramen_food_menu.html", "izakaya_food_menu.html", "izakaya_food_drinks_menu.html",
         "ramen_drinks_menu.html", "izakaya_drinks_menu.html",
     ):
         template_path = TEMPLATE_PACKAGE_MENU / template_name

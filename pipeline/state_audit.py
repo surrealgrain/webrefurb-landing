@@ -14,6 +14,7 @@ STATE_ROOT = PROJECT_ROOT / "state"
 TEMPLATES_ROOT = PROJECT_ROOT / "assets" / "templates"
 RAMEN_MENU_TEMPLATE = TEMPLATES_ROOT / "ramen_food_menu.html"
 IZAKAYA_MENU_TEMPLATE = TEMPLATES_ROOT / "izakaya_food_menu.html"
+IZAKAYA_FOOD_DRINKS_TEMPLATE = TEMPLATES_ROOT / "izakaya_food_drinks_menu.html"
 TICKET_MACHINE_TEMPLATE = TEMPLATES_ROOT / "ticket_machine_guide.html"
 
 BLOCKED_ASSET_PATTERNS = (
@@ -40,6 +41,14 @@ CUSTOMER_TEXT_FIELDS = (
     "preview_html",
 )
 DNC_STATUSES = {"do_not_contact", "disqualified"}
+ATTACHED_SAMPLE_MARKERS = (
+    "添付のサンプル",
+    "添付ファイル",
+    "attached sample",
+    "attached file",
+    "reference file",
+    "included file",
+)
 
 
 def expected_dark_assets(record: dict[str, Any]) -> list[str]:
@@ -47,6 +56,8 @@ def expected_dark_assets(record: dict[str, Any]) -> list[str]:
     status = str(record.get("outreach_status") or "").lower()
     readiness = str(record.get("launch_readiness_status") or "").lower()
     if status in DNC_STATUSES or readiness == "disqualified" or record.get("lead") is False:
+        return []
+    if _primary_contact_type(record) == "contact_form":
         return []
 
     profile = str(record.get("establishment_profile") or "").lower()
@@ -61,7 +72,7 @@ def expected_dark_assets(record: dict[str, Any]) -> list[str]:
     if classification == "machine_only":
         assets = [TICKET_MACHINE_TEMPLATE]
     elif "izakaya" in profile or category == "izakaya":
-        assets = [IZAKAYA_MENU_TEMPLATE]
+        assets = [IZAKAYA_FOOD_DRINKS_TEMPLATE]
     else:
         assets = [RAMEN_MENU_TEMPLATE]
 
@@ -92,6 +103,7 @@ def audit_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any]
         _audit_binary_lead(record, path, lead_id, findings)
         _audit_business_name(record, path, lead_id, findings)
         _audit_outreach_assets(record, path, lead_id, findings)
+        _audit_draft_asset_consistency(record, path, lead_id, findings)
 
     checked += _audit_launch_proof_assets(root / "launch_smoke_tests", lead_records, findings)
     checked += _audit_launch_proof_assets(root / "launch_batches", lead_records, findings)
@@ -124,6 +136,14 @@ def repair_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any
             record["outreach_assets_selected"] = expected_assets
             record["outreach_asset_template_family"] = "dark_v4c" if expected_assets else "none_do_not_contact"
             changes.append("outreach_assets_selected")
+
+        if not expected_assets and _record_mentions_attached_sample(record):
+            record["outreach_draft_body"] = None
+            record["outreach_draft_english_body"] = None
+            record["outreach_draft_subject"] = None
+            record["outreach_draft_manually_edited"] = False
+            record["outreach_draft_edited_at"] = None
+            changes.append("incompatible_saved_draft")
 
         business_name = str(record.get("business_name") or "").strip()
         locked_name = str(record.get("locked_business_name") or "").strip()
@@ -226,6 +246,45 @@ def _audit_outreach_assets(record: dict[str, Any], path: Path, lead_id: str, fin
             ))
         if not Path(asset).exists():
             findings.append(_finding(path, lead_id, "asset_file_missing", f"asset={asset!r}"))
+
+
+def _audit_draft_asset_consistency(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
+    assets = [str(asset) for asset in record.get("outreach_assets_selected") or []]
+    profile = str(record.get("establishment_profile") or "").lower()
+    category = str(record.get("primary_category_v1") or record.get("category") or "").lower()
+
+    if not assets and _record_mentions_attached_sample(record):
+        findings.append(_finding(
+            path,
+            lead_id,
+            "draft_mentions_attachment_without_assets",
+            "saved outreach draft references an attached/reference sample but no sample assets are selected",
+        ))
+
+    if "izakaya" in profile or category == "izakaya":
+        food_only = str(IZAKAYA_MENU_TEMPLATE)
+        if food_only in assets:
+            findings.append(_finding(
+                path,
+                lead_id,
+                "izakaya_food_drinks_claim_uses_food_only_template",
+                f"asset={food_only!r}; use {str(IZAKAYA_FOOD_DRINKS_TEMPLATE)!r}",
+            ))
+
+
+def _record_mentions_attached_sample(record: dict[str, Any]) -> bool:
+    text = "\n".join(str(record.get(field) or "") for field in CUSTOMER_TEXT_FIELDS).lower()
+    return any(marker in text for marker in ATTACHED_SAMPLE_MARKERS)
+
+
+def _primary_contact_type(record: dict[str, Any]) -> str:
+    contacts = record.get("contacts") or []
+    if not isinstance(contacts, list):
+        return ""
+    for contact in contacts:
+        if isinstance(contact, dict) and contact.get("actionable") is True:
+            return str(contact.get("type") or "").strip().lower()
+    return ""
 
 
 def _audit_launch_proof_assets(

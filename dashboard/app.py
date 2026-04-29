@@ -117,7 +117,7 @@ def _menu_template_for_profile(establishment_profile: str) -> Path:
     templates = PROJECT_ROOT / "assets" / "templates"
     profile = str(establishment_profile or "").lower()
     if "izakaya" in profile:
-        return templates / "izakaya_food_menu.html"
+        return templates / "izakaya_food_drinks_menu.html"
     return templates / "ramen_food_menu.html"
 
 
@@ -162,6 +162,32 @@ def _safe_draft_assets_for_record(record: dict[str, Any], requested_assets: Any)
     if all(asset in expected for asset in requested):
         return requested
     return expected
+
+
+def _test_fixture_label_for_record(record: dict[str, Any]) -> str:
+    """Return a dashboard-only label for records that must never look live."""
+    lead_id = str(record.get("lead_id") or "").strip().lower()
+    business_name = str(record.get("business_name") or "").strip().lower()
+    lock_reason = str(record.get("business_name_lock_reason") or "").strip().lower()
+
+    if record.get("smoke_rehearsal_only") is True:
+        return "SMOKE TEST - NO REAL OUTREACH"
+    if lead_id.startswith("wrm-qa-") or business_name.startswith("qa ") or "fixture" in lock_reason:
+        return "TEST FIXTURE - NOT REAL OUTREACH"
+    return ""
+
+
+def _draft_claims_attached_sample(*values: str) -> bool:
+    text = "\n".join(str(value or "") for value in values).lower()
+    markers = (
+        "添付のサンプル",
+        "添付ファイル",
+        "attached sample",
+        "attached file",
+        "reference file",
+        "included file",
+    )
+    return any(marker in text for marker in markers)
 
 
 def _inline_preview_svg(title: str, label: str) -> str:
@@ -696,6 +722,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     if not record:
         raise HTTPException(status_code=404, detail="Lead not found")
     business_name = authoritative_business_name(record)
+    test_fixture_label = _test_fixture_label_for_record(record)
 
     if business_name_is_suspicious(business_name):
         record["outreach_status"] = "needs_review"
@@ -820,6 +847,9 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     subject = draft["subject"]
     body = draft["body"]
     english_body = draft["english_body"]
+    generated_subject = subject
+    generated_body = body
+    generated_english_body = english_body
     saved_assets = record.get("outreach_assets_selected") or []
     if not regenerate:
         subject = record.get("outreach_draft_subject") or subject
@@ -827,6 +857,16 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         english_body = record.get("outreach_draft_english_body") or english_body
         if saved_assets:
             assets = [Path(p) for p in saved_assets]
+        if not assets and _draft_claims_attached_sample(subject, body, english_body):
+            subject = generated_subject
+            body = generated_body
+            english_body = generated_english_body
+            record["outreach_draft_body"] = None
+            record["outreach_draft_english_body"] = None
+            record["outreach_draft_subject"] = None
+            record["outreach_draft_manually_edited"] = False
+            record["outreach_draft_edited_at"] = None
+            persist_lead_record(record, state_root=STATE_ROOT)
     asset_details = describe_outreach_assets(
         assets,
         classification=classification,
@@ -874,17 +914,19 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "establishment_profile_source_urls": profile["source_urls"],
         "establishment_profile_override": profile["override"],
         "establishment_profile_override_note": profile["override_note"],
-        "send_enabled": send_enabled,
+        "send_enabled": bool(send_enabled and not test_fixture_label),
         "contact_action": contact_action,
         "contact_action_note": contact_action_note,
         "has_saved_draft": bool(record.get("outreach_draft_body") or record.get("outreach_draft_english_body")),
-        "send_blocked": record.get("outreach_status") in BLOCKED_SEND_STATUSES,
+        "send_blocked": bool(test_fixture_label) or record.get("outreach_status") in BLOCKED_SEND_STATUSES,
         "outreach_status": record.get("outreach_status"),
         "launch_readiness_status": record.get("launch_readiness_status"),
         "launch_readiness_reasons": record.get("launch_readiness_reasons") or [],
         "lead_evidence_dossier": record.get("lead_evidence_dossier") or {},
         "proof_items": proof_items,
         "message_variant": record.get("message_variant", ""),
+        "is_test_fixture": bool(test_fixture_label),
+        "test_fixture_label": test_fixture_label,
     }
 
 
@@ -1031,6 +1073,10 @@ async def api_send(lead_id: str, request: Request):
     if not record:
         raise HTTPException(status_code=404, detail="Lead not found")
     business_name = authoritative_business_name(record)
+
+    fixture_label = _test_fixture_label_for_record(record)
+    if fixture_label:
+        raise HTTPException(status_code=403, detail=f"{fixture_label}: sending is disabled")
 
     if record.get("outreach_status") == "do_not_contact":
         raise HTTPException(status_code=403, detail="Lead is marked Do Not Contact")

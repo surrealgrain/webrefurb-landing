@@ -251,6 +251,45 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   border-radius: 0; border: 0;
 }
 #preview-modal .modal-body { padding: 0; background: #EEF1EF; }
+#preview-modal.is-test-fixture .modal-header {
+  background: #450A0A;
+  color: #FFF7ED;
+  border-bottom-color: #FACC15;
+}
+#preview-modal.is-test-fixture .modal-subtitle { color: #FDE68A; }
+#preview-modal.is-test-fixture .outreach-inspector {
+  background: #FFF7ED;
+  border-right-color: #F97316;
+}
+#preview-modal.is-test-fixture .outreach-editor { background: #FEE2E2; }
+#preview-modal.is-test-fixture .preview-column {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+#preview-modal.is-test-fixture .preview-column h3 {
+  background: #7F1D1D;
+  border-bottom-color: #FACC15;
+  color: #FFF7ED;
+}
+.test-fixture-banner {
+  display: none;
+  flex-shrink: 0;
+  padding: 11px 18px;
+  background: repeating-linear-gradient(
+    135deg,
+    #7F1D1D,
+    #7F1D1D 18px,
+    #991B1B 18px,
+    #991B1B 36px
+  );
+  border-bottom: 3px solid #FACC15;
+  color: #FFF7ED;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
 .compact-dialog {
   width: min(420px, calc(100vw - 32px)); max-width: 420px;
   height: fit-content; min-height: 0; max-height: none;
@@ -695,6 +734,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
     <button class="modal-close" onclick="closePreviewModal()" aria-label="Close preview">&times;</button>
   </div>
+  <div class="test-fixture-banner" id="test-fixture-banner">TEST FIXTURE - NOT REAL OUTREACH</div>
   <div class="modal-body">
     <div class="outreach-workspace">
       <aside class="outreach-inspector">
@@ -751,11 +791,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <section class="outreach-editor">
     <div class="preview-columns">
       <div class="preview-column">
-        <h3>Japanese Email (Live Preview)</h3>
+        <h3 id="jp-preview-heading">Japanese Email (Live Preview)</h3>
         <div class="preview-iframe" id="jp-preview"></div>
       </div>
       <div class="preview-column">
-        <h3>English Body (Editable)</h3>
+        <h3 id="en-preview-heading">English Body (Editable)</h3>
         <div class="edit-fields" id="en-fields"></div>
       </div>
     </div>
@@ -1289,6 +1329,29 @@ function setSaveState(message, state) {
   el.className = 'save-state' + (state ? ' is-' + state : '');
 }
 
+function applyTestFixtureState(data) {
+  const modal = document.getElementById('preview-modal');
+  const banner = document.getElementById('test-fixture-banner');
+  const label = (data && data.test_fixture_label) || '';
+  modal.classList.toggle('is-test-fixture', Boolean(label));
+  banner.textContent = label || 'TEST FIXTURE - NOT REAL OUTREACH';
+  banner.style.display = label ? 'block' : 'none';
+}
+
+function applyPreviewHeadings(draftChannel) {
+  const channel = draftChannel || 'email';
+  const channelLabel = draftChannelLabel(channel);
+  const left = document.getElementById('jp-preview-heading');
+  const right = document.getElementById('en-preview-heading');
+  if (channel === 'email') {
+    left.textContent = 'Japanese Email (Live Preview)';
+    right.textContent = 'English Body (Editable)';
+    return;
+  }
+  left.textContent = 'Japanese ' + channelLabel + ' (Live Preview)';
+  right.textContent = 'English ' + channelLabel + ' (Editable)';
+}
+
 // --- Escape key handler ---
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
@@ -1627,6 +1690,8 @@ async function openPreview(leadId) {
   const jpPreview = document.getElementById('jp-preview');
   const enFields = document.getElementById('en-fields');
 
+  applyTestFixtureState({});
+  applyPreviewHeadings('email');
   jpPreview.textContent = 'Loading...';
   enFields.innerHTML = '';
   document.getElementById('preview-subject').textContent = '';
@@ -1671,10 +1736,13 @@ async function openPreview(leadId) {
     includeInperson = englishBodyForEdit.includes(ENGLISH_INPERSON_LINE) || (data.body || '').includes('ラミネート加工および店舗への直接のお届けも承っております。');
     document.getElementById('inperson-toggle').checked = includeInperson;
     const draftChannel = data.draft_channel || ((data.primary_contact || {}).type || 'email');
+    applyTestFixtureState(data);
+    applyPreviewHeadings(draftChannel);
 
     // Update modal title with business name
+    const titlePrefix = data.test_fixture_label ? '[TEST] ' : '';
     document.getElementById('preview-modal-title').textContent =
-      draftChannelLabel(draftChannel) + ' — ' + (data.business_name || leadId);
+      titlePrefix + draftChannelLabel(draftChannel) + ' — ' + (data.business_name || leadId);
 
     // Show subject and recipient
     document.getElementById('preview-subject').textContent = data.subject || subjectPlaceholder(draftChannel);
@@ -1857,6 +1925,8 @@ async function resetToTemplate() {
     currentEmail = data;
     originalBody = data.body;
     draftDirty = false;
+    applyTestFixtureState(data);
+    applyPreviewHeadings(data.draft_channel || 'email');
     document.getElementById('jp-preview').innerHTML = data.preview_html || data.body;
 
     includeInperson = data.include_inperson;

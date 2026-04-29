@@ -236,7 +236,7 @@ OUTREACH_SAMPLE_RAMEN_DRINKS_PDF = (
     TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
 )
 OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_food_menu.html"
+    TEMPLATE_PACKAGE_MENU / "izakaya_food_drinks_menu.html"
 )
 
 # ---------------------------------------------------------------------------

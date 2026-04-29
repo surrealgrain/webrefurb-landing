@@ -1241,7 +1241,7 @@ class TestDraftSaveAndLoad:
         assert response.status_code == 200
         stored = json.loads((self.tmp_path / "leads" / "wrm-draft-test.json").read_text(encoding="utf-8"))
         assert stored["outreach_assets_selected"] == [
-            "/Users/chrisparker/Desktop/WebRefurbMenu/assets/templates/izakaya_food_menu.html"
+            "/Users/chrisparker/Desktop/WebRefurbMenu/assets/templates/izakaya_food_drinks_menu.html"
         ]
 
     def test_save_draft_lead_not_found(self):
@@ -1285,6 +1285,85 @@ class TestDraftSaveAndLoad:
         assert data["body"].startswith("青空ラーメン ご担当者様")
         assert "QA Phase10 Ramen ご担当者様" not in data["body"]
         assert "QA Phase10 Ramen ご担当者様" not in data["preview_html"]
+
+    def test_outreach_preview_flags_test_fixture(self):
+        self._create_lead(
+            lead_id="wrm-qa-phase10-test",
+            business_name="QA Phase10 Ramen",
+            locked_business_name="QA Phase10 Ramen",
+            business_name_locked=True,
+            business_name_lock_reason="phase10_browser_verification_fixture",
+        )
+
+        response = self.client.get("/api/outreach/wrm-qa-phase10-test")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_test_fixture"] is True
+        assert data["test_fixture_label"] == "TEST FIXTURE - NOT REAL OUTREACH"
+        assert data["send_enabled"] is False
+        assert data["send_blocked"] is True
+
+    def test_dashboard_contains_test_fixture_banner_markup(self):
+        response = self.client.get("/")
+
+        assert response.status_code == 200
+        assert 'id="test-fixture-banner"' in response.text
+        assert "is-test-fixture" in response.text
+
+    def test_send_rejects_test_fixture_before_any_delivery(self):
+        self._create_lead(
+            lead_id="wrm-qa-phase10-test",
+            business_name="QA Phase10 Ramen",
+            locked_business_name="QA Phase10 Ramen",
+            business_name_locked=True,
+            business_name_lock_reason="phase10_browser_verification_fixture",
+        )
+
+        response = self.client.post(
+            "/api/send/wrm-qa-phase10-test",
+            json={
+                "email": "owner@draft-test-ramen.test",
+                "subject": "test",
+                "body": "test",
+            },
+        )
+
+        assert response.status_code == 403
+        assert "TEST FIXTURE" in response.json()["detail"]
+
+    def test_contact_form_preview_clears_saved_email_draft_that_claims_attachments(self):
+        self._create_lead(
+            contacts=[
+                {
+                    "type": "contact_form",
+                    "value": "https://example.test/contact",
+                    "label": "Contact form",
+                    "href": "https://example.test/contact",
+                    "actionable": True,
+                }
+            ],
+            email="",
+            outreach_draft_body="添付のサンプルをご覧ください。",
+            outreach_draft_english_body="Please review the attached sample.",
+            outreach_draft_subject="英語メニュー制作のご提案",
+            outreach_draft_manually_edited=True,
+            outreach_assets_selected=[],
+        )
+
+        response = self.client.get("/api/outreach/wrm-draft-test")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["draft_channel"] == "contact_form"
+        assert data["assets"] == []
+        assert data["subject"] == ""
+        assert "attached sample" not in data["english_body"].lower()
+
+        stored = json.loads((self.tmp_path / "leads" / "wrm-draft-test.json").read_text(encoding="utf-8"))
+        assert stored["outreach_draft_body"] is None
+        assert stored["outreach_draft_english_body"] is None
+        assert stored["outreach_draft_subject"] is None
 
     def test_preview_get_loads_saved_draft(self):
         """Opening preview should load the persisted draft, not regenerate."""
@@ -1376,7 +1455,8 @@ class TestDraftSaveAndLoad:
         assert "data:image/jpeg;base64,ZGFyay1wcmV2aWV3" in html
         assert rendered_sources
         assert "青空ラーメン" in rendered_sources[0]
-        assert "Menu v4c — Izakaya Style" in rendered_sources[0]
+        assert "Izakaya Food + Drinks Sample" in rendered_sources[0]
+        assert "Drinks Menu" in rendered_sources[0]
 
     def test_draft_status_persists_after_save(self):
         self._create_lead()
@@ -1778,9 +1858,10 @@ class TestClassificationSpecificBehavior:
         response = self.client.post("/api/outreach/wrm-class-test")
         assert response.status_code == 200
         data = response.json()
-        assert "assets/templates/izakaya_food_menu.html" in data["assets"][0]
+        assert "assets/templates/izakaya_food_drinks_menu.html" in data["assets"][0]
         assert data["asset_strategy_label"] == "Izakaya sample set"
         assert data["asset_details"][0]["label"] == "Izakaya Food + Drinks Sample"
+        assert data["include_menu_image"] is True
         assert "スタッフの個別説明を減らせます" in data["body"]
 
     def test_menu_and_machine_classification(self):
