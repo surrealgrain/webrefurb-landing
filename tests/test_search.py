@@ -99,6 +99,18 @@ def test_business_name_resolver_prefers_page_name_over_contact_like_source():
     assert source == "page_html"
 
 
+def test_business_name_resolver_strips_reservation_suffix_from_page_title():
+    html = """
+    <html>
+      <head><title>Nihonshu Genka Sakagura Shinjukukusohonten Reservation</title></head>
+      <body><h1>Nihonshu Genka Sakagura Shinjukukusohonten Reservation</h1></body>
+    </html>
+    """
+    name, source = resolve_business_name(source_name="", html=html)
+    assert name == "Nihonshu Genka Sakagura Shinjukukusohonten"
+    assert source == "page_html"
+
+
 def test_business_name_detector_flags_contact_route_like_values():
     assert business_name_is_suspicious("Email Route Izakaya") is True
     assert business_name_is_suspicious("owner@email-route-izakaya.test") is True
@@ -106,6 +118,9 @@ def test_business_name_detector_flags_contact_route_like_values():
     assert business_name_is_suspicious("Visual Email Ramen") is True
     assert business_name_is_suspicious("Visual Phone Ramen") is True
     assert business_name_is_suspicious("Manual Contact Izakaya") is True
+    assert business_name_is_suspicious("食べログ") is True
+    assert business_name_is_suspicious("Shibuya/Izakaya (Japanese style tavern)") is True
+    assert business_name_is_suspicious("Seibu Shinjuku/Izakaya (Japanese style tavern)") is True
     assert business_name_is_suspicious("麺屋はるか") is False
 
 
@@ -273,7 +288,7 @@ def test_search_blocks_lead_when_name_has_no_two_source_match(tmp_path, monkeypa
     )
 
     assert result["leads"] == 0
-    assert result["decisions"][0]["reason"] == "business_name_unverified"
+    assert result["decisions"][0]["reason"] == "business_name_conflict"
 
 
 def test_search_allows_lead_with_google_confidence_override(tmp_path, monkeypatch):
@@ -286,6 +301,37 @@ def test_search_allows_lead_with_google_confidence_override(tmp_path, monkeypatc
             "address": "Tokyo",
             "phoneNumber": "03-1234-5678",
             "placeId": "place-conf-1",
+            "rating": 4.5,
+            "ratingCount": 120,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        return "<html><body>ラーメン メニュー 醤油ラーメン 900円 confidence-ramen@example.jp</body></html>"
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: {"organic": []})
+
+    result = search.search_and_qualify(
+        query="ramen restaurants Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 1
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert "google_confidence_override" in lead["business_name_verified_by"]
+
+
+def test_search_blocks_google_confidence_override_when_official_name_conflicts(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Confidence Ramen",
+            "website": "https://confidence-ramen.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-conflict-1",
             "rating": 4.5,
             "ratingCount": 120,
         }]
@@ -304,9 +350,8 @@ def test_search_allows_lead_with_google_confidence_override(tmp_path, monkeypatc
         state_root=tmp_path,
     )
 
-    assert result["leads"] == 1
-    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
-    assert "google_confidence_override" in lead["business_name_verified_by"]
+    assert result["leads"] == 0
+    assert result["decisions"][0]["reason"] == "business_name_conflict"
 
 
 def test_search_blocks_lead_when_google_confidence_override_conditions_not_met(tmp_path, monkeypatch):
@@ -458,3 +503,35 @@ def test_search_does_not_call_ramendb_for_izakaya(tmp_path, monkeypatch):
     # No RamenDB search should have been made
     ramendb_calls = [q for q in web_search_calls if "ramendb" in q]
     assert ramendb_calls == []
+
+
+def test_search_blocks_qualified_lead_when_result_category_mismatches_query(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "麺屋はるか",
+            "website": "https://category-mismatch.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-mismatch-1",
+            "rating": 4.4,
+            "ratingCount": 80,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>麺屋はるか | 食べログ</title></head><body><h1>麺屋はるか</h1></body></html>"
+        return "<html><head><title>麺屋はるか</title></head><body>ラーメン メニュー 醤油ラーメン 900円 owner@example.jp</body></html>"
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: _tabelog_result())
+
+    result = search.search_and_qualify(
+        query="izakaya restaurants Tokyo",
+        serper_api_key="test-key",
+        category="izakaya",
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 0
+    assert result["decisions"][0]["reason"] == "search_category_mismatch"

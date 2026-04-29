@@ -6,6 +6,7 @@ from typing import Any
 
 from .models import PreviewMenu, PreviewSection, PreviewItem, TicketMachineHint, EvidenceAssessment
 from .constants import PRICE_RE
+from .lead_dossier import safe_customer_snippets
 
 
 # Deterministic common translations for preview items
@@ -38,8 +39,8 @@ _COMMON_TRANSLATIONS: dict[str, str] = {
 
 
 def _auto_translate(ja: str) -> str:
-    """Deterministic translation for common items, fallback to romanized."""
-    return _COMMON_TRANSLATIONS.get(ja, f"[{ja}]")
+    """Deterministic translation for common items, never bracket fallback."""
+    return _COMMON_TRANSLATIONS.get(ja, "English review sample")
 
 
 def build_preview_menu(
@@ -52,16 +53,15 @@ def build_preview_menu(
     sections: list[PreviewSection] = []
     items: list[PreviewItem] = []
 
-    for snippet in snippets[:6]:
-        prices = PRICE_RE.findall(snippet)
-        price = prices[0] if len(prices) == 1 else ""
+    safe_snippets = safe_customer_snippets(snippets)
+    for snippet in safe_snippets[:6]:
         # Try to extract a food term
-        ja_name = snippet[:40].strip()
+        ja_name = PRICE_RE.sub("", snippet)[:40].strip()
         en_name = _auto_translate(ja_name)
         items.append(PreviewItem(
             ja=ja_name,
             en=en_name,
-            price=price,
+            price="",
             source_type="scraped_evidence",
             confidence="medium",
         ))
@@ -71,17 +71,6 @@ def build_preview_menu(
             header_ja="メニュー",
             header_en="Menu",
             items=items[:5],
-        ))
-
-    if not sections:
-        sections.append(PreviewSection(
-            header_ja="メニュー",
-            header_en="Menu",
-            items=[PreviewItem(
-                ja="[メニュー情報]",
-                en="[Menu information — to be translated from owner's photos]",
-                confidence="low",
-            )],
         ))
 
     return PreviewMenu(
@@ -102,8 +91,6 @@ def build_preview_html(
     package_label: str = "",
 ) -> str:
     """Render the illustrative preview as HTML."""
-    from .constants import PACKAGE_1_PRICE_YEN, PACKAGE_2_PRICE_YEN, PACKAGE_3_PRICE_YEN
-
     section_html = ""
     for section in preview_menu.sections:
         items_html = "".join(
@@ -118,6 +105,11 @@ def build_preview_html(
         section_html += (
             f"<h3>{escape(section.header_ja)} / {escape(section.header_en)}</h3>"
             f"<table class='preview-table'>{items_html}</table>"
+        )
+    if not section_html:
+        section_html = (
+            "<div class='empty-proof'>Customer-visible preview is blocked until "
+            "a safe menu or ordering proof item is selected by the operator.</div>"
         )
 
     machine_html = ""
@@ -161,11 +153,7 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
 .machine-btn span {{ display:block; color:var(--muted); font-size:10pt; }}
 .machine-btn .price {{ color:var(--accent); font-weight:600; }}
 .disclaimer {{ margin-top:24px; padding:16px; background:var(--surface); border-radius:8px; color:var(--muted); font-size:10pt; line-height:1.6; border:1px solid var(--line); }}
-.packages {{ margin-top:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }}
-.pkg {{ border:1px solid var(--line); border-radius:8px; padding:14px; background:var(--surface); }}
-.pkg h4 {{ margin:0 0 8px; color:var(--accent); }}
-.pkg .price {{ font-size:16pt; font-weight:700; }}
-.pkg ul {{ margin:6px 0 0; padding-left:16px; color:var(--muted); font-size:10pt; }}
+.empty-proof {{ border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:16px; color:var(--muted); line-height:1.5; }}
 </style>
 </head>
 <body>
@@ -176,38 +164,6 @@ h3 {{ font-size:13pt; margin:16px 0 8px; }}
 <h2>Menu Preview</h2>
 {section_html}
 {machine_html}
-
-<div class="packages">
-  <div class="pkg">
-    <h4>Online Delivery</h4>
-    <div class="price">&yen;{PACKAGE_1_PRICE_YEN:,}</div>
-    <ul>
-      <li>Print-ready PDF + images</li>
-      <li>Translation + layout</li>
-      <li>Ticket machine guide</li>
-      <li>You handle printing</li>
-    </ul>
-  </div>
-  <div class="pkg">
-    <h4>Printed and Delivered</h4>
-    <div class="price">&yen;{PACKAGE_2_PRICE_YEN:,}</div>
-    <ul>
-      <li>Everything in Online Delivery</li>
-      <li>Professional printing</li>
-      <li>Lamination</li>
-      <li>Delivered to your shop</li>
-    </ul>
-  </div>
-  <div class="pkg">
-    <h4>QR Menu System</h4>
-    <div class="price">&yen;{PACKAGE_3_PRICE_YEN:,}</div>
-    <ul>
-      <li>Hosted English menu</li>
-      <li>QR code + sign</li>
-      <li>Reviewed before publish</li>
-    </ul>
-  </div>
-</div>
 
 <div class="disclaimer">
 {escape(preview_menu.disclaimer_ja)}
@@ -230,6 +186,8 @@ def build_shop_preview_from_record(
     snippets: list[str] = record.get("evidence_snippets") or []
     business_name = record.get("business_name") or ""
     if not snippets or not business_name:
+        return None
+    if not safe_customer_snippets(snippets):
         return None
 
     from .models import EvidenceAssessment

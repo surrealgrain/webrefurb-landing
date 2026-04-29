@@ -42,9 +42,9 @@ PACKAGE_1_PRICE_YEN = 30000
 PACKAGE_2_PRICE_YEN = 45000
 PACKAGE_3_PRICE_YEN = 65000
 
-PACKAGE_1_LABEL = "Online Delivery"
-PACKAGE_2_LABEL = "Printed and Delivered"
-PACKAGE_3_LABEL = "QR Menu System"
+PACKAGE_1_LABEL = "English Ordering Files"
+PACKAGE_2_LABEL = "Counter-Ready Ordering Kit"
+PACKAGE_3_LABEL = "Live QR English Menu"
 
 PACKAGE_REGISTRY: dict[str, dict[str, Any]] = {
     PACKAGE_1_KEY: {
@@ -53,7 +53,7 @@ PACKAGE_REGISTRY: dict[str, dict[str, Any]] = {
         "label": PACKAGE_1_LABEL,
         "price_yen": PACKAGE_1_PRICE_YEN,
         "workflow": "remote_delivery",
-        "description": "Print-ready English menu files delivered online.",
+        "description": "Print-ready English ordering files for the shop to print or use digitally.",
     },
     PACKAGE_2_KEY: {
         "key": PACKAGE_2_KEY,
@@ -61,7 +61,7 @@ PACKAGE_REGISTRY: dict[str, dict[str, Any]] = {
         "label": PACKAGE_2_LABEL,
         "price_yen": PACKAGE_2_PRICE_YEN,
         "workflow": "printed_delivered",
-        "description": "Printed and laminated menus delivered to the restaurant.",
+        "description": "Printed, laminated ordering materials delivered counter-ready to the restaurant.",
     },
     PACKAGE_3_KEY: {
         "key": PACKAGE_3_KEY,
@@ -69,7 +69,7 @@ PACKAGE_REGISTRY: dict[str, dict[str, Any]] = {
         "label": PACKAGE_3_LABEL,
         "price_yen": PACKAGE_3_PRICE_YEN,
         "workflow": "qr_menu",
-        "description": "Hosted English menu page with QR code and printable QR sign.",
+        "description": "Hosted live English ordering menu with QR code and printable QR sign.",
     },
 }
 
@@ -174,7 +174,8 @@ _ENGLISH_LINK_TOKENS = ("/en", "lang=en", "english")
 _CHAIN_SEED_NAMES = (
     "ichiran", "ippudo", "afuri", "menya musashi", "tenkaippin",
     "santouka", "fuunji", "nakiryu", "kikanbo",
-    "gyukaku", "watami", "torikizoku",
+    "gyukaku", "watami", "torikizoku", "tsukada nojo",
+    "isomaru suisan", "kushikatsu tanaka",
     "matsuya", "sukiya", "yoshinoya",
     "kura sushi", "hamazushi",
     "saizeriya", "gusto", "jonathan's", "royal host",
@@ -182,7 +183,8 @@ _CHAIN_SEED_NAMES = (
     # Japanese variants
     "一蘭", "一風堂", "afuri", "麺屋武蔵", "天下一品",
     "山頭火", "風雲児", "凪", "鬼金棒",
-    "牛角", "わたみ", "鳥貴族",
+    "牛角", "わたみ", "和民", "鳥貴族", "塚田農場",
+    "磯丸水産", "串カツ田中",
     "松屋", "すき家", "吉野家",
     "くら寿司", "はま寿司",
     "サイゼリヤ", "ガスト", "ジョナサン", "ロイヤルホスト",
@@ -334,6 +336,14 @@ PAYMENT_METHOD_BANK_TRANSFER = "bank_transfer"
 PAYMENT_METHOD_MANUAL = "manual"
 
 PAYMENT_TERMS_FULL_UPFRONT = "full_upfront"
+PAYMENT_TERMS_DESCRIPTION = "Full payment upfront before production starts."
+INVOICE_REGISTRATION_NUMBER = os.environ.get("WEBREFURB_INVOICE_REGISTRATION_NUMBER", "")
+OWNER_UPLOAD_PRIVACY_NOTE = (
+    "Owner-uploaded menu photos, source PDFs, contact details, and QR menu data are "
+    "used only to produce and support the ordered menu package. Production source "
+    "files are retained for 90 days after delivery unless the owner requests earlier "
+    "deletion; hosted QR menu data is retained while hosting is active."
+)
 
 # ---------------------------------------------------------------------------
 # Revision policy

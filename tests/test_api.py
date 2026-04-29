@@ -28,6 +28,7 @@ class TestAPIEndpoints:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path, monkeypatch):
         self.client = TestClient(app)
+        self.tmp_path = tmp_path
         # Override state root to temp directory
         import dashboard.app as dash_app
         monkeypatch.setattr(dash_app, "STATE_ROOT", tmp_path)
@@ -37,6 +38,33 @@ class TestAPIEndpoints:
         (tmp_path / "sent").mkdir()
         (tmp_path / "uploads").mkdir()
         (tmp_path / "docs").mkdir()
+
+    def _write_paid_order(self, order_id: str = "ord-test") -> None:
+        (self.tmp_path / "orders").mkdir(parents=True, exist_ok=True)
+        (self.tmp_path / "orders" / f"{order_id}.json").write_text(
+            json.dumps({
+                "order_id": order_id,
+                "state": "owner_review",
+                "quote": {"quote_date": "2026-04-28"},
+                "payment": {"status": "confirmed"},
+                "intake": {
+                    "full_menu_photos": True,
+                    "price_confirmation": True,
+                    "delivery_details": True,
+                    "business_contact_confirmed": True,
+                    "is_complete": True,
+                },
+                "approval": {
+                    "approved": True,
+                    "approver_name": "Tanaka",
+                    "approved_package": "package_1_remote_30k",
+                    "source_data_checksum": "source123",
+                    "artifact_checksum": "artifact123",
+                },
+                "privacy_note_accepted": True,
+            }),
+            encoding="utf-8",
+        )
 
     def test_get_leads_empty(self):
         response = self.client.get("/api/leads")
@@ -48,6 +76,8 @@ class TestAPIEndpoints:
             "lead_id": "wrm-test-001",
             "business_name": "Test Ramen",
             "lead": True,
+            "email": "owner@test-ramen.test",
+            "email": "owner@test-ramen.test",
             "lead_score_v1": 75,
             "outreach_status": "new",
             "menu_evidence_found": True,
@@ -62,6 +92,60 @@ class TestAPIEndpoints:
         data = response.json()
         assert len(data) == 1
         assert data[0]["business_name"] == "Test Ramen"
+        assert data[0]["primary_contact_type"] == "email"
+        assert data[0]["can_send_email"] is True
+        assert data[0]["establishment_profile_label"] == "Manual Review"
+
+    def test_paid_order_workflow_records_quote_payment_intake_and_owner_approval(self):
+        created = self.client.post("/api/orders", json={
+            "lead_id": "wrm-test-001",
+            "business_name": "Hinode Ramen",
+            "package_key": "package_1_remote_30k",
+        })
+        assert created.status_code == 200
+        order_id = created.json()["order_id"]
+
+        quote_sent = self.client.post(f"/api/orders/{order_id}/quote-sent", json={})
+        assert quote_sent.status_code == 200
+        pending = self.client.post(f"/api/orders/{order_id}/payment-pending", json={"amount_yen": 30000})
+        assert pending.status_code == 200
+        payment = self.client.post(f"/api/orders/{order_id}/payment", json={"amount_yen": 30000})
+        assert payment.status_code == 200
+        intake = self.client.post(f"/api/orders/{order_id}/intake", json={
+            "full_menu_photos": True,
+            "price_confirmation": True,
+            "delivery_details": True,
+            "business_contact_confirmed": True,
+        })
+        assert intake.status_code == 200
+        review = self.client.post(f"/api/orders/{order_id}/owner-review", json={})
+        assert review.status_code == 200
+        approval = self.client.post(f"/api/orders/{order_id}/owner-approval", json={
+            "approved": True,
+            "approver_name": "Tanaka",
+            "source_data_checksum": "source123",
+            "artifact_checksum": "artifact123",
+            "privacy_note_accepted": True,
+        })
+        assert approval.status_code == 200
+        delivered = self.client.post(f"/api/orders/{order_id}/delivered", json={"delivery_tracking": "email"})
+        assert delivered.status_code == 200
+
+        loaded = self.client.get(f"/api/orders/{order_id}").json()
+        assert loaded["payment"]["status"] == "confirmed"
+        assert loaded["intake"]["is_complete"] is True
+        assert loaded["approval"]["approved"] is True
+        assert loaded["state"] == "delivered"
+        artifacts = self.client.get(f"/api/orders/{order_id}/artifacts").json()
+        assert "Quote: Hinode Ramen" in artifacts["contents"]["quote_markdown"]
+        assert "invoice_json" in artifacts["artifacts"]
+
+    def test_paid_order_rejects_unknown_package(self):
+        response = self.client.post("/api/orders", json={
+            "business_name": "Hinode Ramen",
+            "package_key": "package_unknown",
+        })
+        assert response.status_code == 422
 
     def test_delete_lead_removes_record(self, tmp_path):
         lead = {
@@ -273,7 +357,7 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["business_name"] == "青空ラーメン"
-        assert data["body"].startswith("突然のご連絡にて失礼いたします。")
+        assert data["body"].startswith("青空ラーメン ご担当者様")
 
     @pytest.mark.parametrize(
         ("contact_type", "expected_phrase"),
@@ -423,6 +507,7 @@ class TestAPIEndpoints:
             "lead_id": lead_id,
             "business_name": "Test Ramen",
             "lead": True,
+            "email": "owner@test-ramen.test",
             "lead_score_v1": 75,
             "outreach_status": "new",
             "outreach_classification": None,
@@ -433,6 +518,10 @@ class TestAPIEndpoints:
             "status_history": [],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "english_availability": "missing",
+            "english_menu_issue": True,
+            "evidence_urls": ["https://example.test/menu"],
+            "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
             "primary_category_v1": "ramen",
             "establishment_profile": "ramen_only",
             "establishment_profile_confidence": "medium",
@@ -901,6 +990,7 @@ class TestDraftSaveAndLoad:
             "lead_id": lead_id,
             "business_name": "Draft Test Ramen",
             "lead": True,
+            "email": "owner@draft-test-ramen.test",
             "lead_score_v1": 80,
             "outreach_status": "draft",
             "outreach_classification": "menu_only",
@@ -911,6 +1001,10 @@ class TestDraftSaveAndLoad:
             "status_history": [{"status": "new", "timestamp": "2026-01-01T00:00:00"}],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "english_availability": "missing",
+            "english_menu_issue": True,
+            "evidence_urls": ["https://example.test/menu"],
+            "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
             "primary_category_v1": "ramen",
             "establishment_profile": "ramen_only",
             "establishment_profile_confidence": "medium",
@@ -1018,8 +1112,8 @@ class TestDraftSaveAndLoad:
         assert response.status_code == 200
         data = response.json()
         assert "突然のご連絡にて失礼いたします。" in data["body"]
-        # Dashboard preview replaces CID references with local asset paths
-        assert "menu-preview" in data["preview_html"]
+        # Dashboard preview replaces CID references with inline local preview assets
+        assert "data:image/svg+xml" in data["preview_html"]
 
     def test_draft_status_persists_after_save(self):
         self._create_lead()
@@ -1067,6 +1161,10 @@ class TestSendSafety:
             "status_history": [{"status": "draft", "timestamp": "2026-01-01T00:00:00"}],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "english_availability": "missing",
+            "english_menu_issue": True,
+            "evidence_urls": ["https://example.test/menu"],
+            "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
             "primary_category_v1": "ramen",
             "establishment_profile": "ramen_only",
             "establishment_profile_confidence": "medium",
@@ -1297,6 +1395,7 @@ class TestClassificationSpecificBehavior:
             "lead_id": lead_id,
             "business_name": "Class Test Ramen",
             "lead": True,
+            "email": "owner@class-test-ramen.test",
             "lead_score_v1": 80,
             "outreach_status": "new",
             "outreach_classification": None,
@@ -1307,6 +1406,10 @@ class TestClassificationSpecificBehavior:
             "status_history": [],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "english_availability": "missing",
+            "english_menu_issue": True,
+            "evidence_urls": ["https://example.test/menu"],
+            "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
             "primary_category_v1": "ramen",
             "establishment_profile": "ramen_only",
             "establishment_profile_confidence": "medium",
@@ -1349,7 +1452,7 @@ class TestClassificationSpecificBehavior:
         assert "p1-split-food-drinks-layout" in data["assets"][0]
         assert data["asset_strategy_label"] == "Izakaya sample set"
         assert data["asset_details"][0]["label"] == "Izakaya Food + Drinks Sample"
-        assert "スタッフの方が個別にご説明する手間" in data["body"]
+        assert "スタッフの個別説明を減らせます" in data["body"]
 
     def test_menu_and_machine_classification(self):
         """menu_and_machine leads get two PDFs and machine content."""
@@ -1426,6 +1529,10 @@ class TestStatusPersistence:
             "status_history": [],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "english_availability": "missing",
+            "english_menu_issue": True,
+            "evidence_urls": ["https://example.test/menu"],
+            "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
             "primary_category_v1": "ramen",
             "establishment_profile": "ramen_only",
             "establishment_profile_confidence": "medium",
@@ -1438,6 +1545,33 @@ class TestStatusPersistence:
             json.dumps(lead), encoding="utf-8"
         )
         return lead
+
+    def _write_paid_order(self, order_id: str = "ord-test") -> None:
+        (self.tmp_path / "orders").mkdir(parents=True, exist_ok=True)
+        (self.tmp_path / "orders" / f"{order_id}.json").write_text(
+            json.dumps({
+                "order_id": order_id,
+                "state": "owner_review",
+                "quote": {"quote_date": "2026-04-28"},
+                "payment": {"status": "confirmed"},
+                "intake": {
+                    "full_menu_photos": True,
+                    "price_confirmation": True,
+                    "delivery_details": True,
+                    "business_contact_confirmed": True,
+                    "is_complete": True,
+                },
+                "approval": {
+                    "approved": True,
+                    "approver_name": "Tanaka",
+                    "approved_package": "package_1_remote_30k",
+                    "source_data_checksum": "source123",
+                    "artifact_checksum": "artifact123",
+                },
+                "privacy_note_accepted": True,
+            }),
+            encoding="utf-8",
+        )
 
     def test_flag_dnc_persists_after_reload(self):
         self._create_lead()
@@ -1703,9 +1837,10 @@ class TestStatusPersistence:
             encoding="utf-8",
         )
         (self.tmp_path / "jobs" / "job123.json").write_text(
-            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir)}),
+            json.dumps({"job_id": "job123", "status": "ready_for_review", "output_dir": str(output_dir), "order_id": "ord-build"}),
             encoding="utf-8",
         )
+        self._write_paid_order("ord-build")
 
         approved = self.client.post("/api/build/job123/approve")
         assert approved.status_code == 200

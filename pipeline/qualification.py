@@ -15,6 +15,7 @@ from .scoring import (
     detect_english_menu_issue, recommend_package,
 )
 from .models import QualificationResult
+from .lead_dossier import build_lead_evidence_dossier, assess_launch_readiness
 from .constants import (
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MACHINE_MAPPING,
@@ -122,6 +123,16 @@ def qualify_candidate(
             false_positive_risk="low",
         )
 
+    if _has_multilingual_ordering_solution(combined_text):
+        return _reject(
+            business_name=business_name, website=website, category=category,
+            assessment=assessment, rejection_reason="already_has_multilingual_ordering_solution",
+            decision_reason="Rejected: multilingual QR or English ordering support already appears to be present.",
+            primary_category_v1=primary_category,
+            english_availability="clear_usable",
+            false_positive_risk="low",
+        )
+
     # Negative evidence score
     if assessment.score < 0:
         return _reject(
@@ -138,10 +149,13 @@ def qualify_candidate(
     text_en = _count_latin_words(combined_text)
 
     source_menu_available = assessment.menu_evidence_found or _has_source_menu_content(combined_text, img_locked)
+    source_machine_available = primary_category == "ramen" and assessment.machine_evidence_found
 
     lead_signals: list[str] = []
     if source_menu_available:
         lead_signals.append("source_menu_available")
+    if source_machine_available:
+        lead_signals.append("ticket_machine_ordering_evidence")
     if text_jp >= 12 and text_en < 40 and not english_intent:
         lead_signals.extend(["english_menu_missing", "no_usable_english_menu"])
     if english_intent and _has_purchase_critical_jp(combined_text):
@@ -150,7 +164,7 @@ def qualify_candidate(
         lead_signals.append("image_locked_menu")
 
     # Must have a gap
-    if not source_menu_available:
+    if not source_menu_available and not source_machine_available:
         return _reject(
             business_name=business_name, website=website, category=category,
             assessment=assessment, rejection_reason="no_menu_or_product_evidence",
@@ -205,8 +219,11 @@ def qualify_candidate(
         reviews=reviews,
     )
     package = recommend_package(
+        category=primary_category,
         english_menu_issue=english_menu_issue,
         machine_evidence_found=assessment.machine_evidence_found,
+        menu_complexity_state=_menu_complexity_state_for_qualification(primary_category, assessment, evidence_snippets=[]),
+        izakaya_rules_state=_izakaya_rules_state_for_qualification(primary_category, assessment, combined_text),
         tourist_exposure_score=tourist_exposure,
         lead_score_v1=lead_score,
     )
@@ -225,6 +242,24 @@ def qualify_candidate(
         *assessment.snippets,
         *_source_snippets(combined_text, 4),
     ])
+    record_like = {
+        "lead": True,
+        "business_name": business_name,
+        "primary_category_v1": primary_category,
+        "english_availability": english_availability,
+        "english_menu_issue": english_menu_issue,
+        "lead_signals": _unique_snippets(lead_signals),
+        "evidence_classes": assessment.evidence_classes,
+        "evidence_urls": assessment.evidence_urls,
+        "evidence_snippets": evidence_snippets[:8],
+        "menu_evidence_found": assessment.menu_evidence_found,
+        "machine_evidence_found": assessment.machine_evidence_found,
+        "course_or_drink_plan_evidence_found": assessment.course_or_drink_plan_evidence_found,
+    }
+    lead_dossier = build_lead_evidence_dossier(record_like)
+    readiness_status, readiness_reasons = assess_launch_readiness({**record_like, "lead_evidence_dossier": lead_dossier, "proof_items": lead_dossier["proof_items"]})
+    lead_dossier["ready_to_contact"] = readiness_status == "ready_for_outreach"
+    lead_dossier["readiness_reasons"] = readiness_reasons
 
     return QualificationResult(
         lead=True,
@@ -248,6 +283,14 @@ def qualify_candidate(
         english_availability=english_availability,
         english_menu_issue=english_menu_issue,
         english_menu_issue_evidence=english_menu_issue_evidence,
+        ticket_machine_state=lead_dossier["ticket_machine_state"],
+        english_menu_state=lead_dossier["english_menu_state"],
+        menu_complexity_state=lead_dossier["menu_complexity_state"],
+        izakaya_rules_state=lead_dossier["izakaya_rules_state"],
+        proof_items=lead_dossier["proof_items"],
+        lead_evidence_dossier=lead_dossier,
+        launch_readiness_status=readiness_status,
+        launch_readiness_reasons=readiness_reasons,
         primary_category_v1=primary_category,
         lead_category=lead_category,
         establishment_profile=establishment_profile,
@@ -407,3 +450,40 @@ def _establishment_profile(*, primary_category: str, assessment: Any) -> tuple[s
         return "ramen_only", evidence, "medium" if source_urls else "low", source_urls
 
     return "unknown", evidence, "low", source_urls
+
+
+def _has_multilingual_ordering_solution(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(token in lowered for token in (
+        "multilingual qr",
+        "english qr",
+        "mobile order english",
+        "多言語qr",
+        "英語qr",
+        "英語メニューはこちら",
+        "english menu available",
+    ))
+
+
+def _menu_complexity_state_for_qualification(primary_category: str, assessment: Any, evidence_snippets: list[str]) -> str:
+    snippets = " ".join(evidence_snippets or getattr(assessment, "snippets", []) or [])
+    if any(token in snippets for token in ("100品", "百種類", "大型", "複数メニュー", "宴会メニュー多数")):
+        return "large_custom_quote"
+    if primary_category == "izakaya" or assessment.course_or_drink_plan_evidence_found:
+        return "medium"
+    return "simple"
+
+
+def _izakaya_rules_state_for_qualification(primary_category: str, assessment: Any, text: str) -> str:
+    if primary_category != "izakaya":
+        return "none_found"
+    classes = set(getattr(assessment, "evidence_classes", []) or [])
+    if "nomihodai_menu" in classes or "飲み放題" in text or "nomihodai" in text.lower():
+        return "nomihodai_found"
+    if "course_menu" in classes or "コース" in text:
+        return "courses_found"
+    if "drink_menu_photo" in classes or any(token in text for token in ("生ビール", "ハイボール", "日本酒", "ドリンク")):
+        return "drinks_found"
+    if assessment.course_or_drink_plan_evidence_found:
+        return "courses_found"
+    return "unknown"

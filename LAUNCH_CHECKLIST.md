@@ -1,15 +1,17 @@
 # WebRefurb Outreach Launch Checklist
 
-Real outreach remains frozen until the `P6` exit gate in `PLAN.md` is complete. Treat this checklist as the send-day procedure for later, not permission to start early.
+`P6` rehearsal is complete as of 2026-04-29. Real outreach is still frozen until the operator explicitly starts `P7` and selects the first 5 to 10 high-confidence shops.
 
 ## Pre-Send Checks
 
 - Confirm `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_FROM_NAME`, and optional `RESEND_REPLY_TO_EMAIL` are set.
 - Open the dashboard and preview each lead before sending.
 - Confirm the recipient email, restaurant name, website, address, menu evidence URLs, and status.
+- Confirm each selected lead has an evidence dossier strong enough for P7: category, independent-shop status, tourist exposure, English-menu gap, ordering friction, contact route, and package fit.
 - Send one test email to your own inbox and check subject, sender name, reply-to, footer link, inline images, and PDF attachment names.
 - Confirm the email footer visibly shows `webrefurb.com` and links to `https://webrefurb.com/ja`.
 - Do not force machine-only or no-email leads into the email flow. Keep them in the appropriate review/manual-contact state until the matching outreach path is ready.
+- Before accepting paid work, create an order, generate quote/invoice artifacts, confirm full-upfront payment, complete intake, record owner approval checksums, and accept the privacy/data-retention note.
 
 ## First 5 To 10 Email Batch
 

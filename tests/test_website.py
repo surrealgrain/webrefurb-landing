@@ -36,7 +36,7 @@ def test_homepage_titles_and_language_links():
     ja = _read("ja/index.html")
 
     assert "<title>WebRefurb | English Menus &amp; Ordering Guides for Restaurants</title>" in en
-    assert "<title>WebRefurb | 飲食店向け英語メニュー・注文ガイド制作</title>" in ja
+    assert "<title>WebRefurb | 飲食店向け英語注文システム制作</title>" in ja
     assert 'href="/ja"' in en
     assert 'href="/"' in ja
     assert 'href="/pricing.html"' in en
@@ -48,25 +48,25 @@ def test_homepages_include_pricing_content():
     ja_text = _visible_text(_read("ja/index.html"))
 
     for expected in (
-        "Online Delivery",
+        "English Ordering Files",
         "¥30,000",
-        "Printed and Delivered",
+        "Counter-Ready Ordering Kit",
         "¥45,000",
-        "QR Menu System",
+        "Live QR English Menu",
         "¥65,000",
         "sized compactly for your menu and shop",
-        "hosted English menu page",
+        "hosted English ordering menu",
         "Scan for English Menu",
         "quoted separately",
     ):
         assert expected in en_text
 
     for expected in (
-        "オンライン納品",
+        "英語注文ファイル",
         "30,000円",
-        "印刷・お届け",
+        "店頭用注文キット",
         "45,000円",
-        "QRメニューシステム",
+        "ライブQR英語メニュー",
         "65,000円",
         "内容量と店舗で扱いやすいサイズ",
         "Scan for English Menu",

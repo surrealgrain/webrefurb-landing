@@ -11,6 +11,22 @@ OG_SITE_NAME_RE = re.compile(
 )
 TAG_RE = re.compile(r"(?is)<[^>]+>")
 SPACE_RE = re.compile(r"\s+")
+GENERIC_SUFFIX_RE = re.compile(
+    r"""(?ix)
+    \s+
+    (
+        official\s+reservation|
+        reservations?|
+        booking|
+        reserve|
+        online\s+booking|
+        web\s+booking|
+        ご予約|
+        予約
+    )
+    \s*$
+    """
+)
 LATIN_CONTACT_ROUTE_RE = re.compile(
     r"""(?ix)
     \b(
@@ -30,6 +46,26 @@ LATIN_CONTACT_ROUTE_RE = re.compile(
     """
 )
 BUSINESS_CATEGORY_RE = re.compile(r"(?i)\b(ramen|izakaya|restaurant|shop)\b")
+GENERIC_DIRECTORY_NAME_EXACT = {
+    "食べログ",
+    "tabelog",
+    "ぐるなび",
+    "gurunavi",
+    "hot pepper",
+    "hotpepper",
+    "retty",
+    "tripadvisor",
+    "google maps",
+}
+GENERIC_DIRECTORY_NAME_RE = re.compile(
+    r"""(?ix)
+    (
+        ^\s*[a-z\s]+/(ramen|izakaya|restaurants?|japanese\s+style\s+tavern)\b|
+        \b(japanese\s+style\s+tavern|best\s+restaurants?|restaurant\s+guide|search\s+results?|near\s+me)\b|
+        \b(ramen|izakaya|restaurants?)\s+(in|near)\s+[a-z\s]+\b
+    )
+    """
+)
 
 SUSPICIOUS_NAME_TOKENS = (
     "contact form",
@@ -55,6 +91,9 @@ GENERIC_TITLE_SEGMENTS = (
     "contact",
     "menu",
     "メニュー",
+    "reservation",
+    "booking",
+    "予約",
     "食べログ",
     "tabelog",
     "instagram",
@@ -65,6 +104,7 @@ GENERIC_TITLE_SEGMENTS = (
 def normalise_business_name(value: str) -> str:
     cleaned = TAG_RE.sub(" ", str(value or ""))
     cleaned = SPACE_RE.sub(" ", cleaned).strip()
+    cleaned = GENERIC_SUFFIX_RE.sub("", cleaned).strip()
     return cleaned
 
 
@@ -80,6 +120,10 @@ def business_name_is_suspicious(value: str) -> bool:
     cleaned = normalise_business_name(value)
     lowered = cleaned.lower()
     if not cleaned or len(cleaned) > 80:
+        return True
+    if cleaned in GENERIC_DIRECTORY_NAME_EXACT or lowered in GENERIC_DIRECTORY_NAME_EXACT:
+        return True
+    if GENERIC_DIRECTORY_NAME_RE.search(cleaned):
         return True
     if "@" in cleaned or EMAIL_RE.search(cleaned):
         return True

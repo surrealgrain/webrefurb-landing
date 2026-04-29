@@ -60,6 +60,14 @@ class QualificationResult:
     english_availability: str = "unknown"
     english_menu_issue: bool = False
     english_menu_issue_evidence: list[str] = field(default_factory=list)
+    ticket_machine_state: str = "unknown"
+    english_menu_state: str = "unknown"
+    menu_complexity_state: str = "simple"
+    izakaya_rules_state: str = "none_found"
+    proof_items: list[dict[str, Any]] = field(default_factory=list)
+    lead_evidence_dossier: dict[str, Any] = field(default_factory=dict)
+    launch_readiness_status: str = "manual_review"
+    launch_readiness_reasons: list[str] = field(default_factory=list)
 
     # V1 classification
     primary_category_v1: str = "other"  # "ramen" | "izakaya" | "other"
@@ -96,6 +104,14 @@ class QualificationResult:
             "establishment_profile_source_urls": self.establishment_profile_source_urls,
             "english_menu_issue": self.english_menu_issue,
             "english_menu_issue_evidence": self.english_menu_issue_evidence,
+            "ticket_machine_state": self.ticket_machine_state,
+            "english_menu_state": self.english_menu_state,
+            "menu_complexity_state": self.menu_complexity_state,
+            "izakaya_rules_state": self.izakaya_rules_state,
+            "proof_items": self.proof_items,
+            "lead_evidence_dossier": self.lead_evidence_dossier,
+            "launch_readiness_status": self.launch_readiness_status,
+            "launch_readiness_reasons": self.launch_readiness_reasons,
             "tourist_exposure_score": self.tourist_exposure_score,
             "lead_score_v1": self.lead_score_v1,
             "recommended_primary_package": self.recommended_primary_package,
@@ -272,11 +288,14 @@ class QuoteDetails:
     delivery_terms: str
     update_terms: str
     payment_instructions: str
+    payment_terms: str
     expiry_date: str  # ISO date
     quote_date: str  # ISO date
+    privacy_data_retention_note: str
     is_custom: bool = False
     custom_reason: str = ""
     notes: str = ""
+    operator_cost_assumptions: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -289,11 +308,14 @@ class QuoteDetails:
             "delivery_terms": self.delivery_terms,
             "update_terms": self.update_terms,
             "payment_instructions": self.payment_instructions,
+            "payment_terms": self.payment_terms,
             "expiry_date": self.expiry_date,
             "quote_date": self.quote_date,
+            "privacy_data_retention_note": self.privacy_data_retention_note,
             "is_custom": self.is_custom,
             "custom_reason": self.custom_reason,
             "notes": self.notes,
+            "operator_cost_assumptions": self.operator_cost_assumptions,
         }
 
 
@@ -425,6 +447,7 @@ class Order:
     state_history: list[dict[str, str]] = field(default_factory=list)
     privacy_note_accepted: bool = False
     custom_quote_triggers: list[str] = field(default_factory=list)
+    artifact_paths: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -444,4 +467,5 @@ class Order:
             "state_history": self.state_history,
             "privacy_note_accepted": self.privacy_note_accepted,
             "custom_quote_triggers": self.custom_quote_triggers,
+            "artifact_paths": self.artifact_paths,
         }

@@ -29,19 +29,34 @@ def search_query_for_scope(*, category: str, city: str) -> str:
     value = normalise_search_category(category)
     place = normalise_search_city(city)
     if value == "all":
-        return f"ramen and izakaya restaurants {place}"
-    return f"{value} restaurants {place}"
+        return f"ordering-friction ramen izakaya {place}"
+    if value == "izakaya":
+        return f"飲み放題 コース 居酒屋 {place}"
+    return f"券売機 ラーメン {place}"
 
 
 def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[dict[str, str]]:
     value = normalise_search_category(category)
     place = normalise_search_city(city)
+    if query and query != search_query_for_scope(category=value, city=place):
+        return [{"query": query, "category": "ramen" if value == "all" else value}]
+    ramen_jobs = [
+        {"query": f"券売機 ラーメン {place}", "category": "ramen"},
+        {"query": f"食券 ラーメン {place}", "category": "ramen"},
+        {"query": f"ラーメン メニュー 写真 {place}", "category": "ramen"},
+        {"query": f"site:ramendb.supleks.jp ラーメン {place}", "category": "ramen"},
+        {"query": f"英語メニュー ラーメン {place}", "category": "ramen"},
+    ]
+    izakaya_jobs = [
+        {"query": f"飲み放題 コース 居酒屋 {place}", "category": "izakaya"},
+        {"query": f"お品書き 居酒屋 {place}", "category": "izakaya"},
+        {"query": f"居酒屋 メニュー 写真 {place}", "category": "izakaya"},
+        {"query": f"site:hotpepper.jp 居酒屋 {place} 飲み放題", "category": "izakaya"},
+        {"query": f"英語メニュー 居酒屋 {place}", "category": "izakaya"},
+    ]
     if value == "all":
-        return [
-            {"query": f"ramen restaurants {place}", "category": "ramen"},
-            {"query": f"izakaya restaurants {place}", "category": "izakaya"},
-        ]
-    return [{"query": query or search_query_for_scope(category=value, city=place), "category": value}]
+        return [*ramen_jobs, *izakaya_jobs]
+    return ramen_jobs if value == "ramen" else izakaya_jobs
 
 
 def merge_search_results(results: list[dict[str, Any]], *, query: str, category: str) -> dict[str, Any]:

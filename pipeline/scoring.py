@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .constants import (
-    PACKAGE_A_KEY, PACKAGE_B_KEY,
+    PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY, PACKAGE_A_KEY, PACKAGE_B_KEY,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MACHINE_MAPPING,
     LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE,
@@ -168,18 +168,30 @@ def detect_english_menu_issue(
 
 def recommend_package(
     *,
+    category: str = "",
     english_menu_issue: bool,
     machine_evidence_found: bool,
+    menu_complexity_state: str = "simple",
+    izakaya_rules_state: str = "none_found",
     tourist_exposure_score: float,
     lead_score_v1: int,
 ) -> str:
-    """Recommend package: printed/delivered, online delivery, or 'none'."""
+    """Recommend the best default package by ordering friction and scope."""
     if not english_menu_issue:
         return "none"
 
-    # Printed and delivered (¥45k) for high-value leads
-    if machine_evidence_found or tourist_exposure_score >= 0.65 or lead_score_v1 >= 70:
-        return PACKAGE_A_KEY
+    if menu_complexity_state == "large_custom_quote":
+        return "custom_quote"
 
-    # Online delivery (¥30k) for standard leads
-    return PACKAGE_B_KEY
+    if category == "izakaya" and izakaya_rules_state in {"drinks_found", "courses_found", "nomihodai_found"}:
+        if izakaya_rules_state in {"courses_found", "nomihodai_found"}:
+            return PACKAGE_3_KEY
+        return PACKAGE_2_KEY
+
+    if machine_evidence_found:
+        return PACKAGE_2_KEY
+
+    if tourist_exposure_score >= 0.65 or lead_score_v1 >= 70:
+        return PACKAGE_2_KEY
+
+    return PACKAGE_1_KEY
