@@ -60,6 +60,11 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 2 focused command covering readiness persistence, dashboard readiness cards, outreach payload dossiers, non-ready outreach rejection, and dossier tests passed with `13 passed`.
 - Phase 2 full command `.venv/bin/python -m pytest tests/ -q` passed with `336 passed`.
 - Phase 2 `git diff --check` was clean.
+- Phase 3 verified restaurant-fit gates for Japan physical-location evidence, ramen/izakaya-only scope, chain/branch rejection, excluded business types, already-solved English/multilingual ordering rejection, social-only sites, and placeholder/coming-soon pages.
+- Phase 3 added explicit audit coverage for cafe, hotel, kaiseki, social-only, and stale placeholder pages.
+- Phase 3 focused command covering binary lead, invalid page, already-good-English, chain, and excluded-business tests passed with `28 passed`.
+- Phase 3 full command `.venv/bin/python -m pytest tests/ -q` passed with `341 passed`.
+- Phase 3 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
