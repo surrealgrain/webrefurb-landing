@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-disq-branch",
+  "business_name": "Ramen Maru Shinjuku Ten",
+  "website": "https://ramen-maru.example.jp/shinjuku",
+  "address": "東京都新宿区歌舞伎町1-2 Japan",
+  "category_expected": "ramen",
+  "readiness_expected": "disqualified",
+  "rejection_reason_expected": "chain_or_franchise_like_business",
+  "package_expected": "none",
+  "contact_route_expected": "email",
+  "inline_assets_expected": [],
+  "ticket_machine_state_expected": "unknown",
+  "english_menu_state_expected": "missing",
+  "proof_strength_minimum": "none",
+  "label_confidence": "high",
+  "label_notes": "Branch-like naming and multi-location infrastructure."
+}

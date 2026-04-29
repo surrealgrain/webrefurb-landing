@@ -56,6 +56,9 @@ GENERIC_DIRECTORY_NAME_EXACT = {
     "retty",
     "tripadvisor",
     "google maps",
+    "ramen restaurant",
+    "izakaya restaurant",
+    "restaurant",
 }
 GENERIC_DIRECTORY_NAME_RE = re.compile(
     r"""(?ix)

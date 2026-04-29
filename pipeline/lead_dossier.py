@@ -11,6 +11,8 @@ from .constants import (
     PACKAGE_2_KEY,
     PACKAGE_3_KEY,
     OUTREACH_STATUS_DO_NOT_CONTACT,
+    SOLVED_ENGLISH_SUPPORT_TERMS,
+    TICKET_MACHINE_ABSENCE_TERMS,
 )
 from .evidence import has_chain_or_franchise_infrastructure, is_chain_business
 from .utils import read_json, write_json
@@ -44,6 +46,23 @@ IZAKAYA_RULES_STATES = {
 READINESS_READY = "ready_for_outreach"
 READINESS_MANUAL = "manual_review"
 READINESS_DISQUALIFIED = "disqualified"
+
+_JP_PREFECTURE_PREFIXES = (
+    "東京都", "大阪府", "京都府", "北海道",
+    "神奈川県", "千葉県", "埼玉県", "愛知県", "兵庫県", "福岡県",
+    "静岡県", "茨城県", "広島県", "宮城県", "長野県", "新潟県",
+    "富山県", "石川県", "福井県", "山梨県", "岐阜県", "三重県",
+    "滋賀県", "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県",
+    "山口県", "徳島県", "香川県", "愛媛県", "高知県",
+    "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+)
+_NON_JP_ADDRESS_RE = re.compile(
+    r"(?i)\b("
+    r"united states|usa|new york|ny\s+\d{5}|jackson heights|roosevelt ave|"
+    r"ludlow st|e\s+43rd\s+st|w\s+51st\s+st|california|los angeles|san francisco|"
+    r"taiwan|taipei|hong kong|singapore|london|paris|sydney|melbourne"
+    r")\b"
+)
 
 
 _LEGACY_PACKAGE_KEYS = {
@@ -220,6 +239,8 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
         reasons.append("not_a_binary_true_lead")
     if category not in {"ramen", "izakaya"}:
         reasons.append("outside_v1_category")
+    if record_explicitly_not_japan(record):
+        reasons.append("not_in_japan")
     if is_chain_business(str(record.get("business_name") or "")) or _record_has_chain_infrastructure(record, proof_items):
         reasons.append("chain_or_franchise_like_business")
     if dossier.get("english_menu_state") == "usable_complete":
@@ -230,6 +251,7 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
     disqualifiers = {
         "not_a_binary_true_lead",
         "outside_v1_category",
+        "not_in_japan",
         "chain_or_franchise_like_business",
         "already_has_usable_english_solution",
         "multilingual_qr_or_ordering_solution_present",
@@ -249,6 +271,33 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
     if reasons:
         return READINESS_MANUAL, reasons
     return READINESS_READY, ["qualified_with_safe_proof_and_contact_route"]
+
+
+def record_explicitly_not_japan(record: dict[str, Any]) -> bool:
+    """Return True for persisted leads whose saved location is clearly outside Japan."""
+    address = str(record.get("address") or "").strip()
+    if not address:
+        return False
+    combined = " ".join([
+        address,
+        str(record.get("phone") or ""),
+        str(record.get("map_url") or ""),
+    ])
+    if _has_japan_location_evidence(combined):
+        return False
+    return bool(_NON_JP_ADDRESS_RE.search(combined))
+
+
+def _has_japan_location_evidence(text: str) -> bool:
+    if not text:
+        return False
+    if "Japan" in text or "日本" in text or "〒" in text:
+        return True
+    if any(pref in text for pref in _JP_PREFECTURE_PREFIXES):
+        return True
+    if re.search(r"(?:\+81[-\s]?|^0)[1-9]\d{0,3}[-\s]?\d{1,4}", text):
+        return True
+    return False
 
 
 def ensure_lead_dossier(record: dict[str, Any]) -> dict[str, Any]:
@@ -356,6 +405,8 @@ def _ticket_machine_state(record: dict[str, Any]) -> str:
         if any(token in evidence for token in ("english ticket", "multilingual ticket", "多言語券売機", "英語券売機")):
             return "already_english_supported"
         return "present"
+    if "ticket_machine_absence_evidence" in evidence or any(token.lower() in evidence for token in TICKET_MACHINE_ABSENCE_TERMS):
+        return "absent"
     if _record_category(record) == "izakaya":
         return "absent"
     return "unknown"
@@ -464,14 +515,7 @@ def _has_multilingual_solution(record: dict[str, Any]) -> bool:
         " ".join(record.get("evidence_classes") or []),
         " ".join(record.get("evidence_snippets") or []),
     ]).lower()
-    return any(token in haystack for token in (
-        "multilingual qr",
-        "多言語qr",
-        "英語qr",
-        "english qr",
-        "mobile order english",
-        "スマホオーダー 英語",
-    ))
+    return any(token.lower() in haystack for token in SOLVED_ENGLISH_SUPPORT_TERMS)
 
 
 def _record_contains_bad_preview(record: dict[str, Any]) -> bool:

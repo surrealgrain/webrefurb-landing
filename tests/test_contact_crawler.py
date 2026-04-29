@@ -71,11 +71,28 @@ def test_extract_contact_signals_finds_email_line_instagram_and_forms():
     assert signals.has_form is True
 
 
+def test_extract_contact_signals_ignores_telemetry_ingest_emails():
+    html = """
+    <html><body>
+      <script>window.SENTRY_DSN = "https://abc@o462166.ingest.sentry.io/123";</script>
+      <script>window.SENTRY_DSN = "https://abc@sentry-next.wixpress.com/123";</script>
+      <img src="/assets/z_banbi_logo_header_light@2x.png">
+      <a href="mailto:owner@real-ramen.jp">お問い合わせ</a>
+    </body></html>
+    """
+
+    signals = extract_contact_signals(html)
+
+    assert signals.emails == ["owner@real-ramen.jp"]
+
+
 def test_extract_contact_signals_ignores_json_ld_at_keys_as_line_ids():
     html = """
     <script type="application/ld+json">
     {"@context":"https://schema.org","@graph":[],"@type":"Restaurant"}
     </script>
+    <style>@font-face { font-family: test; } @media (min-width: 1px) {}</style>
+    <script>window.newrelic = "@newrelic";</script>
     """
 
     signals = extract_contact_signals(html)

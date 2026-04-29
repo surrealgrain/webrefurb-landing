@@ -66,6 +66,25 @@ NON_BUSINESS_EMAIL_PREFIXES = (
     "do-not-reply@",
     "support@google.",
 )
+NON_BUSINESS_EMAIL_DOMAIN_TOKENS = (
+    "sentry.io",
+    "ingest.sentry",
+    "sentry.wixpress.com",
+    "sentry-next.wixpress.com",
+    "wixpress.com",
+    "example.com",
+    "example.net",
+    "example.org",
+)
+NON_BUSINESS_EMAIL_SUFFIXES = (
+    ".avif",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".svg",
+    ".webp",
+)
 AGGREGATOR_HOST_TOKENS = (
     "tabelog.com",
     "hotpepper.jp",
@@ -82,7 +101,25 @@ AGGREGATOR_HOST_TOKENS = (
 )
 TRACKING_QUERY_PREFIXES = ("utm_",)
 TRACKING_QUERY_KEYS = {"fbclid", "gclid", "yclid", "mc_cid", "mc_eid"}
-BLOCKED_LINE_IDS = {"@context", "@graph", "@type", "@id", "@language", "@value"}
+BLOCKED_LINE_IDS = {
+    "@charset",
+    "@container",
+    "@context",
+    "@font-face",
+    "@graph",
+    "@id",
+    "@import",
+    "@keyframes",
+    "@language",
+    "@media",
+    "@namespace",
+    "@newrelic",
+    "@page",
+    "@property",
+    "@supports",
+    "@type",
+    "@value",
+}
 
 
 @dataclass(frozen=True)
@@ -190,24 +227,33 @@ def _ordered_unique(values: list[str]) -> list[str]:
     return result
 
 
-def _usable_email(email: str) -> bool:
+def is_usable_business_email(email: str) -> bool:
     lowered = email.lower()
     if any(lowered.startswith(prefix) for prefix in NON_BUSINESS_EMAIL_PREFIXES):
         return False
     domain = lowered.rsplit("@", 1)[-1]
+    if any(lowered.endswith(suffix) or domain.endswith(suffix) for suffix in NON_BUSINESS_EMAIL_SUFFIXES):
+        return False
+    if any(token in domain for token in NON_BUSINESS_EMAIL_DOMAIN_TOKENS):
+        return False
     return not any(token in domain for token in AGGREGATOR_HOST_TOKENS)
+
+
+def _usable_email(email: str) -> bool:
+    return is_usable_business_email(email)
 
 
 def extract_contact_signals(html: str, text: str = "") -> ContactSignals:
     decoded = urllib.parse.unquote(f"{html or ''}\n{text or ''}")
+    visible_text = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", decoded)
     emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded) if _usable_email(email)])
     line_links = _ordered_unique([match.group(0) for match in LINE_LINK_RE.finditer(decoded)])
     line_ids = _ordered_unique([
         match.group(0)
-        for match in LINE_ID_RE.finditer(decoded)
+        for match in LINE_ID_RE.finditer(visible_text)
         if "@" not in match.group(0)[1:] and match.group(0).lower() not in BLOCKED_LINE_IDS
     ])
-    instagram_handles = _ordered_unique([match.group(1).lower() for match in INSTAGRAM_RE.finditer(decoded)])
+    instagram_handles = _ordered_unique([match.group(1).lower() for match in INSTAGRAM_RE.finditer(visible_text)])
     has_form = bool(re.search(r"(?is)<form\b", html or ""))
     return ContactSignals(
         emails=emails,

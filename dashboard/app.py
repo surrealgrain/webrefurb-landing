@@ -217,7 +217,7 @@ def _normalise_body(text: str) -> str:
 # ---------------------------------------------------------------------------
 DASHBOARD_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = DASHBOARD_ROOT.parent
-STATE_ROOT = PROJECT_ROOT / "state"
+STATE_ROOT = Path(os.environ.get("WEBREFURB_STATE_ROOT", PROJECT_ROOT / "state")).resolve()
 QR_DOCS_ROOT = PROJECT_ROOT / "docs"
 
 # Load .env
@@ -361,6 +361,13 @@ def _establishment_profile_label(profile: str) -> str:
     return ESTABLISHMENT_PROFILE_LABELS.get(profile, profile.replace("_", " ").title() if profile else "Manual Review")
 
 
+def _dashboard_state_label(value: Any, *, default: str = "Unknown") -> str:
+    text = str(value or "").strip()
+    if not text:
+        return default
+    return text.replace("_", " ").title()
+
+
 def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
     override = str(lead.get("establishment_profile_override") or "").strip()
     stored = str(lead.get("establishment_profile") or "").strip() or "unknown"
@@ -408,6 +415,13 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["launch_readiness_reasons"] = list(lead.get("launch_readiness_reasons") or [])
     prepared["lead_evidence_dossier"] = lead.get("lead_evidence_dossier") or {}
     prepared["proof_items"] = lead.get("proof_items") or prepared["lead_evidence_dossier"].get("proof_items") or []
+    prepared["proof_strength_label"] = _dashboard_state_label(
+        prepared["lead_evidence_dossier"].get("proof_strength"),
+        default="No Proof",
+    )
+    prepared["ticket_machine_state_label"] = _dashboard_state_label(lead.get("ticket_machine_state") or prepared["lead_evidence_dossier"].get("ticket_machine_state"))
+    prepared["english_menu_state_label"] = _dashboard_state_label(lead.get("english_menu_state") or prepared["lead_evidence_dossier"].get("english_menu_state"))
+    prepared["lead_category_label"] = _dashboard_state_label(lead.get("lead_category"), default="Unclassified")
     package_key = str(lead.get("recommended_primary_package") or "")
     package = PACKAGE_REGISTRY.get(package_key, {})
     prepared["recommended_package_label"] = package.get("label") or ("Custom quote" if package_key == "custom_quote" else package_key)

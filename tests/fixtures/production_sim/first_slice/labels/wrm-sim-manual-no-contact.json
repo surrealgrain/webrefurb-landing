@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-manual-no-contact",
+  "business_name": "灯ラーメン",
+  "website": "https://akari-ramen.example.jp",
+  "address": "",
+  "category_expected": "ramen",
+  "readiness_expected": "manual_review",
+  "rejection_reason_expected": "no_supported_contact_route",
+  "package_expected": "package_1_remote_30k",
+  "contact_route_expected": "none",
+  "inline_assets_expected": ["ramen_food_menu"],
+  "ticket_machine_state_expected": "unknown",
+  "english_menu_state_expected": "missing",
+  "proof_strength_minimum": "gold",
+  "label_confidence": "high",
+  "label_notes": "Good menu proof but no actionable route."
+}

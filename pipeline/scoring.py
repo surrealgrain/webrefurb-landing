@@ -266,6 +266,19 @@ def recommend_package_details(
             "custom_quote_reason": "",
         }
 
+    if category == "ramen":
+        if counter_ready_need or menu_complexity_state == "medium":
+            return {
+                "package_key": PACKAGE_2_KEY,
+                "recommendation_reason": "ramen_without_machine_but_counter_ready_materials_fit",
+                "custom_quote_reason": "",
+            }
+        return {
+            "package_key": PACKAGE_1_KEY,
+            "recommendation_reason": "simple_ramen_menu_fits_english_ordering_files",
+            "custom_quote_reason": "",
+        }
+
     if counter_ready_need or tourist_exposure_score >= 0.65 or lead_score_v1 >= 70 or menu_complexity_state == "medium":
         return {
             "package_key": PACKAGE_2_KEY,

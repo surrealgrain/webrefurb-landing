@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-ready-ramen-ticket",
+  "business_name": "青空ラーメン",
+  "website": "https://aosora-ramen.example.jp",
+  "address": "東京都渋谷区神南1-2-3 Japan",
+  "category_expected": "ramen",
+  "readiness_expected": "ready_for_outreach",
+  "rejection_reason_expected": "",
+  "package_expected": "package_2_printed_delivered_45k",
+  "contact_route_expected": "email",
+  "inline_assets_expected": ["ramen_food_menu", "ticket_machine_guide"],
+  "ticket_machine_state_expected": "present",
+  "english_menu_state_expected": "missing",
+  "proof_strength_minimum": "gold",
+  "label_confidence": "high",
+  "label_notes": "Ramen menu plus proven ticket-machine friction."
+}

@@ -18,10 +18,14 @@ def _write_lead(tmp_path: Path, **overrides):
         "lead": True,
         "outreach_status": "draft",
         "launch_readiness_status": "ready_for_outreach",
+        "launch_readiness_reasons": ["qualified_with_safe_proof_and_contact_route"],
         "primary_category_v1": "ramen",
         "establishment_profile": "ramen_ticket_machine",
         "outreach_classification": "menu_and_machine",
         "machine_evidence_found": True,
+        "evidence_urls": ["https://audit.example.jp/menu"],
+        "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
+        "contacts": [{"type": "email", "value": "owner@audit.example.jp", "actionable": True}],
         "outreach_assets_selected": [
             str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html"),
             str(PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"),
@@ -42,6 +46,77 @@ def test_state_audit_accepts_correct_dark_assets(tmp_path):
     result = audit_state_leads(state_root=tmp_path)
     assert result["ok"] is True
     assert result["checked"] == 1
+
+
+def test_state_audit_rejects_ready_non_japan_lead(tmp_path):
+    _write_lead(
+        tmp_path,
+        address="245 W 51st St, New York, NY 10019",
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "ready_lead_not_in_japan" in _codes(result)
+
+
+def test_repair_state_leads_disqualifies_non_japan_lead(tmp_path):
+    _write_lead(
+        tmp_path,
+        address="71-28 Roosevelt Ave, Jackson Heights, NY 11372",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    stored = json.loads((tmp_path / "leads" / "wrm-audit.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert stored["launch_readiness_status"] == "disqualified"
+    assert stored["outreach_status"] == "do_not_contact"
+    assert "not_in_japan" in stored["launch_readiness_reasons"]
+
+
+def test_state_audit_rejects_stale_ready_branch_chain_lead(tmp_path):
+    _write_lead(
+        tmp_path,
+        business_name="Ramen Maru Shinjuku Ten",
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "launch_readiness_drift" in _codes(result)
+    assert result["readiness_report"] == [{
+        "lead_id": "wrm-audit",
+        "from_status": "ready_for_outreach",
+        "from_reasons": ["qualified_with_safe_proof_and_contact_route"],
+        "to_status": "disqualified",
+        "to_reasons": ["chain_or_franchise_like_business"],
+        "summary": "ready_for_outreach -> disqualified: chain_or_franchise_like_business",
+    }]
+
+
+def test_repair_state_leads_migrates_stale_ready_branch_and_clears_samples(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        business_name="Ramen Maru Shinjuku Ten",
+        outreach_draft_subject="英語注文ガイド制作のご提案",
+        outreach_draft_body="添付のサンプルをご覧ください。",
+        outreach_draft_english_body="Please review the attached sample.",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["launch_readiness_status"] == "disqualified"
+    assert repaired["outreach_status"] == "do_not_contact"
+    assert repaired["outreach_assets_selected"] == []
+    assert repaired["outreach_draft_subject"] is None
+    assert repaired["outreach_draft_body"] is None
+    assert repaired["outreach_draft_english_body"] is None
+    assert result["repaired"][0]["readiness_change"]["summary"] == (
+        "ready_for_outreach -> disqualified: chain_or_franchise_like_business"
+    )
 
 
 def test_state_audit_rejects_legacy_cream_assets(tmp_path):

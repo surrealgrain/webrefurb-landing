@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .business_name import business_name_is_suspicious, normalise_business_name
+from .contact_crawler import is_usable_business_email
 from .utils import utc_now, write_json, read_json, ensure_dir, slugify, sha256_text
 from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
@@ -199,6 +200,8 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
         contact_type = str(raw.get("type") or "").strip()
         if not contact_type:
             continue
+        if contact_type == "email" and not is_usable_business_email(str(raw.get("value") or "")):
+            continue
         _append_contact(
             contacts,
             seen,
@@ -214,7 +217,7 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             actionable=raw.get("actionable"),
         )
 
-    if lead.get("email"):
+    if lead.get("email") and is_usable_business_email(str(lead.get("email") or "")):
         _append_contact(
             contacts,
             seen,

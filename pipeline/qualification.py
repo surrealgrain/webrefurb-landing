@@ -18,6 +18,10 @@ from .scoring import (
 from .models import QualificationResult
 from .lead_dossier import build_lead_evidence_dossier, assess_launch_readiness
 from .constants import (
+    RAMEN_MENU_TERMS,
+    IZAKAYA_MENU_TERMS,
+    PRICE_RE,
+    SOLVED_ENGLISH_SUPPORT_TERMS,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MACHINE_MAPPING,
     LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE,
@@ -368,7 +372,9 @@ def _has_source_menu_content(text: str, img_locked: list[str]) -> bool:
     """Check if there's source language menu content."""
     jp_chars = _count_japanese_chars(text)
     has_menu_tokens = any(token in text for token in ("メニュー", "料理", "品", "商品", "注文", "お品書き"))
-    return jp_chars >= 12 and has_menu_tokens or bool(img_locked)
+    menu_terms = [term for term in (*RAMEN_MENU_TERMS, *IZAKAYA_MENU_TERMS) if term in text]
+    has_orderable_detail = bool(PRICE_RE.search(text) and menu_terms) or len(set(menu_terms)) >= 2
+    return bool(img_locked) or (jp_chars >= 12 and has_menu_tokens and has_orderable_detail)
 
 
 def _has_purchase_critical_jp(text: str) -> bool:
@@ -461,6 +467,9 @@ def _establishment_profile(*, primary_category: str, assessment: Any) -> tuple[s
         if assessment.machine_evidence_found:
             evidence.append("ticket_machine_evidence")
             return "ramen_ticket_machine", evidence, "high", source_urls
+        if "ticket_machine_absence_evidence" in evidence_classes:
+            evidence.append("ticket_machine_absence_evidence")
+            return "ramen_only", evidence, "high", source_urls
         drink_classes = {"drink_menu_photo", "course_menu", "nomihodai_menu"}
         matched_classes = [cls for cls in assessment.evidence_classes if cls in drink_classes]
         if assessment.course_or_drink_plan_evidence_found or matched_classes:
@@ -473,15 +482,7 @@ def _establishment_profile(*, primary_category: str, assessment: Any) -> tuple[s
 
 def _has_multilingual_ordering_solution(text: str) -> bool:
     lowered = str(text or "").lower()
-    return any(token in lowered for token in (
-        "multilingual qr",
-        "english qr",
-        "mobile order english",
-        "多言語qr",
-        "英語qr",
-        "英語メニューはこちら",
-        "english menu available",
-    ))
+    return any(token.lower() in lowered for token in SOLVED_ENGLISH_SUPPORT_TERMS)
 
 
 def _has_franchise_or_multi_location_infrastructure(text: str, *, business_name: str = "") -> bool:

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .business_name import business_name_is_suspicious, business_names_match, extract_business_name_candidates, resolve_business_name
-from .contact_crawler import extract_contact_signals
+from .contact_crawler import extract_contact_signals, is_usable_business_email
 from .utils import utc_now, write_json, ensure_dir
 from .qualification import qualify_candidate
 
@@ -62,6 +62,8 @@ def _extract_contact_email(html: str) -> str:
     for match in _EMAIL_RE.finditer(decoded):
         email = match.group(0).strip().lower()
         if email.startswith(_IGNORED_EMAIL_PREFIXES):
+            continue
+        if not is_usable_business_email(email):
             continue
         return email
     return ""
@@ -472,6 +474,8 @@ def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, s
 
     if decision.get("machine_evidence_found") or decision.get("ticket_machine_state") == "present":
         matches.append("ticket_machine_evidence")
+    if decision.get("ticket_machine_state") == "absent" or "ticket_machine_absence_evidence" in set(decision.get("evidence_classes") or []):
+        matches.append("ticket_machine_absence_evidence")
     if decision.get("menu_evidence_found") or classes.intersection({
         "official_html_menu",
         "official_pdf_menu",
@@ -487,6 +491,8 @@ def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, s
         matches.append("drink_or_course_friction")
     if reason in {"already_has_good_english_menu", "already_has_multilingual_ordering_solution"}:
         matches.append("already_solved_english_solution")
+    if decision.get("recommended_primary_package") == "package_1_remote_30k" and decision.get("primary_category_v1") == "ramen" and not decision.get("machine_evidence_found"):
+        matches.append("simple_menu_package_fit")
     if job_id.startswith("ramen_ramendb"):
         matches.append("ramendb_lookup_source")
     if "tabelog" in job_id or "hotpepper" in job_id:
@@ -495,6 +501,24 @@ def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, s
         matches.append(f"search_job:{expected}")
 
     return list(dict.fromkeys(matches))
+
+
+def _search_job_marks_existing_solution(search_job: dict[str, str]) -> bool:
+    haystack = " ".join([
+        str(search_job.get("job_id") or ""),
+        str(search_job.get("purpose") or ""),
+        str(search_job.get("expected_friction") or ""),
+    ])
+    return any(token in haystack for token in (
+        "english_menu_check",
+        "english_solution_check",
+        "english_ticket_machine_check",
+        "mobile_order_check",
+        "mobile_order_solution_check",
+        "multilingual_qr_check",
+        "multilingual_solution_check",
+        "ticket_machine_solution_check",
+    ))
 
 
 def _add_search_context(decision: dict[str, Any], *, query: str, search_job: dict[str, str]) -> dict[str, Any]:
@@ -632,18 +656,21 @@ def _targeted_evidence_queries(
         if wants_ticket_lookup:
             queries.extend([
                 f'"{name}" 券売機 食券',
-                f'"{name}" 食券 ラーメン',
+                f'"{name}" メニュー ラーメン',
+                f'"{name}" 英語メニュー 多言語 QR',
             ])
         else:
             queries.extend([
                 f'"{name}" メニュー ラーメン',
                 f'"{name}" 券売機 食券',
+                f'"{name}" 英語メニュー 多言語 QR',
             ])
 
     if category_value == "izakaya":
         queries.extend([
             f'"{name}" 飲み放題 コース',
             f'"{name}" お品書き メニュー',
+            f'"{name}" 英語メニュー 多言語 QRオーダー',
         ])
 
     queries.append(f'"{name}" チェーン 展開 フランチャイズ')
@@ -673,8 +700,15 @@ def _business_result_matches_name(text: str, business_name: str) -> bool:
 
 
 def _result_has_qualification_signal(text: str, category: str) -> bool:
-    from .constants import TICKET_MACHINE_TERMS, RAMEN_MENU_TERMS, IZAKAYA_MENU_TERMS
+    from .constants import (
+        TICKET_MACHINE_TERMS, RAMEN_MENU_TERMS, IZAKAYA_MENU_TERMS,
+        TICKET_MACHINE_ABSENCE_TERMS, SOLVED_ENGLISH_SUPPORT_TERMS,
+    )
     lowered = text.lower()
+    if any(term.lower() in lowered for term in SOLVED_ENGLISH_SUPPORT_TERMS):
+        return True
+    if any(term.lower() in lowered for term in TICKET_MACHINE_ABSENCE_TERMS):
+        return True
     if category == "ramen":
         if any(term in lowered for term in TICKET_MACHINE_TERMS):
             return True
@@ -862,6 +896,14 @@ def search_and_qualify(
                 decision["lead"] = False
                 decision["reason"] = "search_category_mismatch"
                 decision["requested_category"] = category
+                decisions.append(decision)
+                continue
+            if qualification.lead and _search_job_marks_existing_solution(source_search_job):
+                decision["lead"] = False
+                decision["reason"] = "already_solved_solution_check"
+                decision["rejection_reason"] = "already_solved_solution_check"
+                decision["english_availability"] = "clear_usable"
+                decision["english_menu_state"] = "usable_complete"
                 decisions.append(decision)
                 continue
 

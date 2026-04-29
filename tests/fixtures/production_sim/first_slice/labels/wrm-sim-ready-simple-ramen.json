@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-ready-simple-ramen",
+  "business_name": "路地裏中華そば",
+  "website": "https://rojiura-soba.example.jp",
+  "address": "京都府京都市中京区錦小路通1-2 Japan",
+  "category_expected": "ramen",
+  "readiness_expected": "ready_for_outreach",
+  "rejection_reason_expected": "",
+  "package_expected": "package_1_remote_30k",
+  "contact_route_expected": "email",
+  "inline_assets_expected": ["ramen_food_menu"],
+  "ticket_machine_state_expected": "absent",
+  "english_menu_state_expected": "missing",
+  "proof_strength_minimum": "gold",
+  "label_confidence": "high",
+  "label_notes": "Simple ramen menu with explicit no-ticket-machine evidence."
+}

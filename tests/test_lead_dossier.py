@@ -43,6 +43,16 @@ def test_dossier_derives_required_states_for_ramen_ticket_machine():
     assert dossier["proof_items"][0]["customer_preview_eligible"] is True
 
 
+def test_dossier_marks_ramen_ticket_machine_absent_when_explicitly_proven():
+    dossier = build_lead_evidence_dossier(_ready_record(
+        machine_evidence_found=False,
+        evidence_classes=["official_html_menu", "ticket_machine_absence_evidence"],
+        evidence_snippets=["醤油ラーメン 味玉 メニュー 券売機なし 席で注文"],
+    ))
+
+    assert dossier["ticket_machine_state"] == "absent"
+
+
 def test_bad_snippets_are_not_customer_safe():
     snippets = [
         "Calendar check TEL_String 店舗検索",
@@ -115,6 +125,16 @@ def test_multilingual_qr_record_cannot_remain_launch_ready():
 
     assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
     assert "multilingual_qr_or_ordering_solution_present" in migrated["launch_readiness_reasons"]
+
+
+def test_non_japan_record_cannot_remain_launch_ready():
+    migrated, _ = migrate_lead_record(_ready_record(
+        address="71-28 Roosevelt Ave, Jackson Heights, NY 11372",
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert migrated["outreach_status"] == "do_not_contact"
+    assert "not_in_japan" in migrated["launch_readiness_reasons"]
 
 
 def test_state_migration_persists_changed_leads(tmp_path):

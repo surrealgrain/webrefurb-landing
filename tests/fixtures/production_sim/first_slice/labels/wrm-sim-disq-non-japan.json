@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-disq-non-japan",
+  "business_name": "Sake Bar West",
+  "website": "https://sake-west.example.com",
+  "address": "245 W 51st St, New York, NY 10019",
+  "category_expected": "izakaya",
+  "readiness_expected": "disqualified",
+  "rejection_reason_expected": "not_in_japan",
+  "package_expected": "none",
+  "contact_route_expected": "email",
+  "inline_assets_expected": [],
+  "ticket_machine_state_expected": "absent",
+  "english_menu_state_expected": "missing",
+  "proof_strength_minimum": "none",
+  "label_confidence": "high",
+  "label_notes": "Non-Japan false positive."
+}
