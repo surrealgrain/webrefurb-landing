@@ -38,11 +38,16 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Active branch now follows the new step-by-step Product Audit Implementation Plan in `PLAN.md`.
 - Do not trust older completion claims. Re-verify implementation phase by phase.
 - Real outreach has not been sent in this thread.
+- Phase 0 source lock and baseline audit has been run against the new plan.
+- At Phase 0 start, `git status --short` was clean.
+- `PLAN.md` names `PRODUCT_AUDIT_2026-04-29.md` as the source audit.
+- `HANDOFF.md`, `AGENTS.md`, and `CLAUDE.md` do not point back to the obsolete old plan as active guidance.
 
 ## Last Verified State
 
-- The previous full test result was `.venv/bin/python -m pytest tests/ -q` with `332 passed`, before this new plan rewrite.
-- After this plan rewrite, rerun Phase 0 commands before claiming current baseline.
+- Phase 0 baseline command `.venv/bin/python -m pytest tests/ -q` passed with `332 passed` on 2026-04-29.
+- Phase 0 `git diff --check` was clean on 2026-04-29.
+- No real outreach was sent.
 
 ## Resume Instructions
 
