@@ -26,14 +26,16 @@ Real outreach remains frozen unless the active `PLAN.md` gates pass and the user
 
 ## Current Repo State
 
-- Commit before this handoff update: `cae4845 Harden product audit launch gates`
-- That commit contains the implemented audit-hardening work from the current plan.
-- The working tree may contain only the replacement of `PLAN.md` and this handoff cleanup unless more work has been done after this note.
+- Active branch follows the Product Audit Hardening Plan in `PLAN.md`.
+- Phase 1-6 hardening is implemented and verified.
+- Phase 7 support exists for controlled launch batches, batch review blocking, and per-lead measurement fields.
+- Real outreach and the first controlled launch batch remain blocked until the user gives explicit launch authorization.
 
 ## Last Verified State
 
-- `.venv/bin/python -m pytest tests/ -q` passed with `319 passed`.
-- `git diff --check` was clean before commit `cae4845`.
+- `.venv/bin/python -m pytest tests/ -q` passed with `332 passed` after the Phase 7 opt-out/bounce/operator-minute measurement hardening.
+- Focused Phase 7 launch/API tests passed.
+- `git diff --check` was clean before the latest Phase 7 continuation work.
 - No real outreach was sent.
 
 ## Resume Instructions

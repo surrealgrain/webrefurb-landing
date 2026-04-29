@@ -520,6 +520,55 @@ class TestAPIEndpoints:
         assert "WebRefurbMenu" in response.text
         assert "Lead evidence dossier" in response.text
 
+    def test_launch_batch_api_blocks_second_batch_until_review(self, tmp_path):
+        lead_ids = self._write_launch_ready_leads(tmp_path)
+
+        created = self.client.post("/api/launch-batches", json={
+            "lead_ids": lead_ids,
+            "notes": "first controlled batch",
+        })
+        assert created.status_code == 200
+        batch = created.json()
+        assert batch["lead_count"] == 5
+        assert batch["leads"][0]["reply_status"] == "not_contacted"
+
+        blocked = self.client.post("/api/launch-batches", json={"lead_ids": lead_ids})
+        assert blocked.status_code == 422
+        assert blocked.json()["detail"] == "previous_batch_not_reviewed"
+
+        reviewed = self.client.post(
+            f"/api/launch-batches/{batch['batch_id']}/review",
+            json={"notes": "reviewed before batch 2"},
+        )
+        assert reviewed.status_code == 200
+        assert reviewed.json()["reviewed_at"]
+
+    def test_launch_outcome_api_records_opt_out_and_operator_minutes(self, tmp_path):
+        lead_ids = self._write_launch_ready_leads(tmp_path)
+        batch = self.client.post("/api/launch-batches", json={"lead_ids": lead_ids}).json()
+
+        response = self.client.post(
+            f"/api/launch-batches/{batch['batch_id']}/leads/{lead_ids[0]}/outcome",
+            json={
+                "contacted_at": "2026-04-29T09:00:00+00:00",
+                "reply_status": "opted_out",
+                "objection": "Not needed",
+                "operator_minutes": 6,
+                "outcome": "do_not_contact",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["reply_status"] == "opted_out"
+        assert data["opt_out"] is True
+        assert data["bounce"] is False
+        assert data["operator_minutes"] == 6
+
+        stored = json.loads((tmp_path / "leads" / f"{lead_ids[0]}.json").read_text(encoding="utf-8"))
+        assert stored["launch_outcome"]["reply_status"] == "opted_out"
+        assert stored["launch_outcome"]["opt_out"] is True
+
     def _create_lead(self, tmp_path, lead_id="wrm-test-dnc", **overrides):
         """Helper to create a lead record for testing."""
         lead = {
@@ -553,6 +602,33 @@ class TestAPIEndpoints:
             json.dumps(lead), encoding="utf-8"
         )
         return lead
+
+    def _write_launch_ready_leads(self, tmp_path):
+        profiles = [
+            ("wrm-launch-api-1", "ramen", "ramen_ticket_machine", True, "券売機 ラーメン 味玉 トッピング メニュー"),
+            ("wrm-launch-api-2", "izakaya", "izakaya_drink_heavy", False, "飲み放題 コース 居酒屋 メニュー"),
+            ("wrm-launch-api-3", "ramen", "ramen_only", False, "醤油ラーメン 味玉 トッピング メニュー"),
+            ("wrm-launch-api-4", "ramen", "ramen_only", False, "味噌ラーメン チャーシュー トッピング メニュー"),
+            ("wrm-launch-api-5", "izakaya", "izakaya_course_heavy", False, "コース 飲み放題 居酒屋 メニュー"),
+        ]
+        lead_ids = []
+        for lead_id, category, profile, machine, snippet in profiles:
+            lead_ids.append(lead_id)
+            self._create_lead(
+                tmp_path,
+                lead_id=lead_id,
+                business_name=f"Launch API {lead_id}",
+                primary_category_v1=category,
+                establishment_profile=profile,
+                evidence_urls=[f"https://launch-api.test/{lead_id}/menu"],
+                evidence_snippets=[snippet],
+                machine_evidence_found=machine,
+                course_or_drink_plan_evidence_found=category == "izakaya",
+                recommended_primary_package="package_2_printed_delivered_45k",
+                outreach_assets_selected=["/tmp/sample.pdf"],
+                message_variant=f"email:menu_only:{profile}",
+            )
+        return lead_ids
 
     def test_outreach_blocked_for_do_not_contact(self, tmp_path):
         self._create_lead(tmp_path, outreach_status="do_not_contact")

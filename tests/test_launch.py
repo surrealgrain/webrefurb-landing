@@ -4,7 +4,12 @@ import json
 
 import pytest
 
-from pipeline.launch import LaunchBatchError, create_launch_batch, review_launch_batch
+from pipeline.launch import (
+    LaunchBatchError,
+    create_launch_batch,
+    record_launch_outcome,
+    review_launch_batch,
+)
 
 
 def _lead(lead_id: str, profile: str) -> dict:
@@ -54,6 +59,9 @@ def test_create_launch_batch_requires_first_batch_review_before_second(tmp_path)
     batch = create_launch_batch(lead_ids=lead_ids, state_root=tmp_path)
     assert batch["lead_count"] == 5
     assert batch["leads"][0]["dossier_states"]["english_menu_state"] == "missing"
+    assert batch["leads"][0]["reply_status"] == "not_contacted"
+    assert batch["leads"][0]["opt_out"] is False
+    assert batch["leads"][0]["bounce"] is False
 
     with pytest.raises(LaunchBatchError, match="previous_batch_not_reviewed"):
         create_launch_batch(lead_ids=lead_ids, state_root=tmp_path)
@@ -80,3 +88,47 @@ def test_create_launch_batch_persists_dossier_and_rejects_duplicate_leads(tmp_pa
     assert stored["launch_batch_id"] == batch["batch_id"]
     assert stored["lead_evidence_dossier"]["ready_to_contact"] is True
     assert stored["launch_readiness_status"] == "ready_for_outreach"
+
+
+def test_record_launch_outcome_tracks_opt_out_bounce_minutes_and_lead_copy(tmp_path):
+    lead_ids = _write_leads(tmp_path, [
+        "ramen_ticket_machine",
+        "izakaya_drink_heavy",
+        "ramen_only",
+        "ramen_only",
+        "izakaya_course_heavy",
+    ])
+    batch = create_launch_batch(lead_ids=lead_ids, state_root=tmp_path)
+
+    entry = record_launch_outcome(
+        batch_id=batch["batch_id"],
+        lead_id=lead_ids[0],
+        state_root=tmp_path,
+        outcome={
+            "contacted_at": "2026-04-29T09:00:00+00:00",
+            "reply_status": "opted_out",
+            "objection": "Not needed",
+            "operator_minutes": 7,
+            "outcome": "do_not_contact",
+        },
+    )
+
+    assert entry["contacted_at"] == "2026-04-29T09:00:00+00:00"
+    assert entry["reply_status"] == "opted_out"
+    assert entry["opt_out"] is True
+    assert entry["bounce"] is False
+    assert entry["operator_minutes"] == 7
+    assert entry["outcome"]["outcome"] == "do_not_contact"
+
+    stored = json.loads((tmp_path / "leads" / f"{lead_ids[0]}.json").read_text(encoding="utf-8"))
+    assert stored["launch_outcome"]["reply_status"] == "opted_out"
+    assert stored["launch_outcome"]["opt_out"] is True
+
+    bounced = record_launch_outcome(
+        batch_id=batch["batch_id"],
+        lead_id=lead_ids[1],
+        state_root=tmp_path,
+        outcome={"bounce": True, "operator_minutes": 2},
+    )
+    assert bounced["reply_status"] == "bounced"
+    assert bounced["bounce"] is True
