@@ -81,9 +81,13 @@ def record_launch_outcome(
         raise LaunchBatchError("batch_not_found")
     for entry in batch.get("leads") or []:
         if entry.get("lead_id") == lead_id:
+            outcome_update = _normalise_launch_outcome(outcome)
+            for key in ("contacted_at", "reply_status", "objection", "opt_out", "bounce", "operator_minutes"):
+                if key in outcome_update:
+                    entry[key] = outcome_update[key]
             entry["outcome"] = {
                 **(entry.get("outcome") or {}),
-                **outcome,
+                **outcome_update,
                 "updated_at": utc_now(),
             }
             write_json(_batch_path(state_root, batch_id), batch)
@@ -139,6 +143,8 @@ def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
         "contacted_at": "",
         "reply_status": "not_contacted",
         "objection": "",
+        "opt_out": False,
+        "bounce": False,
         "operator_minutes": 0,
         "outcome": {},
     }
@@ -146,3 +152,45 @@ def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
 
 def _batch_path(state_root: Path, batch_id: str) -> Path:
     return state_root / "launch_batches" / f"{batch_id}.json"
+
+
+def _normalise_launch_outcome(outcome: dict[str, Any]) -> dict[str, Any]:
+    update = dict(outcome or {})
+    reply_status = str(update.get("reply_status") or "").strip()
+    opt_out = _truthy(update.get("opt_out")) or _truthy(update.get("opted_out")) or reply_status == "opted_out"
+    bounce = _truthy(update.get("bounce")) or _truthy(update.get("bounced")) or reply_status == "bounced"
+
+    if opt_out and not reply_status:
+        reply_status = "opted_out"
+    if bounce and not reply_status:
+        reply_status = "bounced"
+
+    normalised: dict[str, Any] = {}
+    if "contacted_at" in update:
+        normalised["contacted_at"] = str(update.get("contacted_at") or "")
+    if reply_status:
+        normalised["reply_status"] = reply_status
+    if "objection" in update:
+        normalised["objection"] = str(update.get("objection") or "")
+    if "outcome" in update:
+        normalised["outcome"] = str(update.get("outcome") or "")
+    if "notes" in update:
+        normalised["notes"] = str(update.get("notes") or "")
+    if opt_out or "opt_out" in update or "opted_out" in update:
+        normalised["opt_out"] = opt_out
+    if bounce or "bounce" in update or "bounced" in update:
+        normalised["bounce"] = bounce
+    if "operator_minutes" in update:
+        try:
+            normalised["operator_minutes"] = max(0, int(update.get("operator_minutes") or 0))
+        except (TypeError, ValueError):
+            raise LaunchBatchError("invalid_operator_minutes")
+    return normalised
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "opted_out", "bounced"}
