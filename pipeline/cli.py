@@ -80,6 +80,10 @@ def main() -> None:
     harden_cmd = sub.add_parser("harden-state", help="Migrate lead records through launch-readiness gates")
     harden_cmd.add_argument("--state-root", default=None, help="Override state root")
 
+    audit_cmd = sub.add_parser("audit-state", help="Audit persisted lead state for stale assets and name drift")
+    audit_cmd.add_argument("--state-root", default=None, help="Override state root")
+    audit_cmd.add_argument("--repair", action="store_true", help="Repair deterministic state drift before auditing")
+
     smoke_cmd = sub.add_parser("launch-smoke", help="Create a no-send launch rehearsal from ready leads")
     smoke_cmd.add_argument("--lead-id", action="append", required=True, help="Lead ID to include; repeat 5-10 times")
     smoke_cmd.add_argument("--state-root", default=None, help="Override state root")
@@ -312,6 +316,17 @@ def main() -> None:
             state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.command == "audit-state":
+        from pathlib import Path as _P
+
+        from .state_audit import audit_state_leads, repair_state_leads
+
+        state_root = _P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state"
+        result = repair_state_leads(state_root=state_root) if args.repair else audit_state_leads(state_root=state_root)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        if not result["ok"]:
+            sys.exit(1)
 
     elif args.command == "launch-smoke":
         from pathlib import Path as _P

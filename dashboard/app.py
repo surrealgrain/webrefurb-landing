@@ -669,7 +669,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     GET preview loads saved draft content. POST intentionally regenerates from
     the locked template and clears the saved manual draft.
     """
-    from pipeline.record import load_lead
+    from pipeline.record import authoritative_business_name, load_lead
     from pipeline.outreach import (
         build_manual_outreach_message,
         build_outreach_email,
@@ -682,8 +682,9 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     record = load_lead(lead_id, state_root=STATE_ROOT)
     if not record:
         raise HTTPException(status_code=404, detail="Lead not found")
+    business_name = authoritative_business_name(record)
 
-    if business_name_is_suspicious(str(record.get("business_name") or "")):
+    if business_name_is_suspicious(business_name):
         record["outreach_status"] = "needs_review"
         record["outreach_classification"] = None
         from pipeline.record import persist_lead_record
@@ -694,7 +695,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         )
 
     verified_by = list(record.get("business_name_verified_by") or [])
-    if record.get("business_name_source") and len(verified_by) < 2:
+    if not record.get("business_name_locked") and record.get("business_name_source") and len(verified_by) < 2:
         record["outreach_status"] = "needs_review"
         from pipeline.record import persist_lead_record
         persist_lead_record(record, state_root=STATE_ROOT)
@@ -727,7 +728,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     q = QualificationResult(
         lead=record["lead"],
         rejection_reason=record.get("rejection_reason"),
-        business_name=record["business_name"],
+        business_name=business_name,
         menu_evidence_found=record.get("menu_evidence_found", True),
         machine_evidence_found=record.get("machine_evidence_found", False),
     )
@@ -766,7 +767,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     include_inperson = record.get("outreach_include_inperson", True)
     if draft_channel == "email":
         draft = build_outreach_email(
-            business_name=record["business_name"],
+            business_name=business_name,
             classification=classification,
             establishment_profile=profile["effective"],
             include_inperson_line=include_inperson,
@@ -774,7 +775,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         )
     else:
         draft = build_manual_outreach_message(
-            business_name=record["business_name"],
+            business_name=business_name,
             classification=classification,
             channel=draft_channel,
             establishment_profile=profile["effective"],
@@ -840,14 +841,14 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             body,
             include_menu_image=draft["include_menu_image"],
             include_machine_image=record.get("outreach_include_machine_image", draft["include_machine_image"]),
-            business_name=record["business_name"],
+            business_name=business_name,
             establishment_profile=profile["effective"],
         ),
         "shop_preview_html": shop_preview_html,
         "include_inperson": include_inperson,
         "include_menu_image": draft["include_menu_image"],
         "include_machine_image": record.get("outreach_include_machine_image", draft["include_machine_image"]),
-        "business_name": record["business_name"],
+        "business_name": business_name,
         "email": record.get("email", ""),
         "contacts": contacts,
         "primary_contact": primary_contact,
@@ -1010,12 +1011,13 @@ async def api_translate_draft(request: Request):
 @app.post("/api/send/{lead_id}")
 async def api_send(lead_id: str, request: Request):
     """Send outreach email via Resend."""
-    from pipeline.record import load_lead, persist_lead_record
+    from pipeline.record import authoritative_business_name, load_lead, persist_lead_record
     from pipeline.constants import OUTREACH_STATUS_SENT, MAX_SENDS_PER_DAY
 
     record = load_lead(lead_id, state_root=STATE_ROOT)
     if not record:
         raise HTTPException(status_code=404, detail="Lead not found")
+    business_name = authoritative_business_name(record)
 
     if record.get("outreach_status") == "do_not_contact":
         raise HTTPException(status_code=403, detail="Lead is marked Do Not Contact")
@@ -1063,7 +1065,7 @@ async def api_send(lead_id: str, request: Request):
     q = QualificationResult(
         lead=record["lead"],
         rejection_reason=record.get("rejection_reason"),
-        business_name=record["business_name"],
+        business_name=business_name,
         menu_evidence_found=record.get("menu_evidence_found", True),
         machine_evidence_found=record.get("machine_evidence_found", False),
     )
@@ -1091,7 +1093,7 @@ async def api_send(lead_id: str, request: Request):
         raise HTTPException(status_code=400, detail=f"Attachment file not found: {names}")
 
     default_email = build_outreach_email(
-        business_name=record["business_name"],
+        business_name=business_name,
         classification=classification,
         establishment_profile=profile["effective"],
         include_inperson_line=record.get("outreach_include_inperson", True),
@@ -1133,7 +1135,7 @@ async def api_send(lead_id: str, request: Request):
             machine_html_path=str(machine_html) if machine_html and machine_html.exists() else None,
             include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
-            business_name=record["business_name"],
+            business_name=business_name,
         )
     except Exception as exc:
         _log("send_failed", str(exc)[:200], lead_id=lead_id)

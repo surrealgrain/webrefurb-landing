@@ -6,6 +6,8 @@ Japan only. Ramen + izakaya only. Three fixed-price packages.
 ## Quick Commands
 
 - `.venv/bin/python -m pytest tests/ -v` — run pipeline tests
+- `.venv/bin/python -m pipeline.cli audit-state` — fail on stale lead assets, poisoned names, or launch-state drift
+- `.venv/bin/python -m pipeline.cli audit-state --repair` — normalize deterministic lead-state drift, then audit again
 - `.venv/bin/python -m pipeline.cli <command>` — CLI entry point
 
 ## Scope
