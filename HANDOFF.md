@@ -165,6 +165,12 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Runtime smoke-test records `smoke-65e39d8e3b` and `smoke-76fde53b8a` now use dark template proof assets instead of old `phase10-sample-*.png` screenshots.
 - Fresh dashboard API/browser check on `127.0.0.1:8771` confirmed `wrm-qa-phase10-ramen` and `wrm-smoke-nakano-tong` return dark JPEG preview HTML with no `cid:`, no SVG fallback, and no old asset references.
 - Screenshot saved under ignored state: `state/qa-screenshots/outreach-preview-dark-menu-visible-after-state-repair.png`.
+- User still saw cream on refresh because an old dashboard server was running on `127.0.0.1:8000` and stale browser modal state could save old asset paths back into lead JSON.
+- The stale `127.0.0.1:8000` server was stopped and restarted from current code.
+- Draft save now sanitizes browser-submitted asset paths so old `glm_menu_template...`, `state/builds`, or screenshot assets cannot be persisted from an already-open stale modal.
+- `assets/templates/izakaya_food_menu.html` no longer contains ramen sample rows; its first section is now izakaya signature dishes.
+- Fresh `127.0.0.1:8000` browser check saved `state/qa-screenshots/bistro-dark-izakaya-preview-port8000-fixed.png` and confirmed dark JPEG preview, no old refs, and izakaya sample labels.
+- Post-refresh-fix verification `.venv/bin/python -m pytest tests/ -q` passed with `388 passed`; `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=10`, `findings=[]`; `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
