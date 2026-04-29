@@ -47,6 +47,13 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 
 - Phase 0 baseline command `.venv/bin/python -m pytest tests/ -q` passed with `332 passed` on 2026-04-29.
 - Phase 0 `git diff --check` was clean on 2026-04-29.
+- Phase 1 state backup created: `state/backups/webrefurb-state-20260429T011607+0000.zip`.
+- Phase 1 inspected both current lead records: `wrm-qr-viz` and `wrm-tsukada-nojo-shibuya-miyamasuzaka-japan-e409`.
+- Phase 1 migrated Tsukada stale state: it remains `disqualified` / `do_not_contact`, active `pitch_draft` is now null, `pitch_available=false`, `preview_available=false`, and `preview_blocked_reason=legacy_pitch_contains_bracketed_fallback`.
+- Phase 1 readiness migration now tracks blocked legacy pitch/preview fields and keeps bracketed legacy preview records out of launch-ready status.
+- Phase 1 focused command `.venv/bin/python -m pytest tests/test_lead_dossier.py -q` passed with `8 passed`.
+- Phase 1 full command `.venv/bin/python -m pytest tests/ -q` passed with `334 passed`.
+- Phase 1 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
