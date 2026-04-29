@@ -4,7 +4,7 @@ Updated: 2026-04-29 (Codex)
 
 ## Source Of Truth
 
-Use `PLAN.md` only. It now contains the `Product Audit Hardening Plan` pasted by the user on 2026-04-29.
+Use `PLAN.md` only. It now contains the `Product Audit Hardening Plan` based on `PRODUCT_AUDIT_2026-04-29.md`, the original audit from 2026-04-29.
 
 Do not resume from the obsolete P0/P1/P2/P3/P4/P5/P6/P7 plan text. That plan was intentionally replaced because it was interfering with the current audit-hardening workflow.
 

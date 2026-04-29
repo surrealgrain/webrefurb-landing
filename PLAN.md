@@ -2,7 +2,7 @@
 
 ## Summary
 
-Implement the 2026-04-29 audit as a pre-launch hardening pass before `P7 Controlled Launch`. Real outreach remains frozen until every gate below passes, `PLAN.md` is updated, state is backed up, and launch authorization is explicit.
+Implement the 2026-04-29 audit in `PRODUCT_AUDIT_2026-04-29.md` as a pre-launch hardening pass before `P7 Controlled Launch`. Real outreach remains frozen until every gate below passes, `PLAN.md` is updated, state is backed up, and launch authorization is explicit.
 
 This plan keeps the three fixed prices and existing package keys, but changes the product framing from “translation service” to “English ordering system” across qualification, outreach, quotes, dashboard, and public pages.
 
