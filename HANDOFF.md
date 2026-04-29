@@ -128,6 +128,12 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Smoke test `smoke-76fde53b8a` checked five public-evidence rehearsal leads: source URLs returned HTTP 200, proof assets exist, drafts exist, sender/opt-out text exists, no lead has `outreach_sent_at`, and no lead has a real launch batch ID.
 - After smoke test `smoke-76fde53b8a`, `state/launch_batches/` remained empty.
 - Post-smoke verification `.venv/bin/python -m pytest tests/ -q` passed with `366 passed`; `git diff --check` was clean.
+- A 10-business production-readiness audit was run for classification, pitch path, seal personalization, preview translation safety, and inline attachment plumbing.
+- Audit result saved under ignored state: `state/qa-screenshots/production-readiness-10-business-audit-final2.json`.
+- Audit hardening fixed: personalized restaurant-name seals for every inline menu/machine image, no guessed customer-visible preview translations, less brittle placeholder-page detection, category mismatch handling, franchise/FC rejection, and image-heavy page scoring.
+- Final 10-business audit summary: 7 qualified/manual-review leads, 3 rejected, 3 ticket-machine profiles, 4 menu/regular-pitch classifications, 3 izakaya profiles, all checked seals correct, zero guessed preview translations.
+- Remaining audit caveat: one public page (`https://maki.owst.jp/`) returned HTTP 404 to direct fetch during the local audit, so that candidate was correctly not qualified from empty content.
+- Post-hardening verification `.venv/bin/python -m pytest tests/ -q` passed with `373 passed`; `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions

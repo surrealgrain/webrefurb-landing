@@ -39,8 +39,17 @@ _COMMON_TRANSLATIONS: dict[str, str] = {
 
 
 def _auto_translate(ja: str) -> str:
-    """Deterministic translation for common items, never bracket fallback."""
-    return _COMMON_TRANSLATIONS.get(ja, "English review sample")
+    """Deterministic translation for common items.
+
+    Unknown source text is intentionally not translated for customer-visible
+    previews. Production translations use owner-provided photos and review.
+    """
+    if ja in _COMMON_TRANSLATIONS:
+        return _COMMON_TRANSLATIONS[ja]
+    for source, translated in sorted(_COMMON_TRANSLATIONS.items(), key=lambda item: len(item[0]), reverse=True):
+        if source in ja:
+            return translated
+    return ""
 
 
 def build_preview_menu(
@@ -58,6 +67,8 @@ def build_preview_menu(
         # Try to extract a food term
         ja_name = PRICE_RE.sub("", snippet)[:40].strip()
         en_name = _auto_translate(ja_name)
+        if not en_name:
+            continue
         items.append(PreviewItem(
             ja=ja_name,
             en=en_name,

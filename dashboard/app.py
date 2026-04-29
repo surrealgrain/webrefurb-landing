@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 import uuid
 from datetime import datetime, timezone, timedelta
 from email.utils import parseaddr
@@ -1082,6 +1083,7 @@ async def api_send(lead_id: str, request: Request):
             machine_html_path=str(machine_html) if machine_html and machine_html.exists() else None,
             include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
+            business_name=record["business_name"],
         )
     except Exception as exc:
         _log("send_failed", str(exc)[:200], lead_id=lead_id)
@@ -2294,6 +2296,7 @@ async def _send_email_resend(
     machine_html_path: str | None = None,
     include_menu_image: bool = True,
     include_machine_image: bool = False,
+    business_name: str = "",
 ) -> dict:
     """Send an email via Resend with CID-embedded inline images + PDF attachments."""
     import base64
@@ -2314,42 +2317,62 @@ async def _send_email_resend(
     from_name = os.environ.get("RESEND_FROM_NAME", "Chris（クリス）")
     reply_to = os.environ.get("RESEND_REPLY_TO_EMAIL", from_email).strip() or from_email
 
-    # Render HTML templates to JPEG for CID embedding
-    menu_jpeg = _ensure_menu_jpeg(menu_html_path) if include_menu_image and menu_html_path else None
-    machine_jpeg = _ensure_menu_jpeg(machine_html_path) if include_machine_image and machine_html_path else None
+    with tempfile.TemporaryDirectory(prefix="wrm-email-") as tmp_dir:
+        # Render lead-specific HTML templates to JPEG for CID embedding.
+        # The red seal must match the locked restaurant name for every inline sample.
+        menu_source = _personalised_email_html(menu_html_path, business_name, tmp_dir, "menu") if include_menu_image and menu_html_path else None
+        machine_source = _personalised_email_html(machine_html_path, business_name, tmp_dir, "machine") if include_machine_image and machine_html_path else None
+        menu_jpeg = _ensure_menu_jpeg(menu_source) if menu_source else None
+        machine_jpeg = _ensure_menu_jpeg(machine_source) if machine_source else None
 
-    # Build HTML email body — all images via cid: references
-    html_body = build_pitch_email_html(
-        text_body=body,
-        include_menu_image=bool(menu_jpeg),
-        include_machine_image=bool(machine_jpeg),
-        locale="ja",
-    )
+        # Build HTML email body — all images via cid: references
+        html_body = build_pitch_email_html(
+            text_body=body,
+            include_menu_image=bool(menu_jpeg),
+            include_machine_image=bool(machine_jpeg),
+            locale="ja",
+        )
 
-    params: dict[str, Any] = {
-        "from": f"{from_name} <{from_email}>",
-        "to": [to],
-        "subject": subject,
-        "text": body,
-        "html": html_body,
-        "reply_to": reply_to,
-    }
+        params: dict[str, Any] = {
+            "from": f"{from_name} <{from_email}>",
+            "to": [to],
+            "subject": subject,
+            "text": body,
+            "html": html_body,
+            "reply_to": reply_to,
+        }
 
-    if in_reply_to:
-        params["headers"] = {"In-Reply-To": in_reply_to}
+        if in_reply_to:
+            params["headers"] = {"In-Reply-To": in_reply_to}
 
-    # CID inline attachments only (logo + menu + machine) — no file attachments
-    # Cold outreach with PDF attachments looks scammy; inline images are sufficient.
-    # PDFs can be sent in follow-up replies after the business expresses interest.
-    all_attachments = build_inline_attachments(
-        menu_jpeg_path=menu_jpeg,
-        machine_jpeg_path=machine_jpeg,
-    )
+        # CID inline attachments only (logo + menu + machine) — no file attachments
+        # Cold outreach with PDF attachments looks scammy; inline images are sufficient.
+        # PDFs can be sent in follow-up replies after the business expresses interest.
+        all_attachments = build_inline_attachments(
+            menu_jpeg_path=menu_jpeg,
+            machine_jpeg_path=machine_jpeg,
+        )
 
-    if all_attachments:
-        params["attachments"] = all_attachments
+        if all_attachments:
+            params["attachments"] = all_attachments
 
-    return _resend.Emails.send(params)
+        return _resend.Emails.send(params)
+
+
+def _personalised_email_html(source_path: str | None, business_name: str, tmp_dir: str, stem: str) -> str | None:
+    if not source_path:
+        return None
+    source = Path(source_path)
+    if not source.exists():
+        return None
+    html_text = source.read_text(encoding="utf-8")
+    if business_name:
+        from pipeline.render import replace_seal_text
+
+        html_text = replace_seal_text(html_text, business_name)
+    output = Path(tmp_dir) / f"{stem}.html"
+    output.write_text(html_text, encoding="utf-8")
+    return str(output)
 
 
 # ---------------------------------------------------------------------------

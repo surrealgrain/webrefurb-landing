@@ -221,6 +221,42 @@ class TestBinaryLead:
         assert result.lead is False
         assert result.rejection_reason == "chain_business"
 
+    def test_franchise_infrastructure_rejected(self):
+        html = """
+        <html><body>
+        <h1>むかん</h1>
+        <nav>店舗一覧 Stores FC募集</nav>
+        <p>濃厚牡蠣塩ラーメン メニュー 住所 東京都杉並区</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="むかん",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都杉並区",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_store_list_navigation_alone_is_not_chain_infrastructure(self):
+        html = """
+        <html><body>
+        <h1>小さなラーメン</h1>
+        <nav>店舗一覧 Stores</nav>
+        <p>醤油ラーメン 900円 味噌ラーメン 950円 味玉 トッピング メニュー</p>
+        <p>住所 東京都杉並区</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="小さなラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都杉並区",
+        )
+        assert result.lead is True
+
     def test_non_ramen_izakaya_rejected(self):
         result = qualify_candidate(
             business_name="テスト寿司",
@@ -305,6 +341,27 @@ class TestBinaryLead:
         )
         assert result.lead is False
 
+    def test_menu_evidence_not_rejected_by_incidental_food_images(self):
+        html = """
+        <html><body>
+        <h1>写真多めラーメン</h1>
+        <p>醤油ラーメン 900円 味噌ラーメン 950円 味玉 トッピング メニュー</p>
+        <img src="storefront.jpg" alt="storefront exterior">
+        <img src="ramen1.jpg" alt="ramen food bowl">
+        <img src="ramen2.jpg" alt="ramen food bowl">
+        <img src="ramen3.jpg" alt="ramen food bowl">
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="写真多めラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区",
+        )
+        assert result.rejection_reason != "negative_evidence_score"
+        assert result.lead is True
+
     def test_independent_business_not_rejected_by_chain_check(self):
         assert is_chain_business("商店街ラーメン") is False
         assert is_chain_business("小さな居酒屋 よいち") is False
@@ -353,6 +410,46 @@ class TestInvalidPageGuard:
 
         assert result.lead is False
         assert result.rejection_reason == "placeholder/password/coming-soon page"
+
+    def test_incidental_coming_soon_text_does_not_reject_real_menu_page(self):
+        html = """
+        <html><body>
+        <h1>小さなラーメン</h1>
+        <p>醤油ラーメン 900円 味噌ラーメン 950円 味玉 トッピング メニュー</p>
+        <p>営業時間 11:00-22:00 住所 東京都渋谷区</p>
+        <p>アレルゲン情報は近日公開です。</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="小さなラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区",
+        )
+
+        assert result.lead is True
+        assert result.rejection_reason is None
+
+    def test_operator_category_prevents_ramen_side_item_from_overriding_izakaya(self):
+        html = """
+        <html><body>
+        <h1>餃子酒場</h1>
+        <p>居酒屋 メニュー 生ビール ハイボール 飲み放題 コース 醤油ラーメン</p>
+        <p>住所 東京都杉並区 電話 03-0000-0000</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="餃子酒場",
+            website="https://example.izakaya.jp",
+            category="izakaya",
+            pages=[{"url": "https://example.izakaya.jp", "html": html}],
+            address="東京都杉並区",
+        )
+
+        assert result.lead is True
+        assert result.primary_category_v1 == "izakaya"
+        assert result.establishment_profile.startswith("izakaya")
 
     def test_invalid_page_mixed_with_valid(self):
         """When invalid pages are mixed with valid ones, valid evidence still counts."""
