@@ -101,12 +101,20 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 8 focused command `.venv/bin/python -m pytest tests/test_website.py tests/test_paid_ops.py -q` passed with `10 passed`.
 - Phase 8 full command `.venv/bin/python -m pytest tests/ -q` passed with `360 passed`.
 - Phase 8 `git diff --check` was clean.
+- Phase 9 tightened paid workflow API gates so owner review requires confirmed payment and complete intake, owner approval requires owner-review state plus privacy acceptance, and delivery requires package approval gates.
+- Phase 9 delivery now records `delivered_at`, `follow_up_status`, and `follow_up_due_at`.
+- Phase 9 rehearsed Package 1, Package 2, and Package 3 through quote, payment pending, paid, intake, production, owner review, owner approval, and delivered states with safe test data.
+- Phase 9 verified final package export gates still block without paid order, payment, intake, privacy note, and owner approval.
+- Phase 9 focused command `.venv/bin/python -m pytest tests/test_paid_ops.py tests/test_api.py::TestAPIEndpoints::test_paid_order_workflow_records_quote_payment_intake_and_owner_approval tests/test_api.py::TestAPIEndpoints::test_paid_order_blocks_owner_review_and_delivery_until_gates_pass -q` passed with `6 passed`.
+- Phase 9 custom-build gate command `.venv/bin/python -m pytest tests/test_custom_build.py -q` passed with `41 passed`.
+- Phase 9 full command `.venv/bin/python -m pytest tests/ -q` passed with `362 passed`.
+- Phase 9 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 9 unless the worktree shows uncommitted Phase 8 changes.
+2. Continue from Phase 10 unless the worktree shows uncommitted Phase 9 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.
