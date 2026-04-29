@@ -39,6 +39,19 @@ def test_preview_filters_bad_snippets_and_hides_unconfirmed_prices():
     assert "900円" not in html
     assert "[" not in html
     assert "醤油ラーメン" in html
+    assert "English review sample" not in html
+
+
+def test_preview_does_not_guess_unknown_translations():
+    preview = build_preview_menu(
+        assessment=_assessment(),
+        snippets=["季節限定の特製創作麺 メニュー"],
+        business_name="Safe Ramen",
+    )
+    html = build_preview_html(preview_menu=preview, ticket_machine_hint=None, business_name="Safe Ramen")
+
+    assert "季節限定の特製創作麺" not in html
+    assert "English review sample" not in html
 
 
 def test_shop_preview_returns_none_when_no_safe_customer_proof():

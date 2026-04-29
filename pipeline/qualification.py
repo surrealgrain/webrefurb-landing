@@ -73,6 +73,12 @@ def qualify_candidate(
             assessment=assessment, rejection_reason="chain_business",
             decision_reason="Rejected: known chain or multi-location brand.",
         )
+    if _has_franchise_or_multi_location_infrastructure(combined_text):
+        return _reject(
+            business_name=business_name, website=website, category=category,
+            assessment=assessment, rejection_reason="chain_or_franchise_infrastructure",
+            decision_reason="Rejected: franchise or multi-location infrastructure found.",
+        )
 
     # Category gate (ramen or izakaya only)
     primary_category = classify_primary_category(combined_text, category)
@@ -133,8 +139,9 @@ def qualify_candidate(
             false_positive_risk="low",
         )
 
-    # Negative evidence score
-    if assessment.score < 0:
+    # Negative evidence score. Do not let incidental food/storefront images
+    # override explicit menu or ticket-machine evidence from the same page.
+    if assessment.score < 0 and not (assessment.menu_evidence_found or assessment.machine_evidence_found):
         return _reject(
             business_name=business_name, website=website, category=category,
             assessment=assessment, rejection_reason="negative_evidence_score",
@@ -465,6 +472,15 @@ def _has_multilingual_ordering_solution(text: str) -> bool:
         "英語qr",
         "英語メニューはこちら",
         "english menu available",
+    ))
+
+
+def _has_franchise_or_multi_location_infrastructure(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(token in lowered for token in (
+        "fc募集",
+        "franchise",
+        "フランチャイズ",
     ))
 
 

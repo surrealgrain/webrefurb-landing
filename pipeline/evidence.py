@@ -113,7 +113,7 @@ def is_invalid_page(payload: dict[str, Any]) -> bool:
         "coming soon", "under construction", "opening soon", "site coming soon",
         "placeholder page", "site placeholder", "パスワード", "準備中", "工事中", "近日公開",
     )
-    if any(token in combined for token in placeholder_tokens):
+    if any(token in combined for token in placeholder_tokens) and not _has_substantive_restaurant_content(text):
         return True
     if any(token in combined for token in _CAPTCHA_TOKENS):
         return True
@@ -141,7 +141,15 @@ def is_excluded_business(business_name: str, category: str = "") -> bool:
 
 def classify_primary_category(text: str, category: str = "") -> str:
     """Return 'ramen', 'izakaya', or 'other'."""
+    category_value = str(category or "").strip().lower()
     haystack = f"{text} {category}".lower()
+    text_haystack = str(text or "").lower()
+    has_ramen = any(term.lower() in text_haystack for term in RAMEN_CATEGORY_TERMS)
+    has_izakaya = any(term.lower() in text_haystack for term in IZAKAYA_CATEGORY_TERMS)
+    if category_value in {"ramen", "ラーメン"} and not (has_izakaya and not has_ramen):
+        return "ramen"
+    if category_value in {"izakaya", "居酒屋"} and not (has_ramen and not has_izakaya):
+        return "izakaya"
     if any(term.lower() in haystack for term in RAMEN_CATEGORY_TERMS):
         return "ramen"
     if any(term.lower() in haystack for term in IZAKAYA_CATEGORY_TERMS):
@@ -409,6 +417,10 @@ def assess_evidence(
         score -= 3
     if not menu_evidence_found and not machine_evidence_found:
         evidence_classes.append("no_menu_evidence")
+    if menu_evidence_found and any(cls in evidence_classes for cls in ("official_html_menu", "official_pdf_menu", "nomihodai_menu", "course_menu")):
+        score = max(score, 7)
+    if machine_evidence_found:
+        score = max(score, 7)
 
     best_url = evidence_urls[0] if evidence_urls else (str(payloads[0].get("url") or website) if payloads else website)
     reason = "Ticket machine evidence is strongest." if machine_evidence_found else "Menu evidence is strongest." if menu_evidence_found else "No usable menu or machine evidence was found."
@@ -444,8 +456,16 @@ def _hard_reject_reason(payloads: list[dict[str, Any]]) -> str | None:
         "coming soon", "under construction", "opening soon", "site coming soon",
         "placeholder page", "site placeholder", "パスワード", "準備中", "工事中", "近日公開",
     )
-    if any(token in lowered for token in hard_tokens):
+    if any(token in lowered for token in hard_tokens) and not _has_substantive_restaurant_content(text):
         return "placeholder/password/coming-soon page"
     if len(text.strip()) < 24 and not any((payload.get("images") or payload.get("links")) for payload in payloads):
         return "no meaningful body content"
     return None
+
+
+def _has_substantive_restaurant_content(text: str) -> bool:
+    if _count_japanese_chars(text) >= 40 and any(token in text for token in ("メニュー", "料理", "営業時間", "住所", "電話", "ラーメン", "居酒屋", "飲み放題", "コース")):
+        return True
+    if PRICE_RE.search(text) and any(token in text for token in ("ラーメン", "餃子", "生ビール", "飲み放題", "コース", "メニュー")):
+        return True
+    return False

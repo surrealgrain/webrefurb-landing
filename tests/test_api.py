@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -1531,6 +1533,49 @@ class TestSendSafety:
             },
         )
         assert dash_app._count_today_sends() == 0
+
+    def test_resend_inline_samples_use_business_name_seal(self, monkeypatch, tmp_path):
+        import asyncio
+        import dashboard.app as dash_app
+        import pipeline.email_html as email_html
+        from pipeline.constants import GENERIC_MENU_PDF, GENERIC_MACHINE_PDF
+
+        rendered_sources = []
+        sent_params = {}
+        jpg = tmp_path / "inline.jpg"
+        jpg.write_bytes(b"jpg")
+
+        def fake_ensure_menu_jpeg(html_path):
+            rendered_sources.append(Path(html_path).read_text(encoding="utf-8"))
+            return jpg
+
+        class FakeEmails:
+            @staticmethod
+            def send(params):
+                sent_params.update(params)
+                return {"id": "mock-send"}
+
+        monkeypatch.setenv("RESEND_API_KEY", "test-key")
+        monkeypatch.setitem(sys.modules, "resend", types.SimpleNamespace(api_key="", Emails=FakeEmails))
+        monkeypatch.setattr(email_html, "_ensure_menu_jpeg", fake_ensure_menu_jpeg)
+
+        result = asyncio.run(dash_app._send_email_resend(
+            to="owner@example.test",
+            subject="Subject",
+            body="Body",
+            attachments=[],
+            menu_html_path=str(GENERIC_MENU_PDF),
+            machine_html_path=str(GENERIC_MACHINE_PDF),
+            include_menu_image=True,
+            include_machine_image=True,
+            business_name="青空ラーメン",
+        ))
+
+        assert result["id"] == "mock-send"
+        assert len(rendered_sources) == 2
+        assert all("青空ラーメン" in source for source in rendered_sources)
+        content_ids = {attachment["content_id"] for attachment in sent_params["attachments"]}
+        assert {"webrefurb-logo", "menu-preview", "machine-preview"}.issubset(content_ids)
 
     def test_attachment_names_are_professional(self):
         import dashboard.app as dash_app
