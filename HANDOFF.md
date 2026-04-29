@@ -109,12 +109,17 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 9 custom-build gate command `.venv/bin/python -m pytest tests/test_custom_build.py -q` passed with `41 passed`.
 - Phase 9 full command `.venv/bin/python -m pytest tests/ -q` passed with `362 passed`.
 - Phase 9 `git diff --check` was clean.
+- Phase 10 created a local QA-only ready lead `wrm-qa-phase10-ramen` under ignored `state/leads/` for browser verification; no outreach was sent.
+- Phase 10 started local dashboard/site servers on `127.0.0.1:8766` and `127.0.0.1:8767` for render checks.
+- Phase 10 captured desktop and mobile screenshots under `state/qa-screenshots/phase10-*` for dashboard lead cards, outreach/lead dossier modal, homepage, pricing, Japanese homepage/pricing, sample ramen preview, sample izakaya preview, QR menu, and QR sign.
+- Phase 10 browser checks found no forbidden placeholder/fallback text, no HVAC/forbidden public copy, no bracketed fallback text, and no horizontal overflow over 24px on checked pages.
+- Phase 10 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 10 unless the worktree shows uncommitted Phase 9 changes.
+2. Continue from Phase 11 unless the worktree shows uncommitted Phase 10 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.
