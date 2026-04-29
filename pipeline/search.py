@@ -424,6 +424,58 @@ def _has_verified_name_conflict(*, source_candidate: str, official_name: str) ->
     return not business_names_match(source_candidate, official_name)
 
 
+def _normalise_search_job(query: str, category: str, search_job: dict[str, Any] | None) -> dict[str, str]:
+    job = search_job or {}
+    return {
+        "job_id": str(job.get("job_id") or "operator_custom_query"),
+        "query": str(job.get("query") or query),
+        "category": str(job.get("category") or category),
+        "purpose": str(job.get("purpose") or "operator_custom_search"),
+        "expected_friction": str(job.get("expected_friction") or "operator_supplied"),
+    }
+
+
+def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, str]) -> list[str]:
+    matches: list[str] = []
+    classes = set(decision.get("evidence_classes") or [])
+    reason = str(decision.get("reason") or decision.get("rejection_reason") or "")
+    job_id = str(search_job.get("job_id") or "")
+    expected = str(search_job.get("expected_friction") or "")
+
+    if decision.get("machine_evidence_found") or decision.get("ticket_machine_state") == "present":
+        matches.append("ticket_machine_evidence")
+    if decision.get("menu_evidence_found") or classes.intersection({
+        "official_html_menu",
+        "official_pdf_menu",
+        "official_menu_image",
+        "review_menu_photo",
+        "drink_menu_photo",
+        "printed_menu_photo",
+        "wall_menu_photo",
+        "handwritten_menu_photo",
+    }):
+        matches.append("menu_evidence")
+    if decision.get("course_or_drink_plan_evidence_found") or classes.intersection({"nomihodai_menu", "course_menu", "drink_menu_photo"}):
+        matches.append("drink_or_course_friction")
+    if reason in {"already_has_good_english_menu", "already_has_multilingual_ordering_solution"}:
+        matches.append("already_solved_english_solution")
+    if job_id.startswith("ramen_ramendb"):
+        matches.append("ramendb_lookup_source")
+    if "tabelog" in job_id or "hotpepper" in job_id:
+        matches.append("directory_menu_lookup_source")
+    if expected and expected not in {"operator_supplied", "english_menu_check", "multilingual_qr_check", "mobile_order_check", "english_ticket_machine_check"}:
+        matches.append(f"search_job:{expected}")
+
+    return list(dict.fromkeys(matches))
+
+
+def _add_search_context(decision: dict[str, Any], *, query: str, search_job: dict[str, str]) -> dict[str, Any]:
+    decision.setdefault("source_query", query)
+    decision.setdefault("source_search_job", search_job)
+    decision.setdefault("matched_friction_evidence", _matched_friction_evidence(decision, search_job))
+    return decision
+
+
 def verify_business_name(
     *,
     source_name: str,
@@ -529,11 +581,13 @@ def search_and_qualify(
     category: str = "ramen",
     state_root: Path | None = None,
     max_candidates: int = 24,
+    search_job: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Search, fetch pages, qualify each candidate, persist leads."""
     if state_root is None:
         state_root = Path(__file__).resolve().parent.parent / "state"
 
+    source_search_job = _normalise_search_job(query, category, search_job)
     raw_places = run_search(query=query, api_key=serper_api_key)
     results: list[dict[str, Any]] = []
     decisions: list[dict[str, Any]] = []
@@ -689,6 +743,8 @@ def search_and_qualify(
                 pitch_draft=pitch,
                 contacts=contact_routes,
                 source_query=query,
+                source_search_job=source_search_job,
+                matched_friction_evidence=_matched_friction_evidence(decision, source_search_job),
                 state_root=state_root,
             )
             record["business_name_source"] = business_name_source
@@ -705,9 +761,15 @@ def search_and_qualify(
         decisions.append(decision)
 
     run_id = f"wrm-search-{utc_now().replace(':', '').replace('-', '').replace('+00:00', 'z').lower()}"
+    decisions = [
+        _add_search_context(decision, query=query, search_job=source_search_job)
+        for decision in decisions
+    ]
+
     return {
         "run_id": run_id,
         "query": query,
+        "search_job": source_search_job,
         "total_candidates": len(raw_places[:max_candidates]),
         "leads": len(results),
         "qualified_without_email": qualified_without_email,

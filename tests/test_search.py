@@ -39,9 +39,16 @@ def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
     monkeypatch.setattr(search, "run_web_search", lambda **kwargs: _tabelog_result())
 
     result = search.search_and_qualify(
-        query="ramen restaurants Tokyo",
+        query="券売機 ラーメン Tokyo",
         serper_api_key="test-key",
         category="ramen",
+        search_job={
+            "job_id": "ramen_ticket_machine",
+            "query": "券売機 ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "ticket_machine_lookup",
+            "expected_friction": "ticket_machine",
+        },
         state_root=tmp_path,
     )
 
@@ -74,9 +81,16 @@ def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
     monkeypatch.setattr(search, "run_web_search", lambda **kwargs: _tabelog_result())
 
     result = search.search_and_qualify(
-        query="ramen restaurants Tokyo",
+        query="券売機 ラーメン Tokyo",
         serper_api_key="test-key",
         category="ramen",
+        search_job={
+            "job_id": "ramen_ticket_machine",
+            "query": "券売機 ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "ticket_machine_lookup",
+            "expected_friction": "ticket_machine",
+        },
         state_root=tmp_path,
     )
 
@@ -85,6 +99,12 @@ def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
     assert len(paths) == 1
     lead = json.loads(paths[0].read_text(encoding="utf-8"))
     assert lead["email"] == "owner@email-ramen.example"
+    assert lead["source_query"] == "券売機 ラーメン Tokyo"
+    assert lead["source_search_job"]["job_id"] == "ramen_ticket_machine"
+    assert "ticket_machine_evidence" in lead["matched_friction_evidence"]
+    assert "search_job:ticket_machine" in lead["matched_friction_evidence"]
+    assert result["decisions"][0]["source_search_job"]["job_id"] == "ramen_ticket_machine"
+    assert "ticket_machine_evidence" in result["decisions"][0]["matched_friction_evidence"]
 
 
 def test_business_name_resolver_prefers_page_name_over_contact_like_source():

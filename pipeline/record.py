@@ -364,6 +364,8 @@ def create_lead_record(
     pitch_draft: dict[str, dict[str, str]],
     contacts: list[dict[str, Any]] | None = None,
     source_query: str = "",
+    source_search_job: dict[str, Any] | None = None,
+    matched_friction_evidence: list[str] | None = None,
     state_root: Path | None = None,
 ) -> dict[str, Any]:
     """Create a lead record dict ready for persistence."""
@@ -401,6 +403,8 @@ def create_lead_record(
 
         # Source tracking
         "source_query": source_query,
+        "source_search_job": source_search_job or {},
+        "matched_friction_evidence": matched_friction_evidence or [],
         "source_urls": {
             "website": qualification.website,
             "map_url": qualification.map_url,
