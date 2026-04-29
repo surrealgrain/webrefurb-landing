@@ -550,7 +550,7 @@ body::before {
 .bento-tile[data-popover="ticket-machine-guides"]::before { background: var(--accent-blue); }
 .bento-tile[data-popover="food-drink-layouts"]::before      { background: var(--accent-amber); }
 .bento-tile[data-popover="print-ready-design"]::before        { background: var(--accent-cyan); }
-.bento-tile[data-popover="local-delivery"]::before { background: var(--accent-indigo); }
+.bento-tile[data-popover="qr-signs"]::before { background: var(--accent-indigo); }
 .bento-tile[data-popover="customer-flow"]::before { background: var(--accent-red); }
 
 /* Hover: subtle lift + shadow deepening */
@@ -600,7 +600,7 @@ body::before {
 .bento-tile[data-popover="print-ready-design"] .bento-tile__dot {
   background: var(--accent-cyan);
 }
-.bento-tile[data-popover="local-delivery"] .bento-tile__dot {
+.bento-tile[data-popover="qr-signs"] .bento-tile__dot {
   background: var(--accent-indigo);
 }
 .bento-tile[data-popover="customer-flow"] .bento-tile__dot {
@@ -1546,15 +1546,15 @@ a:focus-visible {
         <span class="bento-tile__hint">Professional files prepared for printing, laminating, and everyday restaurant use.</span>
       </button>
 
-      <button class="bento-tile" role="listitem" tabindex="0" data-popover="local-delivery">
+      <button class="bento-tile" role="listitem" tabindex="0" data-popover="qr-signs">
         <span class="bento-tile__dot"></span>
-        <span class="bento-tile__title">Local Delivery</span>
+        <span class="bento-tile__title">QR Signs</span>
         <div class="bento-tile__visual" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-indigo)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/><path d="M14 21h2"/><path d="M21 14v2"/>
           </svg>
         </div>
-        <span class="bento-tile__hint">Printed and laminated menus can be delivered directly to your restaurant where available.</span>
+        <span class="bento-tile__hint">Hosted QR menus include a simple &quot;Scan for English Menu&quot; sign for tables or counters.</span>
       </button>
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="customer-flow">
@@ -1642,7 +1642,7 @@ a:focus-visible {
           <p class="pricing-modal__desc">A hosted English ordering menu with item descriptions, photos if provided, ingredients when confirmed by the restaurant, QR code, and "Scan for English Menu" sign.</p>
         </article>
       </div>
-      <p class="pricing-modal__foot">Larger menus, extra pages, additional copies, or combined packages can be quoted separately.</p>
+      <p class="pricing-modal__foot">Owner approval and one correction window are included before delivery. Larger menus, extra pages, additional copies, or combined packages can be quoted separately. Prices and allergen claims are only shown after restaurant confirmation.</p>
     </div>
   </div>
 </div>
@@ -1711,9 +1711,9 @@ a:focus-visible {
       body: 'Professional files prepared for printing, laminating, and everyday restaurant use.',
       color: '#0E7A8A'
     },
-    'local-delivery': {
-      title: 'Local Delivery',
-      body: 'Printed and laminated menus can be delivered directly to your restaurant where available.',
+    'qr-signs': {
+      title: 'QR Signs',
+      body: 'Hosted QR menus include a simple "Scan for English Menu" sign for tables or counters.',
       color: '#6B7BD8'
     },
     'customer-flow': {

@@ -29,6 +29,7 @@ What we deliver:
 - English ordering files for food, drinks, toppings, courses, and rules
 - English ticket-machine guide when applicable, matching the exact button layout
 - Layout that follows your real order flow, with owner approval before delivery
+- One correction window after owner review
 - No price, allergy, or ingredient claims without owner confirmation
 
 Three packages:
@@ -41,7 +42,7 @@ Three packages:
 | Printed + laminated | — | Yes | — |
 | Delivered to your shop | — | Yes | — |
 
-What's included in the base price: one food menu, one drink menu, one ticket-machine guide where applicable, or one hosted QR menu. Very large menus, multiple menu sets, or oversized print needs are quoted separately. Future menu updates are handled as separate work.
+What's included in the base price: one food menu, one drink menu, one ticket-machine guide where applicable, or one hosted QR menu, plus one correction window after owner review. Very large menus, multiple menu sets, or oversized print needs are quoted separately. Future menu updates are handled as separate work.
 
 How it works: You send us photos or PDFs of your current menu and ticket machine. We do the rest."""
 
@@ -90,7 +91,9 @@ Scope boundaries:
 - Base price covers: one food menu, one drink menu, one ticket-machine guide where applicable, or one hosted QR menu
 - Very large menus, multiple menu sets, or additional materials may require a separate quote — handled case by case
 - Menu updates after initial delivery are separate paid work
-- No subscriptions, no revision entitlements, no ongoing commitments
+- One correction window is included after owner review; later revisions are separate paid work
+- No subscriptions and no ongoing commitments
+- No price, allergy, or ingredient claims without owner confirmation
 
 What we need from the shop:
 - Clear photos or PDFs of the current food menu (all pages)

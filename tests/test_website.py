@@ -4,6 +4,9 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+from pipeline.constants import PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY
+from pipeline.quote import generate_quote
+
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
 
@@ -54,6 +57,11 @@ def test_homepages_include_pricing_content():
         "¥45,000",
         "Live QR English Menu",
         "¥65,000",
+        "Ticket Machine Guides",
+        "QR Signs",
+        "Customer Flow",
+        "Scan for English Menu",
+        "Owner approval and one correction window",
         "sized compactly for your menu and shop",
         "hosted English ordering menu",
         "Scan for English Menu",
@@ -68,11 +76,69 @@ def test_homepages_include_pricing_content():
         "45,000円",
         "ライブQR英語メニュー",
         "65,000円",
+        "注文ガイド",
+        "QR案内サイン",
+        "スムーズな注文の流れ",
         "内容量と店舗で扱いやすいサイズ",
         "Scan for English Menu",
+        "納品前の店舗確認と修正1回",
         "別途お見積もり",
     ):
         assert expected in ja_text
+
+
+def test_pricing_pages_include_risk_reversal_and_custom_quote_limits():
+    en_text = _visible_text(_read("pricing.html"))
+    ja_text = _visible_text(_read("ja/pricing.html"))
+
+    for expected in (
+        "Owner approval and one correction window are included before delivery",
+        "Prices and ingredient/allergen claims are only published after restaurant confirmation",
+        "Larger menus, extra pages, additional copies, frequent updates, or combined packages can be quoted separately",
+    ):
+        assert expected in en_text
+
+    for expected in (
+        "納品前の店舗確認と修正1回を含みます",
+        "価格・アレルギー表記は店舗確認後のみ掲載します",
+        "別途お見積もり",
+    ):
+        assert expected in ja_text
+
+
+def test_public_copy_avoids_forbidden_positioning_terms_and_hvac():
+    forbidden = (
+        "translation service",
+        "generic translation",
+        "HVAC",
+        "hvac",
+    )
+    for name in ("index.html", "ja/index.html", "pricing.html", "ja/pricing.html"):
+        text = _visible_text(_read(name))
+        for term in forbidden:
+            assert term not in text
+
+
+def test_quote_copy_has_package_labels_prices_and_risk_reversal():
+    expected = {
+        PACKAGE_1_KEY: ("English Ordering Files", 30000),
+        PACKAGE_2_KEY: ("Counter-Ready Ordering Kit", 45000),
+        PACKAGE_3_KEY: ("Live QR English Menu", 65000),
+    }
+
+    for package_key, (label, price) in expected.items():
+        quote = generate_quote(business_name="Audit Ramen", package_key=package_key)
+        combined = " ".join([
+            quote.package_label,
+            quote.scope_description,
+            quote.delivery_terms,
+            quote.update_terms,
+        ])
+        assert quote.package_label == label
+        assert quote.price_yen == price
+        assert "owner approval" in combined.lower() or "owner confirmation" in combined.lower()
+        assert "prices, ingredients, and allergens are only shown when confirmed by the restaurant" in combined.lower()
+        assert "correction window" in combined or "bundled update round" in combined
 
 
 def test_website_visible_copy_has_no_em_dashes():
