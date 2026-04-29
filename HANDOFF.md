@@ -86,12 +86,19 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 6 focused command `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py::TestDraftSaveAndLoad::test_outreach_returns_business_name tests/test_api.py::TestAPIEndpoints::test_outreach_blocked_for_do_not_contact -q` passed with `46 passed`.
 - Phase 6 full command `.venv/bin/python -m pytest tests/ -q` passed with `353 passed`.
 - Phase 6 `git diff --check` was clean.
+- Phase 7 expanded preview rejection for header/footer, TEL/phone, search, reservation, unrelated chain, and bracketed fallback snippets.
+- Phase 7 customer previews now depend on customer-eligible proof items when proof items exist, and blocked legacy preview/pitch records return no customer preview.
+- Phase 7 preview samples now add operational clarity rows for ramen toppings, sets, noodle/soup choices, add-ons, ticket-machine mapping, and izakaya drinks/courses/nomihodai/shared-plate evidence only when proven by safe snippets.
+- Phase 7 continues hiding unconfirmed source prices from outreach previews.
+- Phase 7 focused command `.venv/bin/python -m pytest tests/test_preview_hardening.py tests/test_search.py -q` passed with `25 passed`.
+- Phase 7 full command `.venv/bin/python -m pytest tests/ -q` passed with `357 passed`.
+- Phase 7 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 7 unless the worktree shows uncommitted Phase 6 changes.
+2. Continue from Phase 8 unless the worktree shows uncommitted Phase 7 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.

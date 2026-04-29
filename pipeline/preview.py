@@ -72,6 +72,13 @@ def build_preview_menu(
             header_en="Menu",
             items=items[:5],
         ))
+    operational_items = _operational_clarity_items(assessment=assessment, safe_snippets=safe_snippets)
+    if operational_items:
+        sections.append(PreviewSection(
+            header_ja="注文の確認ポイント",
+            header_en="Ordering Clarity",
+            items=operational_items,
+        ))
 
     return PreviewMenu(
         sections=sections,
@@ -183,11 +190,11 @@ def build_shop_preview_from_record(
     The preview is clearly marked as illustrative and partial — production
     always uses owner-provided photos and confirmation.
     """
-    snippets: list[str] = record.get("evidence_snippets") or []
     business_name = record.get("business_name") or ""
-    if not snippets or not business_name:
+    if record.get("preview_blocked_reason") or record.get("legacy_pitch_blocked_reason"):
         return None
-    if not safe_customer_snippets(snippets):
+    snippets = _customer_preview_snippets(record)
+    if not snippets or not business_name:
         return None
 
     from .models import EvidenceAssessment
@@ -222,3 +229,57 @@ def build_shop_preview_from_record(
         ticket_machine_hint=ticket_hint,
         business_name=business_name,
     )
+
+
+def _customer_preview_snippets(record: dict[str, Any]) -> list[str]:
+    proof_items = list(record.get("proof_items") or [])
+    if proof_items:
+        eligible = [
+            str(item.get("snippet") or "").strip()
+            for item in proof_items
+            if item.get("customer_preview_eligible") and str(item.get("snippet") or "").strip()
+        ]
+        return safe_customer_snippets(eligible)
+    return safe_customer_snippets(list(record.get("evidence_snippets") or []))
+
+
+def _operational_clarity_items(
+    *,
+    assessment: EvidenceAssessment,
+    safe_snippets: list[str],
+) -> list[PreviewItem]:
+    text = " ".join(safe_snippets)
+    items: list[PreviewItem] = []
+
+    def add_once(ja: str, en: str) -> None:
+        if not any(item.ja == ja for item in items):
+            items.append(PreviewItem(ja=ja, en=en, price="", source_type="derived_safe_evidence", confidence="medium"))
+
+    primary_category = str(getattr(assessment, "primary_category_v1", "") or getattr(assessment, "category", "") or "")
+    is_ramen = bool(getattr(assessment, "is_ramen_candidate", False)) or primary_category == "ramen"
+    is_izakaya = bool(getattr(assessment, "is_izakaya_candidate", False)) or primary_category == "izakaya"
+    machine_evidence_found = bool(getattr(assessment, "machine_evidence_found", False))
+
+    if is_ramen:
+        if any(token in text for token in ("トッピング", "味玉", "チャーシュー")):
+            add_once("トッピング", "Toppings")
+        if any(token in text for token in ("セット", "ご飯", "ライス", "餃子")):
+            add_once("セット", "Sets")
+        if any(token in text for token in ("麺", "スープ", "醤油", "味噌", "塩", "豚骨")):
+            add_once("麺・スープ", "Noodle / soup choices")
+        if any(token in text for token in ("替玉", "大盛", "追加")):
+            add_once("追加", "Add-ons")
+        if machine_evidence_found or "券売機" in text or "食券" in text:
+            add_once("券売機ボタン対応", "Ticket-machine button mapping")
+
+    if is_izakaya:
+        if any(token in text for token in ("生ビール", "ハイボール", "日本酒", "サワー", "ドリンク")):
+            add_once("ドリンク", "Drinks")
+        if "コース" in text:
+            add_once("コース", "Courses")
+        if "飲み放題" in text:
+            add_once("飲み放題ルール", "Nomihodai rules")
+        if any(token in text for token in ("一品料理", "刺身", "唐揚げ", "焼き鳥", "揚げ物")):
+            add_once("シェア料理", "Shared plates")
+
+    return items[:5]
