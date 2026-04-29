@@ -111,6 +111,13 @@ TICKET_MACHINE_TERMS = (
     "machine button", "button layout", "自販機",
 )
 
+TICKET_MACHINE_ABSENCE_TERMS = (
+    "券売機なし", "券売機無し", "券売機はありません", "券売機がありません",
+    "食券制ではありません", "口頭注文", "後払い", "席で注文",
+    "スタッフにご注文", "店員にご注文", "table order", "order at your seat",
+    "pay after", "no ticket machine",
+)
+
 IZAKAYA_MENU_TERMS = (
     "居酒屋", "お通し", "刺身", "焼き鳥", "串焼き", "揚げ物", "唐揚げ",
     "一品料理", "おすすめ", "本日のおすすめ", "〆", "ご飯もの",
@@ -129,6 +136,17 @@ COURSE_DRINK_PLAN_TERMS = (
     "飲み放題", "コース", "宴会", "all-you-can-drink", "nomihodai",
     "course menu", "食べ放題", "tabehodai", "all-you-can-eat",
     "bottomless", "飲み会", "女子会",
+)
+
+SOLVED_ENGLISH_SUPPORT_TERMS = (
+    "english menu available", "english menu provided", "english menu here",
+    "english ticket machine", "multilingual ticket machine", "multilingual qr",
+    "english qr", "mobile order english", "tablet order english",
+    "英語メニューあり", "英語メニュー有り", "英語メニューあります",
+    "英語メニューをご用意", "英語メニューはこちら", "英語券売機",
+    "多言語券売機", "多言語メニュー", "多言語対応", "多言語qr",
+    "英語qr", "モバイルオーダー 英語", "スマホオーダー 英語",
+    "タブレット注文 英語",
 )
 
 # ---------------------------------------------------------------------------

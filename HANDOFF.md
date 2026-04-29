@@ -1,182 +1,96 @@
 # WebRefurbMenu Handoff
 
-Updated: 2026-04-29 (Codex)
+Updated: 2026-04-30
+
+This file is intentionally compact. Do not use it as a running changelog. Record only the current checkpoint, next action, safety boundaries, and verification results. Put detailed logs in generated reports or small targeted docs so new chats do not start with stale context bloat.
 
 ## Source Of Truth
 
-Use `PLAN.md` only. It now contains the `Product Audit Implementation Plan` based directly on `PRODUCT_AUDIT_2026-04-29.md`, the original audit from 2026-04-29.
+- Active product plan: `PLAN.md`
+- Source audit: `PRODUCT_AUDIT_2026-04-29.md`
+- Current no-send hardening plan: `PRODUCTION_SIMULATION_TEST_PLAN.md`
 
-Do not resume from the obsolete P0/P1/P2/P3/P4/P5/P6/P7 plan text. That plan was intentionally replaced because it was interfering with the current audit-hardening workflow.
+`PRODUCTION_SIMULATION_TEST_PLAN.md` is subordinate to `PLAN.md`; it does not replace the product audit plan. Do not resume from obsolete P0/P1/P2/P3/P4/P5/P6/P7 plan text.
 
-## Active Plan
+## Safety Boundaries
 
-Current plan: `Product Audit Implementation Plan`
+- Japan only.
+- Ramen and izakaya only.
+- Binary lead semantics: `lead: true|false`, never "maybe".
+- Customer-facing copy must not mention AI, automation, or internal tools.
+- No real outreach has been sent in this thread.
+- No real launch batch has been created in this thread.
+- Production simulation must use isolated state and mocked send paths.
+- `production_ready=true` in a simulation report is a no-send readiness signal only. Real outreach remains blocked until `PLAN.md` phase gates allow it.
 
-Start at Phase 0 in `PLAN.md`. The plan intentionally treats prior implementation as untrusted until each phase is re-verified against `PRODUCT_AUDIT_2026-04-29.md`.
+## Current Checkpoint
 
-Phases:
+Active work is at the boundary between the production-simulation/no-send gate and any future controlled launch selection work.
 
-0. Source Lock And Baseline Audit
-1. State Backup And Stale-State Reconciliation
-2. Lead Evidence Dossier Gate
-3. Restaurant Fit And Disqualification Rules
-4. Friction-First Search
-5. Offer Fit And Package Recommendation
-6. Shop-Specific Diagnosis Outreach
-7. Preview And Proof Quality Gates
-8. Public Positioning, Package Copy, And Risk Reversal
-9. Paid Operations And P5 Reconciliation
-10. Browser And Render Verification
-11. Controlled Launch Batch 1
-12. Batch Review And Iteration
-13. Batch 2 And Repeatable Launch Loop
+Current run:
 
-Real outreach is Phase 11. Do not start it early; complete the preceding plan gates first.
+- Run ID: `production-sim-live-pilot-20260429T142841Z`
+- Stage: no-send real-world smoke and controlled-launch recommendation
+- Report result: `production_ready=true` for the no-send simulation only
+- Recommendation: `PROCEED_TO_CONTROLLED_BATCH_1_SELECTION`
+- Findings: `P0=0`, `P1=0`, `P2=0`
+- Corpus size: `1,852` raw candidates, `593` deduped/materialized candidates
+- Labels: `593` finalized, `593` strict, `0` diagnostic
+- Replay decisions: `63 ready`, `9 manual_review`, `521 disqualified`
+- Package distribution for ready leads: `package_1_remote_30k=10`, `package_2_printed_delivered_45k=15`, `package_3_qr_menu_65k=38`
+- Mock email payloads verified: `1`
+- No-send smoke ID: `smoke-b26ed1e542`
+- Smoke lead count: `5`
+- Smoke lead IDs: `wrm-halal-ramen-ueno-japan-dd61`, `wrm-goen-japan-df06`, `wrm-kuraichi-286-sengokuhara-fb03`, `wrm-hokkai-ramen-sapporo-station-japan-05d0`, `wrm-sake-to-sakana-to-otokomae-shokudo-kyoto-station-japan-8039`
+- Smoke checks: `15` source URLs checked, `0` failures, drafts verified, proof assets verified, inline assets verified, no contact marked
+- External send performed: `false`
+- Real launch batch created: `false`
+- Real outreach performed: `false`
+- Isolated simulation state was mutated only to generate no-send drafts and the smoke rehearsal record. No live lead state was mutated.
 
-## Current Repo State
+## What Changed Recently
 
-- Active branch now follows the new step-by-step Product Audit Implementation Plan in `PLAN.md`.
-- Do not trust older completion claims. Re-verify implementation phase by phase.
-- Real outreach has not been sent in this thread.
-- Phase 0 source lock and baseline audit has been run against the new plan.
-- At Phase 0 start, `git status --short` was clean.
-- `PLAN.md` names `PRODUCT_AUDIT_2026-04-29.md` as the source audit.
-- `HANDOFF.md`, `AGENTS.md`, and `CLAUDE.md` do not point back to the obsolete old plan as active guidance.
+Keep this section short. The detailed implementation trail lives in tests, generated reports, and git diff.
 
-## Last Verified State
+- `pipeline.cli production-sim recommend` now runs the no-send smoke gate, prepares no-send drafts in isolated state, verifies source URLs/proof assets/inline assets/no-contact status, and writes the controlled-launch recommendation into `report.json` and `report.md`.
+- `pipeline.launch_smoke` can prepare no-send draft metadata before applying the same launch lead gates.
+- Regression tests cover proceed and block recommendation paths.
 
-- Phase 0 baseline command `.venv/bin/python -m pytest tests/ -q` passed with `332 passed` on 2026-04-29.
-- Phase 0 `git diff --check` was clean on 2026-04-29.
-- Phase 1 state backup created: `state/backups/webrefurb-state-20260429T011607+0000.zip`.
-- Phase 1 inspected both current lead records: `wrm-qr-viz` and `wrm-tsukada-nojo-shibuya-miyamasuzaka-japan-e409`.
-- Phase 1 migrated Tsukada stale state: it remains `disqualified` / `do_not_contact`, active `pitch_draft` is now null, `pitch_available=false`, `preview_available=false`, and `preview_blocked_reason=legacy_pitch_contains_bracketed_fallback`.
-- Phase 1 readiness migration now tracks blocked legacy pitch/preview fields and keeps bracketed legacy preview records out of launch-ready status.
-- Phase 1 focused command `.venv/bin/python -m pytest tests/test_lead_dossier.py -q` passed with `8 passed`.
-- Phase 1 full command `.venv/bin/python -m pytest tests/ -q` passed with `334 passed`.
-- Phase 1 `git diff --check` was clean.
-- Phase 2 verified persisted lead fields for `lead_evidence_dossier`, `proof_items`, `launch_readiness_status`, `launch_readiness_reasons`, `message_variant`, `launch_batch_id`, and `launch_outcome`.
-- Phase 2 fixed new lead creation so `message_variant`, `launch_batch_id`, and `launch_outcome` are written at record creation.
-- Phase 2 dashboard now shows disqualified lead cards as blocked/read-only cards while ordinary do-not-contact records remain hidden.
-- Phase 2 focused command covering readiness persistence, dashboard readiness cards, outreach payload dossiers, non-ready outreach rejection, and dossier tests passed with `13 passed`.
-- Phase 2 full command `.venv/bin/python -m pytest tests/ -q` passed with `336 passed`.
-- Phase 2 `git diff --check` was clean.
-- Phase 3 verified restaurant-fit gates for Japan physical-location evidence, ramen/izakaya-only scope, chain/branch rejection, excluded business types, already-solved English/multilingual ordering rejection, social-only sites, and placeholder/coming-soon pages.
-- Phase 3 added explicit audit coverage for cafe, hotel, kaiseki, social-only, and stale placeholder pages.
-- Phase 3 focused command covering binary lead, invalid page, already-good-English, chain, and excluded-business tests passed with `28 passed`.
-- Phase 3 full command `.venv/bin/python -m pytest tests/ -q` passed with `341 passed`.
-- Phase 3 `git diff --check` was clean.
-- Phase 4 replaced remaining dashboard generic search query defaults with friction-first scope queries.
-- Phase 4 expanded search fan-out with explicit ramen ticket-machine, meal-ticket, menu-photo, RamenDB, official-menu, English-menu, multilingual-QR, mobile-order, and English ticket-machine checks.
-- Phase 4 expanded izakaya fan-out with nomihodai/course, oshinagaki, menu-photo, Hotpepper, Tabelog, official-menu, social-menu, English-menu, multilingual-QR, and mobile-order checks.
-- Phase 4 stores `source_search_job` and `matched_friction_evidence` on persisted lead records and search decisions.
-- Phase 4 rejects old generic override queries like `ramen restaurants Kyoto` as active defaults and preserves only non-generic operator custom searches.
-- Phase 4 focused command `.venv/bin/python -m pytest tests/test_search_scope.py tests/test_search.py -q` passed with `29 passed`.
-- Phase 4 full command `.venv/bin/python -m pytest tests/ -q` passed with `343 passed`.
-- Phase 4 `git diff --check` was clean.
-- Phase 5 preserved package keys/prices and added explainable package recommendation details while keeping the existing `recommend_package()` API compatible.
-- Phase 5 recommendation branches now cover ramen ticket-machine default, ramen ticket-machine print-yourself fit, simple ramen without machine, ramen counter-ready need, izakaya frequent-update QR fit, izakaya stable table-menu print fit, and large/complex custom quote.
-- Phase 5 stores `package_recommendation_reason` and `custom_quote_reason` on qualification results and lead records.
-- Phase 5 dashboard lead cards show recommended package label and recommendation reason.
-- Phase 5 focused command covering package scoring, search persistence, and dashboard recommendation display passed with `21 passed`.
-- Phase 5 full command `.venv/bin/python -m pytest tests/ -q` passed with `350 passed`.
-- Phase 5 `git diff --check` was clean.
-- Phase 6 verified outreach remains shop-specific diagnosis copy rather than a price-led pitch.
-- Phase 6 tightened commercial email contact lines with sender, contact URL/email, and opt-out wording.
-- Phase 6 tests cover diagnosis elements, unknown ticket-machine and English-menu check phrasing, no all-price cold pitch, sender/contact/opt-out, forbidden customer-facing terms, do-not-contact blocking, and message variant persistence.
-- Phase 6 focused command `.venv/bin/python -m pytest tests/test_outreach.py tests/test_api.py::TestDraftSaveAndLoad::test_outreach_returns_business_name tests/test_api.py::TestAPIEndpoints::test_outreach_blocked_for_do_not_contact -q` passed with `46 passed`.
-- Phase 6 full command `.venv/bin/python -m pytest tests/ -q` passed with `353 passed`.
-- Phase 6 `git diff --check` was clean.
-- Phase 7 expanded preview rejection for header/footer, TEL/phone, search, reservation, unrelated chain, and bracketed fallback snippets.
-- Phase 7 customer previews now depend on customer-eligible proof items when proof items exist, and blocked legacy preview/pitch records return no customer preview.
-- Phase 7 preview samples now add operational clarity rows for ramen toppings, sets, noodle/soup choices, add-ons, ticket-machine mapping, and izakaya drinks/courses/nomihodai/shared-plate evidence only when proven by safe snippets.
-- Phase 7 continues hiding unconfirmed source prices from outreach previews.
-- Phase 7 focused command `.venv/bin/python -m pytest tests/test_preview_hardening.py tests/test_search.py -q` passed with `25 passed`.
-- Phase 7 full command `.venv/bin/python -m pytest tests/ -q` passed with `357 passed`.
-- Phase 7 `git diff --check` was clean.
-- Phase 8 updated public homepage proof tiles so the first public flow shows menu files, ticket-machine guides, QR signs, and before/after ordering clarity.
-- Phase 8 aligned English and Japanese pricing/homepage copy around English ordering systems/materials, not generic translation.
-- Phase 8 added explicit public risk reversal: owner approval before delivery, one correction window, custom-quote limits, and no price/allergen claims without restaurant confirmation.
-- Phase 8 aligned quote and messaging copy with the same owner-confirmation and correction-window promises.
-- Phase 8 tests cover package names/prices, homepage output proof, positioning, no HVAC/forbidden public terms, pricing risk reversal, and quote risk reversal.
-- Phase 8 focused command `.venv/bin/python -m pytest tests/test_website.py tests/test_paid_ops.py -q` passed with `10 passed`.
-- Phase 8 full command `.venv/bin/python -m pytest tests/ -q` passed with `360 passed`.
-- Phase 8 `git diff --check` was clean.
-- Phase 9 tightened paid workflow API gates so owner review requires confirmed payment and complete intake, owner approval requires owner-review state plus privacy acceptance, and delivery requires package approval gates.
-- Phase 9 delivery now records `delivered_at`, `follow_up_status`, and `follow_up_due_at`.
-- Phase 9 rehearsed Package 1, Package 2, and Package 3 through quote, payment pending, paid, intake, production, owner review, owner approval, and delivered states with safe test data.
-- Phase 9 verified final package export gates still block without paid order, payment, intake, privacy note, and owner approval.
-- Phase 9 focused command `.venv/bin/python -m pytest tests/test_paid_ops.py tests/test_api.py::TestAPIEndpoints::test_paid_order_workflow_records_quote_payment_intake_and_owner_approval tests/test_api.py::TestAPIEndpoints::test_paid_order_blocks_owner_review_and_delivery_until_gates_pass -q` passed with `6 passed`.
-- Phase 9 custom-build gate command `.venv/bin/python -m pytest tests/test_custom_build.py -q` passed with `41 passed`.
-- Phase 9 full command `.venv/bin/python -m pytest tests/ -q` passed with `362 passed`.
-- Phase 9 `git diff --check` was clean.
-- Phase 10 created a local QA-only ready lead `wrm-qa-phase10-ramen` under ignored `state/leads/` for browser verification; no outreach was sent.
-- Phase 10 started local dashboard/site servers on `127.0.0.1:8766` and `127.0.0.1:8767` for render checks.
-- Phase 10 captured desktop and mobile screenshots under `state/qa-screenshots/phase10-*` for dashboard lead cards, outreach/lead dossier modal, homepage, pricing, Japanese homepage/pricing, sample ramen preview, sample izakaya preview, QR menu, and QR sign.
-- Phase 10 browser checks found no forbidden placeholder/fallback text, no HVAC/forbidden public copy, no bracketed fallback text, and no horizontal overflow over 24px on checked pages.
-- Phase 10 `git diff --check` was clean.
-- Phase 11 hardened launch batch creation so every selected lead must have a selected channel, message variant, proof asset or eligible proof item, and recommended package before it can enter a controlled launch batch.
-- Phase 11 batch records now include `batch_number`.
-- Phase 11 focused command `.venv/bin/python -m pytest tests/test_launch.py tests/test_api.py::TestAPIEndpoints::test_launch_batch_api_blocks_second_batch_until_review tests/test_api.py::TestAPIEndpoints::test_launch_outcome_api_records_opt_out_and_operator_minutes -q` passed with `6 passed`.
-- Phase 11 full command `.venv/bin/python -m pytest tests/ -q` passed with `363 passed`.
-- Phase 11 `git diff --check` was clean.
-- Phase 11 real Batch 1 outreach was not sent in this thread. Current checked-in code is ready to create the controlled batch, but the local real lead state does not contain 5-10 real launch-ready shops with both required profiles.
-- Phase 11 no-send smoke testing was added as a rehearsal gate before external contact.
-- No-send smoke test `smoke-65e39d8e3b` was created under ignored state using five public-evidence rehearsal leads; it includes two ramen ticket-machine leads and two izakaya drink/course leads.
-- Smoke test `smoke-65e39d8e3b` is reviewed, has `external_send_performed=false`, `send_allowed=false`, `counts_as_launch_batch=false`, and every lead remains `reply_status=not_contacted` with empty `contacted_at`.
-- Smoke leads have `launch_batch_id=""`; the smoke test did not create or block a real `state/launch_batches/` record.
-- Fresh production-readiness no-send smoke test `smoke-76fde53b8a` was run and reviewed on 2026-04-29.
-- Smoke test `smoke-76fde53b8a` checked five public-evidence rehearsal leads: source URLs returned HTTP 200, proof assets exist, drafts exist, sender/opt-out text exists, no lead has `outreach_sent_at`, and no lead has a real launch batch ID.
-- After smoke test `smoke-76fde53b8a`, `state/launch_batches/` remained empty.
-- Post-smoke verification `.venv/bin/python -m pytest tests/ -q` passed with `366 passed`; `git diff --check` was clean.
-- A 10-business production-readiness audit was run for classification, pitch path, seal personalization, preview translation safety, and inline attachment plumbing.
-- Audit result saved under ignored state: `state/qa-screenshots/production-readiness-10-business-audit-final2.json`.
-- Audit hardening fixed: personalized restaurant-name seals for every inline menu/machine image, no guessed customer-visible preview translations, less brittle placeholder-page detection, category mismatch handling, franchise/FC rejection, and image-heavy page scoring.
-- Final 10-business audit summary: 7 qualified/manual-review leads, 3 rejected, 3 ticket-machine profiles, 4 menu/regular-pitch classifications, 3 izakaya profiles, all checked seals correct, zero guessed preview translations.
-- Remaining audit caveat: one public page (`https://maki.owst.jp/`) returned HTTP 404 to direct fetch during the local audit, so that candidate was correctly not qualified from empty content.
-- Post-hardening verification `.venv/bin/python -m pytest tests/ -q` passed with `373 passed`; `git diff --check` was clean.
-- Outreach preview UI fix completed: profile-specific outreach samples now use the dark `assets/templates/` HTML designs instead of legacy cream `state/builds/` PDFs.
-- Dashboard preview HTML now replaces menu/machine `cid:` references with rendered dark JPEG data URIs from the selected template, including the lead-specific restaurant-name seal.
-- Dashboard preview rendering now runs Playwright screenshot generation outside the FastAPI event-loop thread, preventing the live dashboard from falling back to SVG placeholders.
-- Outreach edit modal is now full-viewport, with lead/contact/dossier context in a left inspector and the Japanese preview plus English editable body in a large right workspace.
-- Browser/API verification on `127.0.0.1:8771` confirmed `wrm-qa-phase10-ramen` and `wrm-smoke-bistro-arekore-nakano` preview HTML contains `data:image/jpeg`, contains no `cid:`, and contains no SVG fallback.
-- Browser render screenshots saved under ignored state:
-  - `state/qa-screenshots/outreach-editor-fullpage-dark-preview-live.png`
-  - `state/qa-screenshots/outreach-preview-dark-menu-visible.png`
-- Post-UI verification `.venv/bin/python -m pytest tests/ -q` passed with `375 passed`; `git diff --check` was clean.
-- Follow-up audit gap found: the prior smoke/browser audit verified regenerated preview output but did not explicitly scan persisted lead `outreach_assets_selected` state for stale cream/sample assets, and did not test a poisoned current `business_name` with a valid `locked_business_name`.
-- Persisted lead asset migration completed for current local leads:
-  - ramen/menu leads now select `assets/templates/ramen_food_menu.html`
-  - ramen ticket-machine leads now select `assets/templates/ramen_food_menu.html` plus `assets/templates/ticket_machine_guide.html`
-  - izakaya leads now select `assets/templates/izakaya_food_menu.html`
-  - disqualified Tsukada remains `do_not_contact` and now has no selected outreach asset
-- Customer-facing dashboard preview and send paths now use `authoritative_business_name()` so `locked_business_name` wins over a poisoned/stale `business_name` for greetings, draft generation, and inline sample seals.
-- Regression tests now cover locked-name precedence in outreach preview and send-time inline sample personalization.
-- Lead-state scan confirmed no current lead JSON references legacy cream assets such as `state/builds`, `phase10-sample-*`, `glm_menu_template*`, or old package PDFs.
-- Post-fix verification `.venv/bin/python -m pytest tests/ -q` passed with `377 passed`; `git diff --check` was clean.
-- Permanent state audit added:
-  - command: `.venv/bin/python -m pipeline.cli audit-state`
-  - repair command: `.venv/bin/python -m pipeline.cli audit-state --repair`
-  - checks: stale cream/sample assets, wrong profile-to-template mapping, DNC/disqualified records with selected assets, non-binary `lead`, suspicious authoritative names, divergent `business_name` vs `locked_business_name`, poisoned saved customer-facing text, and stale proof assets in launch smoke/batch records
-  - repair normalizes deterministic asset drift, locked-name divergence, and launch smoke/batch proof assets, then reruns the audit
-  - current result: `ok=true`, `checked=10`, `findings=[]`
-- `PLAN.md` final verification now includes `audit-state` whenever lead state or outreach preview/send behavior is touched.
-- `AGENTS.md` quick commands now include `audit-state`.
-- Runtime state repair after user report updated `wrm-qa-phase10-ramen` from old `glm_menu_template...pdf` / `ticket_machine_guide_template...pdf` assets to dark `assets/templates/ramen_food_menu.html` plus `assets/templates/ticket_machine_guide.html`.
-- Runtime smoke-test records `smoke-65e39d8e3b` and `smoke-76fde53b8a` now use dark template proof assets instead of old `phase10-sample-*.png` screenshots.
-- Fresh dashboard API/browser check on `127.0.0.1:8771` confirmed `wrm-qa-phase10-ramen` and `wrm-smoke-nakano-tong` return dark JPEG preview HTML with no `cid:`, no SVG fallback, and no old asset references.
-- Screenshot saved under ignored state: `state/qa-screenshots/outreach-preview-dark-menu-visible-after-state-repair.png`.
-- User still saw cream on refresh because an old dashboard server was running on `127.0.0.1:8000` and stale browser modal state could save old asset paths back into lead JSON.
-- The stale `127.0.0.1:8000` server was stopped and restarted from current code.
-- Draft save now sanitizes browser-submitted asset paths so old `glm_menu_template...`, `state/builds`, or screenshot assets cannot be persisted from an already-open stale modal.
-- `assets/templates/izakaya_food_menu.html` no longer contains ramen sample rows; its first section is now izakaya signature dishes.
-- Fresh `127.0.0.1:8000` browser check saved `state/qa-screenshots/bistro-dark-izakaya-preview-port8000-fixed.png` and confirmed dark JPEG preview, no old refs, and izakaya sample labels.
-- Post-refresh-fix verification `.venv/bin/python -m pytest tests/ -q` passed with `388 passed`; `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=10`, `findings=[]`; `git diff --check` was clean.
-- No real outreach was sent.
+Positive effect: the recommendation gate now catches launch-selection readiness gaps that the replay oracle alone can miss, while still proving no send or real launch batch occurred.
+
+## Key Runtime Artifacts
+
+- Corpus: `state/search-replay/production-sim-live-pilot-20260429T142841Z/`
+- Final labels: `state/search-replay/production-sim-live-pilot-20260429T142841Z/labels/`
+- Labeling summary: `state/search-replay/production-sim-live-pilot-20260429T142841Z/labeling/summary.json`
+- Report JSON: `state/production-sim/production-sim-live-pilot-20260429T142841Z/report.json`
+- Report Markdown: `state/production-sim/production-sim-live-pilot-20260429T142841Z/report.md`
+- Controlled recommendation JSON: `state/production-sim/production-sim-live-pilot-20260429T142841Z/controlled-launch-recommendation.json`
+- Decisions: `state/production-sim/production-sim-live-pilot-20260429T142841Z/decisions.json`
+- Mock email payloads: `state/production-sim/production-sim-live-pilot-20260429T142841Z/mock-email-payloads.json`
+- Screenshot manifest: `state/production-sim/production-sim-live-pilot-20260429T142841Z/screenshot-manifest.json`
+- Screenshots: `state/qa-screenshots/production-sim-live-pilot-20260429T142841Z/`
+- No-send smoke: `state/production-sim/production-sim-live-pilot-20260429T142841Z/state/launch_smoke_tests/smoke-b26ed1e542.json`
+- Supplemental source artifacts: `state/search-replay/production-sim-live-pilot-20260429T142841Z/pages/wrm-replay-supp-*/` and `state/search-replay/production-sim-live-pilot-20260429T142841Z/serper/wrm-replay-supp-*-supplemental-source.json`
+
+## Last Verified Commands
+
+- `.venv/bin/python -m pipeline.cli production-sim recommend --run production-sim-live-pilot-20260429T142841Z --lead-id wrm-halal-ramen-ueno-japan-dd61 --lead-id wrm-goen-japan-df06 --lead-id wrm-kuraichi-286-sengokuhara-fb03 --lead-id wrm-hokkai-ramen-sapporo-station-japan-05d0 --lead-id wrm-sake-to-sakana-to-otokomae-shokudo-kyoto-station-japan-8039 --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=0`, `PROCEED_TO_CONTROLLED_BATCH_1_SELECTION`, `source_urls_checked=15`
+- `.venv/bin/python -m pipeline.cli production-sim report --run production-sim-live-pilot-20260429T142841Z --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=0`, `production_ready=true`, `ready/manual/disqualified=63/9/521`
+- `.venv/bin/python -m pytest tests/test_production_simulation.py tests/test_dashboard_production_simulation.py tests/test_launch_smoke.py -q` passed with `20 passed`
+- `.venv/bin/python -m pytest tests/ -q` passed with `480 passed`
+- `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=33`, `findings=[]`, `readiness_report=[]`
+- `git diff --check` was clean
+- `git status --short` shows the implementation worktree is still dirty; real runtime artifacts remain under ignored `state/` paths.
+
+No real outreach was sent. No real launch batch was created. No live lead state was mutated.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 11 no-send real-world smoke testing, then real batch selection/outreach only after 5-10 real launch-ready leads are available; Phase 12 depends on real Batch 1 outcomes.
-3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
-4. Do not use the obsolete long phase plan as guidance.
-5. Do not start Phase 11 outreach until Phases 0-10 pass.
+2. Read `PRODUCTION_SIMULATION_TEST_PLAN.md` only for the current simulation gate and acceptance criteria.
+3. Use this file as the compact current checkpoint, not as proof that a phase is complete.
+4. Treat the current production simulation report as a no-send readiness signal only. Do not send outreach or create a real launch batch from it.
+5. The no-send smoke / controlled-launch recommendation path has passed. The next decision is whether to explicitly begin `PLAN.md` Phase 11 controlled Batch 1 selection.
+6. Keep real batch selection/outreach blocked until the user explicitly directs controlled launch work.
+7. After each completed phase or simulation slice, update this handoff by replacing stale checkpoint details instead of appending a long diary.

@@ -8,6 +8,7 @@ from typing import Any
 
 from .business_name import business_name_is_suspicious
 from .constants import PROJECT_ROOT
+from .lead_dossier import migrate_lead_record, record_explicitly_not_japan
 from .record import authoritative_business_name
 
 STATE_ROOT = PROJECT_ROOT / "state"
@@ -87,6 +88,7 @@ def audit_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any]
     root = Path(state_root) if state_root else STATE_ROOT
     leads_dir = root / "leads"
     findings: list[dict[str, Any]] = []
+    readiness_report: list[dict[str, Any]] = []
     checked = 0
     lead_records: dict[str, dict[str, Any]] = {}
 
@@ -102,6 +104,8 @@ def audit_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any]
         lead_records[lead_id] = record
         _audit_binary_lead(record, path, lead_id, findings)
         _audit_business_name(record, path, lead_id, findings)
+        _audit_readiness_drift(record, path, lead_id, findings, readiness_report)
+        _audit_launch_location(record, path, lead_id, findings)
         _audit_outreach_assets(record, path, lead_id, findings)
         _audit_draft_asset_consistency(record, path, lead_id, findings)
 
@@ -112,6 +116,7 @@ def audit_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any]
         "ok": not findings,
         "checked": checked,
         "findings": findings,
+        "readiness_report": readiness_report,
     }
 
 
@@ -129,21 +134,68 @@ def repair_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any
             continue
 
         lead_id = str(record.get("lead_id") or path.stem)
-        lead_records[lead_id] = record
+        original_status = str(record.get("launch_readiness_status") or "")
+        original_reasons = _normalise_reasons(record.get("launch_readiness_reasons"))
         changes: list[str] = []
+        readiness_change: dict[str, Any] | None = None
+
+        migrated, migration_changes = migrate_lead_record(record)
+        if migration_changes:
+            changes.extend(migration_changes)
+        record = migrated
+        new_status = str(record.get("launch_readiness_status") or "")
+        new_reasons = _normalise_reasons(record.get("launch_readiness_reasons"))
+        if original_status != new_status or original_reasons != new_reasons:
+            readiness_change = _readiness_change_summary(
+                from_status=original_status,
+                from_reasons=original_reasons,
+                to_status=new_status,
+                to_reasons=new_reasons,
+            )
+
+        newly_disqualified = original_status != "disqualified" and new_status == "disqualified"
         expected_assets = expected_dark_assets(record)
         if (record.get("outreach_assets_selected") or []) != expected_assets:
             record["outreach_assets_selected"] = expected_assets
             record["outreach_asset_template_family"] = "dark_v4c" if expected_assets else "none_do_not_contact"
             changes.append("outreach_assets_selected")
 
-        if not expected_assets and _record_mentions_attached_sample(record):
+        if newly_disqualified:
+            _clear_saved_outreach_draft(record)
+            changes.append("disqualified_saved_draft")
+        elif not expected_assets and _record_mentions_attached_sample(record):
             record["outreach_draft_body"] = None
             record["outreach_draft_english_body"] = None
             record["outreach_draft_subject"] = None
             record["outreach_draft_manually_edited"] = False
             record["outreach_draft_edited_at"] = None
             changes.append("incompatible_saved_draft")
+
+        if record_explicitly_not_japan(record):
+            reasons = list(record.get("launch_readiness_reasons") or [])
+            if "not_in_japan" not in reasons:
+                reasons.append("not_in_japan")
+            if record.get("launch_readiness_status") != "disqualified":
+                record["launch_readiness_status"] = "disqualified"
+                changes.append("launch_readiness_status")
+            if record.get("launch_readiness_reasons") != reasons:
+                record["launch_readiness_reasons"] = reasons
+                changes.append("launch_readiness_reasons")
+            if record.get("outreach_status") not in {"sent", "replied", "converted", "do_not_contact"}:
+                record["outreach_status"] = "do_not_contact"
+                changes.append("outreach_status")
+            if record.get("outreach_assets_selected"):
+                record["outreach_assets_selected"] = []
+                record["outreach_asset_template_family"] = "none_do_not_contact"
+                changes.append("outreach_assets_selected")
+            dossier = record.get("lead_evidence_dossier")
+            if isinstance(dossier, dict):
+                if dossier.get("ready_to_contact") is not False:
+                    dossier["ready_to_contact"] = False
+                    changes.append("lead_evidence_dossier")
+                if dossier.get("readiness_reasons") != reasons:
+                    dossier["readiness_reasons"] = reasons
+                    changes.append("lead_evidence_dossier")
 
         business_name = str(record.get("business_name") or "").strip()
         locked_name = str(record.get("locked_business_name") or "").strip()
@@ -154,10 +206,14 @@ def repair_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any
             changes.append("business_name")
             changes.append("customer_text_name_references")
 
+        lead_records[lead_id] = record
         if changes:
             record["state_audit_repaired_at"] = "2026-04-29T00:00:00+00:00"
             path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            repaired.append({"lead_id": lead_id, "file": str(path), "changes": sorted(set(changes))})
+            item = {"lead_id": lead_id, "file": str(path), "changes": sorted(set(changes))}
+            if readiness_change:
+                item["readiness_change"] = readiness_change
+            repaired.append(item)
 
     repaired.extend(_repair_launch_proof_assets(root / "launch_smoke_tests", lead_records))
     repaired.extend(_repair_launch_proof_assets(root / "launch_batches", lead_records))
@@ -177,9 +233,71 @@ def _replace_text_value(value: Any, old: str, new: str) -> Any:
     return value
 
 
+def _clear_saved_outreach_draft(record: dict[str, Any]) -> None:
+    record["outreach_draft_body"] = None
+    record["outreach_draft_english_body"] = None
+    record["outreach_draft_subject"] = None
+    record["outreach_draft_manually_edited"] = False
+    record["outreach_draft_edited_at"] = None
+
+
+def _normalise_reasons(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(reason) for reason in value]
+    if value:
+        return [str(value)]
+    return []
+
+
+def _readiness_change_summary(
+    *,
+    from_status: str,
+    from_reasons: list[str],
+    to_status: str,
+    to_reasons: list[str],
+) -> dict[str, Any]:
+    return {
+        "from_status": from_status,
+        "from_reasons": from_reasons,
+        "to_status": to_status,
+        "to_reasons": to_reasons,
+        "summary": f"{from_status or 'unset'} -> {to_status or 'unset'}: {', '.join(to_reasons) or 'no_reasons'}",
+    }
+
+
 def _audit_binary_lead(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
     if record.get("lead") not in {True, False}:
         findings.append(_finding(path, lead_id, "lead_not_binary", "`lead` must be strictly true or false"))
+
+
+def _audit_readiness_drift(
+    record: dict[str, Any],
+    path: Path,
+    lead_id: str,
+    findings: list[dict[str, Any]],
+    readiness_report: list[dict[str, Any]],
+) -> None:
+    migrated, _ = migrate_lead_record(record)
+    stored_status = str(record.get("launch_readiness_status") or "")
+    stored_reasons = _normalise_reasons(record.get("launch_readiness_reasons"))
+    expected_status = str(migrated.get("launch_readiness_status") or "")
+    expected_reasons = _normalise_reasons(migrated.get("launch_readiness_reasons"))
+    if stored_status == expected_status and stored_reasons == expected_reasons:
+        return
+
+    change = _readiness_change_summary(
+        from_status=stored_status,
+        from_reasons=stored_reasons,
+        to_status=expected_status,
+        to_reasons=expected_reasons,
+    )
+    readiness_report.append({"lead_id": lead_id, **change})
+    findings.append(_finding(
+        path,
+        lead_id,
+        "launch_readiness_drift",
+        change["summary"],
+    ))
 
 
 def _audit_business_name(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
@@ -213,6 +331,18 @@ def _audit_business_name(record: dict[str, Any], path: Path, lead_id: str, findi
                     "poisoned_name_in_customer_text",
                     f"{field} contains stale business_name={business_name!r}",
                 ))
+
+
+def _audit_launch_location(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
+    if record.get("lead") is not True:
+        return
+    if record_explicitly_not_japan(record) and record.get("launch_readiness_status") == "ready_for_outreach":
+        findings.append(_finding(
+            path,
+            lead_id,
+            "ready_lead_not_in_japan",
+            "Japan-only product cannot launch outreach for a non-Japan address",
+        ))
 
 
 def _audit_outreach_assets(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:

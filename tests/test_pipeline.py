@@ -698,6 +698,19 @@ class TestScoring:
         )
         assert pkg == PACKAGE_A_KEY
 
+    def test_package_recommendation_simple_ramen_stays_remote_even_when_popular(self):
+        details = recommend_package_details(
+            category="ramen",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            menu_complexity_state="simple",
+            tourist_exposure_score=0.8,
+            lead_score_v1=84,
+        )
+
+        assert details["package_key"] == PACKAGE_1_KEY
+        assert details["recommendation_reason"] == "simple_ramen_menu_fits_english_ordering_files"
+
     def test_package_recommendation_b_default(self):
         pkg = recommend_package(
             english_menu_issue=True,
@@ -1188,6 +1201,60 @@ class TestQualificationVariants:
         assert result.establishment_profile == "ramen_only"
         assert result.menu_evidence_found is True
         assert result.machine_evidence_found is False
+
+    def test_ramen_menu_with_explicit_no_ticket_machine_gets_absent_state_and_package_1(self):
+        html = """
+        <html><body>
+        <h1>口頭注文ラーメン</h1>
+        <div class="menu">
+            <h2>メニュー</h2>
+            <ul>
+                <li>醤油ラーメン ¥850</li>
+                <li>味噌ラーメン ¥900</li>
+                <li>餃子 ¥350</li>
+            </ul>
+        </div>
+        <p>券売機なし。席で注文、後払いです。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="口頭注文ラーメン",
+            website="https://kuchu-ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://kuchu-ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+            rating=4.8,
+            reviews=600,
+            latitude=35.6595,
+            longitude=139.7005,
+        )
+
+        assert result.lead is True
+        assert result.ticket_machine_state == "absent"
+        assert result.machine_evidence_found is False
+        assert result.establishment_profile == "ramen_only"
+        assert result.recommended_primary_package == PACKAGE_1_KEY
+
+    def test_thin_menu_reference_without_orderable_detail_is_rejected(self):
+        html = """
+        <html><body>
+        <h1>薄いラーメン</h1>
+        <p>当店のラーメンメニューは店内でご確認ください。詳細はスタッフまで。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="薄いラーメン",
+            website="https://thin-menu.jp",
+            category="ramen",
+            pages=[{"url": "https://thin-menu.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+
+        assert result.lead is False
+        assert "thin_menu_reference" in result.evidence_classes
+        assert result.menu_evidence_found is False
 
     def test_ramen_ticket_machine_only_qualifies(self):
         """Ramen shop with ticket machine but weak menu → ramen_machine_mapping."""

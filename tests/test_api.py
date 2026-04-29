@@ -2029,19 +2029,19 @@ class TestStatusPersistence:
         assert response.status_code == 200
         assert "Edited draft" in response.text
 
-    def test_main_page_shows_menu_and_vending_tags(self):
+    def test_main_page_shows_menu_and_ticket_machine_tags(self):
         self._create_lead(menu_evidence_found=True, machine_evidence_found=True)
         response = self.client.get("/")
         assert response.status_code == 200
         assert '<span class="evidence-pill evidence-pill-menu">Menu</span>' in response.text
-        assert '<span class="evidence-pill evidence-pill-vending">Vending</span>' in response.text
+        assert '<span class="evidence-pill evidence-pill-vending">Ticket Machine</span>' in response.text
 
     def test_main_page_shows_single_evidence_tag(self):
         self._create_lead(menu_evidence_found=True, machine_evidence_found=False)
         response = self.client.get("/")
         assert response.status_code == 200
         assert '<span class="evidence-pill evidence-pill-menu">Menu</span>' in response.text
-        assert '<span class="evidence-pill evidence-pill-vending">Vending</span>' not in response.text
+        assert '<span class="evidence-pill evidence-pill-vending">Ticket Machine</span>' not in response.text
 
     def test_project_root_is_not_exposed_as_assets(self):
         response = self.client.get("/assets/.env")

@@ -6,6 +6,7 @@ from typing import Any
 
 from .constants import (
     RAMEN_MENU_TERMS, RAMEN_CATEGORY_TERMS, TICKET_MACHINE_TERMS,
+    TICKET_MACHINE_ABSENCE_TERMS,
     IZAKAYA_MENU_TERMS, IZAKAYA_CATEGORY_TERMS, COURSE_DRINK_PLAN_TERMS,
     _FOOD_DRINK_TOKENS, _DIRECTORY_HOST_TOKENS, _PURCHASE_CRITICAL_TOKENS,
     _IMAGE_LOCKED_TOKENS, _MENU_LINK_TOKENS, _ENGLISH_LINK_TOKENS,
@@ -69,6 +70,25 @@ def _multiple_menu_items_detected(text: str) -> bool:
         or len(_distinct_items(food_items)) >= 3
         or separators >= 3
     )
+
+
+def _has_orderable_menu_detail(
+    text: str,
+    *,
+    page_has_prices: bool,
+    page_ramen_terms: list[str],
+    page_izakaya_terms: list[str],
+) -> bool:
+    """Require concrete menu detail, not just a generic "menu" reference."""
+    if not text:
+        return False
+    if page_has_prices and (page_ramen_terms or page_izakaya_terms):
+        return True
+    if _multiple_menu_items_detected(text):
+        return True
+    if len(_distinct_items(page_ramen_terms + page_izakaya_terms)) >= 3:
+        return True
+    return False
 
 
 def _is_review_or_directory_url(url: str) -> bool:
@@ -354,8 +374,17 @@ def assess_evidence(
         page_ramen_terms = [term for term in RAMEN_MENU_TERMS if term in text]
         page_izakaya_terms = [term for term in IZAKAYA_MENU_TERMS if term in text]
         page_menu_tokens = any(token in page_haystack for token in ("menu", "メニュー", "お品書き", "品書き", "料理", "税込", "商品"))
-        page_machine_tokens = any(token.lower() in page_haystack for token in TICKET_MACHINE_TERMS)
+        page_ticket_absence_tokens = any(token.lower() in page_haystack for token in TICKET_MACHINE_ABSENCE_TERMS)
+        page_machine_tokens = (
+            any(token.lower() in page_haystack for token in TICKET_MACHINE_TERMS)
+            and not page_ticket_absence_tokens
+        )
         page_course_tokens = any(token.lower() in page_haystack for token in COURSE_DRINK_PLAN_TERMS)
+
+        if page_ticket_absence_tokens:
+            evidence_classes.append("ticket_machine_absence_evidence")
+            snippets.append(_best_sentence(text, set(TICKET_MACHINE_ABSENCE_TERMS)) or "Ticket machine absence evidence found.")
+            score += 1
 
         if page_machine_tokens:
             machine_evidence_found = True
@@ -376,9 +405,19 @@ def assess_evidence(
             snippets.append(_best_sentence(text, set(COURSE_DRINK_PLAN_TERMS)) or text[:180])
             score += 3
 
+        has_orderable_detail = _has_orderable_menu_detail(
+            text,
+            page_has_prices=page_has_prices,
+            page_ramen_terms=page_ramen_terms,
+            page_izakaya_terms=page_izakaya_terms,
+        )
         if page_menu_tokens and (page_ramen_terms or page_izakaya_terms or page_has_prices or source_chars >= 12):
             if not _min_text_for_menu_evidence(text):
                 pass
+            elif not has_orderable_detail:
+                evidence_classes.append("thin_menu_reference")
+                snippets.append(_best_sentence(text, {"メニュー", "お品書き", "menu"}) or text[:180])
+                score -= 1
             elif _is_review_or_directory_url(url):
                 if _multiple_menu_items_detected(text):
                     menu_evidence_found = True

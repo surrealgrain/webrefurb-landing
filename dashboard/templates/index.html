@@ -151,6 +151,7 @@ button, input, select, textarea { font: inherit; }
 .lead-meta { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
 .lead-contact { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .lead-profile { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
+.lead-proof { font-size: 12px; color: #245B78; margin-top: 4px; line-height: 1.45; overflow-wrap: anywhere; }
 .lead-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
 
 .status-badge {
@@ -607,6 +608,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <div class="lead-contact">Primary route: {{ lead.primary_contact_label }}</div>
           <div class="lead-profile" data-role="profile-summary">Profile: {{ lead.establishment_profile_label }}{% if lead.establishment_profile_mode == 'operator_override' %} · Operator override{% endif %}</div>
           <div class="lead-profile">Recommended: {{ lead.recommended_package_label|default('Review package', true) }}{% if lead.package_recommendation_reason %} · {{ lead.package_recommendation_reason|replace('_', ' ') }}{% endif %}</div>
+          <div class="lead-proof">Fit: {{ lead.lead_category_label }} · Proof: {{ lead.proof_strength_label }} · Evidence score: {{ lead.evidence_strength_score }} · Ticket machine: {{ lead.ticket_machine_state_label }} · English: {{ lead.english_menu_state_label }}</div>
           <div class="lead-profile">Launch readiness: {{ lead.launch_readiness_status|default('manual_review', true)|replace('_', ' ')|title }}{% if lead.launch_readiness_reasons %} · {{ lead.launch_readiness_reasons[0]|replace('_', ' ') }}{% endif %}</div>
           <div class="lead-badges">
             <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>
@@ -619,7 +621,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
             <span class="evidence-pill evidence-pill-menu">Menu</span>
             {% endif %}
             {% if lead.machine_evidence_found %}
-            <span class="evidence-pill evidence-pill-vending">Vending</span>
+            <span class="evidence-pill evidence-pill-vending">Ticket Machine</span>
             {% endif %}
             {% if lead.outreach_classification %}
             <span class="classification-badge">{{ lead.outreach_classification }}</span>

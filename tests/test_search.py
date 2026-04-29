@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from pipeline.business_name import business_name_is_suspicious, extract_business_name_candidates, resolve_business_name
+from pipeline.record import normalise_lead_contacts
 from pipeline import search
 
 
@@ -16,6 +17,27 @@ def _tabelog_result(link: str = "https://tabelog.com/tokyo/A000/A000000/12345678
 def test_extract_contact_email_from_mailto():
     html = '<a href="mailto:owner@example-ramen.jp">お問い合わせ</a>'
     assert search.find_contact_email("https://example-ramen.jp", html) == "owner@example-ramen.jp"
+
+
+def test_extract_contact_email_skips_sentry_ingest_before_business_email():
+    html = """
+    <script>dsn="https://abc@o462166.ingest.sentry.io/123"</script>
+    <a href="mailto:owner@example-ramen.jp">お問い合わせ</a>
+    """
+
+    assert search.find_contact_email("https://example-ramen.jp", html) == "owner@example-ramen.jp"
+
+
+def test_normalised_lead_contacts_skip_telemetry_email():
+    contacts = normalise_lead_contacts({
+        "contacts": [
+            {"type": "email", "value": "abc@o462166.ingest.sentry.io", "actionable": True},
+            {"type": "contact_form", "value": "https://real-ramen.jp/contact", "actionable": True},
+        ],
+        "email": "abc@o462166.ingest.sentry.io",
+    })
+
+    assert [contact["type"] for contact in contacts] == ["contact_form"]
 
 
 def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
@@ -310,6 +332,7 @@ def test_business_name_detector_flags_contact_route_like_values():
     assert business_name_is_suspicious("食べログ") is True
     assert business_name_is_suspicious("Shibuya/Izakaya (Japanese style tavern)") is True
     assert business_name_is_suspicious("Seibu Shinjuku/Izakaya (Japanese style tavern)") is True
+    assert business_name_is_suspicious("Ramen restaurant") is True
     assert business_name_is_suspicious("麺屋はるか") is False
 
 
@@ -745,6 +768,7 @@ def test_targeted_evidence_includes_ticket_machine_for_generic_ramen():
     assert len(queries) <= 4
     assert any("券売機" in q for q in queries), f"No ticket-machine query in {queries}"
     assert any("メニュー" in q for q in queries), f"No menu query in {queries}"
+    assert any("英語メニュー" in q for q in queries), f"No English-solution query in {queries}"
     assert any("チェーン" in q for q in queries), f"No chain query in {queries}"
 
 
@@ -775,6 +799,108 @@ def test_targeted_evidence_respects_query_cap():
         },
     )
     assert len(queries) <= 4
+
+
+def test_search_blocks_lead_when_targeted_evidence_finds_existing_english_qr(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Solved Ramen",
+            "website": "https://solved-ramen.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-solved-qr-1",
+            "rating": 4.5,
+            "ratingCount": 90,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Solved Ramen | 食べログ</title></head><body><h1>Solved Ramen</h1></body></html>"
+        return (
+            "<html><head><title>Solved Ramen</title></head>"
+            "<body>ラーメン メニュー 醤油ラーメン 900円 owner@solved-ramen.example</body></html>"
+        )
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        if "英語メニュー" in query:
+            return {"organic": [{
+                "title": "Solved Ramen English QR",
+                "snippet": "Solved Ramen has English menu available and multilingual QR ordering.",
+                "link": "https://review.example/solved-english-qr",
+            }]}
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_menu_tokyo",
+            "query": "ラーメン メニュー Tokyo",
+            "category": "ramen",
+            "purpose": "menu_lookup",
+            "expected_friction": "official_menu",
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 0
+    assert result["decisions"][0]["rejection_reason"] == "already_has_multilingual_ordering_solution"
+    assert "already_solved_english_solution" in result["decisions"][0]["matched_friction_evidence"]
+
+
+def test_solution_check_search_job_cannot_create_launch_lead(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Solved Ramen",
+            "website": "https://solved-ramen.example",
+            "address": "Tokyo",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-solved-job-1",
+            "rating": 4.5,
+            "ratingCount": 90,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Solved Ramen | 食べログ</title></head><body><h1>Solved Ramen</h1></body></html>"
+        return (
+            "<html><head><title>Solved Ramen</title></head>"
+            "<body>ラーメン メニュー 醤油ラーメン 900円 owner@solved-ramen.example</body></html>"
+        )
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="英語メニュー ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        search_job={
+            "job_id": "ramen_english_menu_check",
+            "query": "英語メニュー ラーメン Tokyo",
+            "category": "ramen",
+            "purpose": "english_solution_check",
+            "expected_friction": "english_menu_check",
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["leads"] == 0
+    assert result["decisions"][0]["reason"] == "already_solved_solution_check"
+    assert result["decisions"][0]["english_menu_state"] == "usable_complete"
 
 
 # ---------------------------------------------------------------------------

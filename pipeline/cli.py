@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -89,6 +90,49 @@ def main() -> None:
     smoke_cmd.add_argument("--state-root", default=None, help="Override state root")
     smoke_cmd.add_argument("--notes", default="", help="Operator notes for the rehearsal")
     smoke_cmd.add_argument("--scenario", default="real_world_no_send", help="Smoke-test scenario label")
+
+    sim_cmd = sub.add_parser("production-sim", help="Run no-send production simulation replay")
+    sim_sub = sim_cmd.add_subparsers(dest="production_sim_command")
+    sim_collect = sim_sub.add_parser("collect", help="Collect a no-send pilot/broad search replay corpus")
+    sim_collect.add_argument("--run-id", default=None, help="Stable run ID")
+    sim_collect.add_argument("--city-set", default="launch-markets", help="Market set, e.g. launch-markets")
+    sim_collect.add_argument("--city", action="append", default=[], help="Override city/market; repeatable")
+    sim_collect.add_argument("--category", choices=["all", "ramen", "izakaya"], default="all")
+    sim_collect.add_argument("--limit-per-job", type=int, default=5)
+    sim_collect.add_argument("--stage", choices=["pilot", "broad", "extended"], default="pilot")
+    sim_collect.add_argument("--api-key", default=None, help="Serper API key; defaults to SERPER_API_KEY")
+    sim_collect.add_argument("--output-root", default=None, help="Production-sim report output root")
+    sim_collect.add_argument("--replay-root", default=None, help="Search replay artifact root")
+    sim_collect.add_argument("--screenshot-root", default=None, help="Screenshot artifact root")
+    sim_collect.add_argument("--fetch-timeout-seconds", type=int, default=8)
+    sim_collect.add_argument("--contact-pages-per-candidate", type=int, default=2)
+    sim_collect.add_argument("--evidence-pages-per-candidate", type=int, default=2)
+    sim_collect.add_argument("--offline-fixture", default=None, help="JSON fixture for mocked search/fetch collection")
+    sim_collect.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
+    sim_replay = sim_sub.add_parser("replay", help="Replay a deterministic production-simulation corpus")
+    sim_replay.add_argument("--corpus", default=None, help="Replay corpus directory")
+    sim_replay.add_argument("--run-id", default=None, help="Stable run ID")
+    sim_replay.add_argument("--output-root", default=None, help="Production-sim output root")
+    sim_replay.add_argument("--replay-root", default=None, help="Search replay artifact root")
+    sim_replay.add_argument("--screenshot-root", default=None, help="Screenshot artifact root")
+    sim_replay.add_argument("--screenshots", action="store_true", help="Capture dashboard screenshots with Playwright")
+    sim_replay.add_argument("--dashboard-port", type=int, default=0, help="Dashboard port, or 0 for any free port")
+    sim_replay.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
+    sim_label = sim_sub.add_parser("label", help="Create a stratified draft-label workflow for a collected corpus")
+    sim_label.add_argument("--corpus", required=True, help="Search replay corpus directory")
+    sim_label.add_argument("--sample", choices=["stratified"], default="stratified")
+    sim_label.add_argument("--sample-size", type=int, default=120)
+    sim_label.add_argument("--seed", default="production-sim-labeling-v1")
+    sim_label.add_argument("--output-root", default=None, help="Production-sim output root")
+    sim_label.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
+    sim_report = sim_sub.add_parser("report", help="Check an existing production-sim report")
+    sim_report.add_argument("--run", required=True, help="Run ID or report directory")
+    sim_report.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
+    sim_recommend = sim_sub.add_parser("recommend", help="Run no-send smoke and write controlled-launch recommendation")
+    sim_recommend.add_argument("--run", required=True, help="Run ID or report directory")
+    sim_recommend.add_argument("--lead-id", action="append", required=True, help="Lead ID for the no-send smoke; repeat 5-10 times")
+    sim_recommend.add_argument("--skip-live-url-check", action="store_true", help="Skip live source URL checks")
+    sim_recommend.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
 
     args = parser.parse_args()
 
@@ -340,6 +384,141 @@ def main() -> None:
             scenario=args.scenario,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.command == "production-sim":
+        from pathlib import Path as _P
+
+        from .production_sim import (
+            DEFAULT_CORPUS,
+            DEFAULT_OUTPUT_ROOT,
+            DEFAULT_REPLAY_ROOT,
+            DEFAULT_SCREENSHOT_ROOT,
+            collect_corpus,
+            load_report,
+            prepare_labeling_workflow,
+            recommend_controlled_launch,
+            report_fails_on,
+            run_replay,
+        )
+        from .search_replay import fixture_collect_adapters
+
+        fail_on = {item.strip().upper() for item in str(getattr(args, "fail_on", "") or "").split(",") if item.strip()}
+        if args.production_sim_command == "collect":
+            maps_search_fn = web_search_fn = fetch_page_fn = None
+            if args.offline_fixture:
+                maps_search_fn, web_search_fn, fetch_page_fn = fixture_collect_adapters(_P(args.offline_fixture))
+            result = collect_corpus(
+                run_id=args.run_id,
+                city_set=args.city_set,
+                cities=list(args.city or []) or None,
+                category=args.category,
+                limit_per_job=int(args.limit_per_job or 5),
+                stage=args.stage,
+                serper_api_key=str(args.api_key or os.environ.get("SERPER_API_KEY", "")),
+                output_root=_P(args.output_root) if args.output_root else DEFAULT_OUTPUT_ROOT,
+                replay_root=_P(args.replay_root) if args.replay_root else DEFAULT_REPLAY_ROOT,
+                screenshot_root=_P(args.screenshot_root) if args.screenshot_root else DEFAULT_SCREENSHOT_ROOT,
+                fetch_timeout_seconds=int(args.fetch_timeout_seconds or 8),
+                contact_pages_per_candidate=int(args.contact_pages_per_candidate or 2),
+                evidence_pages_per_candidate=int(args.evidence_pages_per_candidate or 2),
+                maps_search_fn=maps_search_fn,
+                web_search_fn=web_search_fn,
+                fetch_page_fn=fetch_page_fn,
+            )
+            print(json.dumps({
+                "run_id": result["run_id"],
+                "production_ready": result["production_ready"],
+                "p0": result["p0"],
+                "p1": result["p1"],
+                "p2": result["p2"],
+                "candidate_count": result["candidate_count"],
+                "labeled_count": result["labeled_count"],
+                "collection_manifest_path": result["collection_manifest_path"],
+                "report_path": result["report_path"],
+                "external_send_performed": result["external_send_performed"],
+                "real_launch_batch_created": result["real_launch_batch_created"],
+            }, indent=2, ensure_ascii=False))
+            if report_fails_on(result, fail_on):
+                sys.exit(1)
+        elif args.production_sim_command == "replay":
+            result = run_replay(
+                corpus_dir=_P(args.corpus) if args.corpus else DEFAULT_CORPUS,
+                run_id=args.run_id,
+                output_root=_P(args.output_root) if args.output_root else DEFAULT_OUTPUT_ROOT,
+                replay_root=_P(args.replay_root) if args.replay_root else DEFAULT_REPLAY_ROOT,
+                screenshot_root=_P(args.screenshot_root) if args.screenshot_root else DEFAULT_SCREENSHOT_ROOT,
+                screenshots=bool(args.screenshots),
+                dashboard_port=int(args.dashboard_port or 0),
+            )
+            print(json.dumps({
+                "run_id": result["run_id"],
+                "production_ready": result["production_ready"],
+                "p0": result["p0"],
+                "p1": result["p1"],
+                "p2": result["p2"],
+                "report_path": result["report_path"],
+                "screenshots_dir": result["screenshots_dir"],
+                "external_send_performed": result["external_send_performed"],
+                "real_launch_batch_created": result["real_launch_batch_created"],
+            }, indent=2, ensure_ascii=False))
+            if report_fails_on(result, fail_on):
+                sys.exit(1)
+        elif args.production_sim_command == "label":
+            result = prepare_labeling_workflow(
+                corpus_dir=_P(args.corpus),
+                sample_size=int(args.sample_size or 120),
+                seed=str(args.seed or "production-sim-labeling-v1"),
+                output_root=_P(args.output_root) if args.output_root else DEFAULT_OUTPUT_ROOT,
+            )
+            print(json.dumps({
+                "run_id": result["run_id"],
+                "production_ready": result["production_ready"],
+                "p0": result["p0"],
+                "p1": result["p1"],
+                "p2": result["p2"],
+                "candidate_count": result["candidate_count"],
+                "labeled_count": result["labeled_count"],
+                "labeling_sample_count": result["labeling_sample_count"],
+                "draft_label_count": result["draft_label_count"],
+                "labeling_sample_path": result["labeling_sample_path"],
+                "labeling_review_queue_path": result["labeling_review_queue_path"],
+                "offline_replay_ready": result["offline_replay_ready"],
+                "dashboard_verification_ready": result["dashboard_verification_ready"],
+                "external_send_performed": result["external_send_performed"],
+                "real_launch_batch_created": result["real_launch_batch_created"],
+            }, indent=2, ensure_ascii=False))
+            if report_fails_on(result, fail_on):
+                sys.exit(1)
+        elif args.production_sim_command == "report":
+            run_path = _P(args.run)
+            if not run_path.exists():
+                run_path = DEFAULT_OUTPUT_ROOT / args.run
+            result = load_report(run_path)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            if report_fails_on(result, fail_on):
+                sys.exit(1)
+        elif args.production_sim_command == "recommend":
+            result = recommend_controlled_launch(
+                run=args.run,
+                lead_ids=list(args.lead_id or []),
+                check_live_urls=not bool(args.skip_live_url_check),
+            )
+            print(json.dumps({
+                "run_id": result["run_id"],
+                "production_ready": result["production_ready"],
+                "controlled_launch_recommendation": result["controlled_launch_recommendation"],
+                "p0": result["p0"],
+                "p1": result["p1"],
+                "p2": result["p2"],
+                "no_send_smoke": result["no_send_smoke"],
+                "report_path": result["report_path"],
+                "external_send_performed": result["external_send_performed"],
+                "real_launch_batch_created": result["real_launch_batch_created"],
+            }, indent=2, ensure_ascii=False))
+            if report_fails_on(result, fail_on):
+                sys.exit(1)
+        else:
+            sim_cmd.print_help()
 
     else:
         parser.print_help()

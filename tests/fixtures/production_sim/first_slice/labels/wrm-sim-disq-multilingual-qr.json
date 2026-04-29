@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-disq-multilingual-qr",
+  "business_name": "多言語QR酒場",
+  "website": "https://qr-sakaba.example.jp",
+  "address": "福岡県福岡市博多区中洲2-2 Japan",
+  "category_expected": "izakaya",
+  "readiness_expected": "disqualified",
+  "rejection_reason_expected": "multilingual_qr_or_ordering_solution_present",
+  "package_expected": "none",
+  "contact_route_expected": "email",
+  "inline_assets_expected": [],
+  "ticket_machine_state_expected": "absent",
+  "english_menu_state_expected": "usable_complete",
+  "proof_strength_minimum": "none",
+  "label_confidence": "high",
+  "label_notes": "Existing multilingual QR/mobile-order solution."
+}

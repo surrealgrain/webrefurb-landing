@@ -5,8 +5,26 @@ from pathlib import Path
 from typing import Any
 
 from .launch import LaunchBatchError, validate_launch_leads
+from .models import QualificationResult
+from .outreach import (
+    build_manual_outreach_message,
+    build_outreach_email,
+    classify_business,
+    select_outreach_assets,
+)
 from .record import load_lead, persist_lead_record
 from .utils import ensure_dir, read_json, utc_now, write_json
+
+
+def prepare_launch_smoke_drafts(*, lead_ids: list[str], state_root: Path) -> list[dict[str, Any]]:
+    """Generate no-send drafts needed before a launch rehearsal can be selected."""
+    prepared: list[dict[str, Any]] = []
+    for lead_id in lead_ids:
+        lead = load_lead(lead_id, state_root=state_root)
+        if not lead:
+            raise LaunchBatchError(f"lead_not_found:{lead_id}")
+        prepared.append(_prepare_launch_smoke_draft(lead=lead, state_root=state_root))
+    return prepared
 
 
 def create_launch_smoke_test(
@@ -50,6 +68,84 @@ def create_launch_smoke_test(
         persist_lead_record(lead, state_root=state_root)
 
     return smoke
+
+
+def _prepare_launch_smoke_draft(*, lead: dict[str, Any], state_root: Path) -> dict[str, Any]:
+    business_name = str(lead.get("business_name") or "")
+    primary_contact = _primary_contact(lead)
+    contact_type = str((primary_contact or {}).get("type") or "email")
+    draft_channel = contact_type if contact_type and contact_type != "email" else "email"
+    classification = str(lead.get("outreach_classification") or "")
+    if not classification:
+        classification = classify_business(QualificationResult(
+            lead=lead.get("lead") is True,
+            rejection_reason=lead.get("rejection_reason"),
+            business_name=business_name,
+            menu_evidence_found=lead.get("menu_evidence_found", True),
+            machine_evidence_found=lead.get("machine_evidence_found", False),
+        ))
+    profile = _effective_profile(lead)
+    assets = select_outreach_assets(
+        classification,
+        contact_type=draft_channel,
+        establishment_profile=profile,
+    )
+    if draft_channel == "email":
+        draft = build_outreach_email(
+            business_name=business_name,
+            classification=classification,
+            establishment_profile=profile,
+            include_inperson_line=lead.get("outreach_include_inperson", True),
+            lead_dossier=lead.get("lead_evidence_dossier") or {},
+        )
+    else:
+        draft = build_manual_outreach_message(
+            business_name=business_name,
+            classification=classification,
+            channel=draft_channel,
+            establishment_profile=profile,
+            include_inperson_line=lead.get("outreach_include_inperson", True),
+            lead_dossier=lead.get("lead_evidence_dossier") or {},
+        )
+
+    lead["primary_contact"] = primary_contact
+    lead["outreach_classification"] = classification
+    lead["outreach_assets_selected"] = [str(path) for path in assets]
+    lead["message_variant"] = f"{draft_channel}:{classification}:{profile}"
+    lead["outreach_draft_subject"] = draft.get("subject", "")
+    lead["outreach_draft_body"] = draft.get("body", "")
+    lead["outreach_draft_english_body"] = draft.get("english_body", "")
+    lead["outreach_draft_manually_edited"] = False
+    lead["outreach_draft_edited_at"] = ""
+    lead["no_send_draft_generated_at"] = utc_now()
+    lead["outreach_sent_at"] = lead.get("outreach_sent_at") or None
+    if lead.get("outreach_status") == "new":
+        lead["outreach_status"] = "draft"
+        history = list(lead.get("status_history") or [])
+        history.append({"status": "draft", "timestamp": utc_now()})
+        lead["status_history"] = history
+    persist_lead_record(lead, state_root=state_root)
+    return lead
+
+
+def _primary_contact(lead: dict[str, Any]) -> dict[str, Any]:
+    primary = lead.get("primary_contact") if isinstance(lead.get("primary_contact"), dict) else {}
+    if primary and primary.get("actionable"):
+        return dict(primary)
+    for contact in lead.get("contacts") or []:
+        if isinstance(contact, dict) and contact.get("actionable"):
+            return dict(contact)
+    return {}
+
+
+def _effective_profile(lead: dict[str, Any]) -> str:
+    profile = str(lead.get("establishment_profile") or "").strip()
+    if profile:
+        return profile
+    category = str(lead.get("primary_category_v1") or "")
+    if category == "izakaya":
+        return "izakaya_food_and_drinks"
+    return "ramen_only"
 
 
 def record_launch_smoke_outcome(

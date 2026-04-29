@@ -1,0 +1,17 @@
+{
+  "candidate_id": "wrm-sim-disq-english",
+  "business_name": "英語完備ラーメン",
+  "website": "https://english-ready-ramen.example.jp",
+  "address": "東京都新宿区西新宿1-1 Japan",
+  "category_expected": "ramen",
+  "readiness_expected": "disqualified",
+  "rejection_reason_expected": "already_has_usable_english_solution",
+  "package_expected": "none",
+  "contact_route_expected": "email",
+  "inline_assets_expected": [],
+  "ticket_machine_state_expected": "unknown",
+  "english_menu_state_expected": "usable_complete",
+  "proof_strength_minimum": "none",
+  "label_confidence": "high",
+  "label_notes": "Already has usable English support."
+}

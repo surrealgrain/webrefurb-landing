@@ -12,7 +12,9 @@ This is the active plan. It replaces every older phase plan and every prior comp
 - Each phase must end with:
   - code/state changes, if needed;
   - focused tests for that phase;
-  - evidence recorded in `HANDOFF.md`;
+  - compact checkpoint evidence in `HANDOFF.md` replacing stale details, not appending a diary;
+  - detailed evidence in test output, generated reports, or targeted artifacts when needed;
+  - one short positive-effect sentence in `HANDOFF.md`;
   - `git diff --check`;
   - `.venv/bin/python -m pipeline.cli audit-state` whenever lead state or outreach preview/send behavior is touched;
   - a commit.
@@ -31,7 +33,7 @@ Exact steps:
 4. Run `git status --short` and record whether the tree is clean.
 5. Run `.venv/bin/python -m pytest tests/ -q`.
 6. Run `git diff --check`.
-7. Record the test count, diff-check result, and any dirty files in `HANDOFF.md`.
+7. Record the test count, diff-check result, and any dirty files as a compact checkpoint in `HANDOFF.md`.
 
 Acceptance criteria:
 
