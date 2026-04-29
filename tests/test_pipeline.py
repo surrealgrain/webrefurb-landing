@@ -11,7 +11,7 @@ from pipeline.evidence import (
 )
 from pipeline.scoring import (
     compute_tourist_exposure_score, compute_lead_score_v1,
-    detect_english_menu_issue, recommend_package,
+    detect_english_menu_issue, recommend_package, recommend_package_details,
 )
 from pipeline.models import QualificationResult
 from pipeline.constants import (
@@ -529,6 +529,100 @@ class TestScoring:
     def test_package_recommendation_uses_current_package_keys(self):
         assert PACKAGE_A_KEY == PACKAGE_2_KEY
         assert PACKAGE_B_KEY == PACKAGE_1_KEY
+
+    def test_package_recommendation_details_cover_ramen_ticket_machine_default(self):
+        details = recommend_package_details(
+            category="ramen",
+            english_menu_issue=True,
+            machine_evidence_found=True,
+            tourist_exposure_score=0.3,
+            lead_score_v1=50,
+        )
+
+        assert details["package_key"] == PACKAGE_2_KEY
+        assert details["recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
+        assert details["custom_quote_reason"] == ""
+
+    def test_package_recommendation_details_allow_ramen_ticket_machine_print_yourself_fit(self):
+        details = recommend_package_details(
+            category="ramen",
+            english_menu_issue=True,
+            machine_evidence_found=True,
+            print_yourself_fit=True,
+            tourist_exposure_score=0.3,
+            lead_score_v1=50,
+        )
+
+        assert details["package_key"] == PACKAGE_1_KEY
+        assert details["recommendation_reason"] == "ramen_ticket_machine_with_clear_print_yourself_fit"
+
+    def test_package_recommendation_details_cover_simple_ramen_without_machine(self):
+        details = recommend_package_details(
+            category="ramen",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            menu_complexity_state="simple",
+            tourist_exposure_score=0.2,
+            lead_score_v1=45,
+        )
+
+        assert details["package_key"] == PACKAGE_1_KEY
+        assert details["recommendation_reason"] == "simple_ramen_menu_fits_english_ordering_files"
+
+    def test_package_recommendation_details_cover_ramen_counter_ready_need(self):
+        details = recommend_package_details(
+            category="ramen",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            counter_ready_need=True,
+            tourist_exposure_score=0.2,
+            lead_score_v1=45,
+        )
+
+        assert details["package_key"] == PACKAGE_2_KEY
+        assert details["recommendation_reason"] == "ramen_without_machine_but_counter_ready_materials_fit"
+
+    def test_package_recommendation_details_cover_izakaya_frequent_updates(self):
+        details = recommend_package_details(
+            category="izakaya",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            izakaya_rules_state="nomihodai_found",
+            frequent_updates_expected=True,
+            tourist_exposure_score=0.2,
+            lead_score_v1=45,
+        )
+
+        assert details["package_key"] == PACKAGE_3_KEY
+        assert details["recommendation_reason"] == "izakaya_drink_course_rules_likely_need_live_updates"
+
+    def test_package_recommendation_details_cover_izakaya_stable_table_menus(self):
+        details = recommend_package_details(
+            category="izakaya",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            izakaya_rules_state="courses_found",
+            stable_table_menus=True,
+            tourist_exposure_score=0.2,
+            lead_score_v1=45,
+        )
+
+        assert details["package_key"] == PACKAGE_2_KEY
+        assert details["recommendation_reason"] == "stable_izakaya_table_menu_needs_staff_explanation_support"
+
+    def test_package_recommendation_details_store_custom_quote_reason(self):
+        details = recommend_package_details(
+            category="izakaya",
+            english_menu_issue=True,
+            machine_evidence_found=False,
+            menu_complexity_state="large_custom_quote",
+            tourist_exposure_score=0.2,
+            lead_score_v1=45,
+        )
+
+        assert details["package_key"] == "custom_quote"
+        assert details["recommendation_reason"] == "large_or_complex_menu_requires_manual_quote"
+        assert details["custom_quote_reason"] == "large_or_complex_menu_requires_manual_quote"
 
 
 # ===========================================================================

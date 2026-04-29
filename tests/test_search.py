@@ -103,6 +103,8 @@ def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
     assert lead["source_search_job"]["job_id"] == "ramen_ticket_machine"
     assert "ticket_machine_evidence" in lead["matched_friction_evidence"]
     assert "search_job:ticket_machine" in lead["matched_friction_evidence"]
+    assert lead["package_recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
+    assert lead["custom_quote_reason"] == ""
     assert result["decisions"][0]["source_search_job"]["job_id"] == "ramen_ticket_machine"
     assert "ticket_machine_evidence" in result["decisions"][0]["matched_friction_evidence"]
 

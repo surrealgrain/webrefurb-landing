@@ -12,7 +12,7 @@ from .evidence import (
 )
 from .scoring import (
     compute_tourist_exposure_score, compute_lead_score_v1,
-    detect_english_menu_issue, recommend_package,
+    detect_english_menu_issue, recommend_package_details,
 )
 from .models import QualificationResult
 from .lead_dossier import build_lead_evidence_dossier, assess_launch_readiness
@@ -218,7 +218,7 @@ def qualify_candidate(
         rating=rating,
         reviews=reviews,
     )
-    package = recommend_package(
+    package_details = recommend_package_details(
         category=primary_category,
         english_menu_issue=english_menu_issue,
         machine_evidence_found=assessment.machine_evidence_found,
@@ -227,6 +227,7 @@ def qualify_candidate(
         tourist_exposure_score=tourist_exposure,
         lead_score_v1=lead_score,
     )
+    package = package_details["package_key"]
     (
         establishment_profile,
         establishment_profile_evidence,
@@ -300,6 +301,8 @@ def qualify_candidate(
         tourist_exposure_score=tourist_exposure,
         lead_score_v1=lead_score,
         recommended_primary_package=package,
+        package_recommendation_reason=package_details["recommendation_reason"],
+        custom_quote_reason=package_details["custom_quote_reason"],
         rating=rating,
         reviews=reviews,
         decision_reason=f"Qualified: {primary_category} lead with {english_availability} English availability.",

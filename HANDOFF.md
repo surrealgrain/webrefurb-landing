@@ -73,12 +73,19 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 4 focused command `.venv/bin/python -m pytest tests/test_search_scope.py tests/test_search.py -q` passed with `29 passed`.
 - Phase 4 full command `.venv/bin/python -m pytest tests/ -q` passed with `343 passed`.
 - Phase 4 `git diff --check` was clean.
+- Phase 5 preserved package keys/prices and added explainable package recommendation details while keeping the existing `recommend_package()` API compatible.
+- Phase 5 recommendation branches now cover ramen ticket-machine default, ramen ticket-machine print-yourself fit, simple ramen without machine, ramen counter-ready need, izakaya frequent-update QR fit, izakaya stable table-menu print fit, and large/complex custom quote.
+- Phase 5 stores `package_recommendation_reason` and `custom_quote_reason` on qualification results and lead records.
+- Phase 5 dashboard lead cards show recommended package label and recommendation reason.
+- Phase 5 focused command covering package scoring, search persistence, and dashboard recommendation display passed with `21 passed`.
+- Phase 5 full command `.venv/bin/python -m pytest tests/ -q` passed with `350 passed`.
+- Phase 5 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 5 unless the worktree shows uncommitted Phase 4 changes.
+2. Continue from Phase 6 unless the worktree shows uncommitted Phase 5 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.
