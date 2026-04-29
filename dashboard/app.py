@@ -1655,6 +1655,12 @@ async def api_update_order_intake(order_id: str, request: Request):
 async def api_mark_owner_review(order_id: str, request: Request):
     order = _load_order_record(order_id)
     body = await request.json()
+    from pipeline.quote import can_approve_production, order_from_dict
+
+    ok, blockers = can_approve_production(order_from_dict(order))
+    if not ok:
+        raise HTTPException(status_code=409, detail={"blockers": blockers})
+
     now = datetime.now(timezone.utc).isoformat()
     order["state"] = "owner_review"
     order.setdefault("state_history", []).append({
@@ -1669,6 +1675,24 @@ async def api_mark_owner_review(order_id: str, request: Request):
 async def api_record_owner_approval(order_id: str, request: Request):
     order = _load_order_record(order_id)
     body = await request.json()
+    if order.get("state") != "owner_review":
+        raise HTTPException(status_code=409, detail={"blockers": [f"order_state_not_owner_review:{order.get('state')}"]})
+    payment = order.get("payment") or {}
+    intake = order.get("intake") or {}
+    intake_complete = bool(intake.get("is_complete")) or all(
+        bool(intake.get(key))
+        for key in ("full_menu_photos", "price_confirmation", "delivery_details", "business_contact_confirmed")
+    )
+    blockers: list[str] = []
+    if str(payment.get("status") or "") != "confirmed":
+        blockers.append("payment_not_confirmed")
+    if not intake_complete:
+        blockers.append("owner_intake_incomplete")
+    if not bool(order.get("privacy_note_accepted") or body.get("privacy_note_accepted")):
+        blockers.append("privacy_note_not_accepted")
+    if blockers:
+        raise HTTPException(status_code=409, detail={"blockers": blockers})
+
     now = datetime.now(timezone.utc).isoformat()
     approval = dict(order.get("approval") or {})
     approval.update({
@@ -1683,6 +1707,13 @@ async def api_record_owner_approval(order_id: str, request: Request):
     order["approval"] = approval
     if "privacy_note_accepted" in body:
         order["privacy_note_accepted"] = bool(body.get("privacy_note_accepted"))
+    if approval["approved"] and not all([
+        approval.get("approver_name"),
+        approval.get("approved_package"),
+        approval.get("source_data_checksum"),
+        approval.get("artifact_checksum"),
+    ]):
+        raise HTTPException(status_code=422, detail="Owner approval record is incomplete")
     order["state"] = "owner_approved" if approval["approved"] else "owner_review"
     order.setdefault("state_history", []).append({"state": order["state"], "timestamp": now, "note": "Owner output approval recorded"})
     return _write_order_record(order)
@@ -1692,9 +1723,19 @@ async def api_record_owner_approval(order_id: str, request: Request):
 async def api_mark_order_delivered(order_id: str, request: Request):
     order = _load_order_record(order_id)
     body = await request.json()
+    from pipeline.quote import can_approve_package, order_from_dict
+
+    ok, blockers = can_approve_package(order_from_dict(order))
+    if not ok:
+        raise HTTPException(status_code=409, detail={"blockers": blockers})
+
     now = datetime.now(timezone.utc).isoformat()
     order["state"] = "delivered"
+    order["delivered_at"] = now
     order["delivery_tracking"] = str(body.get("delivery_tracking") or order.get("delivery_tracking") or "")
+    order["follow_up_status"] = str(body.get("follow_up_status") or order.get("follow_up_status") or "pending")
+    default_follow_up_due = (datetime.now(timezone.utc) + timedelta(days=14)).date().isoformat()
+    order["follow_up_due_at"] = str(body.get("follow_up_due_at") or order.get("follow_up_due_at") or default_follow_up_due)
     order.setdefault("state_history", []).append({
         "state": "delivered",
         "timestamp": now,

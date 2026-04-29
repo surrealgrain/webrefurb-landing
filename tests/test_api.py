@@ -136,9 +136,40 @@ class TestAPIEndpoints:
         assert loaded["intake"]["is_complete"] is True
         assert loaded["approval"]["approved"] is True
         assert loaded["state"] == "delivered"
+        assert loaded["delivered_at"]
+        assert loaded["follow_up_status"] == "pending"
+        assert loaded["follow_up_due_at"]
         artifacts = self.client.get(f"/api/orders/{order_id}/artifacts").json()
         assert "Quote: Hinode Ramen" in artifacts["contents"]["quote_markdown"]
         assert "invoice_json" in artifacts["artifacts"]
+
+    def test_paid_order_blocks_owner_review_and_delivery_until_gates_pass(self):
+        created = self.client.post("/api/orders", json={
+            "lead_id": "wrm-test-001",
+            "business_name": "Gate Ramen",
+            "package_key": "package_1_remote_30k",
+        })
+        assert created.status_code == 200
+        order_id = created.json()["order_id"]
+
+        early_review = self.client.post(f"/api/orders/{order_id}/owner-review", json={})
+        assert early_review.status_code == 409
+        assert "Payment has not been confirmed" in str(early_review.json()["detail"]["blockers"])
+
+        self.client.post(f"/api/orders/{order_id}/payment", json={"amount_yen": 30000})
+        early_approval = self.client.post(f"/api/orders/{order_id}/owner-approval", json={
+            "approved": True,
+            "approver_name": "Tanaka",
+            "source_data_checksum": "source123",
+            "artifact_checksum": "artifact123",
+            "privacy_note_accepted": True,
+        })
+        assert early_approval.status_code == 409
+        assert "order_state_not_owner_review" in str(early_approval.json()["detail"]["blockers"])
+
+        early_delivery = self.client.post(f"/api/orders/{order_id}/delivered", json={"delivery_tracking": "email"})
+        assert early_delivery.status_code == 409
+        assert "Owner has not approved the output" in str(early_delivery.json()["detail"]["blockers"])
 
     def test_paid_order_rejects_unknown_package(self):
         response = self.client.post("/api/orders", json={

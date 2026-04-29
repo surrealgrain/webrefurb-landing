@@ -2,12 +2,26 @@ from __future__ import annotations
 
 import json
 
-from pipeline.constants import PACKAGE_1_KEY, PACKAGE_2_KEY
+from pipeline.constants import (
+    PACKAGE_1_KEY,
+    PACKAGE_2_KEY,
+    PACKAGE_3_KEY,
+    ORDER_STATE_QUOTE_SENT,
+    ORDER_STATE_PAYMENT_PENDING,
+    ORDER_STATE_PAID,
+    ORDER_STATE_INTAKE_NEEDED,
+    ORDER_STATE_IN_PRODUCTION,
+    ORDER_STATE_OWNER_REVIEW,
+    ORDER_STATE_OWNER_APPROVED,
+    ORDER_STATE_DELIVERED,
+)
 from pipeline.quote import (
     can_approve_package,
+    can_approve_production,
     check_custom_quote_triggers,
     create_order,
     render_quote_markdown,
+    transition_order,
     write_order_artifacts,
 )
 
@@ -78,3 +92,48 @@ def test_custom_quote_triggers_cover_large_izakaya_print_and_update_cases():
     assert "Non-standard sizes (larger than A4/Letter)" in triggers
     assert "More than 3 printed copies" in triggers
     assert "Expected seasonal or monthly menu changes" in triggers
+
+
+def test_all_fixed_packages_rehearse_quote_to_delivery_with_safe_data():
+    for package_key in (PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY):
+        order = create_order(
+            lead_id=f"wrm-rehearsal-{package_key}",
+            business_name="Paid Ops Rehearsal",
+            package_key=package_key,
+        )
+
+        order = transition_order(order, target_state=ORDER_STATE_QUOTE_SENT, note="Quote sent")
+        order = transition_order(order, target_state=ORDER_STATE_PAYMENT_PENDING, note="Invoice sent")
+        order.payment.status = "pending"
+        order = transition_order(order, target_state=ORDER_STATE_PAID, note="Payment confirmed")
+        order.payment.status = "confirmed"
+        order.payment.amount_yen = order.quote.price_yen
+        order.payment.reference = "safe-test-payment"
+
+        order.intake.full_menu_photos = True
+        order.intake.price_confirmation = True
+        order.intake.delivery_details = True
+        order.intake.business_contact_confirmed = True
+        order.privacy_note_accepted = True
+
+        order = transition_order(order, target_state=ORDER_STATE_INTAKE_NEEDED, note="Intake requested")
+        order = transition_order(order, target_state=ORDER_STATE_IN_PRODUCTION, note="Intake complete")
+        ok, blockers = can_approve_production(order)
+        assert ok is True, blockers
+
+        order = transition_order(order, target_state=ORDER_STATE_OWNER_REVIEW, note="Owner review started")
+        order.approval.approved = True
+        order.approval.approver_name = "Tanaka"
+        order.approval.approved_package = package_key
+        order.approval.source_data_checksum = "source123"
+        order.approval.artifact_checksum = "artifact123"
+
+        ok, blockers = can_approve_package(order)
+        assert ok is True, blockers
+
+        order = transition_order(order, target_state=ORDER_STATE_OWNER_APPROVED, note="Owner approved")
+        order = transition_order(order, target_state=ORDER_STATE_DELIVERED, note="Delivered and follow-up queued")
+
+        assert order.state == ORDER_STATE_DELIVERED
+        assert order.quote.package_key == package_key
+        assert order.payment.status == "confirmed"
