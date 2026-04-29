@@ -13,12 +13,12 @@ from pipeline.search_scope import (
 @pytest.mark.parametrize(
     ("category", "city", "expected_query", "expected_label"),
     [
-        ("all", "all", "ramen and izakaya restaurants Japan", "ramen shops and izakayas"),
-        ("all", "Kyoto", "ramen and izakaya restaurants Kyoto", "ramen shops and izakayas"),
-        ("ramen", "all", "ramen restaurants Japan", "ramen shops"),
-        ("ramen", "Kyoto", "ramen restaurants Kyoto", "ramen shops"),
-        ("izakaya", "all", "izakaya restaurants Japan", "izakayas"),
-        ("izakaya", "Kyoto", "izakaya restaurants Kyoto", "izakayas"),
+        ("all", "all", "ordering-friction ramen izakaya Japan", "ramen shops and izakayas"),
+        ("all", "Kyoto", "ordering-friction ramen izakaya Kyoto", "ramen shops and izakayas"),
+        ("ramen", "all", "券売機 ラーメン Japan", "ramen shops"),
+        ("ramen", "Kyoto", "券売機 ラーメン Kyoto", "ramen shops"),
+        ("izakaya", "all", "飲み放題 コース 居酒屋 Japan", "izakayas"),
+        ("izakaya", "Kyoto", "飲み放題 コース 居酒屋 Kyoto", "izakayas"),
     ],
 )
 def test_search_scope_query_and_label(category, city, expected_query, expected_label):
@@ -28,8 +28,16 @@ def test_search_scope_query_and_label(category, city, expected_query, expected_l
 
 def test_all_category_fans_out_to_ramen_and_izakaya_for_specific_city():
     assert search_jobs_for_scope(category="all", city="Kyoto") == [
-        {"query": "ramen restaurants Kyoto", "category": "ramen"},
-        {"query": "izakaya restaurants Kyoto", "category": "izakaya"},
+        {"query": "券売機 ラーメン Kyoto", "category": "ramen"},
+        {"query": "食券 ラーメン Kyoto", "category": "ramen"},
+        {"query": "ラーメン メニュー 写真 Kyoto", "category": "ramen"},
+        {"query": "site:ramendb.supleks.jp ラーメン Kyoto", "category": "ramen"},
+        {"query": "英語メニュー ラーメン Kyoto", "category": "ramen"},
+        {"query": "飲み放題 コース 居酒屋 Kyoto", "category": "izakaya"},
+        {"query": "お品書き 居酒屋 Kyoto", "category": "izakaya"},
+        {"query": "居酒屋 メニュー 写真 Kyoto", "category": "izakaya"},
+        {"query": "site:hotpepper.jp 居酒屋 Kyoto 飲み放題", "category": "izakaya"},
+        {"query": "英語メニュー 居酒屋 Kyoto", "category": "izakaya"},
     ]
 
 

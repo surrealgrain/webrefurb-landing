@@ -62,9 +62,10 @@ These are known blockers from the repo audit and ignored `state/` artifacts:
 | P2 | Harden QR Product | Completed | Structured extraction, owner-confirmation gating, package promise, QR health/export checks, and active-environment tests/browser verification completed on 2026-04-28 |
 | P3 | Fix Lead And Contact Reality | Completed | Contact routes, manual-route outreach actions, establishment-profile evidence/override flows, and focused P3 verification completed on 2026-04-28 |
 | P4 | Make Outreach Convert | Completed | All tasks checked; 295 tests pass; shop-specific previews, category-emphasis copy, Resend webhook, bounce/complaint handling completed on 2026-04-28 |
-| P5 | Add Paid Operations Workflow | Not Started | Pending |
-| P6 | Operator Rehearsal | Not Started | Pending |
-| P7 | Controlled Launch | Not Started | Pending |
+| P5 | Add Paid Operations Workflow | Completed | Quote/order/payment/intake/approval/delivery workflow, quote + invoice artifacts, custom-quote gates, privacy note, and paid export blocking completed; `.venv/bin/python -m pytest tests/ -q` => 309 passed on 2026-04-29 |
+| P6 | Operator Rehearsal | Completed | Sample-only rehearsals produced Package 1, Package 2, and Package 3 final ZIPs; dashboard Leads/Builds/QR Menus visually inspected on `http://127.0.0.1:8001`; post-rehearsal backup includes `orders`; `.venv/bin/python -m pytest tests/ -q` => 309 passed on 2026-04-29 |
+| P6A | Product Audit Hardening | Completed | Lead evidence dossier/readiness gates, friction-first search, diagnosis outreach, preview proof filtering, outcome package labels, launch batches, state migration, browser verification, and `.venv/bin/python -m pytest tests/ -q` => 318 passed on 2026-04-29 |
+| P7 | Controlled Launch | Blocked | Awaiting explicit real-launch authorization, credentials check, and 5-10 selected high-confidence shops; no real outreach has been sent |
 
 ## P0 - Stabilize Baseline And Freeze Risk
 
@@ -385,27 +386,34 @@ Primary files:
 
 Tasks:
 
-- [ ] Add quote generation for each package.
-- [ ] Quote must include restaurant name, package, scope, price, revision limits, delivery terms, update terms, payment instructions, and expiry date.
-- [ ] Add invoice generation or invoice-ready data fields.
-- [ ] Include Japanese invoice registration number support if applicable.
-- [ ] Add payment method fields: bank transfer, manual paid flag, payment reference, paid amount, payment timestamp.
-- [ ] Decide payment terms: full upfront or deposit plus balance.
-- [ ] Add lead/order states: quoted, quote_sent, payment_pending, paid, intake_needed, in_production, owner_review, owner_approved, delivered, closed.
-- [ ] Block production approval unless payment status satisfies package rules.
-- [ ] Add owner intake checklist: full menu photos/PDFs, ticket-machine photos, price confirmation, dietary/ingredient notes, delivery details, and business contact.
-- [ ] Add owner approval record with timestamp, approver name, approved package, approved source data checksum, and approved rendered artifact checksum.
-- [ ] Add revision policy tracking.
-- [ ] Add delivery-cost and print-cost assumptions for Package 2.
-- [ ] Add custom-quote gate for large izakaya menus, multiple menu sets, oversized print, extra copies, or frequent updates.
-- [ ] Add privacy/data retention note for owner-uploaded menu photos and QR hosted data.
+- [x] Add quote generation for each package.
+- [x] Quote must include restaurant name, package, scope, price, revision limits, delivery terms, update terms, payment instructions, and expiry date.
+- [x] Add invoice generation or invoice-ready data fields.
+- [x] Include Japanese invoice registration number support if applicable.
+- [x] Add payment method fields: bank transfer, manual paid flag, payment reference, paid amount, payment timestamp.
+- [x] Decide payment terms: full upfront or deposit plus balance.
+- [x] Add lead/order states: quoted, quote_sent, payment_pending, paid, intake_needed, in_production, owner_review, owner_approved, delivered, closed.
+- [x] Block production approval unless payment status satisfies package rules.
+- [x] Add owner intake checklist: full menu photos/PDFs, ticket-machine photos, price confirmation, dietary/ingredient notes, delivery details, and business contact.
+- [x] Add owner approval record with timestamp, approver name, approved package, approved source data checksum, and approved rendered artifact checksum.
+- [x] Add revision policy tracking.
+- [x] Add delivery-cost and print-cost assumptions for Package 2.
+- [x] Add custom-quote gate for large izakaya menus, multiple menu sets, oversized print, extra copies, or frequent updates.
+- [x] Add privacy/data retention note for owner-uploaded menu photos and QR hosted data.
 
 Exit gate:
 
-- [ ] A positive reply can become a quote.
-- [ ] A quote can become payment pending, paid, intake, production, owner review, approval, and delivery states.
-- [ ] Package approval is blocked without required payment/intake/owner-approval fields.
-- [ ] Quote and invoice artifacts can be generated and inspected.
+- [x] A positive reply can become a quote.
+- [x] A quote can become payment pending, paid, intake, production, owner review, approval, and delivery states.
+- [x] Package approval is blocked without required payment/intake/owner-approval fields.
+- [x] Quote and invoice artifacts can be generated and inspected.
+
+Progress recorded 2026-04-29:
+
+- `pipeline/quote.py` now creates structured orders, quote markdown artifacts, invoice-ready JSON, full-upfront payment terms, Package 2 print/delivery assumptions, custom-quote triggers, and privacy/data-retention language.
+- Dashboard APIs now create orders, mark quote-sent/payment-pending/paid/intake/owner-review/owner-approved/delivered states, expose quote/invoice artifacts, and link paid orders to builds.
+- Final package export is blocked until quote, confirmed payment, complete intake, owner approval checksums, and privacy note acceptance are present.
+- Verification: `.venv/bin/python -m py_compile pipeline/quote.py pipeline/models.py dashboard/app.py pipeline/package_export.py`; `.venv/bin/python -m pytest tests/test_paid_ops.py tests/test_api.py::TestAPIEndpoints::test_paid_order_workflow_records_quote_payment_intake_and_owner_approval tests/test_custom_build.py::TestCustomerExport::test_package2_approval_creates_print_pack_zip -q`; `.venv/bin/python -m pytest tests/ -q` => `309 passed`.
 
 ## P6 - Operator Rehearsal
 
@@ -422,25 +430,80 @@ Primary files:
 
 Tasks:
 
-- [ ] Back up current `state/`.
-- [ ] Run a full Package 1 rehearsal from lead to quote to paid sample to build to approval to export.
-- [ ] Run a full Package 2 rehearsal with delivery fields, print checklist, final ZIP, and rendered review.
-- [ ] Run a full Package 3 rehearsal with structured items, owner-confirmed ingredients where applicable, publish, health check, QR sign, and final ZIP.
-- [ ] Run no-email contact-form and LINE lead rehearsals.
-- [ ] Run ticket-machine-only lead rehearsal.
-- [ ] Render and visually inspect dashboard views used by the operator.
-- [ ] Inspect generated PDFs/SVGs/HTML/QR pages for actual content correctness, not just file existence.
-- [ ] Record every confusing or manual step as a blocker.
-- [ ] Update launch checklist from rehearsal findings.
-- [ ] Update handoff with current test count, known limitations, and go/no-go status.
+- [x] Back up current `state/`.
+- [x] Run a full Package 1 rehearsal from lead to quote to paid sample to build to approval to export.
+- [x] Run a full Package 2 rehearsal with delivery fields, print checklist, final ZIP, and rendered review.
+- [x] Run a full Package 3 rehearsal with structured items, owner-confirmed ingredients where applicable, publish, health check, QR sign, and final ZIP.
+- [x] Run no-email contact-form and LINE lead rehearsals.
+- [x] Run ticket-machine-only lead rehearsal.
+- [x] Render and visually inspect dashboard views used by the operator.
+- [x] Inspect generated PDFs/SVGs/HTML/QR pages for actual content correctness, not just file existence.
+- [x] Record every confusing or manual step as a blocker.
+- [x] Update launch checklist from rehearsal findings.
+- [x] Update handoff with current test count, known limitations, and go/no-go status.
 
 Exit gate:
 
-- [ ] All three packages complete rehearsal without manual database/file surgery.
-- [ ] All customer artifacts pass content parity and visual inspection.
-- [ ] Operator can handle no-email, machine-only, and reply-with-photos flows.
-- [ ] Launch checklist reflects actual workflow.
-- [ ] Full tests pass after rehearsal changes.
+- [x] All three packages complete rehearsal without manual database/file surgery.
+- [x] All customer artifacts pass content parity and visual inspection.
+- [x] Operator can handle no-email, machine-only, and reply-with-photos flows.
+- [x] Launch checklist reflects actual workflow.
+- [x] Full tests pass after rehearsal changes.
+
+Progress recorded 2026-04-29:
+
+- Backup before rehearsal: `state/backups/webrefurb-state-20260428T230412+0000.zip`; backup after rehearsal: `state/backups/webrefurb-state-20260428T230746+0000.zip` with `orders` included.
+- Package 1 rehearsal final export: `state/final_exports/p6-package1/p6-package1-package_1_remote_30k.zip`.
+- Package 2 rehearsal final export: `state/final_exports/p6-package2/p6-package2-package_2_printed_delivered_45k.zip`, including `PRINT_ORDER.json`, `PRINT_CHECKLIST.md`, `DELIVERY_CHECKLIST.md`, and B4 print output.
+- Package 3 rehearsal final export: `state/final_exports/qr-849bf3ed/qr-849bf3ed-package_3_qr_menu_65k.zip`, with QR health passing.
+- Rehearsal report: `state/p6_rehearsal/P6_REHEARSAL_REPORT.json`.
+- Dashboard visual inspection covered Leads, Builds, and QR Menus on `http://127.0.0.1:8001`; no overlapping text or blocked operator surface was observed.
+- Full verification after rehearsal: `.venv/bin/python -m pytest tests/ -q` => `309 passed`.
+
+## P6A - Product Audit Hardening
+
+Goal: implement the 2026-04-29 product audit before controlled launch, with stronger lead proof, diagnosis-led outreach, outcome-based package framing, and batch measurement.
+
+Primary files:
+
+- `pipeline/lead_dossier.py`
+- `pipeline/search_scope.py`
+- `pipeline/outreach.py`
+- `pipeline/preview.py`
+- `pipeline/launch.py`
+- `dashboard/`
+- `docs/`
+- `tests/`
+
+Tasks:
+
+- [x] Back up `state/` before migration.
+- [x] Add persisted lead evidence dossiers while preserving binary `lead: true|false`.
+- [x] Store `ticket_machine_state`, `english_menu_state`, `menu_complexity_state`, and `izakaya_rules_state`.
+- [x] Store proof items with source type, URL, snippet, customer-preview eligibility, and rejection reason.
+- [x] Gate dashboard outreach generation on `launch_readiness_status`.
+- [x] Replace generic search defaults with friction-first ramen/izakaya search jobs.
+- [x] Disqualify chain-like, already-solved, multilingual-QR, or out-of-scope records before launch.
+- [x] Migrate stale package keys to current package keys.
+- [x] Quarantine the stale Tsukada Nojo record as `do_not_contact`.
+- [x] Replace price-led cold pitch behavior with shop-specific diagnosis outreach.
+- [x] Add sender identity, contact detail, opt-out wording, and message variant tracking.
+- [x] Block bracketed fallback translations, boilerplate snippets, reservation snippets, chain snippets, and unconfirmed prices from customer-visible previews.
+- [x] Rename customer-facing package labels to English Ordering Files, Counter-Ready Ordering Kit, and Live QR English Menu while keeping package keys/prices stable.
+- [x] Add launch batch records that enforce 5-10 lead batches and block batch 2 until batch 1 is reviewed.
+- [x] Add regression tests for dossier state derivation, stale-state migration, preview filtering, diagnosis outreach, friction-first search, website copy, and launch batches.
+- [x] Browser-verify dashboard readiness badges, outreach modal, homepage, pricing page, Japanese mobile page, and QR page.
+
+Exit gate:
+
+- [x] State backup exists before migration: `state/backups/webrefurb-state-20260428T235430+0000.zip`; post-hardening backup exists: `state/backups/webrefurb-state-20260429T001624+0000.zip`.
+- [x] Stale Tsukada Nojo lead is disqualified, migrated from `package_A_in_person_48k` to `package_2_printed_delivered_45k`, and marked `do_not_contact`.
+- [x] Customer-facing preview generation returns no bracketed fallback translations and hides unconfirmed prices.
+- [x] Dashboard outreach API rejects non-ready leads with explicit readiness reasons.
+- [x] Public package labels use outcome names while prices remain ¥30,000 / ¥45,000 / ¥65,000.
+- [x] Browser verification screenshots written under `state/qa-screenshots/`.
+- [x] `.venv/bin/python -m pytest tests/ -q` => `318 passed`.
+- [x] `git diff --check` passed.
 
 ## P7 - Controlled Launch
 

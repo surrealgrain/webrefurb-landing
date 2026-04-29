@@ -92,9 +92,27 @@ def _dashboard_email_preview_html(
     )
     # Replace CID references with dashboard-local SVG/PNG paths for in-browser display
     html_body = html_body.replace(f"cid:{LOGO_CID}", "/assets/webrefurb-email-logo.svg")
-    html_body = html_body.replace(f"cid:{MENU_CID}", "/assets/placeholder-menu-preview.png")
-    html_body = html_body.replace(f"cid:{MACHINE_CID}", "/assets/placeholder-machine-preview.png")
+    html_body = html_body.replace(f"cid:{MENU_CID}", _inline_preview_svg("English ordering sample", "Menu / Order Guide"))
+    html_body = html_body.replace(f"cid:{MACHINE_CID}", _inline_preview_svg("Ticket machine sample", "Button Map"))
     return html_body
+
+
+def _inline_preview_svg(title: str, label: str) -> str:
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+<rect width="1200" height="760" fill="#0f0d0b"/>
+<rect x="64" y="64" width="1072" height="632" rx="18" fill="#1c1917" stroke="#3f3a34" stroke-width="2"/>
+<text x="96" y="136" fill="#f0ebe3" font-family="Arial, sans-serif" font-size="52" font-weight="700">{title}</text>
+<text x="96" y="190" fill="#c53d43" font-family="Arial, sans-serif" font-size="28" font-weight="700">{label}</text>
+<rect x="96" y="250" width="460" height="64" rx="8" fill="#292524"/>
+<rect x="96" y="340" width="460" height="64" rx="8" fill="#292524"/>
+<rect x="96" y="430" width="460" height="64" rx="8" fill="#292524"/>
+<rect x="640" y="250" width="360" height="64" rx="8" fill="#292524"/>
+<rect x="640" y="340" width="360" height="64" rx="8" fill="#292524"/>
+<rect x="640" y="430" width="360" height="64" rx="8" fill="#292524"/>
+<text x="96" y="610" fill="#a8a29e" font-family="Arial, sans-serif" font-size="28">Illustrative sample only. Production uses owner-provided photos.</text>
+</svg>"""
+    encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
 
 
 def _normalise_body(text: str) -> str:
@@ -271,6 +289,9 @@ def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
 
 
 def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
+    from pipeline.lead_dossier import ensure_lead_dossier
+
+    lead = ensure_lead_dossier(lead)
     prepared = dict(lead)
     contacts = _lead_contacts(lead)
     primary_contact = _lead_primary_contact(lead)
@@ -289,6 +310,9 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["establishment_profile_source_urls"] = profile["source_urls"]
     prepared["establishment_profile_override"] = profile["override"]
     prepared["establishment_profile_override_note"] = profile["override_note"]
+    prepared["launch_readiness_status"] = lead.get("launch_readiness_status", "manual_review")
+    prepared["launch_readiness_reasons"] = list(lead.get("launch_readiness_reasons") or [])
+    prepared["lead_evidence_dossier"] = lead.get("lead_evidence_dossier") or {}
     return prepared
 
 
@@ -343,9 +367,54 @@ async def dashboard_main(request: Request):
 
 @app.get("/api/leads")
 async def api_leads():
-    """Return all leads as JSON."""
+    """Return dashboard-ready lead records as JSON."""
     from pipeline.record import list_leads
-    return list_leads(state_root=STATE_ROOT)
+    return [_prepare_lead_for_dashboard(lead) for lead in list_leads(state_root=STATE_ROOT)]
+
+
+@app.get("/api/launch-batches")
+async def api_launch_batches():
+    from pipeline.launch import list_launch_batches
+
+    return {"batches": list_launch_batches(state_root=STATE_ROOT)}
+
+
+@app.post("/api/launch-batches")
+async def api_create_launch_batch(request: Request):
+    from pipeline.launch import LaunchBatchError, create_launch_batch
+
+    payload = await request.json()
+    try:
+        batch = create_launch_batch(
+            lead_ids=list(payload.get("lead_ids") or []),
+            state_root=STATE_ROOT,
+            notes=str(payload.get("notes") or ""),
+        )
+    except LaunchBatchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return batch
+
+
+@app.post("/api/launch-batches/{batch_id}/review")
+async def api_review_launch_batch(batch_id: str, request: Request):
+    from pipeline.launch import LaunchBatchError, review_launch_batch
+
+    payload = await request.json()
+    try:
+        return review_launch_batch(batch_id=batch_id, state_root=STATE_ROOT, notes=str(payload.get("notes") or ""))
+    except LaunchBatchError as exc:
+        raise HTTPException(status_code=404 if str(exc) == "batch_not_found" else 422, detail=str(exc))
+
+
+@app.post("/api/launch-batches/{batch_id}/leads/{lead_id}/outcome")
+async def api_record_launch_outcome(batch_id: str, lead_id: str, request: Request):
+    from pipeline.launch import LaunchBatchError, record_launch_outcome
+
+    payload = await request.json()
+    try:
+        return record_launch_outcome(batch_id=batch_id, lead_id=lead_id, state_root=STATE_ROOT, outcome=payload)
+    except LaunchBatchError as exc:
+        raise HTTPException(status_code=404 if "not_found" in str(exc) or "not_in_batch" in str(exc) else 422, detail=str(exc))
 
 
 @app.delete("/api/leads/{lead_id}")
@@ -578,6 +647,17 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             detail=f"Lead already has status '{record.get('outreach_status')}'",
         )
 
+    from pipeline.lead_dossier import ensure_lead_dossier, READINESS_READY
+    record = ensure_lead_dossier(record)
+    if record.get("launch_readiness_status") != READINESS_READY:
+        from pipeline.record import persist_lead_record
+        persist_lead_record(record, state_root=STATE_ROOT)
+        reasons = ", ".join(record.get("launch_readiness_reasons") or ["not_ready"])
+        raise HTTPException(
+            status_code=422,
+            detail=f"Lead is not launch-ready for outreach: {reasons}",
+        )
+
     # Build qualification result for classification
     q = QualificationResult(
         lead=record["lead"],
@@ -625,6 +705,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             classification=classification,
             establishment_profile=profile["effective"],
             include_inperson_line=include_inperson,
+            lead_dossier=record.get("lead_evidence_dossier") or {},
         )
     else:
         draft = build_manual_outreach_message(
@@ -633,11 +714,13 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             channel=draft_channel,
             establishment_profile=profile["effective"],
             include_inperson_line=include_inperson,
+            lead_dossier=record.get("lead_evidence_dossier") or {},
         )
 
     # Update lead record
     record["outreach_classification"] = classification
     record["outreach_assets_selected"] = [str(p) for p in assets]
+    record["message_variant"] = f"{draft_channel}:{classification}:{profile['effective']}"
     if record.get("outreach_status") == "new":
         record["outreach_status"] = "draft"
         record["status_history"].append({
@@ -715,6 +798,10 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "has_saved_draft": bool(record.get("outreach_draft_body") or record.get("outreach_draft_english_body")),
         "send_blocked": record.get("outreach_status") in BLOCKED_SEND_STATUSES,
         "outreach_status": record.get("outreach_status"),
+        "launch_readiness_status": record.get("launch_readiness_status"),
+        "launch_readiness_reasons": record.get("launch_readiness_reasons") or [],
+        "lead_evidence_dossier": record.get("lead_evidence_dossier") or {},
+        "message_variant": record.get("message_variant", ""),
     }
 
 
@@ -890,6 +977,14 @@ async def api_send(lead_id: str, request: Request):
     normalised_to = to_email.strip().lower()
     is_business_send = _is_lead_business_recipient(lead_id, normalised_to)
     is_test_send = not is_business_send
+    if is_business_send:
+        from pipeline.lead_dossier import ensure_lead_dossier, READINESS_READY
+
+        record = ensure_lead_dossier(record)
+        if record.get("launch_readiness_status") != READINESS_READY:
+            persist_lead_record(record, state_root=STATE_ROOT)
+            reasons = ", ".join(record.get("launch_readiness_reasons") or ["not_ready"])
+            raise HTTPException(status_code=422, detail=f"Lead is not launch-ready for outreach: {reasons}")
 
     from pipeline.models import QualificationResult
     from pipeline.outreach import classify_business, select_outreach_assets, build_outreach_email
@@ -1365,6 +1460,263 @@ async def api_packages():
     from pipeline.package_export import package_registry
 
     return {"packages": package_registry()}
+
+
+def _order_path(order_id: str) -> Path:
+    safe_id = str(order_id or "").strip()
+    if not re.fullmatch(r"ord-[a-zA-Z0-9_-]{4,64}", safe_id):
+        raise HTTPException(status_code=400, detail="Invalid order id")
+    return STATE_ROOT / "orders" / f"{safe_id}.json"
+
+
+def _load_order_record(order_id: str) -> dict[str, Any]:
+    path = _order_path(order_id)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Order not found")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_order_record(order: dict[str, Any]) -> dict[str, Any]:
+    from pipeline.utils import write_json
+
+    order["updated_at"] = datetime.now(timezone.utc).isoformat()
+    write_json(_order_path(str(order.get("order_id") or "")), order)
+    return order
+
+
+@app.get("/api/orders")
+async def api_orders():
+    """Return paid order records for quote/payment/intake tracking."""
+    orders_dir = STATE_ROOT / "orders"
+    records: list[dict[str, Any]] = []
+    for path in sorted(orders_dir.glob("*.json"), reverse=True) if orders_dir.exists() else []:
+        try:
+            records.append(json.loads(path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError:
+            continue
+    return {"orders": records}
+
+
+@app.post("/api/orders")
+async def api_create_order(request: Request):
+    """Create a quote/order record from a lead and selected package."""
+    from pipeline.quote import create_order, write_order_artifacts
+    from pipeline.record import load_lead
+    from pipeline.utils import write_json
+
+    body = await request.json()
+    lead_id = str(body.get("lead_id") or "").strip()
+    package_key = str(body.get("package_key") or "").strip()
+    lead = load_lead(lead_id, state_root=STATE_ROOT) if lead_id else None
+    business_name = str(body.get("business_name") or (lead or {}).get("business_name") or "").strip()
+    if not business_name:
+        raise HTTPException(status_code=422, detail="business_name is required")
+    try:
+        order_model = create_order(
+            lead_id=lead_id,
+            business_name=business_name,
+            package_key=package_key,
+            is_custom=bool(body.get("is_custom")),
+            custom_price_yen=int(body["custom_price_yen"]) if str(body.get("custom_price_yen") or "").strip() else None,
+            custom_reason=str(body.get("custom_reason") or ""),
+        )
+        artifact_paths = write_order_artifacts(state_root=STATE_ROOT, order=order_model)
+        order_model.artifact_paths = artifact_paths
+        order = order_model.to_dict()
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    write_json(_order_path(order["order_id"]), order)
+    _log("order_created", f"package={package_key}", lead_id=lead_id)
+    return order
+
+
+@app.get("/api/orders/{order_id}")
+async def api_get_order(order_id: str):
+    return _load_order_record(order_id)
+
+
+@app.post("/api/orders/{order_id}/quote-sent")
+async def api_mark_quote_sent(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    order["state"] = "quote_sent"
+    order["quote_sent_at"] = now
+    order.setdefault("state_history", []).append({
+        "state": "quote_sent",
+        "timestamp": now,
+        "note": str(body.get("note") or "Quote sent to owner"),
+    })
+    return _write_order_record(order)
+
+
+@app.post("/api/orders/{order_id}/payment-pending")
+async def api_mark_payment_pending(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    payment = dict(order.get("payment") or {})
+    payment.update({
+        "method": str(body.get("method") or payment.get("method") or "bank_transfer"),
+        "status": "pending",
+        "amount_yen": int(body.get("amount_yen") or payment.get("amount_yen") or 0),
+        "reference": str(body.get("reference") or payment.get("reference") or ""),
+        "invoice_number": str(body.get("invoice_number") or payment.get("invoice_number") or ""),
+        "invoice_registration_number": str(body.get("invoice_registration_number") or payment.get("invoice_registration_number") or ""),
+    })
+    order["payment"] = payment
+    order["state"] = "payment_pending"
+    order.setdefault("state_history", []).append({
+        "state": "payment_pending",
+        "timestamp": now,
+        "note": str(body.get("note") or "Payment instructions sent"),
+    })
+    return _write_order_record(order)
+
+
+@app.post("/api/orders/{order_id}/payment")
+async def api_confirm_order_payment(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    payment = dict(order.get("payment") or {})
+    payment.update({
+        "method": str(body.get("method") or payment.get("method") or "bank_transfer"),
+        "status": "confirmed",
+        "amount_yen": int(body.get("amount_yen") or payment.get("amount_yen") or 0),
+        "reference": str(body.get("reference") or payment.get("reference") or ""),
+        "paid_at": str(body.get("paid_at") or payment.get("paid_at") or now),
+        "confirmed_at": now,
+        "confirmed_by": str(body.get("confirmed_by") or "operator"),
+        "invoice_number": str(body.get("invoice_number") or payment.get("invoice_number") or ""),
+        "invoice_registration_number": str(body.get("invoice_registration_number") or payment.get("invoice_registration_number") or ""),
+    })
+    order["payment"] = payment
+    order["state"] = "paid"
+    order.setdefault("state_history", []).append({"state": "paid", "timestamp": now, "note": "Payment confirmed"})
+    written = _write_order_record(order)
+    try:
+        from pipeline.quote import order_from_dict, write_order_artifacts
+        written["artifact_paths"] = write_order_artifacts(state_root=STATE_ROOT, order=order_from_dict(written))
+        written = _write_order_record(written)
+    except Exception:
+        pass
+    return written
+
+
+@app.post("/api/orders/{order_id}/intake")
+async def api_update_order_intake(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    intake = dict(order.get("intake") or {})
+    for key in (
+        "full_menu_photos",
+        "ticket_machine_photos",
+        "price_confirmation",
+        "dietary_ingredient_notes",
+        "delivery_details",
+        "business_contact_confirmed",
+    ):
+        if key in body:
+            intake[key] = bool(body.get(key))
+    if "notes" in body:
+        intake["notes"] = str(body.get("notes") or "")
+    intake["is_complete"] = all(bool(intake.get(key)) for key in (
+        "full_menu_photos",
+        "price_confirmation",
+        "delivery_details",
+        "business_contact_confirmed",
+    ))
+    order["intake"] = intake
+    if intake["is_complete"] and order.get("state") in {"paid", "intake_needed"}:
+        order["state"] = "in_production"
+        order.setdefault("state_history", []).append({
+            "state": "in_production",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "note": "Intake complete",
+        })
+    return _write_order_record(order)
+
+
+@app.post("/api/orders/{order_id}/owner-review")
+async def api_mark_owner_review(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    order["state"] = "owner_review"
+    order.setdefault("state_history", []).append({
+        "state": "owner_review",
+        "timestamp": now,
+        "note": str(body.get("note") or "Output sent for owner review"),
+    })
+    return _write_order_record(order)
+
+
+@app.post("/api/orders/{order_id}/owner-approval")
+async def api_record_owner_approval(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    approval = dict(order.get("approval") or {})
+    approval.update({
+        "approved": bool(body.get("approved", True)),
+        "approver_name": str(body.get("approver_name") or approval.get("approver_name") or ""),
+        "approved_package": str(body.get("approved_package") or order.get("package_key") or ""),
+        "approved_at": now,
+        "source_data_checksum": str(body.get("source_data_checksum") or approval.get("source_data_checksum") or ""),
+        "artifact_checksum": str(body.get("artifact_checksum") or approval.get("artifact_checksum") or ""),
+        "notes": str(body.get("notes") or approval.get("notes") or ""),
+    })
+    order["approval"] = approval
+    if "privacy_note_accepted" in body:
+        order["privacy_note_accepted"] = bool(body.get("privacy_note_accepted"))
+    order["state"] = "owner_approved" if approval["approved"] else "owner_review"
+    order.setdefault("state_history", []).append({"state": order["state"], "timestamp": now, "note": "Owner output approval recorded"})
+    return _write_order_record(order)
+
+
+@app.post("/api/orders/{order_id}/delivered")
+async def api_mark_order_delivered(order_id: str, request: Request):
+    order = _load_order_record(order_id)
+    body = await request.json()
+    now = datetime.now(timezone.utc).isoformat()
+    order["state"] = "delivered"
+    order["delivery_tracking"] = str(body.get("delivery_tracking") or order.get("delivery_tracking") or "")
+    order.setdefault("state_history", []).append({
+        "state": "delivered",
+        "timestamp": now,
+        "note": str(body.get("note") or "Package delivered"),
+    })
+    return _write_order_record(order)
+
+
+@app.get("/api/orders/{order_id}/artifacts")
+async def api_order_artifacts(order_id: str):
+    order = _load_order_record(order_id)
+    artifacts = dict(order.get("artifact_paths") or {})
+    result: dict[str, Any] = {"order_id": order_id, "artifacts": artifacts, "contents": {}}
+    for key, raw_path in artifacts.items():
+        path = Path(str(raw_path))
+        if path.exists() and path.is_file():
+            result["contents"][key] = path.read_text(encoding="utf-8")
+    return result
+
+
+@app.post("/api/build/{job_id}/order")
+async def api_link_build_order(job_id: str, request: Request):
+    """Attach a paid order record to an existing build before final export."""
+    body = await request.json()
+    order_id = str(body.get("order_id") or "").strip()
+    _load_order_record(order_id)
+    meta_path = STATE_ROOT / "jobs" / f"{job_id}.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Build job not found")
+    job = json.loads(meta_path.read_text(encoding="utf-8"))
+    job["order_id"] = order_id
+    from pipeline.utils import write_json
+    write_json(meta_path, job)
+    _build_jobs[job_id] = job
+    return {"status": "ok", "job_id": job_id, "order_id": order_id}
 
 
 @app.get("/api/builds")

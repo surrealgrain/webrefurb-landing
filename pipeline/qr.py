@@ -308,7 +308,7 @@ def approve_qr_package(
     job_id: str,
     reviewer: str = "operator",
 ) -> dict[str, Any]:
-    """Approve, publish, health-check, and package the paid QR Menu System."""
+    """Approve, publish, health-check, and package the paid Live QR English Menu."""
     job = get_qr_job(state_root=state_root, job_id=job_id)
     if not job:
         raise QRMenuError("QR job not found")

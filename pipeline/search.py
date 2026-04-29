@@ -410,6 +410,20 @@ def _google_confidence_override(place: dict[str, Any]) -> bool:
     )
 
 
+def _has_verified_name_conflict(*, source_candidate: str, official_name: str) -> bool:
+    """Return True when two usable first-party names disagree.
+
+    Google confidence is useful for rescuing sparse independent shops, but it
+    should not override a concrete mismatch between the Maps title and the
+    restaurant's own page title/H1.
+    """
+    if not source_candidate or not official_name:
+        return False
+    if business_name_is_suspicious(source_candidate) or business_name_is_suspicious(official_name):
+        return False
+    return not business_names_match(source_candidate, official_name)
+
+
 def verify_business_name(
     *,
     source_name: str,
@@ -424,6 +438,10 @@ def verify_business_name(
     source_candidate = str(source_name or "").strip()
     official_candidates = [candidate for candidate in extract_business_name_candidates(html) if not business_name_is_suspicious(candidate)]
     official_name = official_candidates[0] if official_candidates else ""
+    name_conflict = _has_verified_name_conflict(
+        source_candidate=source_candidate,
+        official_name=official_name,
+    )
     verified_by: list[str] = []
 
     tabelog_url = _find_tabelog_candidate_url(
@@ -466,12 +484,14 @@ def verify_business_name(
                 ramendb_name = ""
 
     if tabelog_name:
-        resolved_name = tabelog_name
-        resolved_source = "tabelog"
         if source_candidate and not business_name_is_suspicious(source_candidate) and business_names_match(source_candidate, tabelog_name):
             verified_by = ["tabelog", "google"]
+            resolved_name = tabelog_name
+            resolved_source = "tabelog"
         elif official_name and business_names_match(official_name, tabelog_name):
             verified_by = ["tabelog", "official_site"]
+            resolved_name = tabelog_name
+            resolved_source = "tabelog"
     elif ramendb_name:
         if source_candidate and not business_name_is_suspicious(source_candidate) and business_names_match(source_candidate, ramendb_name):
             verified_by = ["ramendb", "google"]
@@ -496,6 +516,9 @@ def verify_business_name(
         "tabelog_name": tabelog_name,
         "ramendb_url": ramendb_url,
         "ramendb_name": ramendb_name,
+        "official_name": official_name,
+        "source_candidate": source_candidate,
+        "name_conflict": name_conflict,
     }
 
 
@@ -577,15 +600,16 @@ def search_and_qualify(
             continue
         if len(verified_by) < 2:
             # Allow through when Google Maps signals are strong enough on their own
-            if _google_confidence_override(place):
+            if _google_confidence_override(place) and not bool(name_check.get("name_conflict")):
                 verified_by = verified_by + ["google_confidence_override"]
             else:
                 decisions.append({
                     "business_name": business_name or source_name,
                     "lead": False,
-                    "reason": "business_name_unverified",
+                    "reason": "business_name_conflict" if name_check.get("name_conflict") else "business_name_unverified",
                     "business_name_source": business_name_source,
                     "business_name_verified_by": verified_by,
+                    "official_name": name_check.get("official_name", ""),
                 })
                 continue
 
@@ -607,6 +631,12 @@ def search_and_qualify(
         decision = qualification.to_dict()
         decision["business_name_source"] = business_name_source
         decision["business_name_verified_by"] = verified_by
+        if qualification.lead and category in {"ramen", "izakaya"} and qualification.primary_category_v1 != category:
+            decision["lead"] = False
+            decision["reason"] = "search_category_mismatch"
+            decision["requested_category"] = category
+            decisions.append(decision)
+            continue
 
         if qualification.lead:
             contact_routes = discover_contact_routes(

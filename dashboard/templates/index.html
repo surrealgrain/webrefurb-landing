@@ -151,7 +151,7 @@ button, input, select, textarea { font: inherit; }
 .lead-meta { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
 .lead-contact { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .lead-profile { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
-.lead-badges { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.lead-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
 
 .status-badge {
   display: inline-flex; align-items: center; border-radius: 9999px;
@@ -164,6 +164,9 @@ button, input, select, textarea { font: inherit; }
 .status-converted { background: #EEF8F2; color: #166534; }
 .status-rejected { background: #FFF8F6; color: #C43D2F; }
 .status-do-not-contact { background: #F3F4F6; color: #6B7280; }
+.readiness-ready { background: #EEF8F2; border: 1px solid #BDE7CA; color: #166534; }
+.readiness-manual { background: #FFF7ED; border: 1px solid #FDBA74; color: #9A3412; }
+.readiness-disqualified { background: #F3F4F6; border: 1px solid #D1D5DB; color: #4B5563; }
 
 .draft-badge {
   display: inline-flex; align-items: center; border-radius: 9999px;
@@ -529,8 +532,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <div class="lead-meta">{{ lead.primary_category_v1|capitalize }} &middot; {{ lead.address|default('Unknown', true) }}</div>
           <div class="lead-contact">Primary route: {{ lead.primary_contact_label }}</div>
           <div class="lead-profile" data-role="profile-summary">Profile: {{ lead.establishment_profile_label }}{% if lead.establishment_profile_mode == 'operator_override' %} · Operator override{% endif %}</div>
+          <div class="lead-profile">Launch readiness: {{ lead.launch_readiness_status|default('manual_review', true)|replace('_', ' ')|title }}{% if lead.launch_readiness_reasons %} · {{ lead.launch_readiness_reasons[0]|replace('_', ' ') }}{% endif %}</div>
           <div class="lead-badges">
             <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>
+            <span class="status-badge readiness-{{ 'ready' if lead.launch_readiness_status == 'ready_for_outreach' else 'disqualified' if lead.launch_readiness_status == 'disqualified' else 'manual' }}">{{ lead.launch_readiness_status|default('manual_review', true)|replace('_', ' ')|title }}</span>
             {% if lead.primary_contact_type %}
             <span class="classification-badge">{{ lead.primary_contact_type|replace('_', ' ')|title }}</span>
             {% endif %}
@@ -551,7 +556,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         </div>
         <div class="lead-actions">
           {% set blocked_send = lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted', 'do_not_contact'] %}
-          <button class="btn btn-secondary" onclick="openPreview('{{ lead.lead_id }}')">{{ 'View' if blocked_send else 'Preview' }}</button>
+          {% set ready = lead.launch_readiness_status|default('manual_review', true) == 'ready_for_outreach' %}
+          <button class="btn btn-secondary" {% if not ready and not blocked_send %}disabled title="{{ lead.launch_readiness_reasons|join(', ') }}"{% else %}onclick="openPreview('{{ lead.lead_id }}')"{% endif %}>{{ 'View' if blocked_send else 'Preview' if ready else 'Review Gate' }}</button>
           <button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete {{ lead.business_name }}" onclick="openDeleteLead('{{ lead.lead_id }}', this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
           </button>
@@ -745,8 +751,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <div class="form-group">
         <label class="form-label">Package</label>
         <select class="form-input" id="build-package">
-          <option value="package_1_remote_30k">Online Delivery — ¥30,000</option>
-          <option value="package_2_printed_delivered_45k">Printed and Delivered — ¥45,000</option>
+          <option value="package_1_remote_30k">English Ordering Files — ¥30,000</option>
+          <option value="package_2_printed_delivered_45k">Counter-Ready Ordering Kit — ¥45,000</option>
         </select>
       </div>
       <div class="form-group">
@@ -1023,10 +1029,15 @@ function renderEstablishmentProfile(data) {
   const sourceUrls = Array.isArray(data.establishment_profile_source_urls) ? data.establishment_profile_source_urls : [];
   const effectiveProfile = data.establishment_profile_override || data.establishment_profile || 'unknown';
 
-  summary.textContent = label + ' · ' + mode + ' · ' + confidence.replace(/_/g, ' ') + ' confidence';
+  const readiness = (data.launch_readiness_status || 'manual_review').replace(/_/g, ' ');
+  const readinessReasons = Array.isArray(data.launch_readiness_reasons) ? data.launch_readiness_reasons : [];
+  summary.textContent = label + ' · ' + mode + ' · ' + confidence.replace(/_/g, ' ') + ' confidence · ' + readiness;
   evidence.innerHTML = evidenceItems.length
     ? evidenceItems.map(item => '<span class="profile-chip">' + escapeHtml(item) + '</span>').join('')
     : '<span class="profile-chip">No saved evidence yet</span>';
+  if (readinessReasons.length) {
+    evidence.innerHTML += readinessReasons.map(item => '<span class="profile-chip">' + escapeHtml(item.replace(/_/g, ' ')) + '</span>').join('');
+  }
   sources.innerHTML = sourceUrls.length
     ? sourceUrls.map(url => '<a class="profile-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Source</a>').join('')
     : '';
@@ -2129,6 +2140,8 @@ function renderBuildReview(review) {
   const artifacts = review.artifacts || [];
   const checklist = review.review_checklist || {};
   const printProfile = review.print_profile || validation.print_profile || null;
+  const paidOps = review.paid_operations || {};
+  const paidOpsBlockers = paidOps.blockers || [];
   const isPrinted = review.package_key === 'package_2_printed_delivered_45k';
   const actionErrors = isPrinted ? errors.filter(e => !['delivery_contact_name_missing', 'delivery_address_missing'].includes(e)) : errors;
   const requiredReady = artifacts.filter(a => a.required && a.exists).length;
@@ -2136,9 +2149,9 @@ function renderBuildReview(review) {
   const visiblePriceCount = Number(checklist.price_count || 0);
   const sourcePriceCount = Number(checklist.source_price_count || visiblePriceCount || 0);
   const approved = review.review_status === 'approved' && review.final_export_status === 'ready';
-  const approvalBlocked = actionErrors.length > 0 || approved;
+  const approvalBlocked = actionErrors.length > 0 || paidOpsBlockers.length > 0 || approved;
   const approveDisabled = approvalBlocked ? 'disabled aria-disabled="true"' : '';
-  const approveTitle = actionErrors.length ? 'Resolve validation errors before final export' : approved ? 'Already approved' : 'Approve final export';
+  const approveTitle = actionErrors.length ? 'Resolve validation errors before final export' : paidOpsBlockers.length ? 'Complete paid operations before final export' : approved ? 'Already approved' : 'Approve final export';
   const approvalButton = isPrinted ? 'Approve Print Pack' : 'Approve Final Export';
 
   document.getElementById('build-review-title').textContent =
@@ -2191,6 +2204,13 @@ function renderBuildReview(review) {
       <div class="form-group"><input class="form-input" id="delivery-phone" placeholder="Phone (optional)"></div>
       <div class="form-group"><textarea class="form-textarea" id="delivery-notes" style="min-height:70px;" placeholder="Delivery notes (optional)"></textarea></div>
     </div>` : '';
+  const paidOpsCard = `
+    <div class="qr-review-card">
+      <div class="qr-review-label">Paid operations</div>
+      <ul class="qr-check-list">
+        ${paidOpsBlockers.length ? paidOpsBlockers.map(e => `<li class="is-error">${escapeHtml(e)}</li>`).join('') : '<li>Quote, payment, intake, and owner approval confirmed</li>'}
+      </ul>
+    </div>`;
 
   document.getElementById('build-review-content').innerHTML = `
     <div class="qr-review-card">
@@ -2202,6 +2222,7 @@ function renderBuildReview(review) {
     </div>
     ${checklistCard}
     ${printCard}
+    ${paidOpsCard}
     ${deliveryCard}
     <div class="qr-review-card">
       <div class="qr-review-label">Artifacts</div>
@@ -2272,6 +2293,8 @@ async function loadBuilds() {
     }
     list.innerHTML = builds.map(build => {
       const errors = (build.validation && build.validation.errors) || [];
+      const paidBlockers = (build.paid_operations && build.paid_operations.blockers) || [];
+      const issueCount = errors.length + paidBlockers.length;
       const download = build.download_url ? `<a class="btn btn-success" href="${escapeHtml(build.download_url)}">Download</a>` : '';
       return `
         <div class="reply-entry">
@@ -2279,7 +2302,7 @@ async function loadBuilds() {
             <span class="reply-entry-subject">${escapeHtml(build.restaurant_name || build.job_id || 'Build')}</span>
             <span class="reply-entry-flags">
               <span class="reply-channel-pill">${escapeHtml(build.package_label || '')} · ¥${Number(build.price_yen || 0).toLocaleString()}</span>
-              <span class="${errors.length ? 'reply-qr-pill' : 'reply-photo-pill'}">${errors.length ? errors.length + ' issue' : 'Ready'}</span>
+              <span class="${issueCount ? 'reply-qr-pill' : 'reply-photo-pill'}">${issueCount ? issueCount + ' issue' : 'Ready'}</span>
             </span>
           </div>
           <div class="reply-entry-meta">Status: ${escapeHtml(build.status || '')} · Review: ${escapeHtml(build.review_status || '')} · Created: ${escapeHtml(build.created_at || '')}</div>
@@ -2367,7 +2390,7 @@ function renderQrReview(review) {
     return;
   }
   const publishDisabled = errors.length ? 'disabled' : '';
-  const publishTitle = errors.length ? 'Resolve validation errors before approval' : 'Approve QR Menu System';
+  const publishTitle = errors.length ? 'Resolve validation errors before approval' : 'Approve Live QR English Menu';
   const missingDescriptions = completeness.missing_descriptions || [];
   const missingIngredientAllergen = completeness.missing_ingredient_allergen || completeness.missing_ingredients || [];
   const descriptionPending = Number(confirmation.description_pending_count || 0);
@@ -2376,7 +2399,7 @@ function renderQrReview(review) {
   content.innerHTML = `
     <div class="qr-review-card">
       <div class="qr-review-label">Package</div>
-      <div><strong>${escapeHtml(review.package_label || 'QR Menu System')}</strong> · ¥${Number(review.price_yen || 65000).toLocaleString()}</div>
+      <div><strong>${escapeHtml(review.package_label || 'Live QR English Menu')}</strong> · ¥${Number(review.price_yen || 65000).toLocaleString()}</div>
       <div class="qr-review-label">Draft page</div>
       <a class="qr-review-link" href="${escapeHtml(draftUrl)}" target="_blank" rel="noopener">${escapeHtml(draftUrl || 'Draft unavailable')}</a>
       <div class="qr-review-label">QR asset</div>
@@ -2522,7 +2545,7 @@ async function approveQrPackage(jobId, btn) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Approval failed');
     renderQrPublished(data);
-    showToast('QR Menu System approved', 'success');
+    showToast('Live QR English Menu approved', 'success');
     loadQrMenus();
   } catch (err) {
     showToast('QR approval blocked: ' + err.message, 'error');

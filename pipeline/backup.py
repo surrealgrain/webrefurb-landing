@@ -10,11 +10,13 @@ STATE_BACKUP_DIRS = (
     "leads",
     "sent",
     "jobs",
+    "orders",
     "replies",
     "uploads",
     "builds",
     "qr_jobs",
     "qr_menus",
+    "launch_batches",
 )
 
 

@@ -97,6 +97,16 @@ def get_build_history(*, state_root: Path) -> dict[str, Any]:
             continue
         package_key = _normalise_build_package(job.get("package_key"))
         package = PACKAGE_REGISTRY[package_key]
+        output_dir_value = str(job.get("output_dir") or "").strip()
+        if output_dir_value:
+            output_dir = Path(output_dir_value)
+            validation = validate_package_output(
+                output_dir=output_dir,
+                package_key=package_key,
+                delivery_details=job.get("delivery_details") if package_key == PACKAGE_2_KEY else None,
+            )
+        else:
+            validation = _validation_result(errors=["output_dir_missing"], warnings=[])
         jobs.append({
             "job_id": job.get("job_id", path.stem),
             "restaurant_name": job.get("restaurant_name", ""),
@@ -108,7 +118,8 @@ def get_build_history(*, state_root: Path) -> dict[str, Any]:
             "final_export_status": job.get("final_export_status", ""),
             "created_at": job.get("created_at", ""),
             "completed_at": job.get("completed_at", ""),
-            "validation": job.get("package_validation") or {},
+            "validation": validation,
+            "paid_operations": package_paid_operations_status(state_root=state_root, job=job),
             "download_url": f"/api/build/{job.get('job_id', path.stem)}/download" if job.get("final_export_path") else "",
         })
     return {"builds": jobs}
@@ -127,6 +138,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
     package = PACKAGE_REGISTRY[package_key]
     menu_data = _load_menu_data(output_dir, [])
     review_checklist = _derive_review_checklist(menu_data or {}, validation=validation)
+    paid_operations = package_paid_operations_status(state_root=state_root, job=job)
     return {
         "job_id": job_id,
         "package_key": package_key,
@@ -141,6 +153,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
         "download_url": f"/api/build/{job_id}/download" if job.get("final_export_path") else "",
         "final_export_path": job.get("final_export_path", ""),
         "validation": validation,
+        "paid_operations": paid_operations,
         "print_profile": validation.get("print_profile"),
         "review_checklist": review_checklist,
         "artifacts": _artifact_report(output_dir, package_key=package_key),
@@ -233,6 +246,9 @@ def approve_package_export(
     if not validation["ok"]:
         package_name = PACKAGE_REGISTRY[selected_key]["label"]
         raise PackageExportError(f"{package_name} review blocked: " + ", ".join(validation["errors"]))
+    paid_operations = package_paid_operations_status(state_root=state_root, job=job)
+    if not paid_operations["ok"]:
+        raise PackageExportError("Paid operations blocked: " + ", ".join(paid_operations["blockers"]))
 
     export_dir = state_root / "final_exports" / job_id
     ensure_dir(export_dir)
@@ -269,6 +285,7 @@ def approve_package_export(
     job["final_export_path"] = str(zip_path)
     job["final_export_created_at"] = now
     job["package_validation"] = validation
+    job["paid_operations"] = paid_operations
     if selected_key == PACKAGE_2_KEY:
         job["delivery_details"] = delivery_details or {}
         job["print_profile"] = validation.get("print_profile")
@@ -286,6 +303,76 @@ def approve_package_export(
         "final_export_path": str(zip_path),
         "download_url": f"/api/build/{job_id}/download",
         "validation": validation,
+        "paid_operations": paid_operations,
+    }
+
+
+def package_paid_operations_status(*, state_root: Path, job: dict[str, Any]) -> dict[str, Any]:
+    """Return paid-ops readiness for a package build.
+
+    Final package export is customer-facing. It must not be approved until the
+    paid workflow has a quote, confirmed payment, complete intake, and explicit
+    owner approval for the output.
+    """
+    order_id = str(job.get("order_id") or "").strip()
+    order = job.get("order") if isinstance(job.get("order"), dict) else None
+    if order is None and order_id:
+        order_path = state_root / "orders" / f"{order_id}.json"
+        if order_path.exists():
+            try:
+                order = json.loads(order_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                order = None
+
+    blockers: list[str] = []
+    if not order:
+        blockers.append("paid_order_missing")
+        return {"ok": False, "order_id": order_id, "blockers": blockers}
+
+    quote = order.get("quote") or {}
+    payment = order.get("payment") or {}
+    intake = order.get("intake") or {}
+    approval = order.get("approval") or {}
+    state = str(order.get("state") or "").strip()
+
+    if not quote or not str(quote.get("quote_date") or "").strip():
+        blockers.append("quote_not_recorded")
+    if str(payment.get("status") or "").strip() != "confirmed":
+        blockers.append("payment_not_confirmed")
+    intake_complete = bool(intake.get("is_complete")) or all(
+        bool(intake.get(key))
+        for key in (
+            "full_menu_photos",
+            "price_confirmation",
+            "delivery_details",
+            "business_contact_confirmed",
+        )
+    )
+    if not intake_complete:
+        blockers.append("owner_intake_incomplete")
+    if not bool(approval.get("approved")):
+        blockers.append("owner_output_not_approved")
+    if not str(approval.get("approver_name") or "").strip():
+        blockers.append("owner_approver_name_missing")
+    if not str(approval.get("approved_package") or "").strip():
+        blockers.append("owner_approved_package_missing")
+    if not str(approval.get("source_data_checksum") or "").strip():
+        blockers.append("owner_source_checksum_missing")
+    if not str(approval.get("artifact_checksum") or "").strip():
+        blockers.append("owner_artifact_checksum_missing")
+    if not bool(order.get("privacy_note_accepted")):
+        blockers.append("privacy_note_not_accepted")
+    if state and state not in {"owner_review", "owner_approved"}:
+        blockers.append(f"order_state_not_owner_review:{state}")
+
+    return {
+        "ok": not blockers,
+        "order_id": str(order.get("order_id") or order_id),
+        "blockers": blockers,
+        "payment_status": str(payment.get("status") or ""),
+        "intake_complete": intake_complete,
+        "owner_approved": bool(approval.get("approved")),
+        "order_state": state,
     }
 
 
@@ -588,11 +675,14 @@ def _artifact_report(output_dir: Path, *, package_key: str) -> list[dict[str, An
             continue
         seen.add(name)
         path = output_dir / name
+        required = name in PACKAGE_1_CORE_FILES
+        if name in PACKAGE_1_OPTIONAL_DRINKS_FILES:
+            required = (output_dir / "drinks_menu.html").exists()
         artifacts.append({
             "name": name,
             "exists": path.exists(),
             "bytes": path.stat().st_size if path.exists() else 0,
-            "required": name in PACKAGE_1_CORE_FILES or name in PACKAGE_1_OPTIONAL_DRINKS_FILES,
+            "required": required,
         })
     return artifacts
 

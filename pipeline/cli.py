@@ -77,6 +77,9 @@ def main() -> None:
     backup_cmd.add_argument("--state-root", default=None, help="Override state root")
     backup_cmd.add_argument("--output", default=None, help="Write backup ZIP to this path")
 
+    harden_cmd = sub.add_parser("harden-state", help="Migrate lead records through launch-readiness gates")
+    harden_cmd.add_argument("--state-root", default=None, help="Override state root")
+
     args = parser.parse_args()
 
     if args.command == "search":
@@ -291,6 +294,16 @@ def main() -> None:
         result = backup_state(
             state_root=_P(args.state_root) if args.state_root else None,
             output_path=_P(args.output) if args.output else None,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.command == "harden-state":
+        from pathlib import Path as _P
+
+        from .lead_dossier import migrate_state_leads
+
+        result = migrate_state_leads(
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
 

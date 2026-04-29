@@ -18,6 +18,7 @@ from pipeline.export import PdfExportError, build_custom_package, html_to_pdf
 from pipeline.package_export import (
     approve_package_export,
     approve_package1_export,
+    get_build_history,
     package_registry,
     select_print_profile,
     validate_package_output,
@@ -337,6 +338,33 @@ class TestBuildTicketData:
 
 
 class TestCustomerExport:
+    def _write_paid_order(self, state_root: Path, order_id: str = "ord-test") -> None:
+        (state_root / "orders").mkdir(parents=True, exist_ok=True)
+        (state_root / "orders" / f"{order_id}.json").write_text(
+            json.dumps({
+                "order_id": order_id,
+                "state": "owner_review",
+                "quote": {"quote_date": "2026-04-28"},
+                "payment": {"status": "confirmed"},
+                "intake": {
+                    "full_menu_photos": True,
+                    "price_confirmation": True,
+                    "delivery_details": True,
+                    "business_contact_confirmed": True,
+                    "is_complete": True,
+                },
+                "approval": {
+                    "approved": True,
+                    "approver_name": "Tanaka",
+                    "approved_package": "package_1_remote_30k",
+                    "source_data_checksum": "source123",
+                    "artifact_checksum": "artifact123",
+                },
+                "privacy_note_accepted": True,
+            }),
+            encoding="utf-8",
+        )
+
     def _write_package_output(self, output_dir: Path, item_count: int = 2) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         for name in (
@@ -400,6 +428,47 @@ class TestCustomerExport:
         assert "delivery_contact_name_missing" in report["errors"]
         assert "delivery_address_missing" in report["errors"]
 
+    def test_build_history_recomputes_validation_instead_of_trusting_stale_job_metadata(self, tmp_path):
+        (tmp_path / "jobs").mkdir()
+        (tmp_path / "jobs" / "stale.json").write_text(
+            json.dumps({
+                "job_id": "stale",
+                "restaurant_name": "Stale Ramen",
+                "status": "ready_for_review",
+                "package_key": PACKAGE_1_KEY,
+                "output_dir": str(tmp_path / "missing-build"),
+                "package_validation": {"ok": True, "errors": [], "warnings": []},
+            }),
+            encoding="utf-8",
+        )
+
+        builds = get_build_history(state_root=tmp_path)["builds"]
+
+        assert builds[0]["validation"]["ok"] is False
+        assert builds[0]["validation"]["errors"] == ["output_dir_missing"]
+
+    def test_package_approval_blocks_without_paid_operations_record(self, tmp_path):
+        output_dir = tmp_path / "builds" / "job-unpaid"
+        self._write_package_output(output_dir)
+        (tmp_path / "jobs").mkdir()
+        (tmp_path / "jobs" / "job-unpaid.json").write_text(
+            json.dumps({
+                "job_id": "job-unpaid",
+                "restaurant_name": "Unpaid Ramen",
+                "status": "ready_for_review",
+                "package_key": PACKAGE_1_KEY,
+                "output_dir": str(output_dir),
+            }),
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="Paid operations blocked"):
+            approve_package_export(
+                state_root=tmp_path,
+                job_id="job-unpaid",
+                package_key=PACKAGE_1_KEY,
+            )
+
     def test_package2_approval_creates_print_pack_zip(self, tmp_path, monkeypatch):
         def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
             pdf_path.write_bytes(b"%PDF-1.4\n% print pack\n")
@@ -416,9 +485,11 @@ class TestCustomerExport:
                 "status": "ready_for_review",
                 "package_key": PACKAGE_2_KEY,
                 "output_dir": str(output_dir),
+                "order_id": "ord-print",
             }),
             encoding="utf-8",
         )
+        self._write_paid_order(tmp_path, "ord-print")
 
         result = approve_package_export(
             state_root=tmp_path,
@@ -957,9 +1028,11 @@ class TestCustomerExport:
                 "restaurant_name": "Hinode Ramen",
                 "status": "ready_for_review",
                 "output_dir": str(output_dir),
+                "order_id": "ord-p1",
             }),
             encoding="utf-8",
         )
+        self._write_paid_order(tmp_path, "ord-p1")
 
         result = approve_package1_export(state_root=tmp_path, job_id="job123")
 

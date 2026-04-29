@@ -1,16 +1,38 @@
 # WebRefurbMenu Handoff
 
-Updated: 2026-04-28 (GLM)
+Updated: 2026-04-29 (Codex)
 
 ## Current State
 
 - Branch: `main`
 - Active execution plan: `PLAN.md`
-- Active phase: `P4 - Make Outreach Convert`
-- Phase status: in progress
-- Working tree: **clean** (all changes committed)
-- `P1` through `P3` complete and recorded in `PLAN.md`.
-- Current focus: v4c dark template migration (COMPLETE), full system audit needed, then continue P4
+- Active phase: `P7 - Controlled Launch`
+- Phase status: blocked pending explicit real-launch authorization and first-batch lead selection
+- Working tree: **dirty** with P5/P6 implementation, rehearsal artifacts, and plan/checklist updates
+- `P0` through `P6` complete and recorded in `PLAN.md`.
+- Current focus: select 5 to 10 high-confidence independent ramen/izakaya shops for P7, then run the first controlled batch slowly. No real outreach has been sent.
+
+## Codex Session — P5/P6 Completion
+
+### What was done
+
+- Completed paid operations workflow for quotes, invoice-ready data, payment tracking, intake, owner approval, delivery state, custom quote triggers, and privacy/data-retention acceptance.
+- Added quote markdown and invoice JSON artifacts under `state/orders/artifacts/<order_id>/`.
+- Added dashboard APIs for order creation, quote sent, payment pending, payment confirmation, intake, owner review, owner approval, delivery, artifact inspection, and build-to-order linking.
+- Tightened final export blocking so customer ZIP approval requires quote, confirmed payment, complete intake, owner approval fields/checksums, and privacy note acceptance.
+- Added paid-ops tests in `tests/test_paid_ops.py`.
+- Ran sample-only P6 rehearsals for all three packages. Final ZIPs:
+  - `state/final_exports/p6-package1/p6-package1-package_1_remote_30k.zip`
+  - `state/final_exports/p6-package2/p6-package2-package_2_printed_delivered_45k.zip`
+  - `state/final_exports/qr-849bf3ed/qr-849bf3ed-package_3_qr_menu_65k.zip`
+- Wrote rehearsal report: `state/p6_rehearsal/P6_REHEARSAL_REPORT.json`.
+- Backed up state after rehearsal: `state/backups/webrefurb-state-20260428T230746+0000.zip`.
+
+### Verification
+
+- `.venv/bin/python -m py_compile pipeline/quote.py pipeline/models.py dashboard/app.py pipeline/package_export.py` passed.
+- `.venv/bin/python -m pytest tests/ -q` => `309 passed`.
+- Dashboard visual inspection on `http://127.0.0.1:8001` covered Leads, Builds, and QR Menus.
 
 ## GLM Session — v4c Pipeline Migration
 
@@ -65,6 +87,7 @@ Migrated the entire production pipeline from old cream SVG templates to v4c dark
 
 ## Execution Freeze
 
-Until `P5` gate evidence is truly satisfied:
-- do not approve real customer packages
+P5 and P6 gates are satisfied for sample data. Until P7 is explicitly started:
 - do not send real outreach
+- do not contact real shops through forms, LINE, Instagram, phone, or walk-in
+- do not approve real customer packages without a real paid order record and owner approval evidence

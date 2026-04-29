@@ -101,7 +101,7 @@ class TestBuildOutreachEmail:
             business_name="テストらーめん",
             classification="menu_only",
         )
-        assert email["subject"] == "英語メニュー制作のご提案（テストらーめん様）"
+        assert email["subject"] == "英語注文ガイド制作のご提案（テストらーめん様）"
 
     def test_subject_same_for_all_menu_classifications(self):
         for classification in ("menu_only", "menu_and_machine", "menu_machine_unconfirmed"):
@@ -109,7 +109,7 @@ class TestBuildOutreachEmail:
                 business_name="テスト",
                 classification=classification,
             )
-            assert email["subject"] == "英語メニュー制作のご提案（テスト様）"
+            assert email["subject"] == "英語注文ガイド制作のご提案（テスト様）"
 
     def test_business_name_substituted(self):
         email = build_outreach_email(
@@ -155,6 +155,7 @@ class TestBuildOutreachEmail:
         assert "突然のご連絡にて失礼いたします。" in email["body"]
         assert "Chris（クリス）と申します。" in email["body"]
         assert "仕上がりのイメージをご覧いただくためのものです。" in email["body"]
+        assert "不要" in email["body"]
 
     def test_subject_contains_placeholder(self):
         assert "{店名}" in SUBJECT
@@ -166,6 +167,7 @@ class TestBuildOutreachEmail:
         assert "突然のご連絡にて失礼いたします。" in pitch["body"]
         assert "https://webrefurb.com/ja" in pitch["body"]
         assert "[chris@webrefurb.com](mailto:chris@webrefurb.com)" in pitch["body"]
+        assert "不要" in pitch["body"]
 
     # -- Situation-specific copy tests -------------------------------------
 
@@ -175,8 +177,9 @@ class TestBuildOutreachEmail:
             classification="menu_only",
             establishment_profile="ramen_only",
         )
-        assert "ラーメンの種類・トッピング・セットメニュー" in email["body"]
-        assert "券売機" not in email["body"]
+        assert "注文時に迷いやすい箇所" in email["body"]
+        assert "メニュー内容や注文方法" in email["body"]
+        assert "券売機の有無は公開情報だけでは断定せず" in email["body"]
         assert email["include_menu_image"] is True
         assert email["include_machine_image"] is False
 
@@ -185,9 +188,9 @@ class TestBuildOutreachEmail:
             business_name="テスト",
             classification="menu_and_machine",
         )
-        assert "ラーメンの種類・トッピング・セットメニュー" in email["body"]
+        assert "ラーメンの種類、トッピング、セット" in email["body"]
         assert "券売機" in email["body"]
-        assert "メニューと券売機ガイド" in email["body"]
+        assert "ボタン対応" in email["body"]
         assert email["include_menu_image"] is True
         assert email["include_machine_image"] is True
 
@@ -197,9 +200,8 @@ class TestBuildOutreachEmail:
             classification="menu_only",
             establishment_profile="izakaya_food_and_drinks",
         )
-        assert "料理やドリンクの内容" in email["body"]
-        assert "コースや飲み放題" in email["body"]
-        assert "スタッフの方が個別にご説明する手間" in email["body"]
+        assert "料理、ドリンク、コース内容" in email["body"]
+        assert "卓上で判断" in email["body"]
         assert "券売機" not in email["body"]
 
     def test_machine_only_uses_machine_specific_copy(self):
@@ -220,7 +222,7 @@ class TestBuildOutreachEmail:
             classification="menu_only",
             establishment_profile="unknown",
         )
-        assert "英語メニュー制作をお手伝いしております" in email["body"]
+        assert "メニュー内容や注文方法" in email["body"]
         assert "ラーメン" not in email["body"]
         assert "お料理やドリンク" not in email["body"]
 
@@ -262,6 +264,16 @@ class TestBuildManualOutreachMessage:
         assert draft["include_menu_image"] is False
         assert draft["include_machine_image"] is True
 
+    def test_manual_phone_copy_has_clean_photo_request(self):
+        draft = build_manual_outreach_message(
+            business_name="テスト",
+            classification="menu_only",
+            channel="phone",
+        )
+        assert "メールかLINEでお送りいただけますでしょうか。確認用のサンプル" in draft["body"]
+        assert "でしょうか。," not in draft["body"]
+        assert "でしょうか。、" not in draft["body"]
+
     def test_manual_contact_form_uses_locked_body(self):
         draft = build_manual_outreach_message(
             business_name="テスト",
@@ -279,7 +291,7 @@ class TestBuildManualOutreachMessage:
             channel="instagram",
             establishment_profile="izakaya_drink_heavy",
         )
-        assert "スタッフの方が個別にご説明する手間" in draft["body"]
+        assert "スタッフの個別説明を減らせます" in draft["body"]
 
 
 # ---------------------------------------------------------------------------

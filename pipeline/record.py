@@ -7,6 +7,7 @@ from .business_name import business_name_is_suspicious, normalise_business_name
 from .utils import utc_now, write_json, read_json, ensure_dir, slugify, sha256_text
 from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
+from .lead_dossier import ensure_lead_dossier
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +382,7 @@ def create_lead_record(
     primary_contact = next((contact for contact in contact_records if contact.get("actionable")), None)
     email_contact = next((contact for contact in contact_records if contact.get("type") == "email"), None)
 
-    return {
+    record = {
         # Identity
         "lead_id": lead_id,
         "generated_at": utc_now(),
@@ -425,6 +426,10 @@ def create_lead_record(
         # V1 scoring
         "english_menu_issue": qualification.english_menu_issue,
         "english_menu_issue_evidence": qualification.english_menu_issue_evidence,
+        "ticket_machine_state": qualification.ticket_machine_state,
+        "english_menu_state": qualification.english_menu_state,
+        "menu_complexity_state": qualification.menu_complexity_state,
+        "izakaya_rules_state": qualification.izakaya_rules_state,
         "tourist_exposure_score": qualification.tourist_exposure_score,
         "lead_score_v1": qualification.lead_score_v1,
         "recommended_primary_package": qualification.recommended_primary_package,
@@ -436,7 +441,12 @@ def create_lead_record(
         "image_locked_evidence": qualification.image_locked_evidence,
         "menu_evidence_found": qualification.menu_evidence_found,
         "machine_evidence_found": qualification.machine_evidence_found,
+        "course_or_drink_plan_evidence_found": qualification.course_or_drink_plan_evidence_found,
         "evidence_strength_score": qualification.evidence_strength_score,
+        "lead_evidence_dossier": qualification.lead_evidence_dossier,
+        "proof_items": qualification.proof_items,
+        "launch_readiness_status": qualification.launch_readiness_status,
+        "launch_readiness_reasons": qualification.launch_readiness_reasons,
 
         # V1 classification
         "primary_category_v1": qualification.primary_category_v1,
@@ -468,6 +478,7 @@ def create_lead_record(
             {"status": OUTREACH_STATUS_NEW, "timestamp": utc_now()},
         ],
     }
+    return ensure_lead_dossier(record)
 
 
 def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) -> Path:
@@ -479,6 +490,7 @@ def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) 
     ensure_dir(leads_dir)
 
     ensure_locked_business_name(record)
+    record = ensure_lead_dossier(record)
     path = leads_dir / f"{record['lead_id']}.json"
     write_json(path, record)
     return path
@@ -491,6 +503,7 @@ def load_lead(lead_id: str, state_root: Path | None = None) -> dict[str, Any] | 
     record = read_json(path)
     if record:
         ensure_locked_business_name(record)
+        record = ensure_lead_dossier(record)
     return record
 
 
@@ -505,5 +518,6 @@ def list_leads(state_root: Path | None = None) -> list[dict[str, Any]]:
         record = read_json(path)
         if record:
             ensure_locked_business_name(record)
+            record = ensure_lead_dossier(record)
             results.append(record)
     return results

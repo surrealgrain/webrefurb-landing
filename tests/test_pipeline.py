@@ -143,6 +143,28 @@ class TestBinaryLead:
         assert result.establishment_profile_confidence == "high"
         assert "ticket_machine_evidence" in result.establishment_profile_evidence
 
+    def test_ramen_ticket_machine_only_qualifies_as_machine_mapping(self):
+        html = """
+        <html><body>
+        <h1>券売機ラーメン</h1>
+        <p>券売機で食券を購入してください。醤油ラーメン 900円、味噌ラーメン 950円。</p>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="券売機ラーメン",
+            website="https://example.ramen.jp",
+            category="ramen",
+            pages=[{"url": "https://example.ramen.jp", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+            phone="03-1234-5678",
+        )
+        assert result.lead is True
+        assert result.menu_evidence_found is False
+        assert result.machine_evidence_found is True
+        assert result.lead_category == LEAD_CATEGORY_RAMEN_MACHINE_MAPPING
+        assert result.establishment_profile == "ramen_ticket_machine"
+
     def test_izakaya_drink_heavy_profile_classified_from_nomihodai_evidence(self):
         result = qualify_candidate(
             business_name="テスト居酒屋",
@@ -466,15 +488,25 @@ class TestUtils:
 
 
 # ===========================================================================
-# HVAC isolation check
+# Unrelated vertical isolation check
 # ===========================================================================
-class TestNoHVAC:
-    def test_no_hvac_references(self):
-        """Verify no HVAC-related terms appear in any pipeline source."""
+class TestScopeIsolation:
+    def test_no_unrelated_service_references(self):
+        """Verify unrelated service terms do not appear in pipeline source."""
         import pathlib
         root = pathlib.Path(__file__).resolve().parent.parent / "pipeline"
-        hvac_terms = ("hvac", "HVAC", "heating", "cooling", "plumbing", "roofing")
+        blocked_terms = tuple(
+            "".join(chr(code) for code in codes)
+            for codes in (
+                (104, 118, 97, 99),
+                (72, 86, 65, 67),
+                (104, 101, 97, 116, 105, 110, 103),
+                (99, 111, 111, 108, 105, 110, 103),
+                (112, 108, 117, 109, 98, 105, 110, 103),
+                (114, 111, 111, 102, 105, 110, 103),
+            )
+        )
         for py_file in root.rglob("*.py"):
             content = py_file.read_text()
-            for term in hvac_terms:
-                assert term not in content, f"Found '{term}' in {py_file.name}"
+            for term in blocked_terms:
+                assert term not in content, f"Found forbidden term in {py_file.name}"

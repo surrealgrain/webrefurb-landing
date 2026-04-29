@@ -3,11 +3,6 @@ from __future__ import annotations
 from html import escape
 from typing import Any
 
-from .constants import (
-    PACKAGE_1_PRICE_YEN,
-    PACKAGE_2_PRICE_YEN,
-    PACKAGE_3_PRICE_YEN,
-)
 from .models import PreviewMenu, TicketMachineHint
 
 
@@ -19,7 +14,7 @@ def build_pitch(
     ticket_machine_hint: TicketMachineHint | None,
     recommended_package: str,
 ) -> dict[str, dict[str, str]]:
-    """Build a Japanese pitch with inline preview + both package prices."""
+    """Build a legacy diagnosis pitch without leading on price."""
 
     # Build inline preview section
     preview_lines: list[str] = []
@@ -41,25 +36,20 @@ def build_pitch(
             + " ".join(btn_lines)
         )
 
-    # Package pricing section
-    pricing_block = (
-        f"\n\n【料金】\n"
-        f"・オンライン納品：¥{PACKAGE_1_PRICE_YEN:,}（印刷用PDF・画像データ）\n"
-        f"・印刷・お届け：¥{PACKAGE_2_PRICE_YEN:,}（印刷・ラミネート加工・店舗までお届け）\n"
-        f"・QRメニューシステム：¥{PACKAGE_3_PRICE_YEN:,}（英語メニューページ・QRコード・案内サイン）"
+    subject = f"{business_name}様 — 英語注文ガイド制作のご提案"
+    preview_sentence = (
+        f"公開されているメニュー情報をもとに、小さな確認用サンプルを作るとこのような方向性になります：\n{preview_block}"
+        if preview_block.strip()
+        else "公開情報だけではお客様向けに安全にお見せできるサンプルが足りないため、現在のメニュー写真を拝見してから確認用サンプルを作成します。"
     )
-
-    subject = f"{business_name}様 — 英語メニュー翻訳サービスのご案内"
     body = (
         f"{business_name}様\n\n"
         f"突然のご連絡失礼いたします。\n"
-        f"貴店のメニューを英語版にすることで、海外からのお客様がもっと注文しやすくなるのではないかと思い、ご連絡いたしました。\n\n"
-        f"例として、貴店のメニューの一部を英語版にすると、このようなイメージになります：\n"
-        f"{preview_block}"
+        f"貴店の注文導線を拝見し、海外からのお客様がメニュー内容や注文方法をすぐ理解できる英語の注文ガイドが役立つ可能性があると思いご連絡いたしました。\n\n"
+        f"{preview_sentence}"
         f"{machine_block}\n\n"
         f"{preview_menu.disclaimer_ja}"
-        f"{pricing_block}\n\n"
-        f"ご興味がございましたら、現在のメニューや券売機の写真を送っていただければ、正確な英語版をお作りします。\n\n"
+        f"\n\nご興味がございましたら、現在のメニューや券売機の写真を送っていただければ、貴店の実際の注文方法に合わせた確認用サンプルをお作りします。\n\n"
         f"よろしくお願いいたします。\n"
         f"Chris"
     )

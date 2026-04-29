@@ -267,8 +267,9 @@ def build_outreach_email(
     classification: str,
     establishment_profile: str = "unknown",
     include_inperson_line: bool = True,
+    lead_dossier: dict[str, Any] | None = None,
 ) -> dict[str, str | bool]:
-    """Build a cold outreach email from the situation-based templates.
+    """Build a diagnosis-led cold outreach email from locked templates.
 
     Returns {"subject": str, "body": str, "english_body": str,
     "include_menu_image": bool, "include_machine_image": bool}.
@@ -276,6 +277,11 @@ def build_outreach_email(
     """
     situation = _determine_situation(classification, establishment_profile)
     tmpl = _SITUATIONS[situation]
+    diagnosis_ja, diagnosis_en = _diagnosis_blocks(
+        situation=situation,
+        establishment_profile=establishment_profile,
+        lead_dossier=lead_dossier or {},
+    )
 
     subject = (
         MACHINE_ONLY_SUBJECT if situation == "machine_only" else SUBJECT
@@ -285,10 +291,12 @@ def build_outreach_email(
         f"{business_name} ご担当者様",
         "突然のご連絡にて失礼いたします。",
         tmpl["intro_ja"],
-        tmpl["focus_ja"],
+        diagnosis_ja,
         tmpl["sample_ja"],
         tmpl["photo_ja"],
         LINE_INPERSON if include_inperson_line else "",
+        "送信者：Chris（クリス） / WebRefurb",
+        "今後このようなご連絡が不要でしたら、お手数ですが「不要」とご返信ください。",
         "ご検討いただけますと幸いです。",
         "どうぞよろしくお願いいたします。",
         "Chris（クリス）",
@@ -298,11 +306,12 @@ def build_outreach_email(
         f"Dear {business_name} team,",
         "I hope you do not mind my sudden message.",
         tmpl["intro_en"],
-        tmpl["focus_en"],
+        diagnosis_en,
         tmpl["sample_en"],
         tmpl["photo_en"],
         "Lamination and direct delivery to your restaurant are also available."
         if include_inperson_line else "",
+        "Sender: Chris / WebRefurb. If this is not relevant, please reply and I will not contact you again.",
         "Thank you for your consideration.",
         "I look forward to hearing from you.",
         "Chris",
@@ -341,6 +350,7 @@ def build_manual_outreach_message(
     channel: str,
     establishment_profile: str = "unknown",
     include_inperson_line: bool = True,
+    lead_dossier: dict[str, Any] | None = None,
 ) -> dict[str, str | bool]:
     """Build a route-specific manual outreach draft for non-email channels."""
     if channel not in SUPPORTED_MANUAL_CHANNELS:
@@ -348,12 +358,18 @@ def build_manual_outreach_message(
 
     situation = _determine_situation(classification, establishment_profile)
     tmpl = _SITUATIONS[situation]
+    diagnosis_ja, diagnosis_en = _diagnosis_blocks(
+        situation=situation,
+        establishment_profile=establishment_profile,
+        lead_dossier=lead_dossier or {},
+    )
 
     support_line_jp = LINE_INPERSON if include_inperson_line else ""
     support_line_en = (
         "I can also handle lamination and delivery to your restaurant."
         if include_inperson_line else ""
     )
+    phone_photo_line_ja = _phone_photo_request_jp(str(tmpl["photo_ja"]))
     include_menu_image = situation != "machine_only"
     include_machine_image = situation in ("ramen_menu_and_machine", "machine_only")
 
@@ -364,11 +380,12 @@ def build_manual_outreach_message(
         english_body = _join_paragraphs([
             "Hello,",
             "My name is Chris, and I create English menus and ordering guides for restaurants.",
-            tmpl["focus_en"],
+            diagnosis_en,
             "I can prepare print-ready data, laminated copies, and restaurant delivery to match your current setup." if include_inperson_line else "I can prepare print-ready data to match your current setup.",
             tmpl["photo_en"],
             "Details: https://webrefurb.com/ja",
             "You can reply to chris@webrefurb.com.",
+            "If this is not relevant, please reply and I will not contact you again.",
             "Thank you for your time.",
             "Chris",
         ])
@@ -376,22 +393,24 @@ def build_manual_outreach_message(
         body = _join_paragraphs([
             f"{business_name} ご担当者様",
             f"突然のご連絡失礼いたします。{tmpl['intro_ja']}",
-            tmpl["focus_ja"],
+            diagnosis_ja,
             tmpl["sample_ja"],
             tmpl["photo_ja"],
             support_line_jp,
             "詳しくはこちらです。https://webrefurb.com/ja",
+            "不要なご連絡でしたら「不要」とご返信ください。",
             "ご興味がございましたら、そのままご返信ください。",
             "Chris（クリス）",
         ])
         english_body = _join_paragraphs([
             f"Hello {business_name} team,",
             tmpl["intro_en"],
-            tmpl["focus_en"],
+            diagnosis_en,
             tmpl["sample_en"],
             tmpl["photo_en"],
             support_line_en,
             "Details: https://webrefurb.com/ja",
+            "If this is not relevant, please reply and I will not contact you again.",
             "If you are interested, please reply here.",
             "Chris",
         ])
@@ -399,10 +418,11 @@ def build_manual_outreach_message(
         body = _join_paragraphs([
             f"{business_name} ご担当者様",
             f"突然のDM失礼いたします。{tmpl['intro_ja']}",
-            tmpl["focus_ja"],
+            diagnosis_ja,
             tmpl["sample_ja"],
             tmpl["photo_ja"],
             support_line_jp,
+            "不要なご連絡でしたら「不要」とご返信ください。",
             "ご興味がございましたら、DMでご返信いただけますと幸いです。",
             "詳細: https://webrefurb.com/ja",
             "Chris（クリス）",
@@ -410,10 +430,11 @@ def build_manual_outreach_message(
         english_body = _join_paragraphs([
             f"Hello {business_name} team,",
             tmpl["intro_en"],
-            tmpl["focus_en"],
+            diagnosis_en,
             tmpl["sample_en"],
             tmpl["photo_en"],
             support_line_en,
+            "If this is not relevant, please reply and I will not contact you again.",
             "If you are interested, please reply by DM.",
             "Details: https://webrefurb.com/ja",
             "Chris",
@@ -421,16 +442,16 @@ def build_manual_outreach_message(
     elif channel == "phone":
         body = _join_paragraphs([
             f"お忙しいところ失礼いたします。{tmpl['intro_ja']}",
-            tmpl["focus_ja"],
+            diagnosis_ja,
             tmpl["sample_ja"],
-            tmpl["photo_ja"].replace("お送りいただけましたら", "メールかLINEでお送りいただけますでしょうか。").replace("お送りいただけましたら、", ""),
+            phone_photo_line_ja,
             support_line_jp,
             "詳細は https://webrefurb.com/ja でもご覧いただけます。",
             "ありがとうございました。",
         ])
         english_body = _join_paragraphs([
             "Hello, this is Chris. " + tmpl["intro_en"],
-            tmpl["focus_en"],
+            diagnosis_en,
             tmpl["sample_en"],
             tmpl["photo_en"].replace("please send photos of", "could you send photos of"),
             support_line_en,
@@ -440,7 +461,7 @@ def build_manual_outreach_message(
     else:  # walk_in
         body = _join_paragraphs([
             f"こんにちは。{tmpl['intro_ja']}",
-            tmpl["focus_ja"],
+            diagnosis_ja,
             tmpl["sample_ja"],
             tmpl["photo_ja"].replace("お送りいただけましたら、ご確認用のサンプルをお作りいたします。", "もしご興味があれば、お写真を見せていただけますでしょうか。"),
             support_line_jp,
@@ -449,7 +470,7 @@ def build_manual_outreach_message(
         ])
         english_body = _join_paragraphs([
             "Hello, " + tmpl["intro_en"],
-            tmpl["focus_en"],
+            diagnosis_en,
             tmpl["sample_en"],
             tmpl["photo_en"].replace("please send photos of your current", "could you show me photos of your current"),
             support_line_en,
@@ -471,6 +492,58 @@ def build_manual_outreach_message(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _phone_photo_request_jp(photo_line: str) -> str:
+    """Convert the written photo request into a natural phone-script ask."""
+    cleaned = str(photo_line or "").strip()
+    prefix = cleaned.split("のお写真をお送りいただけましたら", 1)[0]
+    if prefix:
+        return f"{prefix}のお写真を、メールかLINEでお送りいただけますでしょうか。確認用のサンプルをお作りいたします。"
+    return "現在お使いのメニューのお写真を、メールかLINEでお送りいただけますでしょうか。確認用のサンプルをお作りいたします。"
+
+
+def _diagnosis_blocks(
+    *,
+    situation: str,
+    establishment_profile: str,
+    lead_dossier: dict[str, Any],
+) -> tuple[str, str]:
+    ticket_state = str(lead_dossier.get("ticket_machine_state") or "unknown")
+    english_state = str(lead_dossier.get("english_menu_state") or "unknown")
+    izakaya_state = str(lead_dossier.get("izakaya_rules_state") or "unknown")
+
+    why_ja = "貴店の公開メニューや店舗情報を拝見し、海外からのお客様が注文時に迷いやすい箇所があるかもしれないと思いご連絡しました。"
+    why_en = "I reviewed your public menu and shop information and noticed there may be ordering points that are difficult for overseas guests."
+
+    if situation == "machine_only":
+        friction_ja = "特に券売機のボタン内容や購入手順が英語で分かると、混雑時でもお客様が自分で注文しやすくなります。"
+        friction_en = "In particular, English guidance for ticket machine buttons and the purchase flow can help guests order on their own during busy periods."
+    elif situation == "ramen_menu_and_machine":
+        friction_ja = "ラーメンの種類、トッピング、セット、券売機のボタン対応が英語でつながると、注文前の確認がかなりスムーズになります。"
+        friction_en = "Connecting ramen types, toppings, sets, and ticket-machine buttons in English makes the pre-order decision much smoother."
+    elif situation == "izakaya_menu":
+        if izakaya_state == "nomihodai_found" or establishment_profile in {"izakaya_drink_heavy", "izakaya_course_heavy"}:
+            friction_ja = "料理・ドリンクだけでなく、飲み放題やコースのルールが英語で分かると、スタッフの個別説明を減らせます。"
+            friction_en = "When drinks, food, nomihodai, and course rules are clear in English, staff spend less time explaining them one by one."
+        else:
+            friction_ja = "料理、ドリンク、コース内容が英語で整理されていると、海外のお客様が卓上で判断しやすくなります。"
+            friction_en = "Clear English structure for food, drinks, and course details helps overseas guests decide at the table."
+    else:
+        friction_ja = "メニュー内容や注文方法が英語で整理されていると、お客様がスタッフに聞く前に自分で判断しやすくなります。"
+        friction_en = "When menu content and ordering steps are organized in English, guests can decide before asking staff for help."
+
+    if ticket_state == "unknown" and establishment_profile.startswith("ramen"):
+        check_ja = "券売機の有無は公開情報だけでは断定せず、必要であればメニュー用と券売機用のどちらが合うか確認して進めます。"
+        check_en = "I would not assume whether you use a ticket machine from public information alone; I would first check whether a menu guide, ticket-machine guide, or both are useful."
+    elif english_state == "unknown":
+        check_ja = "英語メニューの有無は念のため確認し、すでに十分な英語案内がある場合は制作をおすすめしません。"
+        check_en = "I would first check whether you already have complete English ordering support; if you do, I would not recommend extra work."
+    else:
+        check_ja = "小さな確認用サンプルから始め、実際の制作では貴店からいただく最新のメニュー写真に合わせます。"
+        check_en = "I would start with a small review sample and base the actual work on current menu photos from your shop."
+
+    return _join_paragraphs([why_ja, friction_ja, check_ja]), _join_paragraphs([why_en, friction_en, check_en])
+
 
 def _menu_sample_for_profile(establishment_profile: str, classification: str) -> Path | None:
     if classification == "machine_only":
