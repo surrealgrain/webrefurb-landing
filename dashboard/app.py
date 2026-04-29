@@ -313,6 +313,7 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["launch_readiness_status"] = lead.get("launch_readiness_status", "manual_review")
     prepared["launch_readiness_reasons"] = list(lead.get("launch_readiness_reasons") or [])
     prepared["lead_evidence_dossier"] = lead.get("lead_evidence_dossier") or {}
+    prepared["proof_items"] = lead.get("proof_items") or prepared["lead_evidence_dossier"].get("proof_items") or []
     return prepared
 
 
@@ -760,6 +761,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     # Build shop-specific preview from lead evidence
     from pipeline.preview import build_shop_preview_from_record
     shop_preview_html = build_shop_preview_from_record(record=record)
+    proof_items = record.get("proof_items") or (record.get("lead_evidence_dossier") or {}).get("proof_items") or []
 
     return {
         "classification": classification,
@@ -801,6 +803,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "launch_readiness_status": record.get("launch_readiness_status"),
         "launch_readiness_reasons": record.get("launch_readiness_reasons") or [],
         "lead_evidence_dossier": record.get("lead_evidence_dossier") or {},
+        "proof_items": proof_items,
         "message_variant": record.get("message_variant", ""),
     }
 

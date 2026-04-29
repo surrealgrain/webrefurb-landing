@@ -405,6 +405,24 @@ class TestAPIEndpoints:
         assert "ramen" in data["asset_strategy_note"].lower()
         assert "Ramen Menu Sample" in data["asset_details"][0]["label"]
 
+    def test_outreach_preview_returns_lead_dossier_and_proof_items(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-dossier-payload",
+            machine_evidence_found=True,
+            evidence_urls=["https://dossier-payload.test/menu"],
+            evidence_snippets=["醤油ラーメン 味玉 トッピング メニュー 券売機"],
+        )
+
+        response = self.client.get("/api/outreach/wrm-test-dossier-payload")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["lead_evidence_dossier"]["ticket_machine_state"] == "present"
+        assert data["lead_evidence_dossier"]["english_menu_state"] == "missing"
+        assert data["proof_items"][0]["customer_preview_eligible"] is True
+        assert data["proof_items"][0]["url"] == "https://dossier-payload.test/menu"
+
     def test_mark_manual_contacted_sets_route_specific_status(self, tmp_path):
         self._create_lead(
             tmp_path,
@@ -500,6 +518,7 @@ class TestAPIEndpoints:
         response = self.client.get("/")
         assert response.status_code == 200
         assert "WebRefurbMenu" in response.text
+        assert "Lead evidence dossier" in response.text
 
     def _create_lead(self, tmp_path, lead_id="wrm-test-dnc", **overrides):
         """Helper to create a lead record for testing."""
@@ -540,6 +559,20 @@ class TestAPIEndpoints:
         response = self.client.post("/api/outreach/wrm-test-dnc")
         assert response.status_code == 403
         assert "Do Not Contact" in response.json()["detail"]
+
+    def test_outreach_generation_rejects_non_ready_lead_with_reasons(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-manual-review",
+            evidence_snippets=["Calendar check TEL_String 店舗検索"],
+        )
+
+        response = self.client.post("/api/outreach/wrm-manual-review")
+
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert "Lead is not launch-ready for outreach" in detail
+        assert "no_customer_safe_proof_item" in detail
 
     def test_send_blocked_for_do_not_contact(self, tmp_path):
         self._create_lead(tmp_path, outreach_status="do_not_contact")

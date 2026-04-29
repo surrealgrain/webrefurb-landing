@@ -332,6 +332,18 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .profile-select, .profile-note-input { height: 38px; border-radius: 12px; border: 1px solid var(--input-border); padding: 0 12px; font-size: 13px; background: #fff; font-family: inherit; }
 .profile-select { min-width: 220px; }
 .profile-note-input { min-width: 260px; flex: 1; }
+.dossier-panel { margin-bottom: 12px; padding: 12px; background: #FAFAF8; border: 1px solid rgba(92,74,52,0.16); border-radius: 14px; }
+.dossier-panel .profile-panel-title { color: #6F4E1F; }
+.dossier-state-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; }
+.dossier-state { min-width: 0; padding: 9px 10px; border: 1px solid rgba(92,74,52,0.14); border-radius: 10px; background: #fff; }
+.dossier-state-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.dossier-state-value { margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+.dossier-proof-list { display: grid; gap: 8px; margin-top: 10px; }
+.dossier-proof-item { padding: 9px 10px; border-radius: 10px; background: rgba(92,74,52,0.05); color: var(--text-primary); font-size: 12px; line-height: 1.45; }
+.dossier-proof-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; font-weight: 700; }
+.dossier-proof-status { padding: 3px 7px; border-radius: 9999px; background: rgba(14,116,144,0.1); color: #0E7490; }
+.dossier-proof-status.is-blocked { background: rgba(194,65,12,0.1); color: #9A3412; }
+.dossier-proof-link { color: #0E7490; font-weight: 700; overflow-wrap: anywhere; }
 
 /* Reply section in sent entries */
 .reply-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
@@ -423,6 +435,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   .recipient-input { min-width: 100%; flex: 1; }
   .lead-card { align-items: flex-start; flex-wrap: wrap; }
   .lead-actions { width: 100%; justify-content: flex-end; }
+  .dossier-state-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
 </head>
@@ -703,6 +716,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <button class="btn btn-secondary" id="clear-profile-btn" onclick="clearEstablishmentProfileOverride()">Clear Override</button>
       </div>
     </div>
+    <div class="dossier-panel" id="lead-dossier-panel">
+      <div class="profile-panel-title">Lead evidence dossier</div>
+      <div class="dossier-state-grid" id="lead-dossier-states"></div>
+      <div class="dossier-proof-list" id="lead-dossier-proof"></div>
+    </div>
     <div class="preview-columns">
       <div class="preview-column">
         <h3>Japanese Email (Live Preview)</h3>
@@ -931,6 +949,10 @@ function establishmentProfileLabel(profile) {
   return ESTABLISHMENT_PROFILE_LABELS[profile] || profile.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function dossierValueLabel(value) {
+  return String(value || 'unknown').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function clearSearchActivityTimers() {
   searchActivityTimers.forEach(timer => clearTimeout(timer));
   searchActivityTimers = [];
@@ -1045,6 +1067,57 @@ function renderEstablishmentProfile(data) {
   note.value = data.establishment_profile_override_note || '';
 }
 
+function renderLeadDossier(data) {
+  const stateRoot = document.getElementById('lead-dossier-states');
+  const proofRoot = document.getElementById('lead-dossier-proof');
+  if (!stateRoot || !proofRoot) return;
+
+  const dossier = data.lead_evidence_dossier || {};
+  const states = [
+    ['Ticket machine', dossier.ticket_machine_state],
+    ['English menu', dossier.english_menu_state],
+    ['Menu complexity', dossier.menu_complexity_state],
+    ['Izakaya rules', dossier.izakaya_rules_state],
+  ];
+  stateRoot.innerHTML = states.map(([label, value]) => (
+    '<div class="dossier-state">'
+      + '<div class="dossier-state-label">' + escapeHtml(label) + '</div>'
+      + '<div class="dossier-state-value">' + escapeHtml(dossierValueLabel(value)) + '</div>'
+    + '</div>'
+  )).join('');
+
+  const proofItems = Array.isArray(data.proof_items) && data.proof_items.length
+    ? data.proof_items
+    : Array.isArray(dossier.proof_items) ? dossier.proof_items : [];
+
+  if (!proofItems.length) {
+    proofRoot.innerHTML = '<div class="dossier-proof-item">No saved proof items.</div>';
+    return;
+  }
+
+  proofRoot.innerHTML = proofItems.slice(0, 3).map(item => {
+    const sourceType = dossierValueLabel(item.source_type || 'proof');
+    const eligible = item.customer_preview_eligible === true;
+    const operatorVisible = item.operator_visible !== false;
+    const status = eligible ? 'Customer preview eligible' : operatorVisible ? 'Operator only' : 'Rejected';
+    const statusClass = eligible ? 'dossier-proof-status' : 'dossier-proof-status is-blocked';
+    const rejection = item.rejection_reason ? 'Reason: ' + dossierValueLabel(item.rejection_reason) : '';
+    const snippet = item.snippet ? '<div>' + escapeHtml(item.snippet) + '</div>' : '';
+    const url = item.url
+      ? '<a class="dossier-proof-link" href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">Source</a>'
+      : '';
+    return '<div class="dossier-proof-item">'
+      + '<div class="dossier-proof-meta">'
+      + '<span>' + escapeHtml(sourceType) + '</span>'
+      + '<span class="' + statusClass + '">' + escapeHtml(status) + '</span>'
+      + url
+      + '</div>'
+      + (rejection ? '<div>' + escapeHtml(rejection) + '</div>' : '')
+      + snippet
+      + '</div>';
+  }).join('');
+}
+
 function updateLeadCardProfile(data) {
   const card = document.querySelector('[data-lead-id="' + (currentLeadId || '') + '"]');
   if (!card) return;
@@ -1076,6 +1149,7 @@ async function saveEstablishmentProfileOverride() {
     if (!res.ok) throw new Error(data.detail || 'Save failed');
     if (currentEmail) Object.assign(currentEmail, data);
     renderEstablishmentProfile(data);
+    renderLeadDossier(currentEmail || data);
     updateLeadCardProfile(data);
     showToast('Establishment profile override saved', 'success');
   } catch (err) {
@@ -1105,6 +1179,7 @@ async function clearEstablishmentProfileOverride() {
     if (!res.ok) throw new Error(data.detail || 'Clear failed');
     if (currentEmail) Object.assign(currentEmail, data);
     renderEstablishmentProfile(data);
+    renderLeadDossier(currentEmail || data);
     updateLeadCardProfile(data);
     showToast('Establishment profile override cleared', 'success');
   } catch (err) {
@@ -1576,6 +1651,7 @@ async function openPreview(leadId) {
     setSaveState(data.has_saved_draft ? 'Saved draft loaded' : 'Template loaded', data.has_saved_draft ? 'saved' : '');
     renderContactRoutes(data);
     renderEstablishmentProfile(data);
+    renderLeadDossier(data);
 
     // Pre-fill recipient email
     if (data.email) {
