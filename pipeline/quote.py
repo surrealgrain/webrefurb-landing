@@ -81,12 +81,14 @@ _SCOPE_DESCRIPTIONS = {
     "package_2_printed_delivered_45k": (
         "Counter-Ready Ordering Kit: everything in English Ordering Files, plus "
         "professional printing, lamination, and courier delivery to your restaurant. "
-        "Materials are prepared to match the current menu and order flow after owner approval."
+        "Materials are prepared to match the current menu and order flow after owner approval. "
+        "Prices, ingredients, and allergens are only shown when confirmed by the restaurant."
     ),
     "package_3_qr_menu_65k": (
         "Live QR English Menu: hosted English ordering menu accessible by QR code. "
         "Includes QR code generation, printable QR sign, 12-month hosting, one bundled "
-        "update round in the first 30 days, and owner confirmation before publish."
+        "update round in the first 30 days, and owner confirmation before publish. "
+        "Prices, ingredients, and allergens are only shown when confirmed by the restaurant."
     ),
 }
 

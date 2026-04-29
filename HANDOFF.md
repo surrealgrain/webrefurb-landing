@@ -93,12 +93,20 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Phase 7 focused command `.venv/bin/python -m pytest tests/test_preview_hardening.py tests/test_search.py -q` passed with `25 passed`.
 - Phase 7 full command `.venv/bin/python -m pytest tests/ -q` passed with `357 passed`.
 - Phase 7 `git diff --check` was clean.
+- Phase 8 updated public homepage proof tiles so the first public flow shows menu files, ticket-machine guides, QR signs, and before/after ordering clarity.
+- Phase 8 aligned English and Japanese pricing/homepage copy around English ordering systems/materials, not generic translation.
+- Phase 8 added explicit public risk reversal: owner approval before delivery, one correction window, custom-quote limits, and no price/allergen claims without restaurant confirmation.
+- Phase 8 aligned quote and messaging copy with the same owner-confirmation and correction-window promises.
+- Phase 8 tests cover package names/prices, homepage output proof, positioning, no HVAC/forbidden public terms, pricing risk reversal, and quote risk reversal.
+- Phase 8 focused command `.venv/bin/python -m pytest tests/test_website.py tests/test_paid_ops.py -q` passed with `10 passed`.
+- Phase 8 full command `.venv/bin/python -m pytest tests/ -q` passed with `360 passed`.
+- Phase 8 `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
 
 1. Read `PLAN.md`.
-2. Continue from Phase 8 unless the worktree shows uncommitted Phase 7 changes.
+2. Continue from Phase 9 unless the worktree shows uncommitted Phase 8 changes.
 3. Compare implemented code against `PRODUCT_AUDIT_2026-04-29.md` and the exact phase acceptance criteria.
 4. Do not use the obsolete long phase plan as guidance.
 5. Do not start Phase 11 outreach until Phases 0-10 pass.
