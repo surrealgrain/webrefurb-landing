@@ -545,6 +545,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <div class="lead-meta">{{ lead.primary_category_v1|capitalize }} &middot; {{ lead.address|default('Unknown', true) }}</div>
           <div class="lead-contact">Primary route: {{ lead.primary_contact_label }}</div>
           <div class="lead-profile" data-role="profile-summary">Profile: {{ lead.establishment_profile_label }}{% if lead.establishment_profile_mode == 'operator_override' %} · Operator override{% endif %}</div>
+          <div class="lead-profile">Recommended: {{ lead.recommended_package_label|default('Review package', true) }}{% if lead.package_recommendation_reason %} · {{ lead.package_recommendation_reason|replace('_', ' ') }}{% endif %}</div>
           <div class="lead-profile">Launch readiness: {{ lead.launch_readiness_status|default('manual_review', true)|replace('_', ' ')|title }}{% if lead.launch_readiness_reasons %} · {{ lead.launch_readiness_reasons[0]|replace('_', ' ') }}{% endif %}</div>
           <div class="lead-badges">
             <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>

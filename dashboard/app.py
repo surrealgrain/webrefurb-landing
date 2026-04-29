@@ -290,6 +290,7 @@ def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
 
 def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     from pipeline.lead_dossier import ensure_lead_dossier
+    from pipeline.constants import PACKAGE_REGISTRY
 
     lead = ensure_lead_dossier(lead)
     prepared = dict(lead)
@@ -314,6 +315,11 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["launch_readiness_reasons"] = list(lead.get("launch_readiness_reasons") or [])
     prepared["lead_evidence_dossier"] = lead.get("lead_evidence_dossier") or {}
     prepared["proof_items"] = lead.get("proof_items") or prepared["lead_evidence_dossier"].get("proof_items") or []
+    package_key = str(lead.get("recommended_primary_package") or "")
+    package = PACKAGE_REGISTRY.get(package_key, {})
+    prepared["recommended_package_label"] = package.get("label") or ("Custom quote" if package_key == "custom_quote" else package_key)
+    prepared["package_recommendation_reason"] = str(lead.get("package_recommendation_reason") or "")
+    prepared["custom_quote_reason"] = str(lead.get("custom_quote_reason") or "")
     return prepared
 
 

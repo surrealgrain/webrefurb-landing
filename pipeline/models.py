@@ -81,6 +81,8 @@ class QualificationResult:
     tourist_exposure_score: float = 0.0
     lead_score_v1: int = 0
     recommended_primary_package: str = ""
+    package_recommendation_reason: str = ""
+    custom_quote_reason: str = ""
 
     # Misc
     rating: float | None = None
@@ -115,6 +117,8 @@ class QualificationResult:
             "tourist_exposure_score": self.tourist_exposure_score,
             "lead_score_v1": self.lead_score_v1,
             "recommended_primary_package": self.recommended_primary_package,
+            "package_recommendation_reason": self.package_recommendation_reason,
+            "custom_quote_reason": self.custom_quote_reason,
             "evidence_classes": self.evidence_classes,
             "evidence_urls": self.evidence_urls,
             "evidence_snippets": self.evidence_snippets,

@@ -173,25 +173,108 @@ def recommend_package(
     machine_evidence_found: bool,
     menu_complexity_state: str = "simple",
     izakaya_rules_state: str = "none_found",
+    print_yourself_fit: bool = False,
+    counter_ready_need: bool = False,
+    stable_table_menus: bool = False,
+    frequent_updates_expected: bool | None = None,
     tourist_exposure_score: float,
     lead_score_v1: int,
 ) -> str:
     """Recommend the best default package by ordering friction and scope."""
+    return recommend_package_details(
+        category=category,
+        english_menu_issue=english_menu_issue,
+        machine_evidence_found=machine_evidence_found,
+        menu_complexity_state=menu_complexity_state,
+        izakaya_rules_state=izakaya_rules_state,
+        print_yourself_fit=print_yourself_fit,
+        counter_ready_need=counter_ready_need,
+        stable_table_menus=stable_table_menus,
+        frequent_updates_expected=frequent_updates_expected,
+        tourist_exposure_score=tourist_exposure_score,
+        lead_score_v1=lead_score_v1,
+    )["package_key"]
+
+
+def recommend_package_details(
+    *,
+    category: str = "",
+    english_menu_issue: bool,
+    machine_evidence_found: bool,
+    menu_complexity_state: str = "simple",
+    izakaya_rules_state: str = "none_found",
+    print_yourself_fit: bool = False,
+    counter_ready_need: bool = False,
+    stable_table_menus: bool = False,
+    frequent_updates_expected: bool | None = None,
+    tourist_exposure_score: float,
+    lead_score_v1: int,
+) -> dict[str, str]:
+    """Recommend a package plus the audit-required reason fields."""
     if not english_menu_issue:
-        return "none"
+        return {
+            "package_key": "none",
+            "recommendation_reason": "no_english_ordering_gap",
+            "custom_quote_reason": "",
+        }
 
     if menu_complexity_state == "large_custom_quote":
-        return "custom_quote"
+        return {
+            "package_key": "custom_quote",
+            "recommendation_reason": "large_or_complex_menu_requires_manual_quote",
+            "custom_quote_reason": "large_or_complex_menu_requires_manual_quote",
+        }
 
     if category == "izakaya" and izakaya_rules_state in {"drinks_found", "courses_found", "nomihodai_found"}:
-        if izakaya_rules_state in {"courses_found", "nomihodai_found"}:
-            return PACKAGE_3_KEY
-        return PACKAGE_2_KEY
+        if stable_table_menus:
+            return {
+                "package_key": PACKAGE_2_KEY,
+                "recommendation_reason": "stable_izakaya_table_menu_needs_staff_explanation_support",
+                "custom_quote_reason": "",
+            }
+        if frequent_updates_expected is None:
+            frequent_updates_expected = izakaya_rules_state in {"courses_found", "nomihodai_found"}
+        if frequent_updates_expected:
+            return {
+                "package_key": PACKAGE_3_KEY,
+                "recommendation_reason": "izakaya_drink_course_rules_likely_need_live_updates",
+                "custom_quote_reason": "",
+            }
+        return {
+            "package_key": PACKAGE_2_KEY,
+            "recommendation_reason": "izakaya_drink_or_course_menu_fits_counter_ready_print",
+            "custom_quote_reason": "",
+        }
+
+    if category == "izakaya":
+        return {
+            "package_key": PACKAGE_2_KEY if counter_ready_need or menu_complexity_state == "medium" else PACKAGE_1_KEY,
+            "recommendation_reason": "izakaya_menu_needs_ordering_materials_without_live_update_signal",
+            "custom_quote_reason": "",
+        }
 
     if machine_evidence_found:
-        return PACKAGE_2_KEY
+        if print_yourself_fit:
+            return {
+                "package_key": PACKAGE_1_KEY,
+                "recommendation_reason": "ramen_ticket_machine_with_clear_print_yourself_fit",
+                "custom_quote_reason": "",
+            }
+        return {
+            "package_key": PACKAGE_2_KEY,
+            "recommendation_reason": "ramen_ticket_machine_needs_counter_ready_mapping",
+            "custom_quote_reason": "",
+        }
 
-    if tourist_exposure_score >= 0.65 or lead_score_v1 >= 70:
-        return PACKAGE_2_KEY
+    if counter_ready_need or tourist_exposure_score >= 0.65 or lead_score_v1 >= 70 or menu_complexity_state == "medium":
+        return {
+            "package_key": PACKAGE_2_KEY,
+            "recommendation_reason": "ramen_without_machine_but_counter_ready_materials_fit",
+            "custom_quote_reason": "",
+        }
 
-    return PACKAGE_1_KEY
+    return {
+        "package_key": PACKAGE_1_KEY,
+        "recommendation_reason": "simple_ramen_menu_fits_english_ordering_files",
+        "custom_quote_reason": "",
+    }

@@ -437,6 +437,8 @@ def create_lead_record(
         "tourist_exposure_score": qualification.tourist_exposure_score,
         "lead_score_v1": qualification.lead_score_v1,
         "recommended_primary_package": qualification.recommended_primary_package,
+        "package_recommendation_reason": qualification.package_recommendation_reason,
+        "custom_quote_reason": qualification.custom_quote_reason,
 
         # Evidence
         "evidence_classes": qualification.evidence_classes,
