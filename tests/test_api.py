@@ -1206,6 +1206,10 @@ class TestDraftSaveAndLoad:
         assert "preview_html" in data
         assert "classification" in data
         assert "assets" in data
+        assert data["message_variant"] == "email:menu_machine_unconfirmed:ramen_only"
+
+        stored = json.loads((self.tmp_path / "leads" / "wrm-draft-test.json").read_text(encoding="utf-8"))
+        assert stored["message_variant"] == "email:menu_machine_unconfirmed:ramen_only"
 
     def test_preview_get_loads_saved_draft(self):
         """Opening preview should load the persisted draft, not regenerate."""

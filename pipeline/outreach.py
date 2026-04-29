@@ -296,6 +296,7 @@ def build_outreach_email(
         tmpl["photo_ja"],
         LINE_INPERSON if include_inperson_line else "",
         "送信者：Chris（クリス） / WebRefurb",
+        "連絡先：chris@webrefurb.com / https://webrefurb.com/ja",
         "今後このようなご連絡が不要でしたら、お手数ですが「不要」とご返信ください。",
         "ご検討いただけますと幸いです。",
         "どうぞよろしくお願いいたします。",
@@ -311,7 +312,7 @@ def build_outreach_email(
         tmpl["photo_en"],
         "Lamination and direct delivery to your restaurant are also available."
         if include_inperson_line else "",
-        "Sender: Chris / WebRefurb. If this is not relevant, please reply and I will not contact you again.",
+        "Sender: Chris / WebRefurb. Contact: chris@webrefurb.com / https://webrefurb.com/ja. If this is not relevant, please reply and I will not contact you again.",
         "Thank you for your consideration.",
         "I look forward to hearing from you.",
         "Chris",
