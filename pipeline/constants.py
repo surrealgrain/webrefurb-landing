@@ -227,16 +227,16 @@ TEMPLATE_PACKAGE_MACHINE = PROJECT_ROOT / "assets" / "templates"
 GENERIC_MENU_PDF = TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
 GENERIC_MACHINE_PDF = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide.html"
 OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF = (
-    PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf"
+    TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
 )
 OUTREACH_SAMPLE_RAMEN_SIDES_PDF = (
-    PROJECT_ROOT / "state" / "builds" / "p1-two-section-layout" / "food_menu_print_ready.pdf"
+    TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
 )
 OUTREACH_SAMPLE_RAMEN_DRINKS_PDF = (
-    PROJECT_ROOT / "state" / "builds" / "p1-smoke" / "food_menu_print_ready.pdf"
+    TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
 )
 OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF = (
-    PROJECT_ROOT / "state" / "builds" / "p1-split-food-drinks-layout" / "food_menu_print_ready.pdf"
+    TEMPLATE_PACKAGE_MENU / "izakaya_food_menu.html"
 )
 
 # ---------------------------------------------------------------------------

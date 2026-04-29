@@ -1296,7 +1296,46 @@ class TestDraftSaveAndLoad:
         data = response.json()
         assert "突然のご連絡にて失礼いたします。" in data["body"]
         # Dashboard preview replaces CID references with inline local preview assets
-        assert "data:image/svg+xml" in data["preview_html"]
+        assert "cid:" not in data["preview_html"]
+        assert "data:image/" in data["preview_html"]
+
+    def test_dashboard_preview_uses_rendered_dark_template_data_uri(self, tmp_path, monkeypatch):
+        import asyncio
+        import dashboard.app as dash_app
+        import pipeline.email_html as email_html
+
+        rendered_sources = []
+        preview_jpeg = tmp_path / "dark-preview.jpg"
+        preview_jpeg.write_bytes(b"dark-preview")
+
+        def fake_ensure_menu_jpeg(html_path):
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            else:
+                raise RuntimeError("dashboard preview rendering must not run on the event-loop thread")
+            rendered_sources.append(Path(html_path).read_text(encoding="utf-8"))
+            return preview_jpeg
+
+        monkeypatch.setattr(email_html, "_ensure_menu_jpeg", fake_ensure_menu_jpeg)
+
+        async def render_from_endpoint_context():
+            return dash_app._dashboard_email_preview_html(
+                "Body",
+                include_menu_image=True,
+                include_machine_image=False,
+                business_name="青空ラーメン",
+                establishment_profile="izakaya_drink_heavy",
+            )
+
+        html = asyncio.run(render_from_endpoint_context())
+
+        assert "cid:menu-preview" not in html
+        assert "data:image/jpeg;base64,ZGFyay1wcmV2aWV3" in html
+        assert rendered_sources
+        assert "青空ラーメン" in rendered_sources[0]
+        assert "Menu v4c — Izakaya Style" in rendered_sources[0]
 
     def test_draft_status_persists_after_save(self):
         self._create_lead()
@@ -1675,7 +1714,7 @@ class TestClassificationSpecificBehavior:
         response = self.client.post("/api/outreach/wrm-class-test")
         assert response.status_code == 200
         data = response.json()
-        assert "p1-split-food-drinks-layout" in data["assets"][0]
+        assert "assets/templates/izakaya_food_menu.html" in data["assets"][0]
         assert data["asset_strategy_label"] == "Izakaya sample set"
         assert data["asset_details"][0]["label"] == "Izakaya Food + Drinks Sample"
         assert "スタッフの個別説明を減らせます" in data["body"]

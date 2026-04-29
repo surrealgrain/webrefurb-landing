@@ -90,6 +90,14 @@ class TestSelectOutreachAssets:
         assets = select_outreach_assets("menu_only", establishment_profile="izakaya_drink_heavy")
         assert assets == [OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF]
 
+    def test_profile_samples_use_dark_template_sources_not_legacy_cream_builds(self):
+        assets = [
+            *select_outreach_assets("menu_only", establishment_profile="ramen_only"),
+            *select_outreach_assets("menu_only", establishment_profile="izakaya_drink_heavy"),
+        ]
+        assert all("assets/templates" in str(path) for path in assets)
+        assert all("state/builds" not in str(path) for path in assets)
+
 
 # ---------------------------------------------------------------------------
 # build_outreach_email

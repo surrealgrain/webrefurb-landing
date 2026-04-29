@@ -134,6 +134,15 @@ Real outreach is Phase 11. Do not start it early; complete the preceding plan ga
 - Final 10-business audit summary: 7 qualified/manual-review leads, 3 rejected, 3 ticket-machine profiles, 4 menu/regular-pitch classifications, 3 izakaya profiles, all checked seals correct, zero guessed preview translations.
 - Remaining audit caveat: one public page (`https://maki.owst.jp/`) returned HTTP 404 to direct fetch during the local audit, so that candidate was correctly not qualified from empty content.
 - Post-hardening verification `.venv/bin/python -m pytest tests/ -q` passed with `373 passed`; `git diff --check` was clean.
+- Outreach preview UI fix completed: profile-specific outreach samples now use the dark `assets/templates/` HTML designs instead of legacy cream `state/builds/` PDFs.
+- Dashboard preview HTML now replaces menu/machine `cid:` references with rendered dark JPEG data URIs from the selected template, including the lead-specific restaurant-name seal.
+- Dashboard preview rendering now runs Playwright screenshot generation outside the FastAPI event-loop thread, preventing the live dashboard from falling back to SVG placeholders.
+- Outreach edit modal is now full-viewport, with lead/contact/dossier context in a left inspector and the Japanese preview plus English editable body in a large right workspace.
+- Browser/API verification on `127.0.0.1:8771` confirmed `wrm-qa-phase10-ramen` and `wrm-smoke-bistro-arekore-nakano` preview HTML contains `data:image/jpeg`, contains no `cid:`, and contains no SVG fallback.
+- Browser render screenshots saved under ignored state:
+  - `state/qa-screenshots/outreach-editor-fullpage-dark-preview-live.png`
+  - `state/qa-screenshots/outreach-preview-dark-menu-visible.png`
+- Post-UI verification `.venv/bin/python -m pytest tests/ -q` passed with `375 passed`; `git diff --check` was clean.
 - No real outreach was sent.
 
 ## Resume Instructions
