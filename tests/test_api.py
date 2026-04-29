@@ -520,6 +520,38 @@ class TestAPIEndpoints:
         assert "WebRefurbMenu" in response.text
         assert "Lead evidence dossier" in response.text
 
+    def test_main_page_shows_readiness_statuses_and_blocks_manual_review(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-ready-card",
+            business_name="Ready Ramen",
+            evidence_urls=["https://ready-card.test/menu"],
+            evidence_snippets=["醤油ラーメン 味玉 トッピング メニュー"],
+        )
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-manual-card",
+            business_name="Manual Ramen",
+            evidence_urls=[],
+            evidence_snippets=["Calendar check TEL_String 店舗検索"],
+        )
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-chain-card",
+            business_name="Tsukada Nojo Shibuya",
+            primary_category_v1="izakaya",
+            evidence_urls=["https://chain-card.test/menu"],
+            evidence_snippets=["飲み放題 コース 居酒屋 メニュー"],
+        )
+
+        response = self.client.get("/")
+
+        assert response.status_code == 200
+        assert "Ready For Outreach" in response.text
+        assert "Manual Review" in response.text
+        assert "Disqualified" in response.text
+        assert "Review Gate" in response.text
+
     def test_launch_batch_api_blocks_second_batch_until_review(self, tmp_path):
         lead_ids = self._write_launch_ready_leads(tmp_path)
 

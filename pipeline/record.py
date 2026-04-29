@@ -447,6 +447,9 @@ def create_lead_record(
         "proof_items": qualification.proof_items,
         "launch_readiness_status": qualification.launch_readiness_status,
         "launch_readiness_reasons": qualification.launch_readiness_reasons,
+        "message_variant": "",
+        "launch_batch_id": "",
+        "launch_outcome": {},
 
         # V1 classification
         "primary_category_v1": qualification.primary_category_v1,

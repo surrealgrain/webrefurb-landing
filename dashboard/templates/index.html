@@ -570,7 +570,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <div class="lead-actions">
           {% set blocked_send = lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted', 'do_not_contact'] %}
           {% set ready = lead.launch_readiness_status|default('manual_review', true) == 'ready_for_outreach' %}
-          <button class="btn btn-secondary" {% if not ready and not blocked_send %}disabled title="{{ lead.launch_readiness_reasons|join(', ') }}"{% else %}onclick="openPreview('{{ lead.lead_id }}')"{% endif %}>{{ 'View' if blocked_send else 'Preview' if ready else 'Review Gate' }}</button>
+          {% set disqualified = lead.launch_readiness_status|default('manual_review', true) == 'disqualified' %}
+          <button class="btn btn-secondary" {% if disqualified or (not ready and not blocked_send) %}disabled title="{{ lead.launch_readiness_reasons|join(', ') }}"{% else %}onclick="openPreview('{{ lead.lead_id }}')"{% endif %}>{{ 'Disqualified' if disqualified else 'View' if blocked_send else 'Preview' if ready else 'Review Gate' }}</button>
           <button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete {{ lead.business_name }}" onclick="openDeleteLead('{{ lead.lead_id }}', this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
           </button>
