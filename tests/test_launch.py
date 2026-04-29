@@ -152,3 +152,85 @@ def test_record_launch_outcome_tracks_opt_out_bounce_minutes_and_lead_copy(tmp_p
     )
     assert bounced["reply_status"] == "bounced"
     assert bounced["bounce"] is True
+
+
+def test_review_launch_batch_records_phase_12_metrics_and_decisions(tmp_path):
+    lead_ids = _write_leads(tmp_path, [
+        "ramen_ticket_machine",
+        "izakaya_drink_heavy",
+        "ramen_only",
+        "ramen_only",
+        "izakaya_course_heavy",
+    ])
+    batch = create_launch_batch(lead_ids=lead_ids, state_root=tmp_path)
+
+    record_launch_outcome(
+        batch_id=batch["batch_id"],
+        lead_id=lead_ids[0],
+        state_root=tmp_path,
+        outcome={
+            "contacted_at": "2026-04-29T09:00:00+00:00",
+            "reply_status": "positive_reply",
+            "operator_minutes": 5,
+            "outcome": "owner_requested_quote",
+        },
+    )
+    record_launch_outcome(
+        batch_id=batch["batch_id"],
+        lead_id=lead_ids[1],
+        state_root=tmp_path,
+        outcome={
+            "contacted_at": "2026-04-29T09:05:00+00:00",
+            "reply_status": "no_reply",
+            "operator_minutes": 4,
+        },
+    )
+    record_launch_outcome(
+        batch_id=batch["batch_id"],
+        lead_id=lead_ids[2],
+        state_root=tmp_path,
+        outcome={
+            "contacted_at": "2026-04-29T09:10:00+00:00",
+            "reply_status": "needs_followup",
+            "objection": "Send details later",
+            "operator_minutes": 3,
+        },
+    )
+    record_launch_outcome(
+        batch_id=batch["batch_id"],
+        lead_id=lead_ids[3],
+        state_root=tmp_path,
+        outcome={
+            "contacted_at": "2026-04-29T09:15:00+00:00",
+            "bounce": True,
+            "operator_minutes": 1,
+        },
+    )
+
+    reviewed = review_launch_batch(
+        batch_id=batch["batch_id"],
+        state_root=tmp_path,
+        notes="Phase 12 review",
+        iteration_decisions={
+            "outreach_wording_update": {
+                "action": "review_needed",
+                "reason": "One owner asked for details later.",
+            },
+        },
+    )
+
+    phase_12 = reviewed["phase_12_review"]
+    assert reviewed["reviewed_at"]
+    assert reviewed["review_notes"] == "Phase 12 review"
+    assert phase_12["summary"]["contacted_count"] == 4
+    assert phase_12["summary"]["response_count"] == 2
+    assert phase_12["summary"]["response_rate"] == 0.5
+    assert phase_12["summary"]["positive_reply_count"] == 1
+    assert phase_12["summary"]["bounce_count"] == 1
+    assert phase_12["summary"]["operator_minutes_total"] == 13
+    assert phase_12["channel_performance"]["email"]["contacted_count"] == 4
+    assert phase_12["package_fit"]["recommendations"]["package_2_printed_delivered_45k"]["contacted_count"] == 4
+    assert phase_12["proof_asset_performance"]["/tmp/sample.pdf"]["positive_reply_count"] == 1
+    assert phase_12["objections"][0]["lead_id"] == lead_ids[2]
+    assert phase_12["iteration_decisions"]["outreach_wording_update"]["action"] == "review_needed"
+    assert phase_12["batch_2_gate"]["phase_12_review_recorded"] is True

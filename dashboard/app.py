@@ -510,7 +510,16 @@ async def api_review_launch_batch(batch_id: str, request: Request):
 
     payload = await request.json()
     try:
-        return review_launch_batch(batch_id=batch_id, state_root=STATE_ROOT, notes=str(payload.get("notes") or ""))
+        return review_launch_batch(
+            batch_id=batch_id,
+            state_root=STATE_ROOT,
+            notes=str(payload.get("notes") or ""),
+            iteration_decisions=(
+                payload.get("iteration_decisions")
+                if isinstance(payload.get("iteration_decisions"), dict)
+                else None
+            ),
+        )
     except LaunchBatchError as exc:
         raise HTTPException(status_code=404 if str(exc) == "batch_not_found" else 422, detail=str(exc))
 
