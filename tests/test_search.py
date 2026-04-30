@@ -131,6 +131,62 @@ def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
     assert result["decisions"][0]["lead"] is False
 
 
+def test_search_deep_email_fallback_can_rescue_supported_contact_route(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Test Ramen",
+            "website": "https://test-ramen.example",
+            "address": "東京都渋谷区神南1-2-3",
+            "phoneNumber": "",
+            "placeId": "place-deep-email",
+            "rating": 4.6,
+            "ratingCount": 80,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Test Ramen | 食べログ</title></head><body><h1>Test Ramen</h1></body></html>"
+        return "ラーメン メニュー 醤油ラーメン 900円 券売機 東京"
+
+    def fake_deep_enrich(**kwargs):
+        assert kwargs["business_name"] == "Test Ramen"
+        return [{
+            "type": "email",
+            "value": "owner@test-ramen.example",
+            "label": "general_business_contact",
+            "href": "mailto:owner@test-ramen.example",
+            "source": "email_discovery",
+            "source_url": "https://test-ramen.example/contact",
+            "confidence": "high",
+            "discovered_at": "2026-04-30T00:00:00+00:00",
+            "status": "discovered",
+            "actionable": True,
+        }]
+
+    from pipeline.email_discovery import bridge
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: _tabelog_result())
+    monkeypatch.setattr(search, "DEEP_EMAIL_DISCOVERY_ENABLED", True)
+    monkeypatch.setattr(bridge, "enrich_lead_inline", fake_deep_enrich)
+
+    result = search.search_and_qualify(
+        query="券売機 ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        state_root=tmp_path,
+    )
+
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert result["leads"] == 1
+    assert result["qualified_without_supported_contact"] == 0
+    assert result["qualified_without_email"] == 0
+    assert lead["email"] == "owner@test-ramen.example"
+    assert "email" in result["decisions"][0]["contact_route_types"]
+    assert result["decisions"][0]["primary_contact_type"] == "email"
+
+
 def test_search_skips_reservation_only_form_as_supported_contact(tmp_path, monkeypatch):
     def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
         return [{

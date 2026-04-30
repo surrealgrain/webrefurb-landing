@@ -12,6 +12,7 @@ from typing import Any
 from .business_name import business_name_is_suspicious, business_names_match, extract_business_name_candidates, resolve_business_name
 from .contact_crawler import extract_contact_signals, is_usable_business_email
 from .contact_policy import normalise_contact_actionability
+from .constants import DEEP_EMAIL_DISCOVERY_ENABLED
 from .utils import utc_now, write_json, ensure_dir
 from .qualification import qualify_candidate
 
@@ -285,6 +286,31 @@ def discover_contact_routes(
     }
     contacts.sort(key=lambda contact: (priority.get(contact.get("type", ""), 99), str(contact.get("label") or "").lower()))
     return contacts
+
+
+def _merge_contact_routes(
+    existing: list[dict[str, Any]],
+    additions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for contact in [*existing, *additions]:
+        contact_type = str(contact.get("type") or "").strip().lower()
+        value = str(contact.get("value") or "").strip()
+        if contact_type == "email":
+            normalized = value.lower()
+        elif contact_type == "phone":
+            normalized = re.sub(r"\D", "", value)
+        else:
+            normalized = value.lower()
+        if not contact_type or not normalized:
+            continue
+        key = (contact_type, normalized)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(normalise_contact_actionability(contact))
+    return merged
 
 
 def run_search(
@@ -927,6 +953,24 @@ def search_and_qualify(
                 )
                 actionable_routes = [route for route in contact_routes if route.get("actionable")]
                 email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
+
+                if not actionable_routes:
+                    if DEEP_EMAIL_DISCOVERY_ENABLED:
+                        from .email_discovery.bridge import enrich_lead_inline
+
+                        deeper_routes = enrich_lead_inline(
+                            business_name=business_name,
+                            website=website,
+                            html=website_html,
+                            address=str(place.get("address", "")),
+                            phone=str(place.get("phoneNumber", "")),
+                            genre=qualification.primary_category_v1 or category,
+                        )
+                        if deeper_routes:
+                            contact_routes = _merge_contact_routes(contact_routes, deeper_routes)
+                            actionable_routes = [route for route in contact_routes if route.get("actionable")]
+                            email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
+
                 decision["contact_route_types"] = [str(route.get("type") or "") for route in contact_routes]
                 decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
 

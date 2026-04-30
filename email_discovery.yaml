@@ -1,0 +1,50 @@
+# Email Discovery Pipeline Configuration
+# ========================================
+# Copy this file and customize for your environment.
+# Environment variables override these values:
+#   SERPER_API_KEY - Serper.dev API key
+
+# Search provider: "serper" (recommended) or "local" (fallback)
+search:
+  provider: serper
+  serper_api_key: ""  # Set via SERPER_API_KEY env var
+  max_queries_per_lead: 5
+  max_results_per_query: 10
+  rate_limit_delay: 1.0  # seconds between API calls
+  max_page_crawls_per_lead: 15
+  page_timeout: 10.0
+
+# Scoring thresholds
+scoring:
+  launch_ready_threshold: 70.0
+  genre_confidence_threshold: 0.6
+  mx_validation_enabled: false  # DNS MX lookups add latency
+
+# Output file paths
+persistence:
+  sqlite_path: state/email_discovery.db
+  csv_output_path: state/email_discovery_output.csv
+  jsonl_output_path: state/email_discovery_output.jsonl
+
+# Pipeline behavior
+dry_run: false  # If true, skip all network requests
+max_leads: 0    # 0 = process all leads
+log_level: INFO
+
+# Genre allowlist (append to defaults, not replace)
+# These are merged with the built-in defaults.
+# allowed_genres:
+#   - ramen
+#   - izakaya
+
+# Custom refusal phrases (appended to defaults)
+# refusal_phrases:
+#   - "カスタム拒否フレーズ"
+
+# Custom reservation-only phrases
+# reservation_only_phrases:
+#   - "予約専用"
+
+# Custom recruitment-only phrases
+# recruit_only_phrases:
+#   - "採用専用"
