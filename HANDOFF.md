@@ -15,7 +15,7 @@ This file is intentionally compact. Do not use it as a running changelog. Record
 ## Safety Boundaries
 
 - ABSOLUTE OUTBOUND RULE: do not send any real email, submit any real contact form, or otherwise contact a business unless the user explicitly requests that exact outbound send/contact action in the current chat. The word "continue" is not enough permission for real outreach.
-- Treat all future phase continuation as no-send by default. Selection, scoring, validation, draft generation, simulations, audits, and reviews are safe; real email/contact-form submission is not safe without explicit user approval.
+- Treat future continuation as permission to keep executing every non-outbound step that is technically and plan-wise unblocked. Selection, scoring, validation, draft generation, simulations, audits, reviews, state repairs, and test-backed hardening are safe; real email/contact-form submission is not safe without explicit user approval.
 - Japan only.
 - Ramen and izakaya only.
 - Binary lead semantics: `lead: true|false`, never "maybe".
@@ -27,13 +27,14 @@ This file is intentionally compact. Do not use it as a running changelog. Record
 - Production simulation must use isolated state and mocked send paths.
 - `production_ready=true` in a simulation report is a no-send readiness signal only. It is not permission to send real outreach.
 - Do not start Batch 2 before Phase 12.
-- When the user pastes resume instructions or says "continue", treat that as approval to continue no-send work in the current `PLAN.md` phase as far as safely possible. Run the next pass as a long work block; do not stop after one numbered substep if more no-send work in the same phase is unblocked. Do not treat it as approval for real email or contact-form submission.
-- Stop only at a phase gate, a failing verification gate, an unavailable external credential/channel, a required human-only action, a user redirect, or any real send/contact step the user has not explicitly requested.
+- When the user pastes resume instructions or says "continue", treat that as approval to continue no-send work as far as safely possible across the active `PLAN.md` and `PRODUCTION_SIMULATION_TEST_PLAN.md` tracks. Run the next pass as a long work block; do not stop after one numbered substep, one verification run, one small bugfix, one commit, or one outbound-only gate if more no-send work is available.
+- Outbound gates are not general stop points. If the next real email/contact-form action is blocked, switch to the next safe no-send task: reply/bounce/opt-out checks, batch review reconciliation, route-validation hardening, simulation coverage, dashboard QA, state audit repair, candidate preparation without contact, or tests.
+- Stop only at a failing verification gate, an unavailable external credential/channel required for no-send work, a required human-only decision with no safe parallel no-send task, a user redirect, severe context bloat, or after all useful no-send work in the current plan slice is exhausted.
 - Stop early if context bloat is noticeably affecting output quality, accuracy, or the ability to preserve the current state. Before stopping, update this handoff with the current checkpoint and next action.
 
 ## Current Checkpoint
 
-`PLAN.md` Phase 13 Batch 2 send/contact and repeat review are complete. Stop at this phase gate: do not start Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action, because Batch 2 has zero owner responses and one route-validation failure.
+`PLAN.md` Phase 13 Batch 2 send/contact and repeat review are complete. The next real outbound action is blocked: do not send Batch 3 email/contact forms or submit any new real contact without an explicit user request for that exact outbound action, because Batch 2 has zero owner responses and one route-validation failure. This is an outbound-only gate, not a stop-work gate. Continue no-send hardening and preparation work when the user says "continue".
 
 Controlled Batch 1 remains reviewed:
 
@@ -83,7 +84,14 @@ Phase 13 repeat-review decision:
 - Package recommendation update: no change; no package-fit objection or conversion.
 - Proof asset update: no change; no proof path produced a reply yet.
 - Contact-route validation update: tighten preflight so contact forms that require phone data are treated as unsupported unless a real sender phone is explicitly available.
-- Batch 3 guidance: do not start Batch 3 without a human decision, and do not send any Batch 3 email/contact form unless the user explicitly asks for that exact outbound action; Batch 2 has zero owner responses and one route failure.
+- Batch 3 guidance: do not send any Batch 3 email/contact form unless the user explicitly asks for that exact outbound action; Batch 2 has zero owner responses and one route failure. No-send Batch 3 preparation is allowed: checking replies/bounces/opt-outs, finding candidates, validating routes, drafting copy, running smoke tests, and writing a human decision brief, as long as no business is contacted.
+
+Next safe no-send work block:
+
+1. Check Batch 1 and Batch 2 records for any new replies, bounces, opt-outs, objections, or stale measurement state.
+2. Convert the Batch 2 route failure into stronger preflight coverage beyond the existing phone-required form case.
+3. Prepare a no-send Batch 3 candidate/decision brief from existing ready leads or simulation replay data, explicitly separating "ready to review" from "approved to contact".
+4. Run focused tests, `audit-state`, and `git diff --check`; update this handoff with the next checkpoint.
 
 Current simulation signal remains no-send only:
 
@@ -104,7 +112,7 @@ Current simulation signal remains no-send only:
 - Future sent email records now persist attachment metadata: requested source paths, render-source flags, inline attachment filename/MIME/content-id/disposition/size/SHA-256, and file-attachment metadata. The existing らーめん錦 sent record was backfilled from local renderer state.
 - Important correction: prior "continue" handling was too broad. Future sessions must keep "continue" as no-send continuation only unless the user explicitly asks to send real outreach.
 
-Positive effect: Phase 13 now has a recorded Batch 2 outcome and a clear stop gate before Batch 3.
+Positive effect: Phase 13 now has a recorded Batch 2 outcome, a clear outbound permission boundary, and explicit no-send work that can continue without stalling.
 
 ## Key Runtime Artifacts
 
@@ -138,10 +146,10 @@ Positive effect: Phase 13 now has a recorded Batch 2 outcome and a clear stop ga
 2. Read `PRODUCTION_SIMULATION_TEST_PLAN.md` only for the current simulation gate and acceptance criteria.
 3. Use this file as the compact current checkpoint, not as proof that a phase is complete.
 4. Treat the current production simulation report as a no-send readiness signal only; Batch 1 selection exists separately in live state.
-5. Continue mode: if the user pasted these resume instructions or says "continue", proceed through all remaining no-send actionable work in the current phase as one long work block, not just the next numbered step. Do not send real emails or submit real contact forms from "continue" alone.
-6. Next action: stop at the Phase 13 post-review gate. Do not start Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
+5. Continue mode: if the user pasted these resume instructions or says "continue", proceed through all remaining no-send actionable work as one long work block, not just the next numbered step. Do not stop just because a commit is made, a small bug is fixed, or the next outbound action requires permission. Do not send real emails or submit real contact forms from "continue" alone.
+6. Next action: continue the no-send work block listed above. Do not send Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
 7. Do not use phone, Instagram, LINE, or walk-in routes for outreach. Do not select phone-only leads.
 8. Phase 12 review is recorded for Batch 1; Phase 13 repeat review is recorded for Batch 2 under `launch-6f594101ca`.
-9. Before any Batch 3 selection, check for new Batch 1/Batch 2 replies, bounces, opt-outs, or objections and update the relevant launch batch plus lead files if anything changed. This check must be no-send.
-10. If context bloat starts affecting output quality or accuracy, stop after updating this handoff rather than continuing the next work slice.
+9. Before any Batch 3 contact or human approval brief, check for new Batch 1/Batch 2 replies, bounces, opt-outs, or objections and update the relevant launch batch plus lead files if anything changed. This check must be no-send.
+10. If context bloat starts affecting output quality or accuracy, stop after updating this handoff with a concrete next no-send task rather than continuing the next work slice.
 11. After each completed phase, simulation slice, or real-send slice, update this handoff by replacing stale checkpoint details instead of appending a long diary.
