@@ -8,6 +8,7 @@ import urllib.parse
 SUPPORTED_OUTREACH_CONTACT_TYPES = {"email", "contact_form"}
 POLICY_UNSUPPORTED_REASONS = {
     "phone_required",
+    "unverified_contact_form",
     "reservation_or_booking_form",
     "recruiting_form",
     "commerce_or_order_form",
@@ -77,12 +78,24 @@ SOCIAL_ROUTE_TOKENS = (
     "line.me",
     "lin.ee",
 )
+CONTACT_ROUTE_TOKENS = (
+    "contact",
+    "inquiry",
+    "otoiawase",
+    "toiawase",
+    "お問い合わせ",
+    "問合せ",
+)
 
 
 def contact_form_unsupported_reason(contact: dict[str, Any], *, sender_phone_available: bool = False) -> str:
     """Return why a contact form cannot be used for outreach, or empty string."""
     if str(contact.get("type") or "").strip().lower() != "contact_form":
         return ""
+    if _contact_has_social_host(contact):
+        return "social_profile_not_contact_form"
+    if not _contact_form_has_verified_form(contact):
+        return "unverified_contact_form"
     if _contact_form_requires_phone(contact) and not sender_phone_available:
         return "phone_required"
 
@@ -93,11 +106,24 @@ def contact_form_unsupported_reason(contact: dict[str, Any], *, sender_phone_ava
         return "recruiting_form"
     if _contains_any(route_haystack, COMMERCE_FORM_TOKENS):
         return "commerce_or_order_form"
-    if _contact_has_social_host(contact):
-        return "social_profile_not_contact_form"
     if _contains_any(route_haystack, ACCOUNT_FORM_TOKENS):
         return "account_or_login_form"
     return ""
+
+
+def _contact_form_has_verified_form(contact: dict[str, Any]) -> bool:
+    if contact.get("has_form") is True:
+        return True
+    for key in ("required_fields", "form_actions", "form_field_names"):
+        value = contact.get(key)
+        if isinstance(value, list) and value:
+            return True
+        if isinstance(value, str) and value.strip():
+            return True
+    route_haystack = _contact_route_haystack(contact)
+    if _contains_any(route_haystack, CONTACT_ROUTE_TOKENS):
+        return True
+    return False
 
 
 def contact_is_supported_for_outreach(contact: dict[str, Any], *, sender_phone_available: bool = False) -> bool:

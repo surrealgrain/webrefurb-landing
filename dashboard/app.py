@@ -458,12 +458,24 @@ async def dashboard_main(request: Request):
     leads = [
         _prepare_lead_for_dashboard(lead)
         for lead in list_leads(state_root=STATE_ROOT)
-        if lead.get("lead") is True
+        if (
+            lead.get("lead") is True
+            or (
+                lead.get("production_sim_fixture") is True
+                and lead.get("launch_readiness_status") == "disqualified"
+            )
+        )
         and (
             lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
             or lead.get("launch_readiness_status") == "disqualified"
         )
-        and _has_supported_contact_route(lead)
+        and (
+            _has_supported_contact_route(lead)
+            or (
+                lead.get("production_sim_fixture") is True
+                and lead.get("launch_readiness_status") in {"manual_review", "disqualified"}
+            )
+        )
     ]
     return templates.TemplateResponse(request, "index.html", {
         "leads": leads,
@@ -636,14 +648,20 @@ async def api_search(request: Request):
     category = body.get("category", "ramen")
     city = body.get("city", "").strip()
 
+    from pipeline.search_provider import configured_search_provider, search_provider_requires_api_key
+
+    try:
+        search_provider = configured_search_provider(os.environ.get("WEBREFURB_SEARCH_PROVIDER"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     serper_api_key = os.environ.get("SERPER_API_KEY", "")
-    if not serper_api_key:
-        raise HTTPException(status_code=500, detail="SERPER_API_KEY not configured")
+    if search_provider_requires_api_key(search_provider) and not serper_api_key:
+        raise HTTPException(status_code=500, detail="SERPER_API_KEY not configured for serper search provider")
 
     from pipeline.search_scope import search_query_for_scope, search_jobs_for_scope, merge_search_results
 
     query = search_query_for_scope(category=category, city=city)
-    _log("search_started", f"query={query[:80]} category={category}")
+    _log("search_started", f"query={query[:80]} category={category} provider={search_provider}")
 
     from pipeline.record import list_leads
     existing_actionable_ids = {
@@ -664,6 +682,7 @@ async def api_search(request: Request):
                 lambda job=job: search_and_qualify(
                     query=job["query"],
                     serper_api_key=serper_api_key,
+                    search_provider=search_provider,
                     category=job["category"],
                     state_root=STATE_ROOT,
                     search_job=job,

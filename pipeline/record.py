@@ -77,6 +77,7 @@ CONTACT_METADATA_KEYS = {
     "requires_phone",
     "phone_required",
     "requires_phone_number",
+    "has_form",
     "failure_reason",
     "unsupported_reason",
     "page_title",

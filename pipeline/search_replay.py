@@ -13,7 +13,14 @@ from typing import Any, Callable
 
 from .constants import PROJECT_ROOT
 from .lead_dossier import ensure_lead_dossier
-from .record import persist_lead_record
+from .record import get_primary_contact, persist_lead_record
+from .search_provider import (
+    SearchProviderError,
+    configured_search_provider,
+    run_maps_search as provider_run_maps_search,
+    run_organic_search as provider_run_organic_search,
+    search_provider_requires_api_key,
+)
 from .search_scope import normalise_search_category, search_jobs_for_scope
 from .utils import read_json, sha256_text, slugify, utc_now, write_json, write_text
 
@@ -183,6 +190,7 @@ def reconcile_label_contact_policy(corpus_dir: str | Path) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise ReplayCorpusError(f"missing manifest.json in {root}")
     labels_dir = root / str(manifest.get("labels_dir") or "labels")
+    candidates_by_id = _candidate_records_by_id(root=root, manifest=manifest)
     changed: list[dict[str, Any]] = []
     unchanged = 0
     for path in sorted(labels_dir.glob("*.json")):
@@ -192,31 +200,26 @@ def reconcile_label_contact_policy(corpus_dir: str | Path) -> dict[str, Any]:
         before = json.dumps(label, sort_keys=True, ensure_ascii=False)
         route = str(label.get("contact_route_expected") or "").strip()
         if route in UNSUPPORTED_LABEL_CONTACT_ROUTES:
-            label["legacy_contact_route_expected"] = route
-            label["contact_route_expected"] = "none"
-            label["inline_assets_expected"] = []
-            notes = str(label.get("label_notes") or "").strip()
-            suffix = "Reconciled to email/contact-form-only policy; unsupported outreach routes require manual review."
-            label["label_notes"] = f"{notes} {suffix}".strip()
-            if label.get("readiness_expected") == "ready_for_outreach":
-                label["readiness_expected"] = "manual_review"
-                label["rejection_reason_expected"] = "no_supported_contact_route"
-                label["package_expected"] = "none"
-                review = label.get("second_pass_review") if isinstance(label.get("second_pass_review"), dict) else {}
-                label["second_pass_review"] = {
-                    **review,
-                    "required": False,
-                    "status": "not_required",
-                    "reason": "route policy reconciliation moved unsupported-route ready label to manual review",
-                }
+            _move_label_to_no_supported_route(
+                label,
+                legacy_route=route,
+                note_suffix="Reconciled to email/contact-form-only policy; unsupported outreach routes require manual review.",
+                review_reason="route policy reconciliation moved unsupported-route ready label to manual review",
+            )
+        elif route == "contact_form" and _label_contact_form_is_unverified(label, candidates_by_id):
+            _move_label_to_no_supported_route(
+                label,
+                legacy_route=route,
+                note_suffix="Reconciled to verified-contact-form policy; unverified contact-form routes require manual review.",
+                review_reason="route policy reconciliation moved unverified contact-form ready label to manual review",
+            )
         elif route not in LABEL_CONTACT_ROUTE_VALUES:
-            label["legacy_contact_route_expected"] = route
-            label["contact_route_expected"] = "none"
-            label["inline_assets_expected"] = []
-            if label.get("readiness_expected") == "ready_for_outreach":
-                label["readiness_expected"] = "manual_review"
-                label["rejection_reason_expected"] = "no_supported_contact_route"
-                label["package_expected"] = "none"
+            _move_label_to_no_supported_route(
+                label,
+                legacy_route=route,
+                note_suffix="Reconciled to known contact-route policy; unknown routes require manual review.",
+                review_reason="route policy reconciliation moved unknown-route ready label to manual review",
+            )
 
         after = json.dumps(label, sort_keys=True, ensure_ascii=False)
         if after != before:
@@ -238,6 +241,56 @@ def reconcile_label_contact_policy(corpus_dir: str | Path) -> dict[str, Any]:
         "unchanged_count": unchanged,
         "changed": changed,
     }
+
+
+def _candidate_records_by_id(*, root: Path, manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    candidates_path = root / str(manifest.get("candidates_file") or "candidates.json")
+    if not candidates_path.exists():
+        return {}
+    candidates = read_json(candidates_path)
+    if not isinstance(candidates, list):
+        return {}
+    records: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or not isinstance(candidate.get("record"), dict):
+            continue
+        records[candidate_id_for(candidate)] = dict(candidate["record"])
+    return records
+
+
+def _label_contact_form_is_unverified(label: dict[str, Any], candidates_by_id: dict[str, dict[str, Any]]) -> bool:
+    if label.get("readiness_expected") != "ready_for_outreach":
+        return False
+    record = candidates_by_id.get(str(label.get("candidate_id") or ""))
+    if not record:
+        return False
+    primary = get_primary_contact(record)
+    return str((primary or {}).get("type") or "none") != "contact_form"
+
+
+def _move_label_to_no_supported_route(
+    label: dict[str, Any],
+    *,
+    legacy_route: str,
+    note_suffix: str,
+    review_reason: str,
+) -> None:
+    label["legacy_contact_route_expected"] = legacy_route
+    label["contact_route_expected"] = "none"
+    label["inline_assets_expected"] = []
+    notes = str(label.get("label_notes") or "").strip()
+    label["label_notes"] = f"{notes} {note_suffix}".strip()
+    if label.get("readiness_expected") == "ready_for_outreach":
+        label["readiness_expected"] = "manual_review"
+        label["rejection_reason_expected"] = "no_supported_contact_route"
+        label["package_expected"] = "none"
+        review = label.get("second_pass_review") if isinstance(label.get("second_pass_review"), dict) else {}
+        label["second_pass_review"] = {
+            **review,
+            "required": False,
+            "status": "not_required",
+            "reason": review_reason,
+        }
 
 
 def candidate_id_for(candidate: dict[str, Any]) -> str:
@@ -481,6 +534,7 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
                 source=source,
                 source_url=source_url,
                 metadata={
+                    "has_form": True,
                     "form_actions": signals.form_actions,
                     "required_fields": signals.required_fields,
                 },
@@ -688,6 +742,7 @@ def collect_replay_corpus(
     limit_per_job: int = 5,
     stage: str = "pilot",
     serper_api_key: str = "",
+    search_provider: str | None = None,
     gl: str = "jp",
     fetch_timeout_seconds: int = 8,
     contact_pages_per_candidate: int = 2,
@@ -714,12 +769,13 @@ def collect_replay_corpus(
     if limit_per_job < 1:
         raise ReplayCorpusError("limit_per_job must be at least 1")
 
+    provider_name = configured_search_provider(search_provider)
     using_default_maps = maps_search_fn is None
     maps_search = maps_search_fn or _default_maps_search
     web_search = web_search_fn or _default_web_search
     fetch_page = fetch_page_fn or _default_fetch_page
-    if using_default_maps and not serper_api_key:
-        raise ReplayCorpusError("production-sim collect requires --api-key/SERPER_API_KEY or an offline fixture")
+    if using_default_maps and search_provider_requires_api_key(provider_name) and not serper_api_key:
+        raise ReplayCorpusError("production-sim collect requires --api-key/SERPER_API_KEY for the serper search provider, --search-provider local, or an offline fixture")
 
     root = Path(replay_root) / run_id
     serper_dir = root / "serper"
@@ -746,6 +802,7 @@ def collect_replay_corpus(
                 api_key=serper_api_key,
                 gl=gl,
                 timeout_seconds=fetch_timeout_seconds,
+                search_provider=provider_name,
             )
         except Exception as exc:
             raw_response = {"places": [], "error": f"{type(exc).__name__}: {exc}"}
@@ -833,6 +890,7 @@ def collect_replay_corpus(
             web_search_fn=web_search,
             fetch_page_fn=fetch_page,
             serper_api_key=serper_api_key,
+            search_provider=provider_name,
             gl=gl,
             fetch_timeout_seconds=fetch_timeout_seconds,
             contact_pages_per_candidate=contact_pages_per_candidate,
@@ -859,7 +917,8 @@ def collect_replay_corpus(
         "category": category,
         "limit_per_job": limit_per_job,
         "gl": gl,
-        "network": "mocked_offline_fixture" if not using_default_maps else "live_serper_and_fetch_capture",
+        "network": "mocked_offline_fixture" if not using_default_maps else f"live_{provider_name}_search_and_fetch_capture",
+        "search_provider": provider_name,
         "external_send_allowed": False,
         "launch_batch_allowed": False,
         "offline_replay_compatible": True,
@@ -1459,6 +1518,7 @@ def _capture_candidate_pages(
     web_search_fn: Callable[..., Any],
     fetch_page_fn: Callable[..., str],
     serper_api_key: str,
+    search_provider: str,
     gl: str,
     fetch_timeout_seconds: int,
     contact_pages_per_candidate: int,
@@ -1520,6 +1580,7 @@ def _capture_candidate_pages(
                 api_key=serper_api_key,
                 gl=gl,
                 timeout_seconds=fetch_timeout_seconds,
+                search_provider=search_provider,
             )
         except Exception as exc:
             raw_response = {"organic": [], "error": f"{type(exc).__name__}: {exc}"}
@@ -1645,27 +1706,29 @@ def _contact_urls(website: str, html: str, *, limit: int) -> list[str]:
 
 
 def _default_maps_search(**kwargs: Any) -> dict[str, Any]:
-    api_key = str(kwargs.get("api_key") or "").strip()
-    if not api_key:
-        raise ReplaySearchError("Serper Maps search requires SERPER_API_KEY or --api-key")
-    payload = json.dumps({"q": kwargs["query"], "gl": kwargs.get("gl") or "jp"}).encode("utf-8")
-    request = urllib.request.Request("https://google.serper.dev/maps", data=payload, headers={
-        "Content-Type": "application/json",
-        "X-API-KEY": api_key,
-    })
     try:
-        with urllib.request.urlopen(request, timeout=int(kwargs.get("timeout_seconds") or 8)) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = _http_error_body(exc)
-        suffix = f": {body}" if body else ""
-        raise ReplaySearchError(f"Serper Maps search HTTP {exc.code}{suffix}") from exc
+        return provider_run_maps_search(
+            query=str(kwargs["query"]),
+            api_key=str(kwargs.get("api_key") or "").strip(),
+            gl=str(kwargs.get("gl") or "jp"),
+            timeout_seconds=int(kwargs.get("timeout_seconds") or 8),
+            provider=str(kwargs.get("search_provider") or kwargs.get("provider") or ""),
+        )
+    except SearchProviderError as exc:
+        raise ReplaySearchError(str(exc)) from exc
 
 
 def _default_web_search(**kwargs: Any) -> dict[str, Any]:
-    from .search import run_web_search
-
-    return run_web_search(**kwargs)
+    try:
+        return provider_run_organic_search(
+            query=str(kwargs["query"]),
+            api_key=str(kwargs.get("api_key") or "").strip(),
+            gl=str(kwargs.get("gl") or "jp"),
+            timeout_seconds=int(kwargs.get("timeout_seconds") or 8),
+            provider=str(kwargs.get("search_provider") or kwargs.get("provider") or ""),
+        )
+    except SearchProviderError as exc:
+        raise ReplaySearchError(str(exc)) from exc
 
 
 def _default_fetch_page(url: str, **kwargs: Any) -> str:
