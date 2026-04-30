@@ -1,0 +1,16 @@
+{
+  "checksums": {
+    "index.html": "724b14273fe3b8d5cba2f0af07a9eeddf3ea262b522f1b2375336cd0095d0cb2",
+    "menu.json": "44ab129eae4a04cb94fea8f6dc646ed26e04eff7911b06df1c54d2cbe40fcef5",
+    "qr.svg": "8d00e3e002a72d3d84aed42d8cd61d3d01908f2d584d81f5b2d44ab507454942",
+    "qr_sign.html": "8e911f086affdab93ca28b9ebc4e77db17986f604887d458173b275deb3cb59c",
+    "qr_sign.svg": "8cfe16851f2eaa0a35a594627b6858516f321fc911f79f84454ac26210649830"
+  },
+  "current_version": "v-20260428230742-67d7bc",
+  "menu_id": "p6-qr-ramen",
+  "status": "published",
+  "updated_at": "2026-04-28T23:07:42.893931+00:00",
+  "versions": [
+    "v-20260428230742-67d7bc"
+  ]
+}

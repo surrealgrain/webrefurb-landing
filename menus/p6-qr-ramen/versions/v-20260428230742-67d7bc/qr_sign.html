@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>P6 QR Ramen QR Sign</title>
+<style>
+:root { --ink:#151515; --muted:#687076; --line:#E6E2D8; --accent:#0E7A8A; --paper:#FFFEFA; }
+* { box-sizing: border-box; }
+body { margin:0; min-height:100vh; display:grid; place-items:center; background:#F7F4EC; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.sign { width:min(92vw,720px); aspect-ratio:4/5; background:var(--paper); border:1px solid var(--line); border-radius:28px; padding:44px; display:grid; grid-template-rows:auto auto 1fr auto; gap:24px; text-align:center; box-shadow:0 18px 60px rgba(0,0,0,.08); }
+.brand { font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); font-weight:800; }
+h1 { margin:0; font-size:clamp(42px,8vw,72px); line-height:.98; letter-spacing:0; }
+.qr-wrap { align-self:center; justify-self:center; width:min(72%,360px); aspect-ratio:1; border:14px solid #F7F4EC; border-radius:24px; display:grid; place-items:center; background:#fff; }
+.qr-wrap img { width:100%; height:100%; display:block; }
+.restaurant { color:var(--muted); font-size:clamp(18px,3vw,26px); font-weight:700; }
+.draft { position:fixed; top:18px; left:50%; transform:translateX(-50%); padding:9px 14px; border-radius:999px; border:1px solid #FDBA74; background:#FFF7ED; color:#9A3412; font-size:13px; font-weight:700; }
+@media print { body { background:#fff; } .sign { box-shadow:none; width:100vw; min-height:100vh; border-radius:0; border:0; } .draft { display:none; } }
+</style>
+</head>
+<body>
+
+<main class="sign">
+  <div class="brand">WebRefurb</div>
+  <h1>Scan QR for English Menu</h1>
+  <div class="qr-wrap"><img src="qr.svg" alt="QR code for English menu"></div>
+  <div class="restaurant">P6 QR Ramen</div>
+</main>
+</body>
+</html>
