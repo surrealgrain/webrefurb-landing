@@ -395,7 +395,7 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(8px, 2vh, 16px) 0 clamp(10px, 2vh, 16px);
+  padding: clamp(18px, 4vh, 42px) 0 clamp(18px, 3vh, 32px);
   display: flex;
   align-items: center;
   gap: clamp(16px, 2.5vw, 32px);
@@ -409,6 +409,7 @@ body::before {
   min-width: 110px;
   height: auto;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .logo circle {
@@ -490,19 +491,20 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(14px, 2.5vh, 24px) 0 0;
+  padding: clamp(24px, 4vh, 44px) 0 0;
   opacity: 0;
   animation: slideUp 0.8s var(--ease-out) 0.75s forwards;
 }
 
 .bento-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: clamp(16px, 1.8vw, 20px);
+  font-size: clamp(16px, 1.65vw, 20px);
   font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--text);
-  margin-bottom: 18px;
+  margin-bottom: 24px;
+  max-width: 72ch;
 }
 
 .bento-label strong {
