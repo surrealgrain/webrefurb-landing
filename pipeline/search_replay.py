@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import shutil
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
@@ -19,6 +20,10 @@ from .utils import read_json, sha256_text, slugify, utc_now, write_json, write_t
 
 class ReplayCorpusError(ValueError):
     """Raised when a replay corpus is missing required deterministic data."""
+
+
+class ReplaySearchError(RuntimeError):
+    """Raised when live no-send search capture cannot be completed."""
 
 
 REQUIRED_LABEL_FIELDS = {
@@ -1640,13 +1645,21 @@ def _contact_urls(website: str, html: str, *, limit: int) -> list[str]:
 
 
 def _default_maps_search(**kwargs: Any) -> dict[str, Any]:
+    api_key = str(kwargs.get("api_key") or "").strip()
+    if not api_key:
+        raise ReplaySearchError("Serper Maps search requires SERPER_API_KEY or --api-key")
     payload = json.dumps({"q": kwargs["query"], "gl": kwargs.get("gl") or "jp"}).encode("utf-8")
     request = urllib.request.Request("https://google.serper.dev/maps", data=payload, headers={
         "Content-Type": "application/json",
-        "X-API-KEY": str(kwargs.get("api_key") or ""),
+        "X-API-KEY": api_key,
     })
-    with urllib.request.urlopen(request, timeout=int(kwargs.get("timeout_seconds") or 8)) as response:
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=int(kwargs.get("timeout_seconds") or 8)) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = _http_error_body(exc)
+        suffix = f": {body}" if body else ""
+        raise ReplaySearchError(f"Serper Maps search HTTP {exc.code}{suffix}") from exc
 
 
 def _default_web_search(**kwargs: Any) -> dict[str, Any]:
@@ -1698,6 +1711,17 @@ def _normalise_web_response(raw_response: Any) -> dict[str, Any]:
         response.setdefault("organic", [])
         return response
     return {"organic": []}
+
+
+def _http_error_body(exc: urllib.error.HTTPError, *, max_chars: int = 500) -> str:
+    try:
+        body = exc.read().decode("utf-8", errors="replace").strip()
+    except Exception:
+        return ""
+    body = re.sub(r"\s+", " ", body)
+    if len(body) > max_chars:
+        return f"{body[:max_chars]}..."
+    return body
 
 
 def _place_name(place: dict[str, Any]) -> str:
