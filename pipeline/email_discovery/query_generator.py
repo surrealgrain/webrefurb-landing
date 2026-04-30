@@ -27,6 +27,7 @@ SHOP_NAME_QUERIES = [
     '"{shop}" "運営会社"',
     '"{shop}" "特定商取引法"',
     '"{shop}" "特商法"',
+    '"{shop}" "公式"',
     '"{shop}" "公式通販"',
     '"{shop}" "オンラインショップ"',
     '"{shop}" "お取り寄せ"',
@@ -58,6 +59,12 @@ CATEGORY_QUERIES = [
 
 # Site-restricted queries for PR / shop platforms
 SITE_QUERIES = [
+    "site:tabelog.com {shop} メニュー",
+    "site:hotpepper.jp {shop} メニュー",
+    "site:gnavi.co.jp {shop} メニュー",
+    "site:gurunavi.com {shop} メニュー",
+    "site:retty.me {shop}",
+    "site:hitosara.com {shop}",
     "site:prtimes.jp {shop} メールアドレス",
     "site:value-press.com {shop} メールアドレス",
     "site:thebase.in {shop} 特定商取引法",
@@ -67,6 +74,11 @@ SITE_QUERIES = [
 
 # PR-time site queries (broad)
 SITE_BROAD_QUERIES = [
+    "site:tabelog.com ラーメン メニュー",
+    "site:tabelog.com 居酒屋 英語メニュー",
+    "site:hotpepper.jp 居酒屋 英語メニュー",
+    "site:gnavi.co.jp 居酒屋 Menus in English",
+    "site:ramendb.supleks.jp ラーメン 東京",
     "site:prtimes.jp ラーメン メールアドレス",
     "site:prtimes.jp 居酒屋 メールアドレス",
     "site:value-press.com ラーメン メールアドレス",

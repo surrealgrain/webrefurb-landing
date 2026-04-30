@@ -84,6 +84,8 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="ramen_meal_ticket", query=f"食券 ラーメン {place}", category="ramen", purpose="ticket_machine_lookup", expected_friction="meal_ticket"),
         _job(job_id="ramen_menu_photo", query=f"ラーメン メニュー 写真 {place}", category="ramen", purpose="menu_photo_lookup", expected_friction="menu_photo"),
         _job(job_id="ramen_ramendb", query=f"site:ramendb.supleks.jp ラーメン {place}", category="ramen", purpose="ramendb_lookup", expected_friction="independent_ramen_listing"),
+        _job(job_id="ramen_tabelog_menu", query=f"site:tabelog.com ラーメン {place} メニュー", category="ramen", purpose="tabelog_lookup", expected_friction="directory_menu_lookup"),
+        _job(job_id="ramen_hotpepper_menu", query=f"site:hotpepper.jp ラーメン {place} メニュー", category="ramen", purpose="hotpepper_lookup", expected_friction="directory_menu_lookup"),
         _job(job_id="ramen_official_menu", query=f"ラーメン 公式 メニュー {place}", category="ramen", purpose="official_menu_lookup", expected_friction="official_menu"),
     ]
     izakaya_jobs = [
@@ -92,6 +94,7 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="izakaya_menu_photo", query=f"居酒屋 メニュー 写真 {place}", category="izakaya", purpose="menu_photo_lookup", expected_friction="menu_photo"),
         _job(job_id="izakaya_hotpepper_nomihodai", query=f"site:hotpepper.jp 居酒屋 {place} 飲み放題", category="izakaya", purpose="hotpepper_lookup", expected_friction="nomihodai_or_course"),
         _job(job_id="izakaya_tabelog_menu", query=f"site:tabelog.com 居酒屋 {place} メニュー", category="izakaya", purpose="tabelog_lookup", expected_friction="independent_izakaya_listing"),
+        _job(job_id="izakaya_gurunavi_english", query=f"site:gnavi.co.jp 居酒屋 {place} \"Menus in English\"", category="izakaya", purpose="gurunavi_lookup", expected_friction="english_menu_signal"),
         _job(job_id="izakaya_official_menu", query=f"居酒屋 公式 メニュー {place}", category="izakaya", purpose="official_menu_lookup", expected_friction="official_menu"),
         _job(job_id="izakaya_social_menu", query=f"Instagram 居酒屋 メニュー {place}", category="izakaya", purpose="social_menu_lookup", expected_friction="social_menu_photo"),
     ]
