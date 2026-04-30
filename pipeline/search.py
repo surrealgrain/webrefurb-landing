@@ -57,8 +57,32 @@ _CONTACT_PATH_TOKENS = (
     "contact",
     "inquiry",
     "mail",
+    "form",
     "toiawase",
+    "otoiawase",
     "%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B",  # 問い合わせ
+)
+_BLOCKED_CONTACT_PATH_TOKENS = (
+    "reserve",
+    "reservation",
+    "booking",
+    "book-a-table",
+    "yoyaku",
+    "%E4%BA%88%E7%B4%84",  # 予約
+)
+_DETERMINISTIC_CONTACT_PATHS = (
+    "/contact",
+    "/contact/",
+    "/inquiry",
+    "/inquiry/",
+    "/otoiawase",
+    "/otoiawase/",
+    "/toiawase",
+    "/toiawase/",
+    "/mail",
+    "/mail/",
+    "/form",
+    "/form/",
 )
 _IGNORED_EMAIL_PREFIXES = ("noreply@", "no-reply@", "donotreply@", "do-not-reply@")
 
@@ -83,25 +107,46 @@ def _contact_candidate_urls(base_url: str, html: str, *, limit: int = 3) -> list
     urls: list[str] = []
     seen: set[str] = set()
 
+    def add_candidate(candidate_url: str) -> None:
+        if len(urls) >= limit:
+            return
+        parsed = urllib.parse.urlparse(candidate_url)
+        host = parsed.netloc.lower().removeprefix("www.")
+        if host and base_host and host != base_host:
+            return
+        haystack = urllib.parse.quote(parsed.path.lower(), safe="/%") + " " + parsed.query.lower()
+        if any(token in haystack for token in _BLOCKED_CONTACT_PATH_TOKENS):
+            return
+        if not any(token in haystack for token in _CONTACT_PATH_TOKENS):
+            return
+        cleaned = urllib.parse.urlunparse(parsed._replace(fragment=""))
+        if cleaned in seen or cleaned == base_url:
+            return
+        seen.add(cleaned)
+        urls.append(cleaned)
+
     for href in _CONTACT_LINK_RE.findall(html or ""):
         href = href.strip()
         if not href or href.startswith(("#", "tel:", "javascript:")):
             continue
         absolute = urllib.parse.urljoin(base_url, href)
-        parsed = urllib.parse.urlparse(absolute)
-        host = parsed.netloc.lower().removeprefix("www.")
-        if host and base_host and host != base_host:
-            continue
-        haystack = urllib.parse.quote(parsed.path.lower(), safe="/%") + " " + parsed.query.lower()
-        if not any(token in haystack for token in _CONTACT_PATH_TOKENS):
-            continue
-        cleaned = urllib.parse.urlunparse(parsed._replace(fragment=""))
-        if cleaned in seen or cleaned == base_url:
-            continue
-        seen.add(cleaned)
-        urls.append(cleaned)
+        add_candidate(absolute)
         if len(urls) >= limit:
             break
+
+    if len(urls) < limit and base_parts.scheme and base_parts.netloc:
+        origin = urllib.parse.urlunparse((base_parts.scheme, base_parts.netloc, "", "", "", ""))
+        for path in _DETERMINISTIC_CONTACT_PATHS:
+            add_candidate(urllib.parse.urljoin(origin, path))
+            if len(urls) >= limit:
+                break
+
+    if len(urls) < limit and base_parts.path and base_parts.path not in {"", "/"}:
+        base_dir = base_url.rstrip("/") + "/"
+        for path in ("contact", "inquiry", "otoiawase", "toiawase", "mail", "form"):
+            add_candidate(urllib.parse.urljoin(base_dir, path))
+            if len(urls) >= limit:
+                break
 
     return urls
 

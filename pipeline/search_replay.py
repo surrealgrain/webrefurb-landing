@@ -103,6 +103,15 @@ BENCHMARK_ACCEPTANCE_TARGETS = {
     "min_expected_ready_labels": 6,
 }
 
+DIRECTORY_JOB_TOKENS = ("tabelog", "hotpepper", "ramendb", "gnavi", "gurunavi")
+SOLUTION_CHECK_PURPOSE_TOKENS = (
+    "english_solution_check",
+    "multilingual_solution_check",
+    "mobile_order_solution_check",
+    "ticket_machine_solution_check",
+    "chain_infrastructure_check",
+)
+
 
 def benchmark_replay_corpus(
     *,
@@ -165,6 +174,8 @@ def _benchmark_metrics_for_corpus(root: Path) -> dict[str, Any]:
     fetch_failure_count = int(manifest.get("fetch_failure_count") or len(fetch_failures))
     search_failure_count = int(manifest.get("search_failure_count") or len(search_failures))
     site_counts = Counter(_candidate_site_class(candidate) for candidate in candidates)
+    job_diagnostics = _benchmark_job_diagnostics(root=root, manifest=manifest, candidates=candidates)
+    route_diagnostics = _benchmark_route_diagnostics(root=root, candidates=candidates)
     labels = dict(corpus["labels"])
     ready_labels = [label for label in labels.values() if str(label.get("readiness_expected")) == "ready_for_outreach"]
     unsupported_ready_labels = [
@@ -203,6 +214,71 @@ def _benchmark_metrics_for_corpus(root: Path) -> dict[str, Any]:
         "ready_labels_per_job": _rate(len(ready_labels), search_job_count),
         "unsupported_ready_label_count": len(unsupported_ready_labels),
         "auto_ready_precision_review_table": review_table,
+        **job_diagnostics,
+        **route_diagnostics,
+    }
+
+
+def _benchmark_job_diagnostics(*, root: Path, manifest: dict[str, Any], candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    jobs = [dict(job) for job in (manifest.get("search_jobs") or []) if isinstance(job, dict)]
+    mode_counts = Counter(_job_mode_for_job(job) for job in jobs)
+    candidate_mode_counts = Counter(
+        _job_mode_for_job(dict(candidate.get("source_search_job") or {}))
+        for candidate in candidates
+    )
+    engine_counts: Counter[str] = Counter()
+    source_engine_counts: Counter[str] = Counter()
+    recovered_retry_count = 0
+    fallback_run_count = 0
+    webserper_dir = root / str(manifest.get("webserper_dir") or manifest.get("serper_dir") or "webserper")
+    for path in sorted(webserper_dir.glob("*-maps.json")):
+        artifact = read_json(path, default={})
+        if not isinstance(artifact, dict):
+            continue
+        response = artifact.get("response") if isinstance(artifact.get("response"), dict) else {}
+        params = response.get("searchParameters") if isinstance(response.get("searchParameters"), dict) else {}
+        engine = str(params.get("engine") or "unknown")
+        engine_counts[engine] += 1
+        for run in params.get("sourceRuns") or []:
+            if not isinstance(run, dict):
+                continue
+            source_engine_counts[str(run.get("engine") or "unknown")] += 1
+            if run.get("recovered_by_retry"):
+                recovered_retry_count += 1
+            if run.get("fallback_engine"):
+                fallback_run_count += 1
+            for nested in run.get("source_runs") or []:
+                if isinstance(nested, dict):
+                    source_engine_counts[str(nested.get("engine") or "unknown")] += 1
+                    if nested.get("recovered_by_retry"):
+                        recovered_retry_count += 1
+    discovery_jobs = mode_counts.get("candidate_discovery", 0) + mode_counts.get("directory_extraction", 0)
+    return {
+        "search_job_mode_counts": dict(sorted(mode_counts.items())),
+        "candidate_count_by_source_job_mode": dict(sorted(candidate_mode_counts.items())),
+        "candidate_discovery_job_count": discovery_jobs,
+        "deduped_candidates_per_discovery_job": _rate(len(candidates), discovery_jobs),
+        "search_engine_artifact_counts": dict(sorted(engine_counts.items())),
+        "search_source_engine_counts": dict(sorted(source_engine_counts.items())),
+        "recovered_retry_count": recovered_retry_count,
+        "fallback_run_count": fallback_run_count,
+    }
+
+
+def _benchmark_route_diagnostics(*, root: Path, candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    route_counts: Counter[str] = Counter()
+    flag_counts: Counter[str] = Counter()
+    suspected_counts: Counter[str] = Counter()
+    for candidate in candidates:
+        annotation = _annotate_label_candidate(root, candidate)
+        route_counts[str(annotation.get("contact_route_profile") or "unknown")] += 1
+        suspected_counts[str(annotation.get("suspected_class") or "unknown")] += 1
+        for flag in annotation.get("negative_flags") or []:
+            flag_counts[str(flag)] += 1
+    return {
+        "contact_route_profile_counts": dict(sorted(route_counts.items())),
+        "review_negative_flag_counts": dict(sorted(flag_counts.items())),
+        "suspected_label_class_counts": dict(sorted(suspected_counts.items())),
     }
 
 
@@ -242,6 +318,7 @@ def _benchmark_markdown(result: dict[str, Any]) -> str:
     rows = [
         ("Search failures", metrics["search_failure_count"]),
         ("Deduped candidates/job", f"{metrics['deduped_candidates_per_job']:.2f}"),
+        ("Deduped candidates/discovery job", f"{metrics.get('deduped_candidates_per_discovery_job', 0):.2f}"),
         ("Fetch failure rate", f"{metrics['fetch_failure_rate']:.1%}"),
         ("First-party site rate", f"{metrics['first_party_site_rate']:.1%}"),
         ("Reviewed ready labels", metrics["expected_ready_label_count"]),
@@ -259,6 +336,14 @@ def _benchmark_markdown(result: dict[str, Any]) -> str:
     lines.extend([
         "",
         f"Acceptance passed: `{comparison['passed']}`",
+        "",
+        "## Diagnostics",
+        "",
+        f"- Job modes: `{metrics.get('search_job_mode_counts', {})}`",
+        f"- Search engines: `{metrics.get('search_engine_artifact_counts', {})}`",
+        f"- Source engines: `{metrics.get('search_source_engine_counts', {})}`",
+        f"- Route profiles: `{metrics.get('contact_route_profile_counts', {})}`",
+        f"- Negative flags: `{metrics.get('review_negative_flag_counts', {})}`",
         "",
         "## Ready Review Table",
         "",
@@ -293,7 +378,7 @@ def _candidate_site_class(candidate: dict[str, Any]) -> str:
         return "no_site"
     if any(token in host for token in ("instagram.com", "facebook.com", "twitter.com", "x.com", "line.me", "lin.ee")):
         return "social"
-    if any(token in host for token in ("tabelog.com", "hotpepper.jp", "gnavi.co.jp", "gurunavi.com", "ramendb.supleks.jp")):
+    if any(token in host for token in ("tabelog.com", "hotpepper.jp", "gnavi.co.jp", "gurunavi.com", "gorp.jp", "ramendb.supleks.jp")):
         return "directory"
     if any(token in host for token in ("tablecheck.com", "ebica.jp", "toreta.in", "yoyaku", "reserve", "reservation")):
         return "reservation"
@@ -1026,6 +1111,7 @@ def collect_replay_corpus(
     raw_candidate_count = 0
 
     for job_index, job in enumerate(jobs):
+        job_mode = _job_mode_for_job(job)
         artifact_rel = f"webserper/{job_index:04d}-{slugify(job['city'])}-{slugify(job['job_id'])}-maps.json"
         try:
             raw_response = _call_maps_search(
@@ -1054,7 +1140,11 @@ def collect_replay_corpus(
             "gl": gl,
             "job": job,
             "response": raw_response,
+            "candidate_creation_allowed": job_mode != "solution_check",
         })
+
+        if job_mode == "solution_check":
+            continue
 
         for rank, place in enumerate((raw_response.get("places") or [])[:limit_per_job], start=1):
             raw_candidate_count += 1
@@ -1139,6 +1229,8 @@ def collect_replay_corpus(
     write_json(root / "search-failures.json", search_failures)
 
     fetch_success_count = sum(len((candidate.get("capture") or {}).get("pages") or []) for candidate in candidates)
+    candidate_search_jobs = [job for job in jobs if _job_mode_for_job(job) != "solution_check"]
+    enrichment_search_jobs = [job for job in jobs if _job_mode_for_job(job) == "solution_check"]
     manifest = {
         "schema_version": COLLECTION_SCHEMA_VERSION,
         "run_id": run_id,
@@ -1165,7 +1257,9 @@ def collect_replay_corpus(
         "duplicates_file": "duplicates.json",
         "fetch_failures_file": "fetch-failures.json",
         "search_failures_file": "search-failures.json",
-        "search_job_count": len(jobs),
+        "search_job_count": len(candidate_search_jobs),
+        "all_search_job_count": len(jobs),
+        "enrichment_search_job_count": len(enrichment_search_jobs),
         "search_jobs": jobs,
         "raw_candidate_count": raw_candidate_count,
         "candidate_count": len(candidates),
@@ -1463,33 +1557,109 @@ def _review_shortlist_score(
     score -= 25 * len(negative_flags)
     if "reservation_form" in negative_flags or "directory_site" in negative_flags or "social_site" in negative_flags:
         score -= 25
+    if "chain_like" in negative_flags:
+        score = min(score, 45)
+    if "out_of_scope" in negative_flags:
+        score = min(score, 35)
+    if "hosted_directory_site" in negative_flags:
+        score = min(score, 40)
+    if "already_english_or_qr" in negative_flags:
+        score = min(score, 45)
     return score
 
 
 def _review_negative_flags(*, candidate: dict[str, Any], label: dict[str, Any], text: str) -> list[str]:
     website = str(label.get("website") or candidate.get("website") or "")
     site_class = _candidate_site_class({**candidate, "website": website})
-    haystack = " ".join([
+    content_haystack = " ".join([
         website,
         str(candidate.get("business_name") or ""),
         str(label.get("business_name") or ""),
         text,
-        json.dumps(candidate.get("source_search_job") or {}, ensure_ascii=False),
     ]).lower()
+    haystack = " ".join([
+        content_haystack,
+        json.dumps(candidate.get("source_search_job") or {}, ensure_ascii=False).lower(),
+    ])
     flags: list[str] = []
     if site_class == "directory":
         flags.append("directory_site")
+    if _looks_like_hosted_directory_or_corporate_site(website):
+        flags.append("hosted_directory_site")
     if site_class == "social":
         flags.append("social_site")
     if site_class == "reservation" or _text_has_booking_form_intent(haystack):
         flags.append("reservation_form")
-    if any(token in haystack for token in ("chain", "チェーン", "店舗一覧", "全店", "支店", "franchise")):
+    if _looks_like_chain_candidate(haystack):
         flags.append("chain_like")
+    if _looks_like_out_of_scope_candidate(content_haystack):
+        flags.append("out_of_scope")
     if not any(token in haystack for token in ("メニュー", "お品書き", "券売機", "食券", "飲み放題", "コース", "menu", "ramen", "izakaya", "ラーメン", "居酒屋")):
         flags.append("no_customer_safe_proof")
     if any(token in haystack for token in ("english menu", "英語メニュー", "多言語", "multilingual", "qr", "mobile order", "モバイルオーダー")):
         flags.append("already_english_or_qr")
     return list(dict.fromkeys(flags))
+
+
+def _looks_like_hosted_directory_or_corporate_site(website: str) -> bool:
+    parsed = urllib.parse.urlparse(str(website or ""))
+    host = parsed.netloc.lower().removeprefix("www.")
+    path = urllib.parse.unquote(parsed.path.lower())
+    if any(token in host for token in ("gorp.jp", "gnavi.co.jp", "gurunavi.com", "hotpepper.jp", "tabelog.com")):
+        return True
+    return any(token in path for token in ("/shops/info", "/storelist", "/stores/", "/shop.php", "/brand/", "/company/shops"))
+
+
+def _looks_like_chain_candidate(haystack: str) -> bool:
+    return any(token in haystack for token in (
+        "chain",
+        "チェーン",
+        "店舗一覧",
+        "店舗リスト",
+        "全店",
+        "支店",
+        "franchise",
+        "storelist",
+        "shops/info",
+        "shop.afuri.com",
+        "ichiran.com",
+        "tokyo-aburasoba",
+        "menya634",
+        "daisyo.co.jp",
+        "search.daisyo",
+        "movia.jpn.com",
+        "miraizaka.com",
+        "butayama.com",
+        "machidashoten",
+        "mita-seimen",
+        "uokingroup",
+        "dream-on-company",
+    ))
+
+
+def _looks_like_out_of_scope_candidate(haystack: str) -> bool:
+    positive = any(token in haystack for token in ("ラーメン", "らーめん", "中華そば", "つけ麺", "居酒屋", "飲み放題", "お品書き", "izakaya", "ramen"))
+    if positive:
+        return False
+    return any(token in haystack for token in (
+        "英会話",
+        "english school",
+        "language school",
+        "和食",
+        "washoku",
+        "ビストロ",
+        "bistro",
+        "寿司",
+        "sushi",
+        "焼肉",
+        "yakiniku",
+        "海鮮",
+        "seafood",
+        "カフェ",
+        "cafe",
+        "バー",
+        "bar ",
+    ))
 
 
 def _queue_item(item: dict[str, Any], *, reason: str) -> dict[str, Any]:
@@ -1728,7 +1898,11 @@ def _text_has_booking_form_intent(text: str) -> bool:
 def _suspected_label_class(candidate: dict[str, Any], *, evidence_profile: str, contact_route: str, text: str) -> str:
     name = str(candidate.get("business_name") or "").lower()
     status = str((candidate.get("capture") or {}).get("status") or "")
-    if evidence_profile == "chain_branch_check" or any(token in name for token in ("ichiran", "ippudo", "afuri", "torikizoku")):
+    website = str(candidate.get("website") or "")
+    haystack = " ".join([name, website.lower(), text])
+    if _looks_like_out_of_scope_candidate(haystack):
+        return "suspected_disqualified_out_of_scope"
+    if evidence_profile == "chain_branch_check" or any(token in name for token in ("ichiran", "ippudo", "afuri", "torikizoku")) or _looks_like_chain_candidate(haystack):
         return "suspected_disqualified_chain"
     if evidence_profile in {"english_menu_check", "english_ticket_machine_check", "multilingual_qr_check", "mobile_order_check"}:
         return "suspected_disqualified_already_solved"
@@ -1828,9 +2002,34 @@ def collection_search_jobs(*, category: str, cities: list[str]) -> list[dict[str
             enriched = dict(job)
             enriched["city"] = city
             enriched["stratum"] = f"{city}:{enriched['category']}:{enriched['job_id']}"
+            enriched["job_mode"] = _job_mode_for_job(enriched)
+            enriched["engine_policy"] = _engine_policy_for_job(enriched)
             jobs.append(enriched)
         jobs.extend(_explicit_evidence_check_jobs(category=category, city=city))
     return jobs
+
+
+def _job_mode_for_job(job: dict[str, Any]) -> str:
+    explicit = str(job.get("job_mode") or "").strip()
+    if explicit:
+        return explicit
+    job_id = str(job.get("job_id") or "").lower()
+    purpose = str(job.get("purpose") or "").lower()
+    query = str(job.get("query") or "").lower()
+    if any(token in job_id or token in purpose or token in query for token in DIRECTORY_JOB_TOKENS):
+        return "directory_extraction"
+    if any(token in purpose for token in SOLUTION_CHECK_PURPOSE_TOKENS):
+        return "solution_check"
+    return "candidate_discovery"
+
+
+def _engine_policy_for_job(job: dict[str, Any]) -> str:
+    mode = _job_mode_for_job(job)
+    if mode == "directory_extraction":
+        return "organic_directory_yahoo_first"
+    if mode == "solution_check":
+        return "organic_enrichment_no_candidate_creation"
+    return "maps_plus_yahoo_official"
 
 
 def fixture_collect_adapters(fixture_path: str | Path) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., str]]:
@@ -1878,7 +2077,7 @@ def _explicit_evidence_check_jobs(*, category: str, city: str) -> list[dict[str,
                 ("chain_branch_check", f"居酒屋 {city} チェーン 店舗一覧", "chain_infrastructure_check", "chain_branch_check"),
             ]
         for suffix, query, purpose, expected in checks:
-            jobs.append({
+            job = {
                 "job_id": f"{value}_{suffix}",
                 "query": query,
                 "category": value,
@@ -1886,7 +2085,10 @@ def _explicit_evidence_check_jobs(*, category: str, city: str) -> list[dict[str,
                 "expected_friction": expected,
                 "city": city,
                 "stratum": f"{city}:{value}:{value}_{suffix}",
-            })
+            }
+            job["job_mode"] = _job_mode_for_job(job)
+            job["engine_policy"] = _engine_policy_for_job(job)
+            jobs.append(job)
     return jobs
 
 
@@ -2238,6 +2440,8 @@ def _collection_strata(jobs: list[dict[str, str]]) -> list[dict[str, str]]:
             "job_id": job["job_id"],
             "purpose": job["purpose"],
             "expected_friction": job["expected_friction"],
+            "job_mode": _job_mode_for_job(job),
+            "engine_policy": _engine_policy_for_job(job),
         }
         for job in jobs
     ]

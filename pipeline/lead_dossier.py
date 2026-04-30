@@ -278,10 +278,47 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
         reasons.append("saved_preview_or_pitch_contains_blocked_content")
     if dossier.get("menu_complexity_state") == "large_custom_quote":
         reasons.append("large_menu_requires_custom_quote")
+    reasons.extend(_source_coverage_review_reasons(record))
 
     if reasons:
         return READINESS_MANUAL, reasons
     return READINESS_READY, ["qualified_with_safe_proof_and_contact_route"]
+
+
+def _source_coverage_review_reasons(record: dict[str, Any]) -> list[str]:
+    """Return manual-review reasons for weak Japan source intelligence.
+
+    This gate is intentionally metadata-driven and backward-compatible: older
+    records without coverage_signals keep the legacy readiness behavior.
+    """
+    signals = record.get("coverage_signals")
+    if not isinstance(signals, dict) or not signals:
+        return []
+
+    reasons: list[str] = []
+    source_count = _int_value(record.get("source_count"), default=_int_value(signals.get("source_count"), default=0))
+    coverage_score = _int_value(record.get("source_coverage_score"), default=_int_value(record.get("coverage_score"), default=0))
+    verified_by = {str(source or "").strip().lower() for source in record.get("business_name_verified_by") or []}
+    has_google_confidence_override = "google_confidence_override" in verified_by
+
+    if signals.get("portal_only"):
+        reasons.append("portal_only_without_official_site")
+    if source_count < 2 and not has_google_confidence_override:
+        reasons.append("weak_source_coverage")
+    if not signals.get("has_official_site"):
+        reasons.append("no_official_site_confirmed")
+    if not signals.get("matching_phone_or_address") and source_count < 3 and not has_google_confidence_override:
+        reasons.append("weak_entity_resolution")
+    if coverage_score and coverage_score < 50 and not has_google_confidence_override:
+        reasons.append("low_source_coverage_score")
+    return sorted(set(reasons))
+
+
+def _int_value(value: Any, *, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def record_explicitly_not_japan(record: dict[str, Any]) -> bool:

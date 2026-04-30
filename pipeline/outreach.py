@@ -324,14 +324,14 @@ def build_outreach_email(
     }
 
 
-def build_contact_form_pitch() -> dict[str, str]:
+def build_contact_form_pitch(*, sample_menu_url: str = "", sender_name: str = "Chris（クリス）") -> dict[str, str]:
     """Return the locked contact-form pitch body.
 
     Contact forms cannot receive attachments, so this is intentionally separate
     from the normal e-mail outreach package.
     """
     return {
-        "body": CONTACT_FORM_BODY,
+        "body": _contact_form_body(sample_menu_url=sample_menu_url, sender_name=sender_name),
         "channel": "form",
     }
 
@@ -348,6 +348,8 @@ def build_manual_outreach_message(
     establishment_profile: str = "unknown",
     include_inperson_line: bool = True,
     lead_dossier: dict[str, Any] | None = None,
+    sample_menu_url: str = "",
+    sender_name: str = "Chris（クリス）",
 ) -> dict[str, str | bool]:
     """Build a route-specific manual outreach draft for non-email channels."""
     if channel not in SUPPORTED_MANUAL_CHANNELS:
@@ -372,18 +374,15 @@ def build_manual_outreach_message(
     if channel == "contact_form":
         include_menu_image = False
         include_machine_image = False
-        body = CONTACT_FORM_BODY
+        body = _contact_form_body(sample_menu_url=sample_menu_url, sender_name=sender_name)
         english_body = _join_paragraphs([
             "Hello,",
-            "My name is Chris, and I create English menus and ordering guides for restaurants.",
-            diagnosis_en,
-            "I can prepare print-ready data, laminated copies, and restaurant delivery to match your current setup." if include_inperson_line else "I can prepare print-ready data to match your current setup.",
-            tmpl["photo_en"],
-            "Details: https://webrefurb.com/ja",
-            "You can reply to chris@webrefurb.com.",
-            "If this is not relevant, please reply and I will not contact you again.",
-            "Thank you for your time.",
-            "Chris",
+            f"This is {sender_name} from WebRefurb.",
+            "I reviewed your public menu information and made a one-page sample showing how the English menu could be clearer for overseas guests.",
+            f"You can view it here: {sample_menu_url}" if sample_menu_url else "",
+            "If you are interested, please reply through this contact form.",
+            "No reply is needed if this is not relevant.",
+            sender_name,
         ])
     else:
         raise ValueError(f"Unsupported manual outreach channel: {channel}")
@@ -444,6 +443,20 @@ def _diagnosis_blocks(
         check_en = "I would start with a small review sample and base the actual work on current menu photos from your shop."
 
     return _join_paragraphs([why_ja, friction_ja, check_ja]), _join_paragraphs([why_en, friction_en, check_en])
+
+
+def _contact_form_body(*, sample_menu_url: str = "", sender_name: str = "Chris（クリス）") -> str:
+    if not sample_menu_url:
+        return CONTACT_FORM_BODY
+
+    return _join_paragraphs([
+        f"突然のご連絡失礼いたします。WebRefurbの{sender_name}です。",
+        "貴店のメニューを拝見し、海外のお客様にも伝わりやすい英語メニューのサンプルを1枚作成しました。",
+        f"添付ではなく、こちらのページからご確認いただけます：\n{sample_menu_url}",
+        "もしご興味がありましたら、このお問い合わせフォームへのご返信でご連絡いただけますと幸いです。\n不要でしたらご返信不要です。",
+        "どうぞよろしくお願いいたします。",
+        sender_name,
+    ])
 
 
 def _menu_sample_for_profile(establishment_profile: str, classification: str) -> Path | None:

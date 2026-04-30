@@ -316,6 +316,110 @@ class TestBinaryLead:
         assert result.lead is False
         assert result.rejection_reason == "chain_or_franchise_infrastructure"
 
+    def test_single_shop_store_info_copy_not_treated_as_multi_store(self):
+        html = """
+        <html><body>
+        <h1>串煮込みマルニ 吉祥寺</h1>
+        <nav>メニュー 店舗情報 お問い合わせ</nav>
+        <p>吉祥寺の居酒屋。飲み放題 コース 焼き鳥 ハイボール 500円</p>
+        <p>おしゃれで居心地の良いお店です。ご来店をお待ちしております。</p>
+        <p>東京都武蔵野市吉祥寺南町2-16-1 TEL: 0422-27-5728</p>
+        <p>東京都武蔵野市吉祥寺南町2-16-1 TEL: 0422-27-5728</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="串煮込みマルニ 吉祥寺",
+            website="https://kushinikomi-maruni.example.jp",
+            category="izakaya",
+            pages=[{"url": "https://kushinikomi-maruni.example.jp", "html": html}],
+            address="東京都武蔵野市吉祥寺南町2-16-1",
+        )
+        assert result.lead is True
+        assert result.rejection_reason is None
+
+    def test_large_official_store_directory_rejected_without_phone_blocks(self):
+        html = """
+        <html><body>
+        <h1>中華そば青葉</h1>
+        <p>おしながき 中華そば 900円 つけ麺 950円 特製中華そば 1,100円</p>
+        <nav>店舗案内</nav>
+        <p>中野本店 飯田橋店 大宮店 八王子店 府中店 船橋店 御徒町店 吉祥寺店</p>
+        <p>住所 東京都武蔵野市吉祥寺南町1-1-1</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="中華そば青葉",
+            website="https://aoba.example.jp",
+            category="ramen",
+            pages=[{"url": "https://aoba.example.jp", "html": html}],
+            address="東京都武蔵野市吉祥寺南町1-1-1",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "chain_or_franchise_infrastructure"
+
+    def test_unrelated_directory_chain_text_does_not_reject_first_party_shop(self):
+        official_html = """
+        <html><body>
+        <h1>鶏そば そると</h1>
+        <p>お品書き 鶏そば 900円 鶏白湯そば 950円 特製つけそば 1,100円</p>
+        <p>住所 東京都世田谷区北沢2-1-1</p>
+        </body></html>
+        """
+        directory_html = """
+        <html><body>
+        <h1>レビューサイト</h1>
+        <p>レビュアーの他の訪問先: カラシビ味噌らー麺 鬼金棒、油そば特集、全国ラーメンまとめ。</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="鶏そば そると",
+            website="https://salt.example.jp",
+            category="ramen",
+            pages=[
+                {"url": "https://salt.example.jp", "html": official_html},
+                {"url": "https://tabelog.example/review", "html": directory_html},
+            ],
+            address="東京都世田谷区北沢2-1-1",
+        )
+        assert result.lead is True
+        assert result.rejection_reason is None
+
+    def test_first_party_bistro_text_overrides_izakaya_search_hint(self):
+        html = """
+        <html><body>
+        <h1>Boucherie Gokita Tokyo</h1>
+        <p>フランス料理 ビストロ ワイン ディナーコース 7000円</p>
+        <p>住所 東京都世田谷区北沢2-1-1</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="Gokita",
+            website="https://gokita.example.jp",
+            category="izakaya",
+            pages=[{"url": "https://gokita.example.jp", "html": html}],
+            address="東京都世田谷区北沢2-1-1",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "excluded_business_type_v1"
+
+    def test_first_party_hostel_bar_text_overrides_izakaya_search_hint(self):
+        html = """
+        <html><body>
+        <h1>Hakone Hostel Bar</h1>
+        <p>HOSTEL & RELAXING BAR ゲストハウス ホステル 宿泊</p>
+        <p>住所 神奈川県足柄下郡箱根町強羅1320</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="Hakone Hostel Bar",
+            website="https://hakonetent.example.jp",
+            category="izakaya",
+            pages=[{"url": "https://hakonetent.example.jp", "html": html}],
+            address="神奈川県足柄下郡箱根町強羅1320",
+        )
+        assert result.lead is False
+        assert result.rejection_reason == "excluded_business_type_v1"
+
     def test_second_branch_text_rejected_as_multi_location_infrastructure(self):
         html = """
         <html><body>

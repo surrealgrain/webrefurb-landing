@@ -85,6 +85,16 @@ def _prepare_launch_smoke_draft(*, lead: dict[str, Any], state_root: Path) -> di
             machine_evidence_found=lead.get("machine_evidence_found", False),
         ))
     profile = _effective_profile(lead)
+    sample_menu_url = str(lead.get("sample_menu_url") or lead.get("hosted_menu_sample_url") or "")
+    if draft_channel == "contact_form":
+        from .hosted_sample import ensure_hosted_menu_sample
+
+        lead, sample_result = ensure_hosted_menu_sample(lead, state_root=state_root)
+        if not sample_result.get("ok"):
+            persist_lead_record(lead, state_root=state_root)
+            raise LaunchBatchError(f"hosted_sample_publish_failed:{lead.get('lead_id', '')}")
+        sample_menu_url = str(sample_result.get("sample_menu_url") or sample_menu_url)
+
     assets = select_outreach_assets(
         classification,
         contact_type=draft_channel,
@@ -106,6 +116,7 @@ def _prepare_launch_smoke_draft(*, lead: dict[str, Any], state_root: Path) -> di
             establishment_profile=profile,
             include_inperson_line=lead.get("outreach_include_inperson", True),
             lead_dossier=lead.get("lead_evidence_dossier") or {},
+            sample_menu_url=sample_menu_url,
         )
 
     lead["primary_contact"] = primary_contact

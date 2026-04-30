@@ -502,6 +502,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 </style>
 </head>
 <body>
+<script id="initial-leads-data" type="application/json">{{ leads|tojson }}</script>
 
 <!-- Sidebar -->
 <aside class="sidebar">
@@ -544,7 +545,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <a class="nav-item active" onclick="switchTab('leads')" id="nav-leads">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Leads
-        <span class="badge badge-green" id="leads-count">{{ leads|length }}</span>
+        <span class="badge badge-green" id="leads-count">0</span>
       </a>
       <a class="nav-item" onclick="switchTab('sent')" id="nav-sent">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -597,58 +598,9 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <p class="page-kicker">Qualified restaurants ready for review and outreach across e-mail and alternate contact routes.</p>
       </div>
     </div>
-    {% if leads %}
-    <div class="lead-list" id="lead-list">
-      {% for lead in leads %}
-      <div class="lead-card {{ 'status-' + lead.outreach_status|default('new', true) if lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted'] else '' }}" data-lead-id="{{ lead.lead_id }}" data-contact-type="{{ lead.primary_contact_type|default('none', true) }}">
-        <div class="score-pill">{{ lead.lead_score_v1 }}</div>
-        <div class="lead-info">
-          <div class="lead-name">{{ lead.business_name }}</div>
-          <div class="lead-meta">{{ lead.primary_category_v1|capitalize }} &middot; {{ lead.address|default('Unknown', true) }}</div>
-          <div class="lead-contact">Primary route: {{ lead.primary_contact_label }}</div>
-          <div class="lead-profile" data-role="profile-summary">Profile: {{ lead.establishment_profile_label }}{% if lead.establishment_profile_mode == 'operator_override' %} · Operator override{% endif %}</div>
-          <div class="lead-profile">Recommended: {{ lead.recommended_package_label|default('Review package', true) }}{% if lead.package_recommendation_reason %} · {{ lead.package_recommendation_reason|replace('_', ' ') }}{% endif %}</div>
-          <div class="lead-proof">Fit: {{ lead.lead_category_label }} · Proof: {{ lead.proof_strength_label }} · Evidence score: {{ lead.evidence_strength_score }} · Ticket machine: {{ lead.ticket_machine_state_label }} · English: {{ lead.english_menu_state_label }}</div>
-          <div class="lead-profile">Launch readiness: {{ lead.launch_readiness_status|default('manual_review', true)|replace('_', ' ')|title }}{% if lead.launch_readiness_reasons %} · {{ lead.launch_readiness_reasons[0]|replace('_', ' ') }}{% endif %}</div>
-          <div class="lead-badges">
-            <span class="status-badge status-{{ lead.outreach_status|default('new', true) }}">{{ lead.outreach_status|default('new', true)|replace('_', ' ')|title }}</span>
-            <span class="status-badge readiness-{{ 'ready' if lead.launch_readiness_status == 'ready_for_outreach' else 'disqualified' if lead.launch_readiness_status == 'disqualified' else 'manual' }}">{{ lead.launch_readiness_status|default('manual_review', true)|replace('_', ' ')|title }}</span>
-            {% if lead.primary_contact_type %}
-            <span class="classification-badge">{{ lead.primary_contact_type|replace('_', ' ')|title }}</span>
-            {% endif %}
-            <span class="classification-badge establishment-profile-badge" data-role="profile-badge">{{ lead.establishment_profile_label }}</span>
-            {% if lead.menu_evidence_found %}
-            <span class="evidence-pill evidence-pill-menu">Menu</span>
-            {% endif %}
-            {% if lead.machine_evidence_found %}
-            <span class="evidence-pill evidence-pill-vending">Ticket Machine</span>
-            {% endif %}
-            {% if lead.outreach_classification %}
-            <span class="classification-badge">{{ lead.outreach_classification }}</span>
-            {% endif %}
-            {% if lead.outreach_draft_manually_edited %}
-            <span class="draft-badge">Edited draft</span>
-            {% endif %}
-          </div>
-        </div>
-        <div class="lead-actions">
-          {% set blocked_send = lead.outreach_status|default('new', true) in ['sent', 'replied', 'converted', 'do_not_contact'] %}
-          {% set ready = lead.launch_readiness_status|default('manual_review', true) == 'ready_for_outreach' %}
-          {% set disqualified = lead.launch_readiness_status|default('manual_review', true) == 'disqualified' %}
-          <button class="btn btn-secondary" {% if disqualified or (not ready and not blocked_send) %}disabled title="{{ lead.launch_readiness_reasons|join(', ') }}"{% else %}onclick="openPreview('{{ lead.lead_id }}')"{% endif %}>{{ 'Disqualified' if disqualified else 'View' if blocked_send else 'Preview' if ready else 'Review Gate' }}</button>
-          <button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete {{ lead.business_name }}" onclick="openDeleteLead('{{ lead.lead_id }}', this)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
-          </button>
-        </div>
-      </div>
-      {% endfor %}
+    <div class="lead-list" id="lead-list" aria-live="polite">
+      <div class="empty-state"><p>Loading leads...</p></div>
     </div>
-    {% else %}
-    <div class="empty-state">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <p>No leads yet. Use the search panel to find qualifying businesses.</p>
-    </div>
-    {% endif %}
   </div>
 
   <!-- Sent tab -->
@@ -1477,6 +1429,133 @@ function renderEmptyLeadsState() {
     '</div>';
 }
 
+function renderFileModeLeadsState() {
+  return '<div class="empty-state">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>' +
+    '<p>This is the dashboard template file. Start the dashboard server and open http://127.0.0.1:8000/ to load live leads.</p>' +
+    '</div>';
+}
+
+function readInitialLeads() {
+  const node = document.getElementById('initial-leads-data');
+  if (!node) return null;
+  const raw = node.textContent.trim();
+  if (!raw || raw.includes('{' + '{') || raw.includes('{' + '%')) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return null;
+  }
+}
+
+function titleCaseValue(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function leadStatusClass(status) {
+  return String(status || 'new').replace(/_/g, '-');
+}
+
+function leadReadinessClass(status) {
+  if (status === 'ready_for_outreach') return 'ready';
+  if (status === 'disqualified') return 'disqualified';
+  return 'manual';
+}
+
+function renderLeadCard(lead) {
+  const leadId = String(lead.lead_id || '');
+  const status = String(lead.outreach_status || 'new');
+  const readiness = String(lead.launch_readiness_status || 'manual_review');
+  const readinessReasons = Array.isArray(lead.launch_readiness_reasons) ? lead.launch_readiness_reasons : [];
+  const contactType = String(lead.primary_contact_type || '');
+  const profileMode = String(lead.establishment_profile_mode || '');
+  const profileLabel = lead.establishment_profile_label || establishmentProfileLabel(lead.establishment_profile);
+  const recommendedPackage = lead.recommended_package_label || 'Review package';
+  const packageReason = lead.package_recommendation_reason ? ' · ' + titleCaseValue(lead.package_recommendation_reason) : '';
+  const blockedSend = ['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
+  const ready = readiness === 'ready_for_outreach';
+  const disqualified = readiness === 'disqualified';
+  const actionLabel = disqualified ? 'Disqualified' : blockedSend ? 'View' : ready ? 'Preview' : 'Review Gate';
+  const actionAttrs = disqualified || (!ready && !blockedSend)
+    ? 'disabled title="' + escapeHtml(readinessReasons.join(', ')) + '"'
+    : 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"';
+  const cardStatusClass = ['sent', 'replied', 'converted'].includes(status) ? ' status-' + leadStatusClass(status) : '';
+  const badges = [
+    '<span class="status-badge status-' + escapeHtml(leadStatusClass(status)) + '">' + escapeHtml(titleCaseValue(status)) + '</span>',
+    '<span class="status-badge readiness-' + escapeHtml(leadReadinessClass(readiness)) + '">' + escapeHtml(titleCaseValue(readiness)) + '</span>',
+    contactType ? '<span class="classification-badge">' + escapeHtml(titleCaseValue(contactType)) + '</span>' : '',
+    '<span class="classification-badge establishment-profile-badge" data-role="profile-badge">' + escapeHtml(profileLabel) + '</span>',
+    lead.menu_evidence_found ? '<span class="evidence-pill evidence-pill-menu">Menu</span>' : '',
+    lead.machine_evidence_found ? '<span class="evidence-pill evidence-pill-vending">Ticket Machine</span>' : '',
+    lead.outreach_classification ? '<span class="classification-badge">' + escapeHtml(lead.outreach_classification) + '</span>' : '',
+    lead.outreach_draft_manually_edited ? '<span class="draft-badge">Edited draft</span>' : '',
+  ].join('');
+
+  return '<div class="lead-card' + cardStatusClass + '" data-lead-id="' + escapeHtml(leadId) + '" data-contact-type="' + escapeHtml(contactType || 'none') + '">' +
+    '<div class="score-pill">' + escapeHtml(lead.lead_score_v1 || 0) + '</div>' +
+    '<div class="lead-info">' +
+      '<div class="lead-name">' + escapeHtml(lead.business_name || 'Unnamed lead') + '</div>' +
+      '<div class="lead-meta">' + escapeHtml(titleCaseValue(lead.primary_category_v1 || 'unknown')) + ' &middot; ' + escapeHtml(lead.address || 'Unknown') + '</div>' +
+      '<div class="lead-contact">Primary route: ' + escapeHtml(lead.primary_contact_label || 'No contact route') + '</div>' +
+      '<div class="lead-profile" data-role="profile-summary">Profile: ' + escapeHtml(profileLabel) + (profileMode === 'operator_override' ? ' · Operator override' : '') + '</div>' +
+      '<div class="lead-profile">Recommended: ' + escapeHtml(recommendedPackage + packageReason) + '</div>' +
+      '<div class="lead-proof">Fit: ' + escapeHtml(lead.lead_category_label || 'Review') +
+        ' · Proof: ' + escapeHtml(lead.proof_strength_label || 'Unknown') +
+        ' · Evidence score: ' + escapeHtml(lead.evidence_strength_score || 0) +
+        ' · Ticket machine: ' + escapeHtml(lead.ticket_machine_state_label || 'Unknown') +
+        ' · English: ' + escapeHtml(lead.english_menu_state_label || 'Unknown') + '</div>' +
+      '<div class="lead-profile">Launch readiness: ' + escapeHtml(titleCaseValue(readiness)) + (readinessReasons.length ? ' · ' + escapeHtml(titleCaseValue(readinessReasons[0])) : '') + '</div>' +
+      '<div class="lead-badges">' + badges + '</div>' +
+    '</div>' +
+    '<div class="lead-actions">' +
+      '<button class="btn btn-secondary" ' + actionAttrs + '>' + escapeHtml(actionLabel) + '</button>' +
+      '<button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete ' + escapeHtml(lead.business_name || 'lead') + '" onclick="openDeleteLead(\'' + escapeHtml(leadId) + '\', this)">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderLeadList(leads) {
+  const list = document.getElementById('lead-list');
+  if (!list) return;
+  if (!Array.isArray(leads) || leads.length === 0) {
+    list.innerHTML = renderEmptyLeadsState();
+    updateLeadsCount();
+    return;
+  }
+  list.innerHTML = leads.map(renderLeadCard).join('');
+  applyDismissedLeadCards();
+  updateLeadsCount();
+}
+
+async function loadDashboardLeads() {
+  const initialLeads = readInitialLeads();
+  if (initialLeads) {
+    renderLeadList(initialLeads);
+    return;
+  }
+  if (window.location.protocol === 'file:') {
+    const list = document.getElementById('lead-list');
+    if (list) list.innerHTML = renderFileModeLeadsState();
+    updateLeadsCount();
+    return;
+  }
+  try {
+    const res = await fetch('/api/leads');
+    if (!res.ok) throw new Error('Lead API unavailable');
+    const data = await res.json();
+    renderLeadList(Array.isArray(data) ? data : []);
+  } catch {
+    const list = document.getElementById('lead-list');
+    if (list) list.innerHTML = renderEmptyLeadsState();
+    updateLeadsCount();
+  }
+}
+
 function loadDismissedLeadIds() {
   try {
     const raw = window.localStorage.getItem(DISMISSED_LEADS_STORAGE_KEY);
@@ -1499,7 +1578,7 @@ function clearLeadCard(card) {
   const count = updateLeadsCount();
   if (count === 0) {
     const list = document.getElementById('lead-list');
-    if (list) list.outerHTML = renderEmptyLeadsState();
+    if (list) list.innerHTML = renderEmptyLeadsState();
   }
 }
 
@@ -1853,6 +1932,7 @@ async function translateDraftFromEnglish(saveAfter) {
       include_inperson: includeInperson,
       include_menu_image: currentEmail.include_menu_image !== false,
       include_machine_image: currentEmail.include_machine_image || false,
+      sample_menu_url: currentEmail.sample_menu_url || '',
     }),
   })
     .then(async res => {
@@ -3155,7 +3235,7 @@ async function toggleDNC(leadId, btn) {
 
 // Init
 restoreSearchActivity();
-applyDismissedLeadCards();
+loadDashboardLeads();
 loadSentEmails();
 loadReplyCounts();
 setInterval(loadReplyCounts, 45000);
