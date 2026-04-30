@@ -143,6 +143,27 @@ def main() -> None:
     sim_recommend.add_argument("--skip-live-url-check", action="store_true", help="Skip live source URL checks")
     sim_recommend.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
 
+    # discover (email discovery pipeline)
+    discover_cmd = sub.add_parser("discover", help="Run email discovery and lead qualification pipeline")
+    discover_cmd.add_argument("--input", required=True, help="Input CSV path with lead data")
+    discover_cmd.add_argument("--config", default="email_discovery.yaml", help="Config YAML path")
+    discover_cmd.add_argument("--dry-run", action="store_true", help="Skip all network requests")
+    discover_cmd.add_argument("--max-leads", type=int, default=0, help="Limit number of leads (0=all)")
+    discover_cmd.add_argument("--output-csv", default=None, help="CSV output path")
+    discover_cmd.add_argument("--output-jsonl", default=None, help="JSONL output path")
+
+    # enrich existing lead records with deeper email discovery
+    enrich_cmd = sub.add_parser("enrich", help="Enrich persisted leads with WebSerper email discovery")
+    enrich_target = enrich_cmd.add_mutually_exclusive_group(required=True)
+    enrich_target.add_argument("--lead-id", default=None, help="Lead ID to enrich")
+    enrich_target.add_argument("--all", action="store_true", help="Enrich all persisted leads")
+    enrich_cmd.add_argument("--config", default="email_discovery.yaml", help="Email discovery config YAML path")
+    enrich_cmd.add_argument("--dry-run", action="store_true", help="Do not persist updated lead records")
+    enrich_cmd.add_argument("--no-contact", action="store_true", help="Only enrich leads without an email contact")
+    enrich_cmd.add_argument("--score-below", type=float, default=None, help="Only enrich leads with score below this value")
+    enrich_cmd.add_argument("--max-leads", type=int, default=0, help="Limit number of selected leads (0=all)")
+    enrich_cmd.add_argument("--state-root", default=None, help="Override state root")
+
     args = parser.parse_args()
 
     if args.command == "search":
@@ -554,6 +575,119 @@ def main() -> None:
                 sys.exit(1)
         else:
             sim_cmd.print_help()
+
+    elif args.command == "discover":
+        from .email_discovery import discover_emails, load_config
+        from .email_discovery.config import DiscoveryConfig, PersistenceConfig
+
+        config = load_config(args.config)
+        if args.dry_run:
+            config.dry_run = True
+        if args.max_leads:
+            config.max_leads = args.max_leads
+        if args.output_csv:
+            config.persistence.csv_output_path = args.output_csv
+        if args.output_jsonl:
+            config.persistence.jsonl_output_path = args.output_jsonl
+
+        results = discover_emails(input_csv=args.input, config=config)
+        summary = {
+            "total": len(results),
+            "launch_ready": sum(1 for r in results if r.launch_ready),
+            "with_email": sum(1 for r in results if r.best_email),
+            "with_contact_form": sum(1 for r in results if r.contact_form_url),
+            "avg_score": round(sum(r.confidence_score for r in results) / max(len(results), 1), 1),
+            "csv_path": config.persistence.csv_output_path,
+            "jsonl_path": config.persistence.jsonl_output_path,
+        }
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
+
+    elif args.command == "enrich":
+        from pathlib import Path as _P
+
+        from .email_discovery.bridge import enrich_lead
+        from .email_discovery.config import load_config
+        from .lead_dossier import ensure_lead_dossier
+        from .record import list_leads, load_lead, normalise_lead_contacts, persist_lead_record
+
+        state_root = _P(args.state_root) if args.state_root else None
+        if args.lead_id:
+            lead = load_lead(args.lead_id, state_root=state_root)
+            if not lead:
+                print(json.dumps({"error": f"Lead not found: {args.lead_id}"}, ensure_ascii=False))
+                sys.exit(1)
+            leads = [lead]
+        else:
+            leads = list_leads(state_root=state_root)
+
+        def has_email_contact(lead_record: dict) -> bool:
+            return any(
+                contact.get("type") == "email" and contact.get("actionable")
+                for contact in normalise_lead_contacts(lead_record)
+            )
+
+        def lead_score(lead_record: dict) -> float:
+            value = lead_record.get("email_discovery_score")
+            if value in (None, ""):
+                value = lead_record.get("lead_score_v1", 0)
+            try:
+                return float(value or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        selected = []
+        skipped = []
+        for lead in leads:
+            lead_id = lead.get("lead_id", "")
+            if args.no_contact and has_email_contact(lead):
+                skipped.append({"lead_id": lead_id, "reason": "email_contact_exists"})
+                continue
+            if args.score_below is not None and lead_score(lead) >= float(args.score_below):
+                skipped.append({"lead_id": lead_id, "reason": "score_not_below_threshold"})
+                continue
+            selected.append(lead)
+            if args.max_leads and len(selected) >= args.max_leads:
+                break
+
+        config = load_config(args.config)
+        if args.dry_run:
+            config.dry_run = True
+        results = []
+        errors = []
+        for lead in selected:
+            lead_id = str(lead.get("lead_id") or "")
+            before_contacts = len(normalise_lead_contacts(lead))
+            try:
+                updated = ensure_lead_dossier(enrich_lead(lead, config=config))
+                path = None
+                if not args.dry_run:
+                    path = persist_lead_record(updated, state_root=state_root)
+                after_contacts = len(normalise_lead_contacts(updated))
+                results.append({
+                    "lead_id": lead_id,
+                    "business_name": updated.get("business_name", ""),
+                    "email": updated.get("email", ""),
+                    "primary_contact_type": (updated.get("primary_contact") or {}).get("type", ""),
+                    "contacts_added": max(0, after_contacts - before_contacts),
+                    "email_discovery_score": updated.get("email_discovery_score", 0),
+                    "persisted": not args.dry_run,
+                    "path": str(path) if path else "",
+                })
+            except Exception as exc:
+                errors.append({"lead_id": lead_id, "error": str(exc)})
+
+        summary = {
+            "total_considered": len(leads),
+            "selected": len(selected),
+            "enriched": len(results),
+            "skipped": len(skipped),
+            "dry_run": bool(args.dry_run),
+            "results": results,
+            "errors": errors,
+        }
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
+        if errors:
+            sys.exit(1)
 
     else:
         parser.print_help()

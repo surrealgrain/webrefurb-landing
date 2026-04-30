@@ -10,6 +10,7 @@ from typing import Any
 # Project root
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEEP_EMAIL_DISCOVERY_ENABLED = os.environ.get("DEEP_EMAIL_DISCOVERY", "").lower() in {"1", "true", "yes", "on"}
 
 
 # ---------------------------------------------------------------------------
