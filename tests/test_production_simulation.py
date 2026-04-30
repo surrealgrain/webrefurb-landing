@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,8 @@ from pipeline.production_sim_oracle import evaluate_simulation
 from pipeline.search_replay import (
     REQUIRED_LABEL_FIELDS,
     ReplayCorpusError,
+    ReplaySearchError,
+    _default_maps_search,
     copy_corpus_snapshot,
     fixture_collect_adapters,
     load_replay_corpus,
@@ -305,6 +308,32 @@ def test_collect_writes_manifest_schema_and_fetch_failures(tmp_path):
     failures = (manifest_path.parent / manifest["fetch_failures_file"]).read_text(encoding="utf-8")
     assert "broken.example.jp" in failures
     assert not (tmp_path / "production-sim" / "production-sim-collect-schema-test" / "state" / "leads").exists()
+
+
+def test_default_maps_search_reports_missing_or_http_error_body(monkeypatch):
+    with pytest.raises(ReplaySearchError, match="requires SERPER_API_KEY"):
+        _default_maps_search(query="ラーメン Shibuya", api_key="")
+
+    class ResponseBody:
+        def read(self):
+            return b'{"message":"Bad Request: invalid query"}'
+
+        def close(self):
+            return None
+
+    def fail_urlopen(*_, **__):
+        raise urllib.error.HTTPError(
+            url="https://google.serper.dev/maps",
+            code=400,
+            msg="Bad Request",
+            hdrs={},
+            fp=ResponseBody(),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fail_urlopen)
+
+    with pytest.raises(ReplaySearchError, match="HTTP 400.*invalid query"):
+        _default_maps_search(query="ラーメン Shibuya", api_key="test-key")
 
 
 def test_collect_dedupes_across_jobs_and_records_duplicate_sources(tmp_path):
