@@ -38,6 +38,43 @@ This file is intentionally compact. Do not use it as a running changelog. Record
 
 Current decision: hold real Batch 3 outbound. Do not send Batch 3 email/contact forms or submit any new real contact without an explicit user request for that exact outbound action. The no-send Batch 3 decision brief found `9` prior contacts, `0` owner responses, `1` route failure, `0` matched reply artifacts, and `0` eligible live Batch 3 candidates after excluding already-contacted leads, fixtures, unsupported routes, and review-required records.
 
+## Plan Completion Snapshot
+
+Conservative completion: about `93%` of `PLAN.md` is complete by phase gate count. Phases `0` through `12` are complete (`13/14` phase gates). Phase `13` is active, not complete, because the repeatable launch loop cannot justify more outbound volume yet.
+
+Phase 13 internal progress: `4/5` explicit steps are complete for Batch 2:
+
+- Step 1, confirm Batch 1 review: complete.
+- Step 2, select Batch 2 using updated rules: complete.
+- Step 3, repeat Phase 11 measurement: complete for Batch 2.
+- Step 4, repeat Phase 12 review: complete for Batch 2.
+- Step 5, continue only while lead quality and owner response justify volume: not satisfied. Current signal says hold real Batch 3 outbound.
+
+Completed major plan work:
+
+- Phase 0 source lock and baseline audit.
+- Phase 1 state backup and stale-state reconciliation.
+- Phase 2 lead evidence dossier gate.
+- Phase 3 restaurant fit/disqualification gates.
+- Phase 4 friction-first search.
+- Phase 5 package recommendation.
+- Phase 6 shop-specific diagnosis outreach.
+- Phase 7 preview/proof quality gates.
+- Phase 8 public positioning, package copy, and risk reversal.
+- Phase 9 paid operations path.
+- Phase 10 browser/render verification.
+- Phase 11 controlled Batch 1.
+- Phase 12 Batch 1 review and iteration.
+- Phase 13 Batch 2 selection, send/contact, measurement, repeat review, no-send route-policy hardening, and Batch 3 no-send decision brief.
+
+Remaining work:
+
+- Fix or replace the Serper maps collection path that returned HTTP 400 for all targeted expansion jobs.
+- Expand no-send supported-route candidate/label coverage from `6` expected-ready labels to at least `20`, across the required positive profiles in `PRODUCTION_SIMULATION_TEST_PLAN.md`.
+- Rerun production simulation with screenshots until `P0=0`, `P1=0`; current latest route-policy replay has `P0=0`, `P1=0`, `P2=1`.
+- Rerun the Batch 3 no-send decision brief after candidate coverage improves.
+- Only if the user explicitly requests the exact outbound action in the current chat: perform any real Batch 3 email/contact-form send. Without that explicit request, no real outbound is allowed.
+
 Controlled Batch 1 remains reviewed:
 
 - Batch ID: `launch-18ce5c756f`
