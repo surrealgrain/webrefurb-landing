@@ -168,6 +168,7 @@ def _benchmark_metrics_for_corpus(root: Path) -> dict[str, Any]:
         search_failures = []
 
     search_job_count = int(manifest.get("search_job_count") or len(manifest.get("search_jobs") or []) or 0)
+    all_search_job_count = int(manifest.get("all_search_job_count") or len(manifest.get("search_jobs") or []) or search_job_count)
     raw_candidate_count = int(manifest.get("raw_candidate_count") or (len(candidates) + len(duplicates)))
     candidate_count = int(manifest.get("candidate_count") or len(candidates))
     fetch_success_count = int(manifest.get("fetch_success_count") or _fetch_success_count(candidates))
@@ -188,6 +189,8 @@ def _benchmark_metrics_for_corpus(root: Path) -> dict[str, Any]:
         "run_id": str(manifest.get("run_id") or root.name),
         "search_provider": str(manifest.get("search_provider") or ""),
         "search_job_count": search_job_count,
+        "all_search_job_count": all_search_job_count,
+        "enrichment_search_job_count": int(manifest.get("enrichment_search_job_count") or 0),
         "raw_candidate_count": raw_candidate_count,
         "candidate_count": candidate_count,
         "duplicate_count": int(manifest.get("duplicate_count") or len(duplicates)),
@@ -376,11 +379,11 @@ def _candidate_site_class(candidate: dict[str, Any]) -> str:
     host = urllib.parse.urlparse(website).netloc.lower().removeprefix("www.")
     if not host:
         return "no_site"
-    if any(token in host for token in ("instagram.com", "facebook.com", "twitter.com", "x.com", "line.me", "lin.ee")):
+    if any(token in host for token in ("instagram.com", "facebook.com", "twitter.com", "x.com", "mixi.jp", "line.me", "lin.ee")):
         return "social"
     if any(token in host for token in ("tabelog.com", "hotpepper.jp", "gnavi.co.jp", "gurunavi.com", "gorp.jp", "ramendb.supleks.jp")):
         return "directory"
-    if any(token in host for token in ("tablecheck.com", "ebica.jp", "toreta.in", "yoyaku", "reserve", "reservation")):
+    if any(token in host for token in ("tablecheck.com", "ebica.jp", "toreta.in", "point.recruit.co.jp", "yoyaku", "reserve", "reservation")):
         return "reservation"
     return "first_party"
 
@@ -1113,6 +1116,27 @@ def collect_replay_corpus(
     for job_index, job in enumerate(jobs):
         job_mode = _job_mode_for_job(job)
         artifact_rel = f"webserper/{job_index:04d}-{slugify(job['city'])}-{slugify(job['job_id'])}-maps.json"
+        if job_mode == "solution_check":
+            raw_response = {
+                "places": [],
+                "searchParameters": {
+                    "q": job["query"],
+                    "gl": gl,
+                    "engine": "skipped_solution_check_enrichment",
+                    "provider": provider_name,
+                    "sourceRuns": [],
+                },
+            }
+            write_json(root / artifact_rel, {
+                "artifact_type": "webserper_maps_response",
+                "captured_at": created_at,
+                "gl": gl,
+                "job": job,
+                "response": raw_response,
+                "candidate_creation_allowed": False,
+            })
+            continue
+
         try:
             raw_response = _call_maps_search(
                 maps_search,
@@ -1142,9 +1166,6 @@ def collect_replay_corpus(
             "response": raw_response,
             "candidate_creation_allowed": job_mode != "solution_check",
         })
-
-        if job_mode == "solution_check":
-            continue
 
         for rank, place in enumerate((raw_response.get("places") or [])[:limit_per_job], start=1):
             raw_candidate_count += 1
@@ -1625,10 +1646,13 @@ def _looks_like_chain_candidate(haystack: str) -> bool:
         "ichiran.com",
         "tokyo-aburasoba",
         "menya634",
+        "gmfoods",
+        "maps.gmfoods",
         "daisyo.co.jp",
         "search.daisyo",
         "movia.jpn.com",
         "miraizaka.com",
+        "yoronotaki.co.jp",
         "butayama.com",
         "machidashoten",
         "mita-seimen",
@@ -1653,6 +1677,8 @@ def _looks_like_out_of_scope_candidate(haystack: str) -> bool:
         "sushi",
         "焼肉",
         "yakiniku",
+        "しゃぶしゃぶ",
+        "shabu",
         "海鮮",
         "seafood",
         "カフェ",
@@ -2154,6 +2180,17 @@ def _capture_candidate_pages(
     }
     evidence_pages_captured = 0
     search_job = dict(candidate.get("source_search_job") or {})
+    if evidence_pages_per_candidate <= 0:
+        pages = (candidate.get("capture") or {}).get("pages") or []
+        failures = (candidate.get("capture") or {}).get("fetch_failures") or []
+        if pages:
+            candidate["capture"]["status"] = "captured"
+        elif failures:
+            candidate["capture"]["status"] = "fetch_failed"
+        else:
+            candidate["capture"]["status"] = "no_fetch_attempted"
+        return
+
     for index, query in enumerate(_targeted_queries(candidate), start=1):
         artifact_rel = f"webserper/{candidate_id}-evidence-{index:02d}.json"
         try:

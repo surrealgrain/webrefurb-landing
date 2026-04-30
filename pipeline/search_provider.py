@@ -48,6 +48,7 @@ BLOCKED_PLACE_HOST_TOKENS = (
     "youtube.com",
     "tiktok.com",
     "pinterest.com",
+    "mixi.jp",
     "line.me",
     "lin.ee",
     "tripadvisor.",
@@ -63,6 +64,7 @@ RESERVATION_ROUTE_HOST_TOKENS = (
     "yoyaku",
     "reserve",
     "reservation",
+    "point.recruit.co.jp",
 )
 RESERVATION_ROUTE_PATH_TOKENS = (
     "reserve",
@@ -239,23 +241,30 @@ def _serper_organic_search(*, query: str, api_key: str, gl: str, timeout_seconds
         raise SearchProviderError(f"Serper organic search HTTP {exc.code}{suffix}") from exc
 
 
-def _webserper_organic_search(*, query: str, gl: str, timeout_seconds: int) -> dict[str, Any]:
+def _webserper_organic_search(
+    *,
+    query: str,
+    gl: str,
+    timeout_seconds: int,
+    engines: tuple[str, ...] = ("yahoo_japan", "duckduckgo_lite"),
+) -> dict[str, Any]:
     organic: list[dict[str, str]] = []
     seen_links: set[str] = set()
     source_runs: list[dict[str, Any]] = []
 
-    for engine, fetcher, parser in (
-        (
-            "yahoo_japan",
+    engine_specs = {
+        "yahoo_japan": (
             lambda: _yahoo_japan_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
             _organic_results_from_yahoo_japan_html,
         ),
-        (
-            "duckduckgo_lite",
+        "duckduckgo_lite": (
             lambda: _duckduckgo_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
             _organic_results_from_duckduckgo_html,
         ),
-    ):
+    }
+    selected_engines = tuple(engine for engine in engines if engine in engine_specs) or ("yahoo_japan", "duckduckgo_lite")
+    for engine in selected_engines:
+        fetcher, parser = engine_specs[engine]
         results, source_run = _organic_source_results(engine=engine, fetcher=fetcher, parser=parser)
         source_runs.append(source_run)
         for result in results:
@@ -273,12 +282,13 @@ def _webserper_organic_search(*, query: str, gl: str, timeout_seconds: int) -> d
         raise SearchProviderError(f"WebSerper organic search failed across all engines: {errors}")
 
     organic.sort(key=lambda result: (-_organic_result_score(result, query), str(result.get("link") or "")))
+    engine_label = "+".join(selected_engines)
     return {
         "searchParameters": {
             "q": query,
             "gl": gl,
-            "engine": "yahoo_japan+duckduckgo_lite",
-            "engines": ["yahoo_japan", "duckduckgo_lite"],
+            "engine": engine_label,
+            "engines": list(selected_engines),
             "provider": WEB_SERPER_PROVIDER,
             "sourceRuns": source_runs,
         },
@@ -296,6 +306,7 @@ def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict
             gl=gl,
             timeout_seconds=timeout_seconds,
             source_runs=source_runs,
+            organic_engines=("yahoo_japan",),
         )
         return _webserper_maps_payload(
             query=query,
@@ -977,11 +988,6 @@ def _query_should_merge_organic_discovery(query: str) -> bool:
     return (
         "公式" in query
         or "official" in lowered
-        or "メニュー" in query
-        or "お品書き" in query
-        or "飲み放題" in query
-        or "券売機" in query
-        or "食券" in query
     )
 
 
@@ -1002,7 +1008,7 @@ def _directory_extraction_queries(query: str) -> list[str]:
     if "gnavi" in lowered or "gurunavi" in lowered:
         for place in _place_terms_from_query(query):
             queries.append(f"ぐるなび {place} 居酒屋 メニュー 公式")
-    return [item for item in dict.fromkeys(queries) if item]
+    return [item for item in dict.fromkeys(queries) if item][:3]
 
 
 def _official_discovery_queries(query: str) -> list[str]:
@@ -1039,12 +1045,18 @@ def _organic_places_for_queries(
     gl: str,
     timeout_seconds: int,
     source_runs: list[dict[str, Any]],
+    organic_engines: tuple[str, ...] = ("yahoo_japan", "duckduckgo_lite"),
 ) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     seen_links: set[str] = set()
     for local_query in queries:
         try:
-            organic_response = _webserper_organic_search(query=local_query, gl=gl, timeout_seconds=timeout_seconds)
+            organic_response = _webserper_organic_search(
+                query=local_query,
+                gl=gl,
+                timeout_seconds=timeout_seconds,
+                engines=organic_engines,
+            )
         except Exception as exc:
             source_runs.append({
                 "engine": "official_site_organic",
@@ -1063,7 +1075,7 @@ def _organic_places_for_queries(
                 bool(source.get("recovered_by_retry"))
                 for source in (organic_response.get("searchParameters") or {}).get("sourceRuns") or []
             ),
-            "fallback_engine": "yahoo_japan+duckduckgo_lite",
+            "fallback_engine": "+".join(organic_engines),
             "source_runs": (organic_response.get("searchParameters") or {}).get("sourceRuns") or [],
             "result_count": len(organic_response.get("organic") or []),
         })

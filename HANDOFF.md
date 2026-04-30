@@ -23,8 +23,8 @@ This is the compact resume file. Keep it short. Do not append a running diary; r
 
 ## Current Status
 
-- Branch: `codex/phase11-contact-form-batch`, ahead of origin by 5 commits.
-- Worktree is intentionally dirty. Do not revert user or prior-agent changes.
+- Branch: `codex/phase11-contact-form-batch`, ahead of origin by 6 commits.
+- Worktree should be clean after the latest optimization commit.
 - `PLAN.md` Phases 0-12 are complete. Phase 13 is active, not complete.
 - Controlled Batch 1 and Batch 2 have already had real approved-route outreach. Do not start Batch 3.
 - Current decision: hold real Batch 3 outbound. Reason: Batch 1/2 have 0 replies/positives and the eligible candidate pool is not strong enough.
@@ -37,7 +37,7 @@ This is the compact resume file. Keep it short. Do not append a running diary; r
 
 ## Current Code State
 
-Uncommitted hardening is in progress:
+Committed hardening is in place:
 
 - Chain/category gates now prefer first-party page text over third-party review/directory text.
 - Large first-party store directories are treated as chain/multi-store infrastructure.
@@ -50,8 +50,7 @@ Uncommitted hardening is in progress:
 - Single-shop "店舗情報"/"お店"/"ご来店" copy no longer trips the multi-store infrastructure gate.
 - Local WebSerper search provider is implemented and wired into the CLI. `webserper` is the default provider, requires no `SERPER_API_KEY`, and `serper` remains available only when explicitly selected. WebSerper now combines Google Maps with Yahoo Japan + DuckDuckGo organic fallback and writes retry/fallback metadata.
 - Production-sim now has a WebSerper benchmark command and label review shortlist.
-
-Worktree remains intentionally dirty and includes prior unrelated edits. Do not revert user or prior-agent changes.
+- Follow-up WebSerper optimization added Yahoo-first organic selection, Yahoo-only capped directory extraction, explicit solution-check enrichment artifacts that do not create candidates, benchmark diagnostics for job modes/source engines/route profiles, stronger reservation/social/hosted/chain flags, and CLI support for intentional `0` contact/evidence page caps.
 
 ## Latest No-Send Simulation
 
@@ -93,38 +92,50 @@ Strict reviewed labels across credited + focused WebSerper corpora:
 
 Google+Yahoo replay materialization found only `1` current-rule ready record (`RYOMA`). Many high-scoring shortlist items were chain/multi-store, website-only, already-solved, or reservation/booking-adjacent. Continue reviewing only legitimate high-confidence first-party ramen/izakaya records with email or supported general inquiry forms.
 
+Latest optimized no-send WebSerper verification corpus:
+
+- `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/`
+- Command used explicit `--search-provider webserper`; no API key was passed or logged.
+- Captured `133` raw candidates, `65` deduped candidates, `68` duplicates, `57` fetched pages, `8` fetch failures, `0` search failures.
+- Benchmark artifacts:
+  - `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.json`
+  - `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.md`
+- Benchmark status: not passed. Passed `0` search failures and `0` unsupported ready labels; first-party rate remained high (`96.92%`). Still below target on candidate yield (`1.08` deduped candidates/job vs `1.60`), fetch rate was just over target (`12.31%` vs `12%`), and no high-confidence ready labels were promoted from the optimized corpus.
+- Label workflow created `65` draft labels and `labeling/review-shortlist.json`. No labels were promoted because surfaced email/form candidates were not high-confidence first-party ramen/izakaya outreach records.
+
 `SERPER_API_KEY` is no longer required for the default WebSerper path. Do not use, echo, write, or log it for WebSerper runs.
 
 ## Latest Batch 3 Decision
 
-- Command run: `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-google-yahoo-webserper-20260430T000000Z`
+- Command run: `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-optimized-webserper-20260430T000000Z`
 - Recommendation: `hold_real_outbound_prepare_more_candidates`
 - `real_outbound_allowed=false`
 - `eligible_count=0`
 - Artifacts:
-  - `state/launch_decisions/batch3-no-send-google-yahoo-webserper-20260430T000000Z-20260430T064907Z.json`
-  - `state/launch_decisions/batch3-no-send-google-yahoo-webserper-20260430T000000Z-20260430T064907Z.md`
+  - `state/launch_decisions/batch3-no-send-optimized-webserper-20260430T000000Z-20260430T084032Z.json`
+  - `state/launch_decisions/batch3-no-send-optimized-webserper-20260430T000000Z-20260430T084032Z.md`
 
 ## Key Artifacts
 
 - Latest replay report: `state/production-sim/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/report.json`
 - Latest replay decisions: `state/production-sim/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/decisions.json`
 - Latest replay screenshots: `state/qa-screenshots/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/`
+- Latest optimized corpus benchmark: `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.json`
 - Batch 1 record: `state/launch_batches/launch-18ce5c756f.json`
 - Batch 2 record: `state/launch_batches/launch-6f594101ca.json`
 
 ## Last Verification
 
-- `.venv/bin/python -m pytest tests/ -q` passed with `611 passed`.
+- `.venv/bin/python -m pytest tests/ -q` passed with `621 passed`.
 - Provider config check: default provider is `webserper`; `webserper` requires no key; `serper` still requires a key.
-- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z --run-id production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`.
+- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z --run-id production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-after-optimization-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`.
 - `git diff --check` passed.
 - `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=55`, `findings=[]`, `readiness_report=[]`.
 - `audit-state --repair` previously repaired deterministic drift for `wrm-tonkotsu-ramen-tatsu-9-18-konohanamachi-d2b8` from ready to disqualified because current chain-like evidence gates now apply; rerun audit passed.
 
 ## Next Safe Work
 
-1. Improve Google+Yahoo candidate yield without weakening first-party and route safety. Current benchmark misses candidate/job target (`1.31` vs `1.60`) even though reliability and fetch rate pass.
+1. Improve Google+Yahoo candidate yield without weakening first-party and route safety. Current optimized benchmark misses candidate/job target (`1.08` vs `1.60`), while the prior fuller Google+Yahoo run was `1.31`; directory extraction is safer but too low-yield.
 2. Continue no-send evidence review for legitimate supported-route false negatives in existing corpora. Promote only high-confidence first-party ramen/izakaya records with email or supported general inquiry forms.
 3. Keep phone numbers, reservation/booking forms, hidden-only forms, newsletters, order/commerce, recruiting, LINE, and Instagram out of contact-route records.
 4. When more labels are added, rerun:
