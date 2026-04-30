@@ -201,10 +201,18 @@ class OcrPhotoHint:
 class NormalizedSourceResult:
     source_name: str  # "tabelog", "google_maps", etc.
     source_url: str = ""
+    name: str = ""
+    official_site_url: str = ""
+    official_site_candidates: list[str] = field(default_factory=list)
+    operator_company_name: str = ""
+    operator_company_url: str = ""
+    social_links: list[str] = field(default_factory=list)
     menu_photos: list[str] = field(default_factory=list)
     ocr_text: list[str] = field(default_factory=list)
     multilingual_menu_flag: bool | None = None
     menu_photo_flag: bool | None = None
+    menu_evidence_found: bool = False
+    english_menu_signal: bool = False
     structured_menu_items: list[dict[str, str]] = field(default_factory=list)
     review_snippets: list[str] = field(default_factory=list)
     category: str = ""
