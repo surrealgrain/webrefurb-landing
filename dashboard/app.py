@@ -1220,6 +1220,14 @@ async def api_send(lead_id: str, request: Request):
         lead_id, to_email, subject, email_body,
         classification=record.get("outreach_classification", ""),
         test_send=is_test_send,
+        attachment_metadata=_sent_record_attachment_metadata(
+            send_result=result,
+            requested_assets=asset_paths,
+            menu_html_path=str(menu_html) if menu_html and menu_html.exists() else "",
+            machine_html_path=str(machine_html) if machine_html and machine_html.exists() else "",
+            include_menu_image=include_menu_image,
+            include_machine_image=include_machine_image,
+        ),
     )
 
     _log("send_succeeded", f"sends_today={today_sends + 1} test={is_test_send}", lead_id=lead_id)
@@ -2470,7 +2478,14 @@ async def _send_email_resend(
         if all_attachments:
             params["attachments"] = all_attachments
 
-        return _resend.Emails.send(params)
+        provider_result = _resend.Emails.send(params)
+        attachment_metadata = _inline_attachment_metadata(all_attachments)
+        if isinstance(provider_result, dict):
+            return {**provider_result, "attachment_metadata": attachment_metadata}
+        return {
+            "provider_result": provider_result,
+            "attachment_metadata": attachment_metadata,
+        }
 
 
 def _personalised_email_html(source_path: str | None, business_name: str, tmp_dir: str, stem: str) -> str | None:
@@ -2531,6 +2546,57 @@ def _professional_attachment_name(path: Path) -> str:
     return path.name
 
 
+def _inline_attachment_metadata(attachments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return attachment metadata suitable for records without storing content."""
+    import base64
+    import hashlib
+
+    metadata: list[dict[str, Any]] = []
+    for item in attachments:
+        content = str(item.get("content") or "")
+        try:
+            raw = base64.b64decode(content.encode("ascii"), validate=True) if content else b""
+        except Exception:
+            raw = b""
+        metadata.append({
+            "filename": item.get("filename", ""),
+            "mime_type": item.get("mime_type", ""),
+            "content_id": item.get("content_id", ""),
+            "disposition": item.get("disposition", ""),
+            "inline": item.get("disposition") == "inline",
+            "size_bytes": len(raw),
+            "sha256": hashlib.sha256(raw).hexdigest() if raw else "",
+        })
+    return metadata
+
+
+def _sent_record_attachment_metadata(
+    *,
+    send_result: dict[str, Any] | None,
+    requested_assets: list[str] | None,
+    menu_html_path: str = "",
+    machine_html_path: str = "",
+    include_menu_image: bool = False,
+    include_machine_image: bool = False,
+) -> dict[str, Any]:
+    inline_attachments = []
+    if isinstance(send_result, dict):
+        inline_attachments = list(send_result.get("attachment_metadata") or [])
+    file_attachments: list[dict[str, Any]] = []
+    return {
+        "requested_assets": [str(path) for path in requested_assets or []],
+        "render_sources": {
+            "menu_html_path": menu_html_path,
+            "machine_html_path": machine_html_path,
+            "include_menu_image": bool(include_menu_image),
+            "include_machine_image": bool(include_machine_image),
+        },
+        "inline_attachments": inline_attachments,
+        "file_attachments": file_attachments,
+        "attachment_count": len(inline_attachments) + len(file_attachments),
+    }
+
+
 def _save_sent_email(
     lead_id: str,
     to_email: str,
@@ -2538,12 +2604,24 @@ def _save_sent_email(
     body: str,
     classification: str = "",
     test_send: bool = False,
+    attachment_metadata: dict[str, Any] | None = None,
 ) -> None:
     """Persist a sent email record."""
     sent_dir = STATE_ROOT / "sent"
     sent_dir.mkdir(parents=True, exist_ok=True)
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    attachment_metadata = attachment_metadata or {
+        "requested_assets": [],
+        "render_sources": {},
+        "inline_attachments": [],
+        "file_attachments": [],
+        "attachment_count": 0,
+    }
+    attachments = [
+        *list(attachment_metadata.get("inline_attachments") or []),
+        *list(attachment_metadata.get("file_attachments") or []),
+    ]
     record = {
         "lead_id": lead_id,
         "to": to_email,
@@ -2553,6 +2631,11 @@ def _save_sent_email(
         "status": "sent",
         "classification": classification,
         "test_send": test_send,
+        "attachment_metadata": attachment_metadata,
+        "attachments": attachments,
+        "inline_attachments": list(attachment_metadata.get("inline_attachments") or []),
+        "file_attachments": list(attachment_metadata.get("file_attachments") or []),
+        "requested_attachment_paths": list(attachment_metadata.get("requested_assets") or []),
     }
 
     path = sent_dir / f"{lead_id}_{ts}.json"
