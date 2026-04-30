@@ -66,6 +66,25 @@ def test_extract_contact_signals_finds_email_and_forms_only():
 
     assert signals.emails == ["owner@example-ramen.jp"]
     assert signals.has_form is True
+    assert signals.form_actions == ["/contact"]
+
+
+def test_extract_contact_signals_captures_form_actions_and_required_fields():
+    html = """
+    <html><body>
+      <form action="/reservation">
+        <input name="name" required>
+        <input name="tel" required>
+        <textarea name="message"></textarea>
+      </form>
+    </body></html>
+    """
+
+    signals = extract_contact_signals(html)
+
+    assert signals.has_form is True
+    assert signals.form_actions == ["/reservation"]
+    assert signals.required_fields == ["name", "tel"]
 
 
 def test_extract_contact_signals_ignores_telemetry_ingest_emails():

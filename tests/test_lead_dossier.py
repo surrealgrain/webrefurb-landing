@@ -132,6 +132,55 @@ def test_phone_required_contact_form_is_not_supported_route():
     assert "contacts" in changes
 
 
+def test_reservation_contact_form_is_not_supported_route():
+    migrated, changes = migrate_lead_record(_ready_record(
+        primary_contact={
+            "type": "contact_form",
+            "value": "https://example.test/reservation",
+            "actionable": True,
+            "status": "discovered",
+            "form_actions": ["/booking/confirm"],
+        },
+        contacts=[{
+            "type": "contact_form",
+            "value": "https://example.test/reservation",
+            "actionable": True,
+            "status": "discovered",
+            "form_actions": ["/booking/confirm"],
+        }],
+    ))
+
+    assert migrated["contacts"][0]["actionable"] is False
+    assert migrated["contacts"][0]["status"] == "reference_only"
+    assert migrated["contacts"][0]["unsupported_reason"] == "reservation_or_booking_form"
+    assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
+    assert "contacts" in changes
+
+
+def test_social_url_mislabeled_as_contact_form_is_not_supported_route():
+    migrated, changes = migrate_lead_record(_ready_record(
+        primary_contact={
+            "type": "contact_form",
+            "value": "https://twitter.com/shop_account",
+            "actionable": True,
+            "status": "discovered",
+        },
+        contacts=[{
+            "type": "contact_form",
+            "value": "https://twitter.com/shop_account",
+            "actionable": True,
+            "status": "discovered",
+        }],
+    ))
+
+    assert migrated["contacts"][0]["actionable"] is False
+    assert migrated["contacts"][0]["unsupported_reason"] == "social_profile_not_contact_form"
+    assert migrated["has_supported_contact_route"] is False
+    assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert "contacts" in changes
+
+
 def test_chain_like_record_cannot_remain_launch_ready():
     migrated, _ = migrate_lead_record(_ready_record(business_name="Tsukada Nojo Shibuya Miyamasuzaka"))
 

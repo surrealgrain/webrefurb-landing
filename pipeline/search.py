@@ -11,6 +11,7 @@ from typing import Any
 
 from .business_name import business_name_is_suspicious, business_names_match, extract_business_name_candidates, resolve_business_name
 from .contact_crawler import extract_contact_signals, is_usable_business_email
+from .contact_policy import normalise_contact_actionability
 from .utils import utc_now, write_json, ensure_dir
 from .qualification import qualify_candidate
 
@@ -130,6 +131,7 @@ def _append_contact_route(
     discovered_at: str = "",
     status: str = "",
     actionable: bool = True,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     cleaned = str(value or "").strip()
     if not cleaned:
@@ -146,7 +148,7 @@ def _append_contact_route(
     if key in seen:
         return
     seen.add(key)
-    contacts.append({
+    contact = {
         "type": contact_type,
         "value": cleaned,
         "label": label or cleaned,
@@ -157,7 +159,11 @@ def _append_contact_route(
         "discovered_at": str(discovered_at or "").strip(),
         "status": str(status or "").strip() or ("discovered" if actionable else "reference_only"),
         "actionable": actionable,
-    })
+    }
+    for key, value in (metadata or {}).items():
+        if value not in (None, "", []):
+            contact[key] = value
+    contacts.append(normalise_contact_actionability(contact))
 
 
 def discover_contact_routes(
@@ -263,6 +269,10 @@ def discover_contact_routes(
                 confidence="medium",
                 discovered_at=discovered_at,
                 actionable=True,
+                metadata={
+                    "form_actions": signals.form_actions,
+                    "required_fields": signals.required_fields,
+                },
             )
 
     priority = {

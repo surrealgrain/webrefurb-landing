@@ -40,6 +40,24 @@ def test_normalised_lead_contacts_skip_telemetry_email():
     assert [contact["type"] for contact in contacts] == ["contact_form"]
 
 
+def test_normalised_lead_contacts_preserve_required_field_metadata_and_block_phone_required_form():
+    contacts = normalise_lead_contacts({
+        "contacts": [{
+            "type": "contact_form",
+            "value": "https://real-ramen.jp/contact",
+            "actionable": True,
+            "required_fields": ["name", "tel", "message"],
+            "form_actions": ["/contact"],
+        }],
+    })
+
+    assert contacts[0]["required_fields"] == ["name", "tel", "message"]
+    assert contacts[0]["form_actions"] == ["/contact"]
+    assert contacts[0]["actionable"] is False
+    assert contacts[0]["status"] == "reference_only"
+    assert contacts[0]["unsupported_reason"] == "phone_required"
+
+
 def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
     """A qualified lead with no email or phone is still tracked but not persisted.
     The Japan gate requires address or phone; a placeId alone is insufficient."""
@@ -79,6 +97,42 @@ def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):
 
     # Address and phone are reference metadata only; without e-mail or a contact form,
     # the candidate is not persisted for outreach.
+    assert result["leads"] == 0
+    assert result["qualified_without_supported_contact"] == 1
+    assert result["decisions"][0]["lead"] is False
+
+
+def test_search_skips_reservation_only_form_as_supported_contact(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "Reserve Only Ramen",
+            "website": "https://reserve-only.example",
+            "address": "東京都渋谷区神南1-2-3",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-reserve-only",
+            "rating": 4.6,
+            "ratingCount": 80,
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return "<html><head><title>Reserve Only Ramen | 食べログ</title></head><body><h1>Reserve Only Ramen</h1></body></html>"
+        return """<html><body>
+        ラーメン メニュー 醤油ラーメン 900円 券売機 東京
+        <form action="/reservation"><input name="name" required></form>
+        </body></html>"""
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: _tabelog_result())
+
+    result = search.search_and_qualify(
+        query="券売機 ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        state_root=tmp_path,
+    )
+
     assert result["leads"] == 0
     assert result["qualified_without_supported_contact"] == 1
     assert result["decisions"][0]["lead"] is False
