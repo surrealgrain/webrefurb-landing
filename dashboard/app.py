@@ -656,7 +656,7 @@ async def api_search(request: Request):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     serper_api_key = os.environ.get("SERPER_API_KEY", "")
     if search_provider_requires_api_key(search_provider) and not serper_api_key:
-        raise HTTPException(status_code=500, detail="SERPER_API_KEY not configured for serper search provider")
+        raise HTTPException(status_code=500, detail="SERPER_API_KEY is only required when the serper search provider is explicitly selected")
 
     from pipeline.search_scope import search_query_for_scope, search_jobs_for_scope, merge_search_results
 
