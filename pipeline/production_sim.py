@@ -619,9 +619,9 @@ def _playwright_dashboard_flow(
     from playwright.sync_api import sync_playwright
 
     manifest: list[dict[str, Any]] = []
-    ready_records = _records_by_expected(records, labels, "ready_for_outreach")
-    manual_records = _records_by_expected(records, labels, "manual_review")
-    disqualified_records = _records_by_expected(records, labels, "disqualified")
+    ready_records = _dashboard_records_by_actual(records, "ready_for_outreach")
+    manual_records = _dashboard_records_by_actual(records, "manual_review")
+    disqualified_records = _dashboard_records_by_actual(records, "disqualified")
     ticket_ready = _first_with_asset(ready_records, "ticket_machine_guide")
     izakaya_ready = _first_with_asset(ready_records, "izakaya_food_drinks")
     first_ready = ready_records[0] if ready_records else None
@@ -741,6 +741,15 @@ def _records_by_expected(records: list[dict[str, Any]], labels: dict[str, dict[s
         record for record in records
         if labels[str(record.get("production_sim_candidate_id") or record.get("lead_id"))]["readiness_expected"] == readiness
         and record.get("lead") is True
+    ]
+
+
+def _dashboard_records_by_actual(records: list[dict[str, Any]], readiness: str) -> list[dict[str, Any]]:
+    return [
+        record for record in records
+        if record.get("lead") is True
+        and record.get("launch_readiness_status") == readiness
+        and str((get_primary_contact(record) or {}).get("type") or "") in {"email", "contact_form"}
     ]
 
 

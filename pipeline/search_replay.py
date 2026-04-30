@@ -44,6 +44,7 @@ LABEL_PACKAGE_VALUES = {
     "none",
 }
 LABEL_CONTACT_ROUTE_VALUES = {"email", "contact_form", "none"}
+UNSUPPORTED_LABEL_CONTACT_ROUTES = {"phone", "line", "instagram", "walk_in", "website", "website_only", "map_url"}
 LABEL_TICKET_MACHINE_VALUES = {"present", "absent", "unknown", "already_english_supported"}
 LABEL_ENGLISH_MENU_VALUES = {"missing", "weak_partial", "image_only", "usable_complete", "unknown"}
 LABEL_PROOF_VALUES = {"gold", "operator_only", "none"}
@@ -168,6 +169,70 @@ def validate_label_schema(label: dict[str, Any], *, label_path: str | Path | Non
 def _assert_label_value(name: str, key: str, value: Any, allowed: set[str]) -> None:
     if str(value) not in allowed:
         raise ReplayCorpusError(f"label {name} {key} must be one of {sorted(allowed)}")
+
+
+def reconcile_label_contact_policy(corpus_dir: str | Path) -> dict[str, Any]:
+    """Rewrite stale finalized labels so unsupported routes no longer count as ready."""
+    root = Path(corpus_dir)
+    manifest = read_json(root / "manifest.json")
+    if not isinstance(manifest, dict):
+        raise ReplayCorpusError(f"missing manifest.json in {root}")
+    labels_dir = root / str(manifest.get("labels_dir") or "labels")
+    changed: list[dict[str, Any]] = []
+    unchanged = 0
+    for path in sorted(labels_dir.glob("*.json")):
+        label = read_json(path)
+        if not isinstance(label, dict):
+            continue
+        before = json.dumps(label, sort_keys=True, ensure_ascii=False)
+        route = str(label.get("contact_route_expected") or "").strip()
+        if route in UNSUPPORTED_LABEL_CONTACT_ROUTES:
+            label["legacy_contact_route_expected"] = route
+            label["contact_route_expected"] = "none"
+            label["inline_assets_expected"] = []
+            notes = str(label.get("label_notes") or "").strip()
+            suffix = "Reconciled to email/contact-form-only policy; unsupported outreach routes require manual review."
+            label["label_notes"] = f"{notes} {suffix}".strip()
+            if label.get("readiness_expected") == "ready_for_outreach":
+                label["readiness_expected"] = "manual_review"
+                label["rejection_reason_expected"] = "no_supported_contact_route"
+                label["package_expected"] = "none"
+                review = label.get("second_pass_review") if isinstance(label.get("second_pass_review"), dict) else {}
+                label["second_pass_review"] = {
+                    **review,
+                    "required": False,
+                    "status": "not_required",
+                    "reason": "route policy reconciliation moved unsupported-route ready label to manual review",
+                }
+        elif route not in LABEL_CONTACT_ROUTE_VALUES:
+            label["legacy_contact_route_expected"] = route
+            label["contact_route_expected"] = "none"
+            label["inline_assets_expected"] = []
+            if label.get("readiness_expected") == "ready_for_outreach":
+                label["readiness_expected"] = "manual_review"
+                label["rejection_reason_expected"] = "no_supported_contact_route"
+                label["package_expected"] = "none"
+
+        after = json.dumps(label, sort_keys=True, ensure_ascii=False)
+        if after != before:
+            validate_label_schema(label, label_path=path)
+            write_json(path, label)
+            changed.append({
+                "candidate_id": label.get("candidate_id"),
+                "business_name": label.get("business_name"),
+                "legacy_contact_route_expected": label.get("legacy_contact_route_expected"),
+                "contact_route_expected": label.get("contact_route_expected"),
+                "readiness_expected": label.get("readiness_expected"),
+            })
+        else:
+            validate_label_schema(label, label_path=path)
+            unchanged += 1
+    return {
+        "corpus": str(root),
+        "changed_count": len(changed),
+        "unchanged_count": unchanged,
+        "changed": changed,
+    }
 
 
 def candidate_id_for(candidate: dict[str, Any]) -> str:
@@ -358,6 +423,7 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
         source_url: str = "",
         confidence: str = "medium",
         actionable: bool = True,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         cleaned = str(value or "").strip()
         if not cleaned:
@@ -367,7 +433,7 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
         if not key_value or key in seen:
             return
         seen.add(key)
-        raw_contacts.append({
+        contact = {
             "type": contact_type,
             "value": cleaned,
             "label": label or cleaned,
@@ -378,7 +444,11 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
             "discovered_at": generated_at,
             "status": "discovered" if actionable else "reference_only",
             "actionable": actionable,
-        })
+        }
+        for key, item in (metadata or {}).items():
+            if item not in (None, "", []):
+                contact[key] = item
+        raw_contacts.append(contact)
 
     if website:
         append("website", website, label="Official website", href=website, source="homepage", source_url=website, confidence="high", actionable=False)
@@ -398,7 +468,18 @@ def _captured_contact_routes(*, candidate: dict[str, Any], pages: list[dict[str,
         for email in signals.emails:
             append("email", email, href=f"mailto:{email}", source=source, source_url=source_url, confidence="high")
         if signals.has_form:
-            append("contact_form", source_url, label="Contact form", href=source_url, source=source, source_url=source_url)
+            append(
+                "contact_form",
+                source_url,
+                label="Contact form",
+                href=source_url,
+                source=source,
+                source_url=source_url,
+                metadata={
+                    "form_actions": signals.form_actions,
+                    "required_fields": signals.required_fields,
+                },
+            )
     return normalise_lead_contacts({
         "contacts": raw_contacts,
         "website": website,

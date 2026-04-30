@@ -19,6 +19,7 @@ from pipeline.search_replay import (
     fixture_collect_adapters,
     load_replay_corpus,
     materialize_replay_state,
+    reconcile_label_contact_policy,
     validate_label_schema,
 )
 from pipeline.record import get_primary_contact
@@ -83,6 +84,44 @@ def test_first_slice_fixture_oracle_schema_and_closed_loop(tmp_path):
     assert report["findings"][0]["id"] == "P2-BROAD-CORPUS-DEFERRED-001"
     assert report["findings"][0]["disposition"] == "deferred"
     assert report["findings"][0]["fix_hint"]
+
+
+def test_reconcile_label_contact_policy_moves_unsupported_ready_route_to_manual_review(tmp_path):
+    corpus = tmp_path / "corpus"
+    labels = corpus / "labels"
+    labels.mkdir(parents=True)
+    write_json(corpus / "manifest.json", {
+        "run_id": "test",
+        "candidates_file": "candidates.json",
+        "labels_dir": "labels",
+    })
+    write_json(corpus / "candidates.json", [])
+    label = {
+        "candidate_id": "wrm-test-phone",
+        "business_name": "Phone Only Ramen",
+        "category_expected": "ramen",
+        "readiness_expected": "ready_for_outreach",
+        "rejection_reason_expected": "",
+        "package_expected": "package_2_printed_delivered_45k",
+        "contact_route_expected": "phone",
+        "inline_assets_expected": ["ramen_food_menu"],
+        "ticket_machine_state_expected": "present",
+        "english_menu_state_expected": "missing",
+        "proof_strength_minimum": "gold",
+        "label_confidence": "high",
+        "label_notes": "",
+    }
+    write_json(labels / "wrm-test-phone.json", label)
+
+    result = reconcile_label_contact_policy(corpus)
+    updated = json.loads((labels / "wrm-test-phone.json").read_text(encoding="utf-8"))
+
+    assert result["changed_count"] == 1
+    assert updated["legacy_contact_route_expected"] == "phone"
+    assert updated["contact_route_expected"] == "none"
+    assert updated["readiness_expected"] == "manual_review"
+    assert updated["rejection_reason_expected"] == "no_supported_contact_route"
+    validate_label_schema(updated)
 
 
 def test_oracle_blocks_production_ready_when_p0_exists(tmp_path):

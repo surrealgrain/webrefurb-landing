@@ -5,6 +5,7 @@ from typing import Any
 
 from .business_name import business_name_is_suspicious, normalise_business_name
 from .contact_crawler import is_usable_business_email
+from .contact_policy import normalise_contact_actionability
 from .utils import utc_now, write_json, read_json, ensure_dir, slugify, sha256_text
 from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
@@ -69,6 +70,18 @@ CONTACT_PRIORITY = {
 }
 
 ACTIONABLE_CONTACT_TYPES = {"email", "contact_form"}
+CONTACT_METADATA_KEYS = {
+    "required_fields",
+    "form_actions",
+    "form_field_names",
+    "requires_phone",
+    "phone_required",
+    "requires_phone_number",
+    "failure_reason",
+    "unsupported_reason",
+    "page_title",
+    "page_text_hint",
+}
 
 
 def authoritative_business_name(lead: dict[str, Any]) -> str:
@@ -128,6 +141,7 @@ def _build_contact_record(
     discovered_at: str = "",
     status: str = "",
     actionable: bool | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cleaned_value = str(value or "").strip()
     cleaned_label = str(label or "").strip() or cleaned_value
@@ -143,7 +157,7 @@ def _build_contact_record(
     cleaned_status = str(status or "").strip() or ("discovered" if actionable else "reference_only")
     if not actionable and cleaned_status == "discovered":
         cleaned_status = "reference_only"
-    return {
+    record = {
         "type": contact_type,
         "value": cleaned_value,
         "label": cleaned_label,
@@ -155,6 +169,12 @@ def _build_contact_record(
         "status": cleaned_status,
         "actionable": bool(actionable),
     }
+    for key in CONTACT_METADATA_KEYS:
+        if extra and key in extra:
+            value = extra.get(key)
+            if value not in (None, "", []):
+                record[key] = value
+    return normalise_contact_actionability(record)
 
 
 def _append_contact(
@@ -171,6 +191,7 @@ def _append_contact(
     discovered_at: str = "",
     status: str = "",
     actionable: bool | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     normalized_value = _normalise_contact_value(contact_type, value)
     if not normalized_value:
@@ -190,6 +211,7 @@ def _append_contact(
         discovered_at=discovered_at,
         status=status,
         actionable=actionable,
+        extra=extra,
     ))
 
 
@@ -219,6 +241,7 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             discovered_at=str(raw.get("discovered_at") or generated_at),
             status=str(raw.get("status") or ""),
             actionable=raw.get("actionable"),
+            extra=raw,
         )
 
     if lead.get("email") and is_usable_business_email(str(lead.get("email") or "")):

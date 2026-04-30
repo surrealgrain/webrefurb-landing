@@ -14,6 +14,11 @@ from .constants import (
     SOLVED_ENGLISH_SUPPORT_TERMS,
     TICKET_MACHINE_ABSENCE_TERMS,
 )
+from .contact_policy import (
+    SUPPORTED_OUTREACH_CONTACT_TYPES,
+    contact_form_unsupported_reason,
+    normalise_contact_actionability,
+)
 from .evidence import has_chain_or_franchise_infrastructure, is_chain_business
 from .utils import read_json, write_json
 
@@ -46,7 +51,6 @@ IZAKAYA_RULES_STATES = {
 READINESS_READY = "ready_for_outreach"
 READINESS_MANUAL = "manual_review"
 READINESS_DISQUALIFIED = "disqualified"
-SUPPORTED_OUTREACH_CONTACT_TYPES = {"email", "contact_form"}
 
 _JP_PREFECTURE_PREFIXES = (
     "東京都", "大阪府", "京都府", "北海道",
@@ -513,7 +517,7 @@ def _has_supported_contact(record: dict[str, Any]) -> bool:
     if any(
         contact.get("actionable")
         and str(contact.get("type") or "") in SUPPORTED_OUTREACH_CONTACT_TYPES
-        and not _contact_form_requires_phone(contact)
+        and not contact_form_unsupported_reason(contact)
         for contact in contacts
         if isinstance(contact, dict)
     ):
@@ -527,40 +531,25 @@ def _normalise_contact_actionability(record: dict[str, Any]) -> None:
         return
 
     first_supported: dict[str, Any] | None = None
-    for contact in contacts:
+    for index, contact in enumerate(contacts):
         if not isinstance(contact, dict):
             continue
-        contact_type = str(contact.get("type") or "").strip().lower()
-        if contact_type not in SUPPORTED_OUTREACH_CONTACT_TYPES or _contact_form_requires_phone(contact):
-            contact["actionable"] = False
-            if not str(contact.get("status") or "").strip() or contact.get("status") == "discovered":
-                contact["status"] = "reference_only"
+        contact = normalise_contact_actionability(contact)
+        contacts[index] = contact
+        if not contact.get("actionable"):
             continue
         if contact.get("actionable") is not False and first_supported is None:
             first_supported = contact
 
     primary = record.get("primary_contact")
     if isinstance(primary, dict):
-        primary_type = str(primary.get("type") or "").strip().lower()
-        if primary_type not in SUPPORTED_OUTREACH_CONTACT_TYPES or _contact_form_requires_phone(primary):
-            primary["actionable"] = False
-            if not str(primary.get("status") or "").strip() or primary.get("status") == "discovered":
-                primary["status"] = "reference_only"
+        primary = normalise_contact_actionability(primary)
+        record["primary_contact"] = primary
+        if not primary.get("actionable"):
             if first_supported is not None:
                 record["primary_contact"] = deepcopy(first_supported)
     elif first_supported is not None:
         record["primary_contact"] = deepcopy(first_supported)
-
-
-def _contact_form_requires_phone(contact: dict[str, Any]) -> bool:
-    if str(contact.get("type") or "").strip().lower() != "contact_form":
-        return False
-    if any(contact.get(key) is True for key in ("requires_phone", "phone_required", "requires_phone_number")):
-        return True
-    fields = " ".join(str(field or "") for field in contact.get("required_fields") or [])
-    reason = str(contact.get("failure_reason") or "")
-    haystack = f"{fields} {reason}".lower()
-    return any(token in haystack for token in ("phone_required", "requires_phone", "phone number", "電話番号"))
 
 
 def _has_multilingual_solution(record: dict[str, Any]) -> bool:

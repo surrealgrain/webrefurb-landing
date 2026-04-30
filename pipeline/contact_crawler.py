@@ -114,6 +114,8 @@ class DiscoveryTarget:
 class ContactSignals:
     emails: list[str] = field(default_factory=list)
     has_form: bool = False
+    form_actions: list[str] = field(default_factory=list)
+    required_fields: list[str] = field(default_factory=list)
     llm_mock_used: bool = False
     llm_mock_reason: str = ""
 
@@ -216,10 +218,44 @@ def extract_contact_signals(html: str, text: str = "") -> ContactSignals:
     decoded = urllib.parse.unquote(f"{html or ''}\n{text or ''}")
     emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded) if _usable_email(email)])
     has_form = bool(re.search(r"(?is)<form\b", html or ""))
+    form_actions = _extract_form_actions(html)
+    required_fields = _extract_required_form_fields(html)
     return ContactSignals(
         emails=emails,
         has_form=has_form,
+        form_actions=form_actions,
+        required_fields=required_fields,
     )
+
+
+def _extract_form_actions(html: str) -> list[str]:
+    actions: list[str] = []
+    for tag in re.findall(r"(?is)<form\b[^>]*>", html or ""):
+        match = re.search(r'''(?is)\baction\s*=\s*["']([^"']+)["']''', tag)
+        if match:
+            actions.append(urllib.parse.unquote(match.group(1)).strip())
+    return _ordered_unique([action for action in actions if action])
+
+
+def _extract_required_form_fields(html: str) -> list[str]:
+    fields: list[str] = []
+    form_blocks = re.findall(r"(?is)<form\b[^>]*>.*?</form>", html or "")
+    for block in form_blocks:
+        for tag in re.findall(r"(?is)<(?:input|select|textarea)\b[^>]*>", block):
+            if not re.search(r"(?is)\brequired\b", tag):
+                continue
+            field = _first_attr(tag, ("name", "id", "placeholder", "aria-label", "title"))
+            if field:
+                fields.append(urllib.parse.unquote(field).strip())
+    return _ordered_unique([field for field in fields if field])
+
+
+def _first_attr(tag: str, names: tuple[str, ...]) -> str:
+    for name in names:
+        match = re.search(rf'''(?is)\b{name}\s*=\s*["']([^"']+)["']''', tag)
+        if match:
+            return match.group(1)
+    return ""
 
 
 def mock_llm_parse_contact_points(text: str, *, contact_intent: bool) -> ContactSignals:
@@ -681,6 +717,8 @@ def _merge_signals(left: ContactSignals, right: ContactSignals) -> ContactSignal
     return ContactSignals(
         emails=_ordered_unique([*left.emails, *right.emails]),
         has_form=left.has_form or right.has_form,
+        form_actions=_ordered_unique([*left.form_actions, *right.form_actions]),
+        required_fields=_ordered_unique([*left.required_fields, *right.required_fields]),
         llm_mock_used=left.llm_mock_used or right.llm_mock_used,
         llm_mock_reason=left.llm_mock_reason or right.llm_mock_reason,
     )

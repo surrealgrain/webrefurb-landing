@@ -91,6 +91,11 @@ def main() -> None:
     smoke_cmd.add_argument("--notes", default="", help="Operator notes for the rehearsal")
     smoke_cmd.add_argument("--scenario", default="real_world_no_send", help="Smoke-test scenario label")
 
+    launch_decision_cmd = sub.add_parser("launch-decision", help="Write a no-send next-batch decision brief")
+    launch_decision_cmd.add_argument("--state-root", default=None, help="Override state root")
+    launch_decision_cmd.add_argument("--output-dir", default=None, help="Decision artifact output directory")
+    launch_decision_cmd.add_argument("--label", default="batch3-no-send", help="Artifact filename label")
+
     sim_cmd = sub.add_parser("production-sim", help="Run no-send production simulation replay")
     sim_sub = sim_cmd.add_subparsers(dest="production_sim_command")
     sim_collect = sim_sub.add_parser("collect", help="Collect a no-send pilot/broad search replay corpus")
@@ -128,6 +133,8 @@ def main() -> None:
     sim_report = sim_sub.add_parser("report", help="Check an existing production-sim report")
     sim_report.add_argument("--run", required=True, help="Run ID or report directory")
     sim_report.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
+    sim_reconcile = sim_sub.add_parser("reconcile-label-policy", help="Reconcile replay labels to current outreach route policy")
+    sim_reconcile.add_argument("--corpus", required=True, help="Search replay corpus directory")
     sim_recommend = sim_sub.add_parser("recommend", help="Run no-send smoke and write controlled-launch recommendation")
     sim_recommend.add_argument("--run", required=True, help="Run ID or report directory")
     sim_recommend.add_argument("--lead-id", action="append", required=True, help="Lead ID for the no-send smoke; repeat 5-10 times")
@@ -384,6 +391,28 @@ def main() -> None:
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
+    elif args.command == "launch-decision":
+        from pathlib import Path as _P
+
+        from .launch_decision import write_no_send_batch_decision_brief
+
+        result = write_no_send_batch_decision_brief(
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+            output_dir=_P(args.output_dir) if args.output_dir else None,
+            label=str(args.label or "batch3-no-send"),
+        )
+        print(json.dumps({
+            "recommendation": result["recommendation"],
+            "real_outbound_allowed": result["real_outbound_allowed"],
+            "aggregate": result["aggregate"],
+            "candidate_pool": {
+                "eligible_count": result["candidate_pool"]["eligible_count"],
+                "candidate_set_complete": result["candidate_pool"]["candidate_set_complete"],
+                "required_mix": result["candidate_pool"]["required_mix"],
+            },
+            "artifact_paths": result["artifact_paths"],
+        }, indent=2, ensure_ascii=False))
+
     elif args.command == "production-sim":
         from pathlib import Path as _P
 
@@ -399,7 +428,7 @@ def main() -> None:
             report_fails_on,
             run_replay,
         )
-        from .search_replay import fixture_collect_adapters
+        from .search_replay import fixture_collect_adapters, reconcile_label_contact_policy
 
         fail_on = {item.strip().upper() for item in str(getattr(args, "fail_on", "") or "").split(",") if item.strip()}
         if args.production_sim_command == "collect":
@@ -496,6 +525,9 @@ def main() -> None:
             print(json.dumps(result, indent=2, ensure_ascii=False))
             if report_fails_on(result, fail_on):
                 sys.exit(1)
+        elif args.production_sim_command == "reconcile-label-policy":
+            result = reconcile_label_contact_policy(_P(args.corpus))
+            print(json.dumps(result, indent=2, ensure_ascii=False))
         elif args.production_sim_command == "recommend":
             result = recommend_controlled_launch(
                 run=args.run,
