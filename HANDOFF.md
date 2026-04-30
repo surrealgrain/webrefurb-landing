@@ -127,9 +127,11 @@ Phase 13 repeat-review decision:
 Current no-send simulation signal:
 
 - Latest credited collection run ID: `production-sim-supported-route-expansion-credited-20260430T000000Z`
+- Latest credited collection run 2 ID: `production-sim-supported-route-expansion-credited-2-20260430T000000Z`
 - Latest credited labeled replay ID: `production-sim-credited-three-labels-all-screens-20260430T000000Z`
 - Report result: `production_ready=false` because `P2=1`; `P0=0`, `P1=0`
 - Credited collection result: `72` candidates from `136` raw candidates, `64` duplicates, `238` fetched pages, `62` fetch failures, `2` Serper search timeouts out of `84` jobs.
+- Credited collection 2 result: `65` candidates from `147` raw candidates, `82` duplicates, `225` fetched pages, `41` fetch failures, `0` Serper search failures out of `84` jobs. Isolated materialization found `0` ready, `2` manual_review, `63` disqualified.
 - Credited replay decisions over finalized reviewed subset: `1 ready`, `1 manual_review`, `1 disqualified`; `3` strict labels total.
 - External send performed: `false`
 - Real launch batch created: `false`
@@ -159,6 +161,7 @@ Next safe no-send work block:
 - Batch 3 no-send decision artifacts were written under `state/launch_decisions/`.
 - Serper Maps collection now raises a project-level search error for missing credentials and records HTTP response bodies, exposing the current account blocker as `Not enough credits` instead of opaque HTTP 400 failures.
 - Credited no-send Serper collection produced a new 72-candidate replay corpus, generated a 72-item stratified labeling workflow, and finalized 3 reviewed labels: one ready, one manual-review, and one disqualified. No outbound was sent.
+- A second credited no-send Serper collection across Gion, Nara, Hakone, and Kamakura produced 65 more candidates and a 65-item labeling workflow. It did not add ready coverage after isolated materialization, but it expanded negative/manual coverage and confirmed those markets were mostly chains, already-solved, unsupported-route, or non-ready for this offer.
 - Dashboard production-sim rendering now keeps simulation-only manual/disqualified fixtures visible so screenshot coverage can verify those states without weakening live send gates.
 
 Positive effect: The system no longer treats unsupported or unverified form routes as production-ready, credited collection works, and the remaining blocker is now reviewed positive-label volume rather than collector failure.
@@ -176,6 +179,9 @@ Positive effect: The system no longer treats unsupported or unverified form rout
 - Credited labeling workflow: `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/labeling/`
 - Credited three-label replay report: `state/production-sim/production-sim-credited-three-labels-all-screens-20260430T000000Z/report.json`
 - Credited three-label screenshots: `state/qa-screenshots/production-sim-credited-three-labels-all-screens-20260430T000000Z/`
+- Credited collection 2 corpus: `state/search-replay/production-sim-supported-route-expansion-credited-2-20260430T000000Z/`
+- Credited collection 2 report: `state/production-sim/production-sim-supported-route-expansion-credited-2-20260430T000000Z/report.json`
+- Credited collection 2 labeling workflow: `state/search-replay/production-sim-supported-route-expansion-credited-2-20260430T000000Z/labeling/`
 - Batch 3 no-send decision brief: `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.json`, `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.md`
 - Failed targeted collection run: `state/production-sim/production-sim-supported-route-expansion-20260430T0135Z/report.json`, `state/search-replay/production-sim-supported-route-expansion-20260430T0135Z/search-failures.json`
 - Controlled Batch 1: `state/launch_batches/launch-18ce5c756f.json`
@@ -200,6 +206,8 @@ Positive effect: The system no longer treats unsupported or unverified form rout
 - `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-credited-20260430T000000Z ... --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `candidate_count=72`, `external_send_performed=false`, `real_launch_batch_created=false`.
 - `.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z --sample stratified --sample-size 72` generated `72` draft labels and a review queue with `18` suspected-ready candidates.
 - `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z --run-id production-sim-credited-three-labels-all-screens-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `1 ready`, `1 manual_review`, `1 disqualified`, all required screenshot states captured, `external_send_performed=false`, `real_launch_batch_created=false`.
+- `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-credited-2-20260430T000000Z ... --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `candidate_count=65`, `external_send_performed=false`, `real_launch_batch_created=false`.
+- `.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/production-sim-supported-route-expansion-credited-2-20260430T000000Z --sample stratified --sample-size 65` generated `65` draft labels and a review queue with `7` suspected-ready candidates; isolated materialization found no actual ready records in that second slice.
 - `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-route-policy` wrote the Batch 3 no-send decision brief with `real_outbound_allowed=false`, `eligible_count=0`.
 - `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-20260430T0135Z ... --fail-on p0,p1` returned `P0=0`, `P1=0`, but collected `0` candidates because all `84` Serper maps jobs returned HTTP 400. Follow-up probe with body-preserving search errors showed the Serper account is out of credits.
 - Batch 1 Phase 12 review remains recorded in `state/launch_batches/launch-18ce5c756f.json`.
