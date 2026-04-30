@@ -30,6 +30,8 @@ DIRECTORY_HOST_TOKENS = (
     "ramendb.supleks.jp",
     "gnavi.co.jp",
     "gurunavi.com",
+    "gorp.jp",
+    "r.gnavi.co.jp",
     "retty.me",
     "hitosara.com",
     "paypaygourmet.yahoo.co.jp",
@@ -114,6 +116,12 @@ CITY_ALIASES = {
     "shibuya": "渋谷",
     "shinjuku": "新宿",
     "ueno": "上野",
+    "sangenjaya": "三軒茶屋",
+    "sangen-jaya": "三軒茶屋",
+    "kichijoji": "吉祥寺",
+    "kagurazaka": "神楽坂",
+    "jinbocho": "神保町",
+    "jim bocho": "神保町",
     "kyoto": "京都",
     "gion": "祇園",
     "osaka": "大阪",
@@ -136,6 +144,15 @@ AREA_HINTS = {
     "Shinjuku": "東京都新宿区",
     "上野": "東京都台東区",
     "Ueno": "東京都台東区",
+    "三軒茶屋": "東京都世田谷区",
+    "Sangenjaya": "東京都世田谷区",
+    "Sangen-Jaya": "東京都世田谷区",
+    "吉祥寺": "東京都武蔵野市",
+    "Kichijoji": "東京都武蔵野市",
+    "神楽坂": "東京都新宿区",
+    "Kagurazaka": "東京都新宿区",
+    "神保町": "東京都千代田区",
+    "Jinbocho": "東京都千代田区",
     "祇園": "京都市東山区",
     "Gion": "京都市東山区",
     "難波": "大阪市中央区",
@@ -229,14 +246,14 @@ def _webserper_organic_search(*, query: str, gl: str, timeout_seconds: int) -> d
 
     for engine, fetcher, parser in (
         (
-            "duckduckgo_lite",
-            lambda: _duckduckgo_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
-            _organic_results_from_duckduckgo_html,
-        ),
-        (
             "yahoo_japan",
             lambda: _yahoo_japan_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
             _organic_results_from_yahoo_japan_html,
+        ),
+        (
+            "duckduckgo_lite",
+            lambda: _duckduckgo_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
+            _organic_results_from_duckduckgo_html,
         ),
     ):
         results, source_run = _organic_source_results(engine=engine, fetcher=fetcher, parser=parser)
@@ -260,8 +277,8 @@ def _webserper_organic_search(*, query: str, gl: str, timeout_seconds: int) -> d
         "searchParameters": {
             "q": query,
             "gl": gl,
-            "engine": "duckduckgo_lite+yahoo_japan",
-            "engines": ["duckduckgo_lite", "yahoo_japan"],
+            "engine": "yahoo_japan+duckduckgo_lite",
+            "engines": ["yahoo_japan", "duckduckgo_lite"],
             "provider": WEB_SERPER_PROVIDER,
             "sourceRuns": source_runs,
         },
@@ -271,6 +288,24 @@ def _webserper_organic_search(*, query: str, gl: str, timeout_seconds: int) -> d
 
 def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict[str, Any]:
     source_runs: list[dict[str, Any]] = []
+    query_mode = _query_discovery_mode(query)
+    if query_mode == "directory_extraction":
+        places = _organic_places_for_queries(
+            query=query,
+            queries=_directory_extraction_queries(query),
+            gl=gl,
+            timeout_seconds=timeout_seconds,
+            source_runs=source_runs,
+        )
+        return _webserper_maps_payload(
+            query=query,
+            gl=gl,
+            places=places,
+            source_runs=source_runs,
+            engine="official_site_directory_extract",
+            fallback_engine="yahoo_japan+duckduckgo_lite",
+        )
+
     browser_places, browser_run = _google_maps_places_with_retry(query=query, gl=gl, timeout_seconds=timeout_seconds)
     source_runs.append(browser_run)
     if browser_places:
@@ -281,75 +316,38 @@ def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict
             timeout_seconds=timeout_seconds,
         )
     if browser_places:
+        organic_places: list[dict[str, Any]] = []
+        if _query_should_merge_organic_discovery(query):
+            organic_places = _organic_places_for_queries(
+                query=query,
+                queries=_official_discovery_queries(query),
+                gl=gl,
+                timeout_seconds=timeout_seconds,
+                source_runs=source_runs,
+            )
+        merged_places = _merge_places_by_site_or_name([*browser_places, *organic_places])
         engine = "google_maps_batch_browser" if str(browser_places[0].get("searchProvider") or "") == "webserper_google_maps_batch" else "google_maps_browser"
         return {
             "searchParameters": {
                 "q": query,
                 "gl": gl,
                 "engine": engine,
+                "organic_merge_engine": "yahoo_japan+duckduckgo_lite" if organic_places else "",
                 "provider": WEB_SERPER_PROVIDER,
                 "sourceRuns": source_runs,
             },
-            "places": browser_places,
+            "places": merged_places[:_local_place_limit()],
         }
 
-    results: list[dict[str, Any]] = []
-    seen_links: set[str] = set()
-    for local_query in _local_maps_queries(query):
-        try:
-            organic_response = _webserper_organic_search(query=local_query, gl=gl, timeout_seconds=timeout_seconds)
-        except Exception as exc:
-            source_runs.append({
-                "engine": "official_site_organic",
-                "query": local_query,
-                "attempt_count": 1,
-                "recovered_by_retry": False,
-                "error_type": type(exc).__name__,
-                "error": str(exc),
-            })
-            continue
-        source_runs.append({
-            "engine": "official_site_organic",
-            "query": local_query,
-            "attempt_count": 1,
-            "recovered_by_retry": any(
-                bool(source.get("recovered_by_retry"))
-                for source in (organic_response.get("searchParameters") or {}).get("sourceRuns") or []
-            ),
-            "fallback_engine": "duckduckgo_lite+yahoo_japan",
-            "source_runs": (organic_response.get("searchParameters") or {}).get("sourceRuns") or [],
-            "result_count": len(organic_response.get("organic") or []),
-        })
-        for result in organic_response.get("organic") or []:
-            link = str(result.get("link") or "")
-            if link and link not in seen_links:
-                seen_links.add(link)
-                results.append(result)
-    results.sort(key=lambda result: (-_organic_result_score(result, query), str(result.get("link") or "")))
-
-    places: list[dict[str, Any]] = []
-    seen_hosts: set[str] = set()
-    for result in results[: _local_result_limit()]:
-        for candidate in _candidate_inputs_for_result(result, timeout_seconds=timeout_seconds, gl=gl):
-            website = str(candidate.get("website") or "")
-            host = _host(website)
-            if not host or host in seen_hosts:
-                continue
-            seen_hosts.add(host)
-            place = _place_from_website_result(
-                website=website,
-                source_url=str(candidate.get("source_url") or website),
-                result=result,
-                query=query,
-                seed_name=str(candidate.get("name") or ""),
-                seed_address=str(candidate.get("address") or ""),
-                seed_phone=str(candidate.get("phone") or ""),
-                timeout_seconds=timeout_seconds,
-            )
-            if place:
-                places.append(place)
-            if len(places) >= _local_place_limit():
-                return _webserper_maps_payload(query=query, gl=gl, places=places, source_runs=source_runs)
+    places = _organic_places_for_queries(
+        query=query,
+        queries=_local_maps_queries(query),
+        gl=gl,
+        timeout_seconds=timeout_seconds,
+        source_runs=source_runs,
+    )
+    if len(places) >= _local_place_limit():
+        return _webserper_maps_payload(query=query, gl=gl, places=places, source_runs=source_runs)
 
     if not places and source_runs and all(run.get("error") for run in source_runs):
         errors = "; ".join(f"{run['engine']}={run.get('error')}" for run in source_runs)
@@ -422,6 +420,8 @@ def _google_maps_places_with_retry(*, query: str, gl: str, timeout_seconds: int)
 
 
 def _is_retryable_search_error(exc: Exception) -> bool:
+    if isinstance(exc, urllib.error.HTTPError) and exc.code in {429, 500, 502, 503, 504}:
+        return True
     return isinstance(exc, (TimeoutError, urllib.error.URLError)) or "timeout" in type(exc).__name__.lower()
 
 
@@ -949,18 +949,173 @@ def _webserper_maps_payload(
     gl: str,
     places: list[dict[str, Any]],
     source_runs: list[dict[str, Any]] | None = None,
+    engine: str = "official_site_organic_plus_page_extract",
+    fallback_engine: str = "yahoo_japan+duckduckgo_lite",
 ) -> dict[str, Any]:
     return {
         "searchParameters": {
             "q": query,
             "gl": gl,
-            "engine": "official_site_organic_plus_page_extract",
-            "fallback_engine": "duckduckgo_lite+yahoo_japan",
+            "engine": engine,
+            "fallback_engine": fallback_engine,
             "provider": WEB_SERPER_PROVIDER,
             "sourceRuns": source_runs or [],
         },
         "places": places,
     }
+
+
+def _query_discovery_mode(query: str) -> str:
+    lowered = str(query or "").lower()
+    if "site:" in lowered and any(token in lowered for token in DIRECTORY_HOST_TOKENS):
+        return "directory_extraction"
+    return "maps_plus_official"
+
+
+def _query_should_merge_organic_discovery(query: str) -> bool:
+    lowered = str(query or "").lower()
+    return (
+        "公式" in query
+        or "official" in lowered
+        or "メニュー" in query
+        or "お品書き" in query
+        or "飲み放題" in query
+        or "券売機" in query
+        or "食券" in query
+    )
+
+
+def _directory_extraction_queries(query: str) -> list[str]:
+    queries = _localized_query_variants(query)
+    lowered = str(query or "").lower()
+    if "ramendb" in lowered:
+        for place in _place_terms_from_query(query):
+            queries.append(f"ラーメンデータベース {place} ラーメン 公式")
+    if "tabelog" in lowered:
+        for place in _place_terms_from_query(query):
+            category = "ラーメン" if _query_targets_ramen(query) else "居酒屋"
+            queries.append(f"食べログ {place} {category} メニュー 公式")
+    if "hotpepper" in lowered:
+        for place in _place_terms_from_query(query):
+            category = "ラーメン" if _query_targets_ramen(query) else "居酒屋"
+            queries.append(f"ホットペッパー {place} {category} メニュー 公式")
+    if "gnavi" in lowered or "gurunavi" in lowered:
+        for place in _place_terms_from_query(query):
+            queries.append(f"ぐるなび {place} 居酒屋 メニュー 公式")
+    return [item for item in dict.fromkeys(queries) if item]
+
+
+def _official_discovery_queries(query: str) -> list[str]:
+    variants = _localized_query_variants(query)
+    for place in _place_terms_from_query(query):
+        area = _area_hint(place)
+        if _query_targets_ramen(query):
+            variants.extend([
+                " ".join(part for part in [place, "ラーメン", "公式", "お問い合わせ", area] if part),
+                " ".join(part for part in [place, "ラーメン", "公式", "メール", area] if part),
+            ])
+        if _query_targets_izakaya(query):
+            variants.extend([
+                " ".join(part for part in [place, "居酒屋", "公式", "お問い合わせ", area] if part),
+                " ".join(part for part in [place, "居酒屋", "お品書き", "公式", area] if part),
+            ])
+    return [item for item in dict.fromkeys(variants) if item]
+
+
+def _localized_query_variants(query: str) -> list[str]:
+    cleaned = " ".join(str(query or "").split())
+    variants = [cleaned] if cleaned else []
+    for latin, japanese in CITY_ALIASES.items():
+        pattern = re.compile(re.escape(latin), re.I)
+        if pattern.search(cleaned):
+            variants.append(pattern.sub(japanese, cleaned))
+    return [item for item in dict.fromkeys(variants) if item]
+
+
+def _organic_places_for_queries(
+    *,
+    query: str,
+    queries: list[str],
+    gl: str,
+    timeout_seconds: int,
+    source_runs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    seen_links: set[str] = set()
+    for local_query in queries:
+        try:
+            organic_response = _webserper_organic_search(query=local_query, gl=gl, timeout_seconds=timeout_seconds)
+        except Exception as exc:
+            source_runs.append({
+                "engine": "official_site_organic",
+                "query": local_query,
+                "attempt_count": 1,
+                "recovered_by_retry": False,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            })
+            continue
+        source_runs.append({
+            "engine": "official_site_organic",
+            "query": local_query,
+            "attempt_count": 1,
+            "recovered_by_retry": any(
+                bool(source.get("recovered_by_retry"))
+                for source in (organic_response.get("searchParameters") or {}).get("sourceRuns") or []
+            ),
+            "fallback_engine": "yahoo_japan+duckduckgo_lite",
+            "source_runs": (organic_response.get("searchParameters") or {}).get("sourceRuns") or [],
+            "result_count": len(organic_response.get("organic") or []),
+        })
+        for result in organic_response.get("organic") or []:
+            link = str(result.get("link") or "")
+            if link and link not in seen_links:
+                seen_links.add(link)
+                results.append(result)
+    results.sort(key=lambda result: (-_organic_result_score(result, query), str(result.get("link") or "")))
+
+    places: list[dict[str, Any]] = []
+    seen_hosts: set[str] = set()
+    for result in results[: _local_result_limit()]:
+        for candidate in _candidate_inputs_for_result(result, timeout_seconds=timeout_seconds, gl=gl):
+            website = str(candidate.get("website") or "")
+            host = _host(website)
+            if not host or host in seen_hosts:
+                continue
+            seen_hosts.add(host)
+            place = _place_from_website_result(
+                website=website,
+                source_url=str(candidate.get("source_url") or website),
+                result=result,
+                query=query,
+                seed_name=str(candidate.get("name") or ""),
+                seed_address=str(candidate.get("address") or ""),
+                seed_phone=str(candidate.get("phone") or ""),
+                timeout_seconds=timeout_seconds,
+            )
+            if place:
+                places.append(place)
+            if len(places) >= _local_place_limit():
+                return places
+    return places
+
+
+def _merge_places_by_site_or_name(places: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for place in places:
+        website = normalize_website_url(str(place.get("website") or ""))
+        host = _host(website)
+        name = normalise_business_name(str(place.get("name") or place.get("title") or ""))
+        key = f"host:{host}" if host else f"name:{name}"
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        updated = dict(place)
+        if website:
+            updated["website"] = website
+        merged.append(updated)
+    return merged
 
 
 def _local_maps_queries(query: str) -> list[str]:

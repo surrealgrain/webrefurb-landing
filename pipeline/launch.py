@@ -224,6 +224,9 @@ def list_launch_batches(*, state_root: Path) -> list[dict[str, Any]]:
 def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
     dossier = lead.get("lead_evidence_dossier") or {}
     primary_contact = get_primary_contact(lead) or {}
+    proof_asset = (lead.get("outreach_assets_selected") or [""])[0]
+    if not proof_asset:
+        proof_asset = str(lead.get("hosted_menu_sample_url") or lead.get("sample_menu_url") or "")
     return {
         "lead_id": lead.get("lead_id"),
         "business_name": lead.get("business_name"),
@@ -235,7 +238,7 @@ def _launch_entry_from_lead(lead: dict[str, Any]) -> dict[str, Any]:
         },
         "selected_channel": primary_contact.get("type", ""),
         "message_variant": lead.get("message_variant", ""),
-        "proof_asset": (lead.get("outreach_assets_selected") or [""])[0],
+        "proof_asset": proof_asset,
         "recommended_package": lead.get("recommended_primary_package", ""),
         "contacted_at": "",
         "reply_status": "not_contacted",
@@ -255,6 +258,8 @@ def _missing_launch_measurement_fields(lead: dict[str, Any]) -> list[str]:
     if not str(lead.get("message_variant") or "").strip():
         missing.append("message_variant")
     proof_asset = (lead.get("outreach_assets_selected") or [""])[0]
+    if not proof_asset:
+        proof_asset = str(lead.get("hosted_menu_sample_url") or lead.get("sample_menu_url") or "")
     proof_items = lead.get("proof_items") or (lead.get("lead_evidence_dossier") or {}).get("proof_items") or []
     if not proof_asset and not any(item.get("customer_preview_eligible") for item in proof_items):
         missing.append("proof_asset")

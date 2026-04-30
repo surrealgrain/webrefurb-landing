@@ -28,6 +28,19 @@ def test_extract_contact_email_skips_sentry_ingest_before_business_email():
     assert search.find_contact_email("https://example-ramen.jp", html) == "owner@example-ramen.jp"
 
 
+def test_contact_candidate_urls_add_deterministic_inquiry_paths_and_skip_reservations():
+    html = """
+    <a href="/reserve">ご予約</a>
+    <a href="/booking">Book a table</a>
+    """
+
+    urls = search._contact_candidate_urls("https://example-ramen.jp/shop/sangenjaya", html, limit=4)
+
+    assert "https://example-ramen.jp/reserve" not in urls
+    assert "https://example-ramen.jp/booking" not in urls
+    assert urls[:2] == ["https://example-ramen.jp/contact", "https://example-ramen.jp/contact/"]
+
+
 def test_normalised_lead_contacts_skip_telemetry_email():
     contacts = normalise_lead_contacts({
         "contacts": [

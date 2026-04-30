@@ -232,6 +232,49 @@ def test_multilingual_qr_record_cannot_remain_launch_ready():
     assert "multilingual_qr_or_ordering_solution_present" in migrated["launch_readiness_reasons"]
 
 
+def test_weak_source_coverage_forces_manual_review():
+    migrated, _ = migrate_lead_record(_ready_record(
+        source_count=1,
+        source_coverage_score=32,
+        coverage_signals={
+            "source_count": 1,
+            "has_official_site": False,
+            "has_portal_menu": False,
+            "has_english_menu_signal": False,
+            "operator_found": False,
+            "contact_found": True,
+            "portal_only": False,
+            "matching_phone_or_address": False,
+        },
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert "weak_source_coverage" in migrated["launch_readiness_reasons"]
+    assert "no_official_site_confirmed" in migrated["launch_readiness_reasons"]
+    assert "weak_entity_resolution" in migrated["launch_readiness_reasons"]
+    assert "low_source_coverage_score" in migrated["launch_readiness_reasons"]
+
+
+def test_strong_source_coverage_can_remain_ready():
+    migrated, _ = migrate_lead_record(_ready_record(
+        source_count=3,
+        source_coverage_score=74,
+        coverage_signals={
+            "source_count": 3,
+            "has_official_site": True,
+            "has_portal_menu": True,
+            "has_english_menu_signal": False,
+            "operator_found": False,
+            "contact_found": True,
+            "portal_only": False,
+            "matching_phone_or_address": True,
+        },
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_READY
+    assert migrated["launch_readiness_reasons"] == ["qualified_with_safe_proof_and_contact_route"]
+
+
 def test_non_japan_record_cannot_remain_launch_ready():
     migrated, _ = migrate_lead_record(_ready_record(
         address="71-28 Roosevelt Ave, Jackson Heights, NY 11372",

@@ -220,6 +220,12 @@ PROJECT_ROOT = DASHBOARD_ROOT.parent
 STATE_ROOT = Path(os.environ.get("WEBREFURB_STATE_ROOT", PROJECT_ROOT / "state")).resolve()
 QR_DOCS_ROOT = PROJECT_ROOT / "docs"
 
+
+def _dashboard_sample_docs_root() -> Path:
+    from pipeline.hosted_sample import default_sample_docs_root
+
+    return default_sample_docs_root(state_root=STATE_ROOT)
+
 # Load .env
 load_project_env(PROJECT_ROOT / ".env")
 
@@ -742,7 +748,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     GET preview loads saved draft content. POST intentionally regenerates from
     the locked template and clears the saved manual draft.
     """
-    from pipeline.record import authoritative_business_name, load_lead
+    from pipeline.record import authoritative_business_name, load_lead, persist_lead_record
     from pipeline.outreach import (
         build_manual_outreach_message,
         build_outreach_email,
@@ -813,7 +819,23 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     profile = _effective_establishment_profile(record)
     send_enabled = _has_business_email(record)
     primary_contact_type = str((primary_contact or {}).get("type") or "")
+    sample_result: dict[str, Any] = {}
+    sample_menu_url = str(record.get("sample_menu_url") or record.get("hosted_menu_sample_url") or "").strip()
     if primary_contact_type == "contact_form":
+        from pipeline.hosted_sample import ensure_hosted_menu_sample
+
+        record, sample_result = ensure_hosted_menu_sample(
+            record,
+            state_root=STATE_ROOT,
+            docs_root=_dashboard_sample_docs_root(),
+        )
+        persist_lead_record(record, state_root=STATE_ROOT)
+        if not sample_result.get("ok"):
+            raise HTTPException(
+                status_code=502,
+                detail=f"Hosted sample page could not be published: {sample_result.get('error') or 'unknown_error'}",
+            )
+        sample_menu_url = str(sample_result.get("sample_menu_url") or sample_menu_url)
         contact_action = "use_contact_form"
         contact_action_note = "Use this no-attachment version in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
     else:
@@ -843,6 +865,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             establishment_profile=profile["effective"],
             include_inperson_line=include_inperson,
             lead_dossier=record.get("lead_evidence_dossier") or {},
+            sample_menu_url=sample_menu_url,
         )
 
     # Update lead record
@@ -856,7 +879,6 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
-    from pipeline.record import persist_lead_record
     if regenerate:
         record["outreach_draft_body"] = None
         record["outreach_draft_english_body"] = None
@@ -947,6 +969,12 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "lead_evidence_dossier": record.get("lead_evidence_dossier") or {},
         "proof_items": proof_items,
         "message_variant": record.get("message_variant", ""),
+        "sample_menu_url": sample_menu_url,
+        "hosted_menu_sample": sample_result or {
+            "sample_menu_url": sample_menu_url,
+            "published": record.get("hosted_menu_sample_status") == "published",
+            "path": record.get("hosted_menu_sample_path", ""),
+        },
         "is_test_fixture": bool(test_fixture_label),
         "test_fixture_label": test_fixture_label,
     }
@@ -994,6 +1022,7 @@ async def api_translate_draft(request: Request):
     include_inperson = body.get("include_inperson", True)
     include_menu_image = bool(body.get("include_menu_image", True))
     include_machine_image = bool(body.get("include_machine_image", False))
+    sample_menu_url = str(body.get("sample_menu_url") or "").strip()
 
     if not english_body:
         raise HTTPException(status_code=400, detail="English body required")
@@ -1029,6 +1058,7 @@ async def api_translate_draft(request: Request):
                 channel=draft_channel,
                 establishment_profile=candidate_profile,
                 include_inperson_line=include_inperson,
+                sample_menu_url=sample_menu_url,
             )
         if normalised_english_body == _normalise_body(candidate_draft["english_body"]):
             japanese_body = candidate_draft["body"]

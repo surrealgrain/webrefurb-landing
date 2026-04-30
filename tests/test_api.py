@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import types
 import pytest
@@ -21,6 +22,16 @@ try:
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
+
+
+def _initial_leads_from_html(html: str) -> list[dict]:
+    match = re.search(
+        r'<script id="initial-leads-data" type="application/json">(.*?)</script>',
+        html,
+        re.S,
+    )
+    assert match, "initial lead data script not found"
+    return json.loads(match.group(1))
 
 
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
@@ -408,6 +419,8 @@ class TestAPIEndpoints:
         assert data["assets"] == []
         assert data["include_menu_image"] is False
         assert data["include_machine_image"] is False
+        assert data["sample_menu_url"].startswith("https://webrefurb.com/s/")
+        assert data["sample_menu_url"] in data["body"]
         assert data["primary_contact"]["confidence"] == "medium"
         assert data["primary_contact"]["discovered_at"] == "2026-04-28T00:00:00+00:00"
         assert data["primary_contact"]["status"] == "discovered"
@@ -416,6 +429,9 @@ class TestAPIEndpoints:
         assert website_contact["status"] == "reference_only"
         assert map_contact["href"] == "https://maps.google.com/?cid=form-route"
         assert map_contact["status"] == "reference_only"
+        stored = json.loads((tmp_path / "leads" / "wrm-test-form-route.json").read_text(encoding="utf-8"))
+        assert stored["hosted_menu_sample_status"] == "published"
+        assert Path(stored["hosted_menu_sample_path"]).exists()
 
     def test_outreach_preview_uses_locked_business_name_when_current_name_is_suspicious(self, tmp_path):
         self._create_lead(
@@ -613,12 +629,13 @@ class TestAPIEndpoints:
         response = self.client.get("/")
 
         assert response.status_code == 200
-        assert "Ready For Outreach" in response.text
-        assert "Manual Review" in response.text
-        assert "Disqualified" in response.text
+        leads = {lead["lead_id"]: lead for lead in _initial_leads_from_html(response.text)}
+        assert leads["wrm-ready-card"]["launch_readiness_status"] == "ready_for_outreach"
+        assert leads["wrm-manual-card"]["launch_readiness_status"] == "manual_review"
+        assert leads["wrm-chain-card"]["launch_readiness_status"] == "disqualified"
         assert "Review Gate" in response.text
-        assert "Counter-Ready Ordering Kit" in response.text
-        assert "ramen ticket machine needs counter ready mapping" in response.text
+        assert leads["wrm-ready-card"]["recommended_package_label"] == "Counter-Ready Ordering Kit"
+        assert leads["wrm-ready-card"]["package_recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
 
     def test_launch_batch_api_blocks_second_batch_until_review(self, tmp_path):
         lead_ids = self._write_launch_ready_leads(tmp_path)
@@ -2113,15 +2130,17 @@ class TestStatusPersistence:
         self._create_lead(menu_evidence_found=True, machine_evidence_found=True)
         response = self.client.get("/")
         assert response.status_code == 200
-        assert '<span class="evidence-pill evidence-pill-menu">Menu</span>' in response.text
-        assert '<span class="evidence-pill evidence-pill-vending">Ticket Machine</span>' in response.text
+        leads = _initial_leads_from_html(response.text)
+        assert leads[0]["menu_evidence_found"] is True
+        assert leads[0]["machine_evidence_found"] is True
 
     def test_main_page_shows_single_evidence_tag(self):
         self._create_lead(menu_evidence_found=True, machine_evidence_found=False)
         response = self.client.get("/")
         assert response.status_code == 200
-        assert '<span class="evidence-pill evidence-pill-menu">Menu</span>' in response.text
-        assert '<span class="evidence-pill evidence-pill-vending">Ticket Machine</span>' not in response.text
+        leads = _initial_leads_from_html(response.text)
+        assert leads[0]["menu_evidence_found"] is True
+        assert leads[0]["machine_evidence_found"] is False
 
     def test_project_root_is_not_exposed_as_assets(self):
         response = self.client.get("/assets/.env")

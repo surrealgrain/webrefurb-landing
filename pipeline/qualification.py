@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import urllib.parse
 from typing import Any
 
 from .html_parser import extract_page_payload
@@ -19,7 +20,9 @@ from .models import QualificationResult
 from .lead_dossier import build_lead_evidence_dossier, assess_launch_readiness
 from .constants import (
     RAMEN_MENU_TERMS,
+    RAMEN_CATEGORY_TERMS,
     IZAKAYA_MENU_TERMS,
+    IZAKAYA_CATEGORY_TERMS,
     PRICE_RE,
     SOLVED_ENGLISH_SUPPORT_TERMS,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
@@ -51,6 +54,11 @@ def qualify_candidate(
     # Parse pages
     page_payloads = [extract_page_payload(page.get("url") or website, page.get("html") or "") for page in pages]
     combined_text = "\n".join(payload["text"] for payload in page_payloads)
+    official_chain_text = _official_chain_gate_text(
+        website=website,
+        payloads=page_payloads,
+        fallback=combined_text,
+    )
 
     # Evidence assessment
     assessment = assess_evidence(
@@ -86,15 +94,29 @@ def qualify_candidate(
             assessment=assessment, rejection_reason="chain_business",
             decision_reason="Rejected: known chain or multi-location brand.",
         )
-    if _has_franchise_or_multi_location_infrastructure(combined_text, business_name=business_name):
+    if _has_franchise_or_multi_location_infrastructure(official_chain_text, business_name=business_name):
         return _reject(
             business_name=business_name, website=website, category=category,
             assessment=assessment, rejection_reason="chain_or_franchise_infrastructure",
             decision_reason="Rejected: franchise or multi-location infrastructure found.",
         )
 
+    # First-party out-of-scope signals should override a noisy search category hint.
+    category_hint = str(category or "").strip().lower()
+    if (
+        category_hint in {"ramen", "izakaya", "all", "ラーメン", "居酒屋"}
+        and not _has_target_category_text(official_chain_text)
+        and is_excluded_business(f"{business_name} {official_chain_text}", category)
+    ):
+        return _reject(
+            business_name=business_name, website=website, category=category,
+            assessment=assessment, rejection_reason="excluded_business_type_v1",
+            decision_reason="Rejected: excluded business type (sushi, yakiniku, kaiseki, cafe, etc.).",
+            primary_category_v1="other",
+        )
+
     # Category gate (ramen or izakaya only)
-    primary_category = classify_primary_category(combined_text, category)
+    primary_category = classify_primary_category(official_chain_text, category)
     if primary_category == "other":
         return _reject(
             business_name=business_name, website=website, category=category,
@@ -487,6 +509,37 @@ def _has_multilingual_ordering_solution(text: str) -> bool:
 
 def _has_franchise_or_multi_location_infrastructure(text: str, *, business_name: str = "") -> bool:
     return has_chain_or_franchise_infrastructure(text, business_name=business_name)
+
+
+def _has_target_category_text(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(term.lower() in lowered for term in RAMEN_CATEGORY_TERMS + IZAKAYA_CATEGORY_TERMS)
+
+
+def _official_chain_gate_text(*, website: str, payloads: list[dict[str, Any]], fallback: str) -> str:
+    """Use first-party site text for chain gates when it is available.
+
+    Collected replay corpora often include review/directory pages as supporting
+    evidence. Those pages can mention unrelated chain restaurants in reviewer
+    history, global navigation, or recommendation widgets; they should not
+    disqualify an otherwise independent shop. First-party pages still carry the
+    normal chain/franchise/multi-store checks.
+    """
+    website_host = _host_key(website)
+    official = [
+        str(payload.get("text") or "")
+        for payload in payloads
+        if website_host and _host_key(str(payload.get("url") or "")) == website_host
+    ]
+    return "\n".join(official) if official else fallback
+
+
+def _host_key(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url or ""))
+    host = (parsed.netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
 
 
 # Japanese prefecture prefixes for address detection

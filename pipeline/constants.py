@@ -30,6 +30,8 @@ EXCLUDED_BUSINESS_TOKENS = (
     "cafe", "カフェ", "珈琲", "コーヒー", "bakery", "パン屋",
     "hotel restaurant", "ホテル", "ryokan", "旅館",
     "tempura", "天ぷら", "tonkatsu", "とんかつ",
+    "hostel", "guesthouse", "guest house", "ホステル", "ゲストハウス", "宿泊",
+    "bistro", "ビストロ", "french", "フレンチ", "フランス料理", "italian", "イタリアン",
 )
 
 # ---------------------------------------------------------------------------
@@ -104,7 +106,7 @@ RAMEN_MENU_TERMS = (
 
 RAMEN_CATEGORY_TERMS = (
     "ramen", "ラーメン", "らーめん", "中華そば", "つけ麺", "まぜそば",
-    "油そば", "担々麺", "台湾ラーメン",
+    "油そば", "担々麺", "台湾ラーメン", "鶏そば", "鳥そば", "鶏白湯",
 )
 
 TICKET_MACHINE_TERMS = (

@@ -397,6 +397,56 @@ def test_collect_writes_manifest_schema_and_fetch_failures(tmp_path):
     assert not (tmp_path / "production-sim" / "production-sim-collect-schema-test" / "state" / "leads").exists()
 
 
+def test_collect_marks_solution_checks_as_enrichment_not_candidate_creation(tmp_path):
+    def maps_search(*, query: str, **_: object) -> dict:
+        slug = "".join(ch for ch in query.lower() if ch.isalnum())[:24] or "candidate"
+        return {
+            "places": [{
+                "title": f"候補 {slug}",
+                "website": f"https://{slug}.example.jp",
+                "address": "東京都渋谷区神南1-2-3",
+                "phoneNumber": "03-1234-5678",
+                "placeId": f"place-{slug}",
+                "link": f"https://maps.example/{slug}",
+            }]
+        }
+
+    def fetch_page(url: str, **_: object) -> str:
+        return """
+        <html><body>
+          <h1>候補</h1>
+          <p>東京都渋谷区神南1-2-3 ラーメン メニュー 券売機</p>
+          <a href="/contact">お問い合わせ</a>
+        </body></html>
+        """
+
+    report = collect_corpus(
+        run_id="production-sim-solution-check-enrichment-test",
+        cities=["Shibuya"],
+        category="ramen",
+        limit_per_job=2,
+        output_root=tmp_path / "production-sim",
+        replay_root=tmp_path / "search-replay",
+        maps_search_fn=maps_search,
+        web_search_fn=lambda **_: {"organic": []},
+        fetch_page_fn=fetch_page,
+    )
+
+    root = Path(report["collection_manifest_path"]).parent
+    corpus = load_replay_corpus(root, require_labels=False)
+    manifest = corpus["manifest"]
+
+    assert manifest["all_search_job_count"] > manifest["search_job_count"]
+    assert manifest["enrichment_search_job_count"] > 0
+    assert {"candidate_discovery", "directory_extraction", "solution_check"} <= {
+        job["job_mode"] for job in manifest["search_jobs"]
+    }
+    assert all(
+        candidate["source_search_job"]["job_mode"] != "solution_check"
+        for candidate in corpus["candidates"]
+    )
+
+
 def test_default_maps_search_reports_missing_or_http_error_body(monkeypatch):
     with pytest.raises(ReplaySearchError, match="requires SERPER_API_KEY"):
         _default_maps_search(query="ラーメン Shibuya", api_key="", search_provider="serper")
@@ -630,7 +680,16 @@ def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_
     assert queue["expected_ready_second_pass_required"]
     assert shortlist
     assert shortlist[0]["score"] >= shortlist[-1]["score"]
-    assert {"directory_site", "social_site", "reservation_form", "chain_like", "no_customer_safe_proof", "already_english_or_qr"} >= set(
+    assert {
+        "directory_site",
+        "hosted_directory_site",
+        "social_site",
+        "reservation_form",
+        "chain_like",
+        "out_of_scope",
+        "no_customer_safe_proof",
+        "already_english_or_qr",
+    } >= set(
         flag for item in shortlist for flag in item["negative_flags"]
     )
 
@@ -688,6 +747,9 @@ def test_benchmark_replay_corpus_writes_metrics_and_markdown(tmp_path):
     assert result["metrics"]["deduped_candidates_per_job"] == 2.0
     assert result["metrics"]["fetch_failure_rate"] == 0.1111
     assert result["metrics"]["expected_ready_label_count"] == 1
+    assert "search_job_mode_counts" in result["metrics"]
+    assert "contact_route_profile_counts" in result["metrics"]
+    assert "deduped_candidates_per_discovery_job" in result["metrics"]
     assert Path(result["report_path"]).exists()
     assert Path(result["report_markdown_path"]).exists()
     assert result["external_send_performed"] is False

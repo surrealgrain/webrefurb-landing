@@ -206,19 +206,39 @@ def _looks_like_multi_store_listing(text: str) -> bool:
     """Catch official pages that list several branches without saying franchise."""
     if not text:
         return False
-    context = ("店舗一覧", "店舗紹介", "店舗情報", "店舗リスト", "会社概要", "株式会社", "有限会社", "展開", "グループ")
+    context = ("店舗一覧", "店舗案内", "店舗紹介", "店舗情報", "店舗リスト", "会社概要", "株式会社", "有限会社", "展開", "グループ")
     if not any(token in text for token in context):
         return False
     if "店舗一覧" in text and "展開" in text:
         return True
 
-    store_names = {
-        match.group(0)
-        for match in re.finditer(r"[\w\u3040-\u30ff\u3400-\u9fff]{2,18}(?:本店|店)", text)
+    store_names = _store_name_candidates(text)
+    tel_blocks = {
+        re.sub(r"\D", "", block)
+        for block in re.findall(r"(?i)(?:tel|電話|電話番号)\s*[:：]?\s*\d{2,4}[-ー−]?\d{2,4}", text)
     }
-    tel_blocks = re.findall(r"(?i)(?:tel|電話|電話番号)\s*[:：]?\s*\d{2,4}[-ー−]?\d{2,4}", text)
-    address_blocks = re.findall(r"(?:東京都|大阪府|京都府|北海道|福岡県|神奈川県|千葉県|埼玉県|兵庫県|愛知県).{0,24}(?:区|市|町|村)", text)
+    address_blocks = {
+        block
+        for block in re.findall(r"(?:東京都|大阪府|京都府|北海道|福岡県|神奈川県|千葉県|埼玉県|兵庫県|愛知県).{0,24}(?:区|市|町|村)", text)
+    }
+    if len(store_names) >= 5 and any(token in text for token in ("店舗一覧", "店舗案内", "各店舗", "SHOP LIST", "Shop List")):
+        return True
     return len(store_names) >= 3 and (len(tel_blocks) >= 2 or len(address_blocks) >= 2)
+
+
+def _store_name_candidates(text: str) -> set[str]:
+    """Return branch-like store names while ignoring generic copy ending in 店."""
+    generic_terms = (
+        "お店", "当店", "ご来店", "来店", "店内", "店作り", "店づくり", "閉店",
+        "開店", "入店", "退店", "店舗", "飲食店", "専門店", "加盟店",
+    )
+    candidates: set[str] = set()
+    for match in re.finditer(r"[\w\u3040-\u30ff\u3400-\u9fff]{2,18}(?:本店|店)", text):
+        value = match.group(0)
+        if any(term in value for term in generic_terms):
+            continue
+        candidates.add(value)
+    return candidates
 
 
 def is_excluded_business(business_name: str, category: str = "") -> bool:
@@ -230,17 +250,17 @@ def is_excluded_business(business_name: str, category: str = "") -> bool:
 def classify_primary_category(text: str, category: str = "") -> str:
     """Return 'ramen', 'izakaya', or 'other'."""
     category_value = str(category or "").strip().lower()
-    haystack = f"{text} {category}".lower()
     text_haystack = str(text or "").lower()
     has_ramen = any(term.lower() in text_haystack for term in RAMEN_CATEGORY_TERMS)
     has_izakaya = any(term.lower() in text_haystack for term in IZAKAYA_CATEGORY_TERMS)
-    if category_value in {"ramen", "ラーメン"} and not (has_izakaya and not has_ramen):
+    if has_ramen and has_izakaya:
+        if category_value in {"izakaya", "居酒屋"}:
+            return "izakaya"
+        if category_value in {"ramen", "ラーメン"}:
+            return "ramen"
+    if has_ramen:
         return "ramen"
-    if category_value in {"izakaya", "居酒屋"} and not (has_ramen and not has_izakaya):
-        return "izakaya"
-    if any(term.lower() in haystack for term in RAMEN_CATEGORY_TERMS):
-        return "ramen"
-    if any(term.lower() in haystack for term in IZAKAYA_CATEGORY_TERMS):
+    if has_izakaya:
         return "izakaya"
     return "other"
 

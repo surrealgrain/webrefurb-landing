@@ -125,7 +125,7 @@ def test_webserper_organic_search_merges_duckduckgo_and_yahoo(monkeypatch):
 
     data = search_provider.run_organic_search(query="居酒屋 渋谷 公式", provider="webserper")
 
-    assert data["searchParameters"]["engines"] == ["duckduckgo_lite", "yahoo_japan"]
+    assert data["searchParameters"]["engines"] == ["yahoo_japan", "duckduckgo_lite"]
     assert {result["sourceEngine"] for result in data["organic"]} == {"duckduckgo_lite", "yahoo_japan"}
     assert [result["link"] for result in data["organic"]].count("https://mirai-izakaya.example") == 1
     assert "https://shizuku.example.jp" in {result["link"] for result in data["organic"]}
@@ -163,11 +163,59 @@ def test_google_maps_timeout_falls_back_to_yahoo_organic_without_search_failure(
 
     assert data["places"][0]["title"] == "未来ラーメン"
     assert data["places"][0]["website"] == "https://mirai-ramen.example.jp"
-    assert data["searchParameters"]["fallback_engine"] == "duckduckgo_lite+yahoo_japan"
+    assert data["searchParameters"]["fallback_engine"] == "yahoo_japan+duckduckgo_lite"
     google_run = data["searchParameters"]["sourceRuns"][0]
     assert google_run["engine"] == "google_maps_browser"
     assert google_run["attempt_count"] == 2
     assert google_run["fallback_engine"] == "official_site_organic"
+
+
+def test_directory_query_uses_organic_extraction_without_google_maps(monkeypatch):
+    directory_html = """
+    <html><body>
+      <a href="https://tabelog.com/redirect?url=https%3A%2F%2Fharuka-ramen.example%2F">公式サイト</a>
+    </body></html>
+    """
+    official_html = """
+    <html><body>
+      <h1>遥ラーメン</h1>
+      <p>東京都武蔵野市吉祥寺本町1-1-1 TEL 0422-11-2222</p>
+      <p>ラーメン メニュー 券売機</p>
+    </body></html>
+    """
+
+    def fail_google(**_: object) -> list[dict]:
+        raise AssertionError("directory jobs should not call Google Maps")
+
+    def fake_get(url: str, **_: object) -> str:
+        if "tabelog.com" in url:
+            return directory_html
+        if "haruka-ramen.example" in url:
+            return official_html
+        raise AssertionError(f"unexpected URL: {url}")
+
+    monkeypatch.setattr(search_provider, "_google_maps_browser_search", fail_google)
+    monkeypatch.setattr(
+        search_provider,
+        "_yahoo_japan_html",
+        lambda **_: _yahoo_result(
+            title="遥ラーメン 吉祥寺 - 食べログ",
+            link="https://tabelog.com/tokyo/A1320/A132001/12345678/",
+            snippet="吉祥寺 ラーメン メニュー",
+        ),
+    )
+    monkeypatch.setattr(search_provider, "_duckduckgo_html", lambda **_: "")
+    monkeypatch.setattr(search_provider, "_http_get_text", fake_get)
+
+    data = search_provider.run_maps_search(
+        query="site:tabelog.com ラーメン Kichijoji メニュー",
+        provider="webserper",
+    )
+
+    assert data["searchParameters"]["engine"] == "official_site_directory_extract"
+    assert data["places"][0]["website"] == "https://haruka-ramen.example"
+    assert data["places"][0]["title"] == "遥ラーメン 吉祥寺"
+    assert {run["engine"] for run in data["searchParameters"]["sourceRuns"]} == {"official_site_organic"}
 
 
 def test_webserper_maps_search_enriches_directory_result_to_place(monkeypatch):

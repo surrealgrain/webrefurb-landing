@@ -165,3 +165,12 @@ def test_public_menu_samples_do_not_expose_unsafe_placeholders():
                     assert re.search(pattern, content) is None, f"Unsafe placeholder in {path}"
                 else:
                     assert pattern not in content, f"Unsafe placeholder in {path}"
+
+
+def test_dashboard_template_has_no_visible_jinja_when_opened_directly():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+    visible_markup = re.sub(r"(?is)<script\b[^>]*>.*?</script>", "", html)
+
+    assert "{%" not in visible_markup
+    assert "{{" not in visible_markup
+    assert "initial-leads-data" in html
