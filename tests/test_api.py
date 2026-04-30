@@ -1617,6 +1617,45 @@ class TestSendSafety:
         assert stored["outreach_status"] == "sent"
         assert stored["outreach_draft_body"] == "Saved body"
 
+    def test_send_record_persists_attachment_metadata(self):
+        from pipeline.constants import GENERIC_MENU_PDF
+
+        self._create_lead(
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(GENERIC_MENU_PDF)],
+            outreach_draft_subject="Saved subject",
+            outreach_draft_body="Saved body",
+        )
+        with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = {
+                "id": "mock-send",
+                "attachment_metadata": [
+                    {
+                        "filename": "english-menu-sample.jpg",
+                        "mime_type": "image/jpeg",
+                        "content_id": "menu-preview",
+                        "disposition": "inline",
+                        "inline": True,
+                        "size_bytes": 1234,
+                        "sha256": "abc123",
+                    }
+                ],
+            }
+            response = self.client.post(
+                "/api/send/wrm-send-test",
+                json={"email": "test@test.com"},
+            )
+
+        assert response.status_code == 200
+        sent_records = list((self.tmp_path / "sent").glob("wrm-send-test_*.json"))
+        assert len(sent_records) == 1
+        sent = json.loads(sent_records[0].read_text(encoding="utf-8"))
+        assert sent["requested_attachment_paths"] == [str(GENERIC_MENU_PDF)]
+        assert sent["attachment_metadata"]["attachment_count"] == 1
+        assert sent["inline_attachments"][0]["filename"] == "english-menu-sample.jpg"
+        assert sent["inline_attachments"][0]["content_id"] == "menu-preview"
+        assert sent["file_attachments"] == []
+
     def test_send_uses_locked_name_for_inline_sample_seal(self):
         from pipeline.constants import GENERIC_MENU_PDF
 

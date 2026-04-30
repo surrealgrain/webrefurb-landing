@@ -106,6 +106,32 @@ def test_phone_only_record_cannot_remain_launch_ready():
     assert "contacts" in changes
 
 
+def test_phone_required_contact_form_is_not_supported_route():
+    migrated, changes = migrate_lead_record(_ready_record(
+        primary_contact={
+            "type": "contact_form",
+            "value": "https://example.test/contact",
+            "actionable": True,
+            "status": "discovered",
+            "required_fields": ["お名前", "電話番号", "メールアドレス"],
+        },
+        contacts=[{
+            "type": "contact_form",
+            "value": "https://example.test/contact",
+            "actionable": True,
+            "status": "discovered",
+            "required_fields": ["お名前", "電話番号", "メールアドレス"],
+        }],
+    ))
+
+    assert migrated["contacts"][0]["actionable"] is False
+    assert migrated["contacts"][0]["status"] == "reference_only"
+    assert migrated["has_supported_contact_route"] is False
+    assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
+    assert "contacts" in changes
+
+
 def test_chain_like_record_cannot_remain_launch_ready():
     migrated, _ = migrate_lead_record(_ready_record(business_name="Tsukada Nojo Shibuya Miyamasuzaka"))
 

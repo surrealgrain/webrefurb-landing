@@ -511,7 +511,9 @@ def _proof_strength(proof_items: list[dict[str, Any]]) -> str:
 def _has_supported_contact(record: dict[str, Any]) -> bool:
     contacts = record.get("contacts") or []
     if any(
-        contact.get("actionable") and str(contact.get("type") or "") in SUPPORTED_OUTREACH_CONTACT_TYPES
+        contact.get("actionable")
+        and str(contact.get("type") or "") in SUPPORTED_OUTREACH_CONTACT_TYPES
+        and not _contact_form_requires_phone(contact)
         for contact in contacts
         if isinstance(contact, dict)
     ):
@@ -529,7 +531,7 @@ def _normalise_contact_actionability(record: dict[str, Any]) -> None:
         if not isinstance(contact, dict):
             continue
         contact_type = str(contact.get("type") or "").strip().lower()
-        if contact_type not in SUPPORTED_OUTREACH_CONTACT_TYPES:
+        if contact_type not in SUPPORTED_OUTREACH_CONTACT_TYPES or _contact_form_requires_phone(contact):
             contact["actionable"] = False
             if not str(contact.get("status") or "").strip() or contact.get("status") == "discovered":
                 contact["status"] = "reference_only"
@@ -540,7 +542,7 @@ def _normalise_contact_actionability(record: dict[str, Any]) -> None:
     primary = record.get("primary_contact")
     if isinstance(primary, dict):
         primary_type = str(primary.get("type") or "").strip().lower()
-        if primary_type not in SUPPORTED_OUTREACH_CONTACT_TYPES:
+        if primary_type not in SUPPORTED_OUTREACH_CONTACT_TYPES or _contact_form_requires_phone(primary):
             primary["actionable"] = False
             if not str(primary.get("status") or "").strip() or primary.get("status") == "discovered":
                 primary["status"] = "reference_only"
@@ -548,6 +550,17 @@ def _normalise_contact_actionability(record: dict[str, Any]) -> None:
                 record["primary_contact"] = deepcopy(first_supported)
     elif first_supported is not None:
         record["primary_contact"] = deepcopy(first_supported)
+
+
+def _contact_form_requires_phone(contact: dict[str, Any]) -> bool:
+    if str(contact.get("type") or "").strip().lower() != "contact_form":
+        return False
+    if any(contact.get(key) is True for key in ("requires_phone", "phone_required", "requires_phone_number")):
+        return True
+    fields = " ".join(str(field or "") for field in contact.get("required_fields") or [])
+    reason = str(contact.get("failure_reason") or "")
+    haystack = f"{fields} {reason}".lower()
+    return any(token in haystack for token in ("phone_required", "requires_phone", "phone number", "電話番号"))
 
 
 def _has_multilingual_solution(record: dict[str, Any]) -> bool:
