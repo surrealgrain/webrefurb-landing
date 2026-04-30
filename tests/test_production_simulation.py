@@ -19,6 +19,7 @@ from pipeline.search_replay import (
     ReplayCorpusError,
     ReplaySearchError,
     _default_maps_search,
+    benchmark_replay_corpus,
     copy_corpus_snapshot,
     fixture_collect_adapters,
     load_replay_corpus,
@@ -520,6 +521,52 @@ def test_materialize_collected_candidate_runs_offline_qualification(tmp_path):
     assert (tmp_path / "state" / "leads" / f"{record['lead_id']}.json").exists()
 
 
+def test_reservation_form_candidate_does_not_materialize_ready_route(tmp_path):
+    corpus_root = tmp_path / "search-replay" / "reservation-form-candidate"
+    corpus_root.mkdir(parents=True)
+    html = """
+    東京都千代田区神田神保町1-1 TEL 03-1111-2222
+    居酒屋 メニュー 飲み放題 コース お品書き
+    <form action="/reservation/confirm">
+      <input name="name" required>
+      <input name="reservation_date" required>
+      <select name="reservation_time" required><option>18:00</option></select>
+      <input name="party_size" required>
+      <button type="submit">予約確認</button>
+    </form>
+    """
+    candidate = _label_candidate(
+        "wrm-replay-jimbocho-ton-test",
+        "神保町トンちゃん",
+        "Jinbocho",
+        "izakaya",
+        "izakaya_course_lookup",
+        "course_drink_lookup",
+        "https://jimbocho-ton.example.jp",
+        "03-1111-2222",
+        html,
+    )
+    for page in candidate["capture"]["pages"]:
+        write_text(corpus_root / page["path"], page["html"])
+        del page["html"]
+    corpus = {
+        "root": corpus_root,
+        "manifest": {"run_id": "reservation-form-candidate"},
+        "candidates": [candidate],
+        "labels": {},
+        "unlabeled_candidate_ids": [candidate["candidate_id"]],
+    }
+
+    records = materialize_replay_state(corpus=corpus, state_root=tmp_path / "state")
+
+    record = records[0]
+    assert not any(contact["type"] == "contact_form" for contact in record["contacts"])
+    assert not any(contact["type"] == "phone" for contact in record["contacts"])
+    assert record["has_supported_contact_route"] is False
+    assert record["launch_readiness_status"] == "manual_review"
+    assert "no_supported_contact_route" in record["launch_readiness_reasons"]
+
+
 def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_path):
     corpus_root = _write_labeling_corpus(tmp_path / "search-replay" / "label-workflow")
 
@@ -531,11 +578,13 @@ def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_
 
     sample_path = Path(report["labeling_sample_path"])
     queue_path = Path(report["labeling_review_queue_path"])
+    shortlist_path = Path(report["labeling_review_shortlist_path"])
     offline_plan_path = Path(report["offline_replay_plan_path"])
     dashboard_plan_path = Path(report["dashboard_verification_plan_path"])
     manifest = json.loads((corpus_root / "manifest.json").read_text(encoding="utf-8"))
     sample = json.loads(sample_path.read_text(encoding="utf-8"))
     queue = json.loads(queue_path.read_text(encoding="utf-8"))
+    shortlist = json.loads(shortlist_path.read_text(encoding="utf-8"))
     offline_plan = json.loads(offline_plan_path.read_text(encoding="utf-8"))
     dashboard_plan = json.loads(dashboard_plan_path.read_text(encoding="utf-8"))
     drafts = sorted((corpus_root / "labeling" / "drafts").glob("*.json"))
@@ -558,6 +607,7 @@ def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_
     assert manifest["labeling_workflow"]["offline_replay_ready"] is False
     assert manifest["labeling_workflow"]["offline_replay_plan_file"] == "labeling/offline-replay-plan.json"
     assert manifest["labeling_workflow"]["dashboard_verification_plan_file"] == "labeling/dashboard-verification-plan.json"
+    assert manifest["labeling_workflow"]["review_shortlist_file"] == "labeling/review-shortlist.json"
     assert len(drafts) == 8
     assert load_replay_corpus(corpus_root, require_labels=False)["labels"] == {}
     assert offline_plan["ready"] is False
@@ -578,6 +628,11 @@ def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_
     assert {"email", "contact_form", "website_only"} <= {item["contact_route_profile"] for item in strata}
     assert len(queue["low_confidence_drafts"]) == 8
     assert queue["expected_ready_second_pass_required"]
+    assert shortlist
+    assert shortlist[0]["score"] >= shortlist[-1]["score"]
+    assert {"directory_site", "social_site", "reservation_form", "chain_like", "no_customer_safe_proof", "already_english_or_qr"} >= set(
+        flag for item in shortlist for flag in item["negative_flags"]
+    )
 
     ready_draft = next(
         json.loads(path.read_text(encoding="utf-8"))
@@ -588,6 +643,54 @@ def test_label_workflow_creates_stratified_drafts_without_finalizing_labels(tmp_
     assert ready_draft["label_status"] == "draft_needs_operator_review"
     assert ready_draft["label_confidence"] == "low"
     assert ready_draft["second_pass_review"]["status"] == "pending"
+
+
+def test_benchmark_replay_corpus_writes_metrics_and_markdown(tmp_path):
+    corpus_root = _write_labeling_corpus(tmp_path / "search-replay" / "benchmark-corpus")
+    label = {
+        "candidate_id": "wrm-label-ticket",
+        "business_name": "青空ラーメン",
+        "website": "https://ticket.example.jp",
+        "address": "Shibuya Japan",
+        "category_expected": "ramen",
+        "readiness_expected": "ready_for_outreach",
+        "rejection_reason_expected": "",
+        "package_expected": "package_2_printed_delivered_45k",
+        "contact_route_expected": "email",
+        "inline_assets_expected": ["ramen_food_menu", "ticket_machine_guide"],
+        "ticket_machine_state_expected": "present",
+        "english_menu_state_expected": "missing",
+        "proof_strength_minimum": "gold",
+        "label_confidence": "high",
+        "label_notes": "Reviewed ready label.",
+    }
+    write_json(corpus_root / "labels" / "wrm-label-ticket.json", label)
+    manifest = json.loads((corpus_root / "manifest.json").read_text(encoding="utf-8"))
+    manifest.update({
+        "search_job_count": 4,
+        "raw_candidate_count": 10,
+        "candidate_count": 8,
+        "duplicate_count": 2,
+        "fetch_success_count": 8,
+        "fetch_failure_count": 1,
+        "search_failure_count": 0,
+        "duplicates_file": "duplicates.json",
+        "fetch_failures_file": "fetch-failures.json",
+        "search_failures_file": "search-failures.json",
+    })
+    write_json(corpus_root / "manifest.json", manifest)
+    write_json(corpus_root / "duplicates.json", [{"duplicate_of": "x"}])
+    write_json(corpus_root / "fetch-failures.json", [{"url": "https://broken.example.jp"}])
+    write_json(corpus_root / "search-failures.json", [])
+
+    result = benchmark_replay_corpus(corpus_dir=corpus_root, run_label="unit")
+
+    assert result["metrics"]["deduped_candidates_per_job"] == 2.0
+    assert result["metrics"]["fetch_failure_rate"] == 0.1111
+    assert result["metrics"]["expected_ready_label_count"] == 1
+    assert Path(result["report_path"]).exists()
+    assert Path(result["report_markdown_path"]).exists()
+    assert result["external_send_performed"] is False
 
 
 def test_labeled_collected_corpus_replays_only_finalized_label_subset(tmp_path):

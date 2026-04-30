@@ -28,9 +28,6 @@ CONTACT_URL_TOKENS = (
     "toiawase",
     "mail",
     "form",
-    "reserve",
-    "reservation",
-    "yoyaku",
     "company",
     "about",
     "access",
@@ -40,20 +37,17 @@ CONTACT_URL_TOKENS = (
     "問い合わせ",
     "会社概要",
     "店舗情報",
-    "予約",
 )
 CONTACT_TEXT_TOKENS = (
     "contact",
     "inquiry",
     "mail",
-    "reservation",
     "お問い合わせ",
     "問合せ",
     "お問合せ",
     "問い合わせ",
     "会社概要",
     "店舗情報",
-    "予約",
 )
 NON_BUSINESS_EMAIL_PREFIXES = (
     "noreply@",
@@ -116,6 +110,9 @@ class ContactSignals:
     has_form: bool = False
     form_actions: list[str] = field(default_factory=list)
     required_fields: list[str] = field(default_factory=list)
+    form_field_names: list[str] = field(default_factory=list)
+    contact_form_profile: str = "unknown"
+    page_text_hint: str = ""
     llm_mock_used: bool = False
     llm_mock_reason: str = ""
 
@@ -217,14 +214,27 @@ def _usable_email(email: str) -> bool:
 def extract_contact_signals(html: str, text: str = "") -> ContactSignals:
     decoded = urllib.parse.unquote(f"{html or ''}\n{text or ''}")
     emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded) if _usable_email(email)])
-    has_form = bool(re.search(r"(?is)<form\b", html or ""))
+    literal_or_js_form = bool(re.search(r"(?is)<form\b", html or "")) or _looks_like_javascript_contact_form(html)
     form_actions = _extract_form_actions(html)
     required_fields = _extract_required_form_fields(html)
+    form_field_names = _extract_form_field_names(html)
+    profile = _classify_contact_form_profile(
+        html=html,
+        text=text,
+        has_form=literal_or_js_form,
+        form_actions=form_actions,
+        required_fields=required_fields,
+        form_field_names=form_field_names,
+    )
+    has_form = literal_or_js_form and profile != "hidden_only"
     return ContactSignals(
         emails=emails,
         has_form=has_form,
         form_actions=form_actions,
         required_fields=required_fields,
+        form_field_names=form_field_names,
+        contact_form_profile=profile,
+        page_text_hint=_page_text_hint(html=html, text=text),
     )
 
 
@@ -240,14 +250,242 @@ def _extract_form_actions(html: str) -> list[str]:
 def _extract_required_form_fields(html: str) -> list[str]:
     fields: list[str] = []
     form_blocks = re.findall(r"(?is)<form\b[^>]*>.*?</form>", html or "")
+    if not form_blocks and _looks_like_javascript_contact_form(html):
+        form_blocks = [html or ""]
     for block in form_blocks:
         for tag in re.findall(r"(?is)<(?:input|select|textarea)\b[^>]*>", block):
-            if not re.search(r"(?is)\brequired\b", tag):
+            if not _tag_marks_required(tag):
                 continue
             field = _first_attr(tag, ("name", "id", "placeholder", "aria-label", "title"))
             if field:
                 fields.append(urllib.parse.unquote(field).strip())
     return _ordered_unique([field for field in fields if field])
+
+
+def _extract_form_field_names(html: str) -> list[str]:
+    fields: list[str] = []
+    form_blocks = _form_blocks_for_analysis(html)
+    for block in form_blocks:
+        for tag in re.findall(r"(?is)<(?:input|select|textarea)\b[^>]*>", block):
+            if _tag_is_hidden_field(tag):
+                continue
+            field = _first_attr(tag, ("name", "id", "placeholder", "aria-label", "title"))
+            if field:
+                fields.append(urllib.parse.unquote(field).strip())
+    return _ordered_unique([field for field in fields if field])
+
+
+def _form_blocks_for_analysis(html: str) -> list[str]:
+    form_blocks = re.findall(r"(?is)<form\b[^>]*>.*?</form>", html or "")
+    if not form_blocks and _looks_like_javascript_contact_form(html):
+        form_blocks = [html or ""]
+    return form_blocks
+
+
+def _tag_marks_required(tag: str) -> bool:
+    if re.search(r"(?is)\brequired\b", tag):
+        return True
+    if re.search(r'''(?is)\baria-required\s*=\s*["']?true["']?''', tag):
+        return True
+    class_match = re.search(r'''(?is)\bclass\s*=\s*["']([^"']*)["']''', tag)
+    if class_match and "require" in class_match.group(1).lower().split():
+        return True
+    name = _first_attr(tag, ("name", "id"))
+    return bool(re.search(r"(?i)(?:^|_)must(?:$|_)", name or ""))
+
+
+def _looks_like_javascript_contact_form(html: str) -> bool:
+    haystack = html or ""
+    if not re.search(r"(?is)<(?:input|textarea|select)\b", haystack):
+        return False
+    if not _has_visible_user_form_field(haystack):
+        return False
+    if not re.search(r"(?is)(?:type\s*=\s*['\"]submit['\"]|送信|確認|submit)", haystack):
+        return False
+    if not re.search(r"(?is)(?:contact|inquiry|お問い合わせ|問合せ|メールアドレス|fc-form|CMS-FORM|mw_wp_form|wpcf7)", haystack):
+        return False
+    return True
+
+
+def _classify_contact_form_profile(
+    *,
+    html: str,
+    text: str,
+    has_form: bool,
+    form_actions: list[str],
+    required_fields: list[str],
+    form_field_names: list[str],
+) -> str:
+    if not has_form:
+        return "unknown"
+    haystack = _form_profile_haystack(
+        html=html,
+        text=text,
+        form_actions=form_actions,
+        required_fields=required_fields,
+        form_field_names=form_field_names,
+    )
+    if _form_is_hidden_only(html):
+        return "hidden_only"
+    required_haystack = " ".join(required_fields).lower()
+    if _contains_form_profile_token(required_haystack, _PHONE_FIELD_TOKENS):
+        return "phone_required"
+    if _contains_form_profile_token(required_haystack, _RESERVATION_REQUIRED_FIELD_TOKENS) or _contains_form_profile_token(haystack, _RESERVATION_FORM_TOKENS):
+        return "reservation_only"
+    if _contains_form_profile_token(haystack, _NEWSLETTER_FORM_TOKENS):
+        return "newsletter"
+    if _contains_form_profile_token(haystack, _COMMERCE_FORM_TOKENS):
+        return "commerce"
+    if _contains_form_profile_token(haystack, _RECRUITING_FORM_TOKENS):
+        return "recruiting"
+    if _contains_form_profile_token(haystack, _GENERAL_INQUIRY_FORM_TOKENS) and _has_visible_user_form_field(html):
+        return "supported_inquiry"
+    return "unknown"
+
+
+_PHONE_FIELD_TOKENS = (
+    "tel",
+    "telephone",
+    "phone",
+    "mobile",
+    "電話",
+    "電話番号",
+    "携帯",
+)
+_RESERVATION_REQUIRED_FIELD_TOKENS = (
+    "date",
+    "time",
+    "datetime",
+    "party",
+    "people",
+    "person",
+    "persons",
+    "人数",
+    "来店日",
+    "来店時間",
+    "予約日",
+    "予約時間",
+    "予約人数",
+    "コース",
+)
+_RESERVATION_FORM_TOKENS = (
+    "reservation",
+    "reserve",
+    "booking",
+    "book-a-table",
+    "tablecheck",
+    "yoyaku",
+    "ご予約",
+    "予約",
+    "空席",
+    "来店日時",
+)
+_NEWSLETTER_FORM_TOKENS = (
+    "newsletter",
+    "subscribe",
+    "mailmagazine",
+    "mail-magazine",
+    "メールマガジン",
+    "メルマガ",
+    "購読",
+)
+_COMMERCE_FORM_TOKENS = (
+    "checkout",
+    "cart",
+    "order",
+    "takeout",
+    "take-out",
+    "delivery",
+    "注文",
+    "購入",
+    "テイクアウト",
+    "デリバリー",
+)
+_RECRUITING_FORM_TOKENS = (
+    "recruit",
+    "career",
+    "job",
+    "採用",
+    "求人",
+    "応募",
+)
+_GENERAL_INQUIRY_FORM_TOKENS = (
+    "contact",
+    "contacts",
+    "inquiry",
+    "otoiawase",
+    "toiawase",
+    "message",
+    "お問い合わせ",
+    "お問合せ",
+    "問い合わせ",
+    "問合せ",
+    "ご相談",
+    "メールアドレス",
+    "wpcf7",
+    "mw_wp_form",
+    "fc-form",
+    "cms-form",
+)
+
+
+def _form_profile_haystack(
+    *,
+    html: str,
+    text: str,
+    form_actions: list[str],
+    required_fields: list[str],
+    form_field_names: list[str],
+) -> str:
+    return urllib.parse.unquote(" ".join([
+        html or "",
+        text or "",
+        " ".join(form_actions),
+        " ".join(required_fields),
+        " ".join(form_field_names),
+    ])).lower()
+
+
+def _contains_form_profile_token(haystack: str, tokens: tuple[str, ...]) -> bool:
+    return any(token.lower() in haystack for token in tokens)
+
+
+def _form_is_hidden_only(html: str) -> bool:
+    blocks = re.findall(r"(?is)<form\b[^>]*>.*?</form>", html or "")
+    if not blocks:
+        return False
+    saw_fields = False
+    for block in blocks:
+        fields = re.findall(r"(?is)<(?:input|select|textarea)\b[^>]*>", block)
+        if not fields:
+            continue
+        saw_fields = True
+        if any(not _tag_is_hidden_field(tag) for tag in fields):
+            return False
+    return saw_fields
+
+
+def _has_visible_user_form_field(html: str) -> bool:
+    return any(
+        not _tag_is_hidden_field(tag)
+        for tag in re.findall(r"(?is)<(?:input|select|textarea)\b[^>]*>", html or "")
+    )
+
+
+def _tag_is_hidden_field(tag: str) -> bool:
+    if re.search(r'''(?is)\btype\s*=\s*["']?hidden["']?''', tag):
+        return True
+    if re.search(r"(?is)\bhidden\b", tag):
+        return True
+    if re.search(r'''(?is)\bstyle\s*=\s*["'][^"']*display\s*:\s*none''', tag):
+        return True
+    return False
+
+
+def _page_text_hint(*, html: str, text: str) -> str:
+    source = text or re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", html or "")
+    source = re.sub(r"(?is)<[^>]+>", " ", source)
+    return re.sub(r"\s+", " ", urllib.parse.unquote(source)).strip()[:500]
 
 
 def _first_attr(tag: str, names: tuple[str, ...]) -> str:
@@ -514,6 +752,18 @@ def _directory_source_name(url: str) -> str:
         return "tabelog"
     if "hotpepper" in host:
         return "hotpepper"
+    if "gnavi" in host or "gurunavi" in host:
+        return "gurunavi"
+    if "ramendb" in host:
+        return "ramendb"
+    if "retty" in host:
+        return "retty"
+    if "hitosara" in host:
+        return "hitosara"
+    if "paypaygourmet" in host:
+        return "paypay_gourmet"
+    if "yahoo" in host:
+        return "yahoo_local"
     return host or "directory"
 
 
@@ -603,7 +853,7 @@ async def crawl_target_contacts(
                     if not signals.emails and contact_intent:
                         signals = _merge_signals(signals, mock_llm_parse_contact_points(page_text, contact_intent=True))
                     all_signals = _merge_signals(all_signals, signals)
-                    if signals.emails or signals.has_form:
+                    if signals.emails or _signals_have_supported_contact_form(signals):
                         contact_url = url
                     if all_signals.emails:
                         break
@@ -622,13 +872,13 @@ async def crawl_target_contacts(
             city=target.city,
             website=target.website,
             extracted_email=all_signals.emails[0] if all_signals.emails else "",
-            contact_url=contact_url if (all_signals.emails or all_signals.has_form) else "",
+            contact_url=contact_url if (all_signals.emails or _signals_have_supported_contact_form(all_signals)) else "",
             source=target.source,
             source_url=target.source_url,
             place_id=target.place_id,
             address=target.address,
             phone=target.phone,
-            has_contact_form=all_signals.has_form,
+            has_contact_form=_signals_have_supported_contact_form(all_signals),
             queued_contact_urls=queued_urls,
             all_emails=all_signals.emails,
             llm_mock_used=all_signals.llm_mock_used,
@@ -719,9 +969,31 @@ def _merge_signals(left: ContactSignals, right: ContactSignals) -> ContactSignal
         has_form=left.has_form or right.has_form,
         form_actions=_ordered_unique([*left.form_actions, *right.form_actions]),
         required_fields=_ordered_unique([*left.required_fields, *right.required_fields]),
+        form_field_names=_ordered_unique([*left.form_field_names, *right.form_field_names]),
+        contact_form_profile=_preferred_contact_form_profile(left.contact_form_profile, right.contact_form_profile),
+        page_text_hint=(left.page_text_hint or right.page_text_hint),
         llm_mock_used=left.llm_mock_used or right.llm_mock_used,
         llm_mock_reason=left.llm_mock_reason or right.llm_mock_reason,
     )
+
+
+def _signals_have_supported_contact_form(signals: ContactSignals) -> bool:
+    return bool(signals.has_form and signals.contact_form_profile == "supported_inquiry")
+
+
+def _preferred_contact_form_profile(left: str, right: str) -> str:
+    priority = {
+        "supported_inquiry": 0,
+        "phone_required": 1,
+        "reservation_only": 2,
+        "commerce": 3,
+        "recruiting": 4,
+        "newsletter": 5,
+        "hidden_only": 6,
+        "unknown": 7,
+        "": 8,
+    }
+    return min((str(left or ""), str(right or "")), key=lambda value: priority.get(value, 9)) or "unknown"
 
 
 def _has_contact_intent(url: str, text: str) -> bool:

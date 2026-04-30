@@ -278,6 +278,7 @@ def prepare_labeling_workflow(
             "evidence": [
                 summary["sample_path"],
                 summary["review_queue_path"],
+                summary["review_shortlist_path"],
                 summary["checklist_path"],
                 summary["offline_replay_plan_path"],
                 summary["dashboard_verification_plan_path"],
@@ -291,6 +292,8 @@ def prepare_labeling_workflow(
         "labeling_sample_path": summary["sample_path"],
         "labeling_drafts_dir": summary["drafts_dir"],
         "labeling_review_queue_path": summary["review_queue_path"],
+        "labeling_review_shortlist_path": summary["review_shortlist_path"],
+        "labeling_review_shortlist_markdown_path": summary["review_shortlist_markdown_path"],
         "labeling_checklist_path": summary["checklist_path"],
         "offline_replay_plan_path": summary["offline_replay_plan_path"],
         "dashboard_verification_plan_path": summary["dashboard_verification_plan_path"],

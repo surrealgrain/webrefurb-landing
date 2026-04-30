@@ -52,11 +52,7 @@ def test_normalised_lead_contacts_preserve_required_field_metadata_and_block_pho
         }],
     })
 
-    assert contacts[0]["required_fields"] == ["name", "tel", "message"]
-    assert contacts[0]["form_actions"] == ["/contact"]
-    assert contacts[0]["actionable"] is False
-    assert contacts[0]["status"] == "reference_only"
-    assert contacts[0]["unsupported_reason"] == "phone_required"
+    assert contacts == []
 
 
 def test_normalised_lead_contacts_block_unverified_contact_form_route():
@@ -276,6 +272,71 @@ def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
     assert lead["custom_quote_reason"] == ""
     assert result["decisions"][0]["source_search_job"]["job_id"] == "ramen_ticket_machine"
     assert "ticket_machine_evidence" in result["decisions"][0]["matched_friction_evidence"]
+
+
+def test_search_expands_portal_website_to_official_site_before_contact_discovery(tmp_path, monkeypatch):
+    def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
+        return [{
+            "title": "麺屋はるか",
+            "website": "https://tabelog.com/tokyo/A000/A000000/12345678/",
+            "address": "東京都渋谷区神南1-2-3",
+            "phoneNumber": "03-1234-5678",
+            "placeId": "place-portal-expand",
+            "rating": 4.6,
+            "ratingCount": 80,
+            "link": "https://maps.google.com/?cid=portal-expand",
+        }]
+
+    def fake_fetch_page(url, timeout_seconds=10):
+        if "tabelog.com" in url:
+            return """
+            <html><head><title>麺屋はるか | 食べログ</title></head>
+            <body>
+              <h1>麺屋はるか</h1>
+              <p>東京都渋谷区神南1-2-3 TEL 03-1234-5678 ラーメン メニュー</p>
+              <a href="/redirect?url=https%3A%2F%2Fmenya-haruka.example.jp%2F">公式サイト</a>
+            </body></html>
+            """
+        return """
+        <html><head><title>麺屋はるか | 公式</title></head>
+        <body>
+          <h1>麺屋はるか</h1>
+          <p>東京都渋谷区神南1-2-3 ラーメン メニュー 醤油ラーメン 900円</p>
+          <a href="mailto:owner@menya-haruka.example.jp">お問い合わせ</a>
+        </body></html>
+        """
+
+    def fake_web_search(*, query, **kwargs):
+        if "tabelog.com" in query:
+            return _tabelog_result()
+        if '"公式"' in query:
+            return {"organic": [{
+                "title": "麺屋はるか 公式",
+                "snippet": "東京都渋谷区神南1-2-3 お問い合わせ",
+                "link": "https://menya-haruka.example.jp/",
+            }]}
+        return {"organic": []}
+
+    monkeypatch.setattr(search, "run_search", fake_run_search)
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+    monkeypatch.setattr(search, "run_web_search", fake_web_search)
+
+    result = search.search_and_qualify(
+        query="券売機 ラーメン Tokyo",
+        serper_api_key="test-key",
+        category="ramen",
+        state_root=tmp_path,
+    )
+
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert result["leads"] == 1
+    assert lead["website"] == "https://menya-haruka.example.jp"
+    assert lead["email"] == "owner@menya-haruka.example.jp"
+    assert lead["portal_urls"]["tabelog"].startswith("https://tabelog.com/")
+    assert lead["official_site_candidates"] == ["https://menya-haruka.example.jp"]
+    assert lead["coverage_signals"]["has_official_site"] is True
+    assert lead["coverage_signals"]["contact_found"] is True
+    assert result["decisions"][0]["source_count"] >= 2
 
 
 def test_search_uses_business_specific_ticket_machine_evidence(tmp_path, monkeypatch):
@@ -504,7 +565,12 @@ def test_search_persists_non_email_lead_with_supported_contact_route(tmp_path, m
             return "<html><head><title>Sakura Ramen | 食べログ</title></head><body><h1>Sakura Ramen</h1></body></html>"
         return """<html><body>
         ラーメン メニュー 醤油ラーメン 900円 券売機 Tokyo
-        <form action="/contact"></form>
+        <form action="/contact">
+          <input name="name" required>
+          <input name="email" required>
+          <textarea name="message" required></textarea>
+          <button type="submit">送信</button>
+        </form>
         <a href="https://www.instagram.com/form_ramen/">Instagram</a>
         </body></html>"""
 
@@ -528,18 +594,16 @@ def test_search_persists_non_email_lead_with_supported_contact_route(tmp_path, m
     assert lead["email"] == ""
     assert lead["has_supported_contact_route"] is True
     assert lead["primary_contact"]["type"] == "contact_form"
-    assert {contact["type"] for contact in lead["contacts"]} >= {"contact_form", "phone", "walk_in", "map_url", "website"}
+    assert {contact["type"] for contact in lead["contacts"]} >= {"contact_form", "walk_in", "map_url", "website"}
+    assert "phone" not in {contact["type"] for contact in lead["contacts"]}
     assert lead["map_url"] == "https://maps.google.com/?cid=form-ramen"
     for contact in lead["contacts"]:
         assert contact["confidence"] in {"high", "medium", "low"}
         assert contact["discovered_at"]
         assert contact["status"]
         assert "source_url" in contact
-    phone_contact = next(contact for contact in lead["contacts"] if contact["type"] == "phone")
     walk_in_contact = next(contact for contact in lead["contacts"] if contact["type"] == "walk_in")
     map_contact = next(contact for contact in lead["contacts"] if contact["type"] == "map_url")
-    assert phone_contact["source_url"] == "https://maps.google.com/?cid=form-ramen"
-    assert phone_contact["actionable"] is False
     assert walk_in_contact["source_url"] == "https://maps.google.com/?cid=form-ramen"
     assert walk_in_contact["actionable"] is False
     assert map_contact["href"] == "https://maps.google.com/?cid=form-ramen"

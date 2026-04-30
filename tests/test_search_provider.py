@@ -16,6 +16,18 @@ def _ddg_result(*, title: str, link: str, snippet: str = "") -> str:
     """
 
 
+def _yahoo_result(*, title: str, link: str, snippet: str = "") -> str:
+    return f"""
+    <ol>
+      <li>
+        <a href="{link}">{title}</a>
+        <div>{snippet}</div>
+        <em>{urllib.parse.urlparse(link).netloc}</em>
+      </li>
+    </ol>
+    """
+
+
 def test_duckduckgo_parser_returns_webserper_organic_shape():
     html = _ddg_result(
         title="遥ラーメン 公式サイト",
@@ -71,6 +83,93 @@ def test_webserper_organic_search_uses_duckduckgo_but_returns_provider_contract(
     assert data["organic"][0]["title"] == "居酒屋みらい お品書き"
 
 
+def test_yahoo_japan_parser_returns_webserper_organic_shape():
+    html = _yahoo_result(
+        title="中華そば 未来【公式】",
+        link="https://mirai-ramen.example.jp/?yclid=test",
+        snippet="東京都世田谷区 ラーメン メニュー お問い合わせ",
+    )
+
+    organic = search_provider._organic_results_from_yahoo_japan_html(html)
+
+    assert organic == [{
+        "title": "中華そば 未来【公式】",
+        "link": "https://mirai-ramen.example.jp",
+        "snippet": "東京都世田谷区 ラーメン メニュー お問い合わせ",
+    }]
+
+
+def test_webserper_organic_search_merges_duckduckgo_and_yahoo(monkeypatch):
+    monkeypatch.setattr(
+        search_provider,
+        "_duckduckgo_html",
+        lambda **_: _ddg_result(
+            title="居酒屋みらい お品書き",
+            link="https://mirai-izakaya.example/menu",
+            snippet="飲み放題 コース 居酒屋",
+        ),
+    )
+    monkeypatch.setattr(
+        search_provider,
+        "_yahoo_japan_html",
+        lambda **_: _yahoo_result(
+            title="居酒屋みらい 公式",
+            link="https://mirai-izakaya.example/",
+            snippet="お問い合わせ お品書き 居酒屋",
+        ) + _yahoo_result(
+            title="酒場しずく 公式",
+            link="https://shizuku.example.jp/",
+            snippet="東京都渋谷区 居酒屋 お問い合わせ",
+        ),
+    )
+
+    data = search_provider.run_organic_search(query="居酒屋 渋谷 公式", provider="webserper")
+
+    assert data["searchParameters"]["engines"] == ["duckduckgo_lite", "yahoo_japan"]
+    assert {result["sourceEngine"] for result in data["organic"]} == {"duckduckgo_lite", "yahoo_japan"}
+    assert [result["link"] for result in data["organic"]].count("https://mirai-izakaya.example") == 1
+    assert "https://shizuku.example.jp" in {result["link"] for result in data["organic"]}
+
+
+def test_google_maps_timeout_falls_back_to_yahoo_organic_without_search_failure(monkeypatch):
+    official_html = """
+    <html>
+      <head><title>未来ラーメン | 公式サイト</title></head>
+      <body>
+        <h1>未来ラーメン</h1>
+        <p>東京都渋谷区神南1-2-3 TEL 03-1234-5678</p>
+        <p>ラーメン メニュー 醤油ラーメン 900円</p>
+      </body>
+    </html>
+    """
+
+    def google_timeout(**_: object) -> list[dict]:
+        raise urllib.error.URLError("timed out")
+
+    monkeypatch.setattr(search_provider, "_google_maps_browser_search", google_timeout)
+    monkeypatch.setattr(search_provider, "_duckduckgo_html", lambda **_: "")
+    monkeypatch.setattr(
+        search_provider,
+        "_yahoo_japan_html",
+        lambda **_: _yahoo_result(
+            title="未来ラーメン 公式",
+            link="https://mirai-ramen.example.jp/",
+            snippet="東京都渋谷区 ラーメン メニュー",
+        ),
+    )
+    monkeypatch.setattr(search_provider, "_http_get_text", lambda url, **_: official_html)
+
+    data = search_provider.run_maps_search(query="ラーメン Shibuya 公式", provider="webserper")
+
+    assert data["places"][0]["title"] == "未来ラーメン"
+    assert data["places"][0]["website"] == "https://mirai-ramen.example.jp"
+    assert data["searchParameters"]["fallback_engine"] == "duckduckgo_lite+yahoo_japan"
+    google_run = data["searchParameters"]["sourceRuns"][0]
+    assert google_run["engine"] == "google_maps_browser"
+    assert google_run["attempt_count"] == 2
+    assert google_run["fallback_engine"] == "official_site_organic"
+
+
 def test_webserper_maps_search_enriches_directory_result_to_place(monkeypatch):
     ddg_html = _ddg_result(
         title="遥ラーメン (渋谷/ラーメン) - 食べログ",
@@ -120,6 +219,18 @@ def test_webserper_maps_search_enriches_directory_result_to_place(monkeypatch):
     assert place["phoneNumber"] == "03-1234-5678"
     assert place["placeId"].startswith("webserper:")
     assert "東京都渋谷区" in place["address"]
+
+
+def test_directory_result_without_official_url_is_excluded(monkeypatch):
+    result = {
+        "title": "未来ラーメン (渋谷/ラーメン) - 食べログ",
+        "link": "https://tabelog.com/tokyo/A1303/A130301/12345678/",
+        "snippet": "渋谷駅近くのラーメン店。",
+    }
+    monkeypatch.setattr(search_provider, "_http_get_text", lambda *_, **__: "<html><body>No official link</body></html>")
+    monkeypatch.setattr(search_provider, "_official_urls_from_name_hint", lambda **_: [])
+
+    assert search_provider._candidate_inputs_for_result(result, timeout_seconds=1, gl="jp") == []
 
 
 def test_google_maps_detail_extraction_returns_webserper_place_contract():
@@ -211,6 +322,7 @@ def test_serper_provider_still_requires_key():
 
 def test_local_provider_blocks_media_urls_and_directory_navigation_addresses():
     assert search_provider._blocked_candidate_url("https://tblg.k-img.com/restaurant/photo.jpg") is True
+    assert search_provider._blocked_candidate_url("https://example.jp/reservation") is True
     assert search_provider._blocked_place_host("corporate.kakaku.com") is True
     assert search_provider._extract_japan_address("東京都の施設一覧をもっと見る") == ""
     assert search_provider._extract_japan_address("東京都渋谷区神南1-2-3 TEL 03-1234-5678") == "東京都渋谷区神南1-2-3"

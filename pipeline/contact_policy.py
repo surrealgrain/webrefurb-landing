@@ -12,6 +12,19 @@ POLICY_UNSUPPORTED_REASONS = {
     "reservation_or_booking_form",
     "recruiting_form",
     "commerce_or_order_form",
+    "newsletter_form",
+    "hidden_only_form",
+    "account_or_login_form",
+    "social_profile_not_contact_form",
+}
+OMITTED_ROUTE_TYPES = {"phone", "line", "instagram"}
+OMITTED_UNSUPPORTED_FORM_REASONS = {
+    "phone_required",
+    "reservation_or_booking_form",
+    "recruiting_form",
+    "commerce_or_order_form",
+    "newsletter_form",
+    "hidden_only_form",
     "account_or_login_form",
     "social_profile_not_contact_form",
 }
@@ -19,11 +32,6 @@ POLICY_UNSUPPORTED_REASONS = {
 PHONE_REQUIRED_TOKENS = (
     "phone_required",
     "requires_phone",
-    "phone number",
-    "telephone",
-    "mobile",
-    "携帯",
-    "電話番号",
 )
 RESERVATION_FORM_TOKENS = (
     "reservation",
@@ -94,6 +102,21 @@ def contact_form_unsupported_reason(contact: dict[str, Any], *, sender_phone_ava
         return ""
     if _contact_has_social_host(contact):
         return "social_profile_not_contact_form"
+    profile = str(contact.get("contact_form_profile") or "").strip().lower()
+    if profile == "hidden_only":
+        return "hidden_only_form"
+    if profile == "reservation_only":
+        return "reservation_or_booking_form"
+    if profile == "phone_required" and not sender_phone_available:
+        return "phone_required"
+    if profile == "newsletter":
+        return "newsletter_form"
+    if profile == "commerce":
+        return "commerce_or_order_form"
+    if profile == "recruiting":
+        return "recruiting_form"
+    if profile == "unknown":
+        return "unverified_contact_form"
     if not _contact_form_has_verified_form(contact):
         return "unverified_contact_form"
     if _contact_form_requires_phone(contact) and not sender_phone_available:
@@ -112,6 +135,11 @@ def contact_form_unsupported_reason(contact: dict[str, Any], *, sender_phone_ava
 
 
 def _contact_form_has_verified_form(contact: dict[str, Any]) -> bool:
+    profile = str(contact.get("contact_form_profile") or "").strip().lower()
+    if profile == "supported_inquiry":
+        return True
+    if profile in {"hidden_only", "reservation_only", "phone_required", "newsletter", "commerce", "recruiting", "unknown"}:
+        return False
     if contact.get("has_form") is True:
         return True
     for key in ("required_fields", "form_actions", "form_field_names"):
@@ -170,12 +198,37 @@ def normalise_contact_actionability(
     return updated
 
 
+def contact_should_be_omitted_from_routes(
+    contact: dict[str, Any],
+    *,
+    sender_phone_available: bool = False,
+) -> bool:
+    """Return True for route records the product should not surface at all."""
+    contact_type = str(contact.get("type") or "").strip().lower()
+    if contact_type in OMITTED_ROUTE_TYPES:
+        return True
+    if contact_type == "contact_form":
+        reason = contact_form_unsupported_reason(contact, sender_phone_available=sender_phone_available)
+        return reason in OMITTED_UNSUPPORTED_FORM_REASONS
+    return False
+
+
 def _contact_form_requires_phone(contact: dict[str, Any]) -> bool:
     if any(contact.get(key) is True for key in ("requires_phone", "phone_required", "requires_phone_number")):
         return True
     if _required_field_requires_phone(contact):
         return True
-    return _contains_any(_contact_haystack(contact), PHONE_REQUIRED_TOKENS)
+    return _contains_any(_explicit_phone_required_haystack(contact), PHONE_REQUIRED_TOKENS)
+
+
+def _explicit_phone_required_haystack(contact: dict[str, Any]) -> str:
+    return " ".join(str(contact.get(key) or "") for key in (
+        "requires_phone",
+        "phone_required",
+        "requires_phone_number",
+        "unsupported_reason",
+        "failure_reason",
+    )).lower()
 
 
 def _required_field_requires_phone(contact: dict[str, Any]) -> bool:
@@ -207,6 +260,7 @@ def _contact_haystack(contact: dict[str, Any]) -> str:
         "unsupported_reason",
         "page_title",
         "page_text_hint",
+        "contact_form_profile",
     ):
         fields.append(str(contact.get(key) or ""))
     for key in ("required_fields", "form_actions", "form_field_names"):

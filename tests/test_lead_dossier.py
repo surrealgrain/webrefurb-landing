@@ -72,7 +72,7 @@ def test_migration_maps_legacy_package_and_marks_ready():
     assert "recommended_primary_package" in changes
 
 
-def test_migration_marks_unsupported_contacts_reference_only():
+def test_migration_omits_phone_and_social_routes_but_keeps_supported_form():
     migrated, changes = migrate_lead_record(_ready_record(
         primary_contact={"type": "phone", "value": "03-0000-0000", "actionable": True, "status": "discovered"},
         contacts=[
@@ -84,10 +84,11 @@ def test_migration_marks_unsupported_contacts_reference_only():
         ],
     ))
 
-    unsupported = [contact for contact in migrated["contacts"] if contact["type"] in {"phone", "instagram", "line", "walk_in"}]
-    assert unsupported
-    assert all(contact["actionable"] is False for contact in unsupported)
-    assert all(contact["status"] == "reference_only" for contact in unsupported)
+    assert not any(contact["type"] in {"phone", "instagram", "line"} for contact in migrated["contacts"])
+    walk_in = [contact for contact in migrated["contacts"] if contact["type"] == "walk_in"]
+    assert walk_in
+    assert walk_in[0]["actionable"] is False
+    assert walk_in[0]["status"] == "reference_only"
     assert migrated["primary_contact"]["type"] == "contact_form"
     assert migrated["has_supported_contact_route"] is True
     assert "contacts" in changes
@@ -99,8 +100,7 @@ def test_phone_only_record_cannot_remain_launch_ready():
         contacts=[{"type": "phone", "value": "03-0000-0000", "actionable": True, "status": "discovered"}],
     ))
 
-    assert migrated["contacts"][0]["actionable"] is False
-    assert migrated["contacts"][0]["status"] == "reference_only"
+    assert migrated["contacts"] == []
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
     assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
     assert "contacts" in changes
@@ -124,8 +124,7 @@ def test_phone_required_contact_form_is_not_supported_route():
         }],
     ))
 
-    assert migrated["contacts"][0]["actionable"] is False
-    assert migrated["contacts"][0]["status"] == "reference_only"
+    assert migrated["contacts"] == []
     assert migrated["has_supported_contact_route"] is False
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
     assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
@@ -150,9 +149,7 @@ def test_reservation_contact_form_is_not_supported_route():
         }],
     ))
 
-    assert migrated["contacts"][0]["actionable"] is False
-    assert migrated["contacts"][0]["status"] == "reference_only"
-    assert migrated["contacts"][0]["unsupported_reason"] == "reservation_or_booking_form"
+    assert migrated["contacts"] == []
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
     assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
     assert "contacts" in changes
@@ -174,8 +171,7 @@ def test_social_url_mislabeled_as_contact_form_is_not_supported_route():
         }],
     ))
 
-    assert migrated["contacts"][0]["actionable"] is False
-    assert migrated["contacts"][0]["unsupported_reason"] == "social_profile_not_contact_form"
+    assert migrated["contacts"] == []
     assert migrated["has_supported_contact_route"] is False
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
     assert "contacts" in changes

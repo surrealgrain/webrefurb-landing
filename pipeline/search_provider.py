@@ -5,6 +5,7 @@ import html as html_lib
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,10 +24,21 @@ DEFAULT_SEARCH_PROVIDER = WEB_SERPER_PROVIDER
 SEARCH_PROVIDER_ENV = "WEBREFURB_SEARCH_PROVIDER"
 WEB_SERPER_PROVIDER_ALIASES = {"webserper", "web-serper", "web_serper", "local", "duckduckgo", "ddg", "webrefurb"}
 SERPER_PROVIDER_ALIASES = {"serper", "serper.dev", "google-serper", "google_serper"}
-DIRECTORY_HOST_TOKENS = ("tabelog.com", "hotpepper.jp", "ramendb.supleks.jp")
+DIRECTORY_HOST_TOKENS = (
+    "tabelog.com",
+    "hotpepper.jp",
+    "ramendb.supleks.jp",
+    "gnavi.co.jp",
+    "gurunavi.com",
+    "retty.me",
+    "hitosara.com",
+    "paypaygourmet.yahoo.co.jp",
+)
 BLOCKED_PLACE_HOST_TOKENS = (
     "google.",
     "maps.google.",
+    "search.yahoo.co.jp",
+    "map.yahoo.co.jp",
     "instagram.com",
     "facebook.com",
     "twitter.com",
@@ -41,6 +53,22 @@ BLOCKED_PLACE_HOST_TOKENS = (
     "k-img.com",
     "kakaku.com",
     "app.link",
+)
+RESERVATION_ROUTE_HOST_TOKENS = (
+    "tablecheck.com",
+    "ebica.jp",
+    "toreta.in",
+    "yoyaku",
+    "reserve",
+    "reservation",
+)
+RESERVATION_ROUTE_PATH_TOKENS = (
+    "reserve",
+    "reservation",
+    "booking",
+    "book-a-table",
+    "yoyaku",
+    "予約",
 )
 VENDOR_OR_ARTICLE_HOST_TOKENS = (
     "kenbaiki",
@@ -195,21 +223,63 @@ def _serper_organic_search(*, query: str, api_key: str, gl: str, timeout_seconds
 
 
 def _webserper_organic_search(*, query: str, gl: str, timeout_seconds: int) -> dict[str, Any]:
-    html = _duckduckgo_html(query=query, gl=gl, timeout_seconds=timeout_seconds)
-    organic = _organic_results_from_duckduckgo_html(html)
+    organic: list[dict[str, str]] = []
+    seen_links: set[str] = set()
+    source_runs: list[dict[str, Any]] = []
+
+    for engine, fetcher, parser in (
+        (
+            "duckduckgo_lite",
+            lambda: _duckduckgo_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
+            _organic_results_from_duckduckgo_html,
+        ),
+        (
+            "yahoo_japan",
+            lambda: _yahoo_japan_html(query=query, gl=gl, timeout_seconds=timeout_seconds),
+            _organic_results_from_yahoo_japan_html,
+        ),
+    ):
+        results, source_run = _organic_source_results(engine=engine, fetcher=fetcher, parser=parser)
+        source_runs.append(source_run)
+        for result in results:
+            link = normalize_website_url(str(result.get("link") or ""))
+            if not link or link in seen_links:
+                continue
+            host = _host(link)
+            if _blocked_place_host(host) or _blocked_candidate_url(link):
+                continue
+            seen_links.add(link)
+            organic.append({**result, "link": link, "sourceEngine": engine})
+
+    if not organic and source_runs and all(source.get("error") for source in source_runs):
+        errors = "; ".join(f"{source['engine']}={source.get('error')}" for source in source_runs)
+        raise SearchProviderError(f"WebSerper organic search failed across all engines: {errors}")
+
+    organic.sort(key=lambda result: (-_organic_result_score(result, query), str(result.get("link") or "")))
     return {
         "searchParameters": {
             "q": query,
             "gl": gl,
-            "engine": "duckduckgo_lite",
+            "engine": "duckduckgo_lite+yahoo_japan",
+            "engines": ["duckduckgo_lite", "yahoo_japan"],
             "provider": WEB_SERPER_PROVIDER,
+            "sourceRuns": source_runs,
         },
         "organic": organic,
     }
 
 
 def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict[str, Any]:
-    browser_places = _google_maps_browser_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
+    source_runs: list[dict[str, Any]] = []
+    browser_places, browser_run = _google_maps_places_with_retry(query=query, gl=gl, timeout_seconds=timeout_seconds)
+    source_runs.append(browser_run)
+    if browser_places:
+        browser_places = _first_party_google_maps_places(
+            browser_places,
+            query=query,
+            gl=gl,
+            timeout_seconds=timeout_seconds,
+        )
     if browser_places:
         engine = "google_maps_batch_browser" if str(browser_places[0].get("searchProvider") or "") == "webserper_google_maps_batch" else "google_maps_browser"
         return {
@@ -218,6 +288,7 @@ def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict
                 "gl": gl,
                 "engine": engine,
                 "provider": WEB_SERPER_PROVIDER,
+                "sourceRuns": source_runs,
             },
             "places": browser_places,
         }
@@ -225,11 +296,36 @@ def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict
     results: list[dict[str, Any]] = []
     seen_links: set[str] = set()
     for local_query in _local_maps_queries(query):
-        for result in _webserper_organic_search(query=local_query, gl=gl, timeout_seconds=timeout_seconds).get("organic") or []:
+        try:
+            organic_response = _webserper_organic_search(query=local_query, gl=gl, timeout_seconds=timeout_seconds)
+        except Exception as exc:
+            source_runs.append({
+                "engine": "official_site_organic",
+                "query": local_query,
+                "attempt_count": 1,
+                "recovered_by_retry": False,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            })
+            continue
+        source_runs.append({
+            "engine": "official_site_organic",
+            "query": local_query,
+            "attempt_count": 1,
+            "recovered_by_retry": any(
+                bool(source.get("recovered_by_retry"))
+                for source in (organic_response.get("searchParameters") or {}).get("sourceRuns") or []
+            ),
+            "fallback_engine": "duckduckgo_lite+yahoo_japan",
+            "source_runs": (organic_response.get("searchParameters") or {}).get("sourceRuns") or [],
+            "result_count": len(organic_response.get("organic") or []),
+        })
+        for result in organic_response.get("organic") or []:
             link = str(result.get("link") or "")
             if link and link not in seen_links:
                 seen_links.add(link)
                 results.append(result)
+    results.sort(key=lambda result: (-_organic_result_score(result, query), str(result.get("link") or "")))
 
     places: list[dict[str, Any]] = []
     seen_hosts: set[str] = set()
@@ -253,9 +349,84 @@ def _webserper_maps_search(*, query: str, gl: str, timeout_seconds: int) -> dict
             if place:
                 places.append(place)
             if len(places) >= _local_place_limit():
-                return _webserper_maps_payload(query=query, gl=gl, places=places)
+                return _webserper_maps_payload(query=query, gl=gl, places=places, source_runs=source_runs)
 
-    return _webserper_maps_payload(query=query, gl=gl, places=places)
+    if not places and source_runs and all(run.get("error") for run in source_runs):
+        errors = "; ".join(f"{run['engine']}={run.get('error')}" for run in source_runs)
+        raise SearchProviderError(f"WebSerper maps search failed across all engines: {errors}")
+    return _webserper_maps_payload(query=query, gl=gl, places=places, source_runs=source_runs)
+
+
+def _organic_source_results(
+    *,
+    engine: str,
+    fetcher: Any,
+    parser: Any,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    attempts = _search_retry_attempts()
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            html = fetcher()
+            results = parser(html)
+            return results, {
+                "engine": engine,
+                "attempt_count": attempt,
+                "recovered_by_retry": attempt > 1,
+                "result_count": len(results),
+            }
+        except Exception as exc:
+            last_error = exc
+            if attempt < attempts and _is_retryable_search_error(exc):
+                time.sleep(min(0.25 * attempt, 1.0))
+                continue
+            break
+    return [], {
+        "engine": engine,
+        "attempt_count": attempt,
+        "recovered_by_retry": False,
+        "result_count": 0,
+        "error_type": type(last_error).__name__ if last_error else "",
+        "error": str(last_error or ""),
+    }
+
+
+def _google_maps_places_with_retry(*, query: str, gl: str, timeout_seconds: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    attempts = _search_retry_attempts()
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            places = _google_maps_browser_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
+            return places, {
+                "engine": "google_maps_browser",
+                "attempt_count": attempt,
+                "recovered_by_retry": attempt > 1,
+                "result_count": len(places),
+                "fallback_engine": "" if places else "official_site_organic",
+            }
+        except Exception as exc:
+            last_error = exc
+            if attempt < attempts and _is_retryable_search_error(exc):
+                time.sleep(min(0.25 * attempt, 1.0))
+                continue
+            break
+    return [], {
+        "engine": "google_maps_browser",
+        "attempt_count": attempt,
+        "recovered_by_retry": False,
+        "result_count": 0,
+        "fallback_engine": "official_site_organic",
+        "error_type": type(last_error).__name__ if last_error else "",
+        "error": str(last_error or ""),
+    }
+
+
+def _is_retryable_search_error(exc: Exception) -> bool:
+    return isinstance(exc, (TimeoutError, urllib.error.URLError)) or "timeout" in type(exc).__name__.lower()
+
+
+def _search_retry_attempts() -> int:
+    return _env_int("WEBREFURB_SEARCH_RETRY_ATTEMPTS", default=2, minimum=1, maximum=4)
 
 
 def _google_maps_browser_search(*, query: str, gl: str, timeout_seconds: int) -> list[dict[str, Any]]:
@@ -714,6 +885,53 @@ def _official_site_for_maps_place(*, name: str, address: str, query: str, timeou
     return ""
 
 
+def _first_party_google_maps_places(
+    places: list[dict[str, Any]],
+    *,
+    query: str,
+    gl: str,
+    timeout_seconds: int,
+) -> list[dict[str, Any]]:
+    first_party: list[dict[str, Any]] = []
+    seen_hosts: set[str] = set()
+    for place in places:
+        updated = dict(place)
+        website = normalize_website_url(str(updated.get("website") or ""))
+        host = _host(website)
+        needs_official_lookup = (
+            not website
+            or not host
+            or _blocked_place_host(host)
+            or any(token in host for token in DIRECTORY_HOST_TOKENS)
+            or _blocked_candidate_url(website)
+        )
+        if needs_official_lookup:
+            official = ""
+            if website and any(token in host for token in DIRECTORY_HOST_TOKENS):
+                try:
+                    directory_html = _http_get_text(website, timeout_seconds=timeout_seconds, max_bytes=500_000)
+                except Exception:
+                    directory_html = ""
+                urls = _official_urls_from_directory_html(website, directory_html)
+                official = urls[0] if urls else ""
+            website = normalize_website_url(official)
+            host = _host(website)
+            if website:
+                updated["website"] = website
+                updated["websiteSource"] = "directory_external_url"
+        if not website or not host or host in seen_hosts:
+            continue
+        if _blocked_place_host(host) or _blocked_candidate_url(website):
+            continue
+        if any(token in host for token in DIRECTORY_HOST_TOKENS):
+            continue
+        seen_hosts.add(host)
+        first_party.append(updated)
+        if len(first_party) >= _local_place_limit():
+            break
+    return first_party
+
+
 def _address_search_hint(address: str) -> str:
     match = re.search(r"(東京都[^ 　,，。]+|大阪府[^ 　,，。]+|京都府[^ 　,，。]+|北海道[^ 　,，。]+|[^\s]+県[^ 　,，。]+)", address or "")
     return match.group(1) if match else ""
@@ -725,13 +943,21 @@ def _maps_evidence_html(*, name: str, map_url: str, text: str) -> str:
     return f"<html><body><h1>{escaped_name}</h1><p>Source: {html_lib.escape(map_url)}</p><pre>{escaped_text}</pre></body></html>"
 
 
-def _webserper_maps_payload(*, query: str, gl: str, places: list[dict[str, Any]]) -> dict[str, Any]:
+def _webserper_maps_payload(
+    *,
+    query: str,
+    gl: str,
+    places: list[dict[str, Any]],
+    source_runs: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "searchParameters": {
             "q": query,
             "gl": gl,
-            "engine": "duckduckgo_html_plus_page_extract",
+            "engine": "official_site_organic_plus_page_extract",
+            "fallback_engine": "duckduckgo_lite+yahoo_japan",
             "provider": WEB_SERPER_PROVIDER,
+            "sourceRuns": source_runs or [],
         },
         "places": places,
     }
@@ -821,6 +1047,33 @@ def _candidate_inputs_for_result(result: dict[str, Any], *, timeout_seconds: int
     if _blocked_place_host(host) or _blocked_candidate_url(link) or _looks_like_vendor_or_article(result, host):
         return []
     return [{"website": link, "source_url": link}]
+
+
+def _organic_result_score(result: dict[str, Any], query: str) -> int:
+    link = normalize_website_url(str(result.get("link") or ""))
+    host = _host(link)
+    haystack = " ".join(str(result.get(key) or "") for key in ("title", "snippet", "link")).lower()
+    score = 0
+    if not link or not host:
+        return -100
+    if _blocked_place_host(host) or _blocked_candidate_url(link):
+        score -= 80
+    if any(token in host for token in DIRECTORY_HOST_TOKENS):
+        score -= 30
+    else:
+        score += 25
+    if any(token in haystack for token in ("公式", "公式サイト", "official", "ホームページ")):
+        score += 30
+    if any(token in haystack for token in ("menu", "メニュー", "お品書き", "contact", "お問い合わせ", "access", "アクセス")):
+        score += 10
+    query_lower = str(query or "").lower()
+    if _query_targets_ramen(query_lower) and any(token.lower() in haystack for token in RAMEN_TOKENS):
+        score += 10
+    if _query_targets_izakaya(query_lower) and any(token.lower() in haystack for token in IZAKAYA_TOKENS):
+        score += 10
+    if _looks_like_vendor_or_article(result, host):
+        score -= 50
+    return score
 
 
 def _official_urls_from_directory_html(url: str, page_html: str) -> list[str]:
@@ -969,7 +1222,13 @@ def _blocked_place_host(host: str) -> bool:
 
 def _blocked_candidate_url(url: str) -> bool:
     parsed = urllib.parse.urlparse(str(url or ""))
-    return bool(MEDIA_PATH_RE.search(parsed.path))
+    if MEDIA_PATH_RE.search(parsed.path):
+        return True
+    host = parsed.netloc.lower()
+    route = urllib.parse.unquote(" ".join([host, parsed.path, parsed.query])).lower()
+    if any(token in host for token in RESERVATION_ROUTE_HOST_TOKENS):
+        return True
+    return any(token.lower() in route for token in RESERVATION_ROUTE_PATH_TOKENS)
 
 
 def _looks_like_vendor_or_article(result: dict[str, Any], host: str) -> bool:
@@ -1022,6 +1281,14 @@ def _duckduckgo_html(*, query: str, gl: str, timeout_seconds: int) -> str:
     if region:
         params["kl"] = region
     url = "https://lite.duckduckgo.com/lite/?" + urllib.parse.urlencode(params)
+    return _http_get_text(url, timeout_seconds=timeout_seconds, max_bytes=1_000_000)
+
+
+def _yahoo_japan_html(*, query: str, gl: str, timeout_seconds: int) -> str:
+    params = {"p": query, "ei": "UTF-8"}
+    if str(gl or "").lower() == "jp":
+        params["fr"] = "top_ga1_sa"
+    url = "https://search.yahoo.co.jp/search?" + urllib.parse.urlencode(params)
     return _http_get_text(url, timeout_seconds=timeout_seconds, max_bytes=1_000_000)
 
 
@@ -1099,6 +1366,91 @@ def _organic_results_from_duckduckgo_html(source: str) -> list[dict[str, str]]:
     return parser.finish()
 
 
+class _YahooJapanParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._in_item = False
+        self._item_depth = 0
+        self._current: dict[str, str] = {}
+        self._capture = ""
+        self._buffer: list[str] = []
+        self._emitted: set[str] = set()
+        self.results: list[dict[str, str]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        attrs_dict = {key.lower(): value or "" for key, value in attrs}
+        if tag == "li":
+            if not self._in_item:
+                self._emit_current()
+                self._current = {}
+                self._in_item = True
+                self._item_depth = 1
+            else:
+                self._item_depth += 1
+            return
+        if not self._in_item:
+            return
+        if tag == "a" and not self._current.get("link"):
+            link = _decode_yahoo_japan_link(attrs_dict.get("href", ""))
+            host = _host(normalize_website_url(link))
+            if link and host and not _blocked_yahoo_result_host(host):
+                self._current["link"] = link
+                self._capture = "title"
+                self._buffer = []
+            return
+        if tag in {"div", "p", "span"} and self._current.get("link") and not self._current.get("snippet") and self._capture != "title":
+            self._capture = "snippet"
+            self._buffer = []
+
+    def handle_data(self, data: str) -> None:
+        if self._capture:
+            self._buffer.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if self._capture and tag in {"a", "div", "p", "span"}:
+            value = re.sub(r"\s+", " ", " ".join(self._buffer)).strip()
+            if value:
+                self._current[self._capture] = html_lib.unescape(value)
+            self._capture = ""
+            self._buffer = []
+        if tag == "li" and self._in_item:
+            self._item_depth -= 1
+            if self._item_depth <= 0:
+                self._emit_current()
+                self._in_item = False
+                self._item_depth = 0
+
+    def _emit_current(self) -> None:
+        link = normalize_website_url(self._current.get("link", ""))
+        title = self._current.get("title", "").strip()
+        host = _host(link)
+        if not link or not title or link in self._emitted or _blocked_yahoo_result_host(host):
+            self._current = {}
+            return
+        self._emitted.add(link)
+        self.results.append({
+            "title": title,
+            "link": link,
+            "snippet": self._current.get("snippet", "").strip(),
+        })
+        self._current = {}
+
+    def finish(self) -> list[dict[str, str]]:
+        self._emit_current()
+        return self.results
+
+
+def _organic_results_from_yahoo_japan_html(source: str) -> list[dict[str, str]]:
+    parser = _YahooJapanParser()
+    try:
+        parser.feed(source or "")
+    except Exception:
+        return []
+    return parser.finish()
+
+
 def _decode_duckduckgo_link(href: str) -> str:
     raw = html_lib.unescape(str(href or "").strip())
     if raw.startswith("//"):
@@ -1109,6 +1461,37 @@ def _decode_duckduckgo_link(href: str) -> str:
         if target:
             return urllib.parse.unquote(target)
     return raw
+
+
+def _decode_yahoo_japan_link(href: str) -> str:
+    raw = html_lib.unescape(str(href or "").strip())
+    if raw.startswith("//"):
+        raw = f"https:{raw}"
+    parsed = urllib.parse.urlparse(raw)
+    if not parsed.netloc:
+        return raw
+    if "search.yahoo.co.jp" not in parsed.netloc and "r.search.yahoo.co.jp" not in parsed.netloc:
+        return raw
+    query = urllib.parse.parse_qs(parsed.query)
+    for key in ("u", "url", "RU"):
+        target = query.get(key, [""])[0]
+        if target:
+            return urllib.parse.unquote(target)
+    match = re.search(r"/RU=([^/]+)", parsed.path)
+    if match:
+        return urllib.parse.unquote(match.group(1))
+    return ""
+
+
+def _blocked_yahoo_result_host(host: str) -> bool:
+    if not host:
+        return True
+    return any(token in host for token in (
+        "yahoo.co.jp",
+        "search.yahoo.",
+        "r.search.yahoo.",
+        "help.yahoo.",
+    ))
 
 
 def _host(url: str) -> str:
