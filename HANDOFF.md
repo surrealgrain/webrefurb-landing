@@ -34,7 +34,9 @@ This file is intentionally compact. Do not use it as a running changelog. Record
 
 ## Current Checkpoint
 
-`PLAN.md` Phase 13 Batch 2 send/contact and repeat review are complete. The next real outbound action is blocked: do not send Batch 3 email/contact forms or submit any new real contact without an explicit user request for that exact outbound action, because Batch 2 has zero owner responses and one route-validation failure. This is an outbound-only gate, not a stop-work gate. Continue no-send hardening and preparation work when the user says "continue".
+`PLAN.md` Phase 13 Batch 2 send/contact and repeat review are complete. The follow-on no-send hardening block is also complete: Batch 1/2 outcomes were reconciled, route preflight was hardened, the stale broad simulation was replayed under the current email/contact-form-only policy, and a Batch 3 no-send decision brief was generated.
+
+Current decision: hold real Batch 3 outbound. Do not send Batch 3 email/contact forms or submit any new real contact without an explicit user request for that exact outbound action. The no-send Batch 3 decision brief found `9` prior contacts, `0` owner responses, `1` route failure, `0` matched reply artifacts, and `0` eligible live Batch 3 candidates after excluding already-contacted leads, fixtures, unsupported routes, and review-required records.
 
 Controlled Batch 1 remains reviewed:
 
@@ -83,23 +85,24 @@ Phase 13 repeat-review decision:
 - Outreach wording update: no change; no reply or objection identified a copy issue.
 - Package recommendation update: no change; no package-fit objection or conversion.
 - Proof asset update: no change; no proof path produced a reply yet.
-- Contact-route validation update: tighten preflight so contact forms that require phone data are treated as unsupported unless a real sender phone is explicitly available.
-- Batch 3 guidance: do not send any Batch 3 email/contact form unless the user explicitly asks for that exact outbound action; Batch 2 has zero owner responses and one route failure. No-send Batch 3 preparation is allowed: checking replies/bounces/opt-outs, finding candidates, validating routes, drafting copy, running smoke tests, and writing a human decision brief, as long as no business is contacted.
+- Contact-route validation update: preflight now treats phone-required, reservation/booking, recruiting, commerce/order, account/login, and social-profile "forms" as unsupported outreach routes unless a real supported inquiry route is present.
+- Batch 3 guidance: do not send any Batch 3 email/contact form unless the user explicitly asks for that exact outbound action. No-send Batch 3 preparation is allowed: checking replies/bounces/opt-outs, finding candidates, validating routes, drafting copy, running smoke tests, and writing a human decision brief, as long as no business is contacted.
+
+Current no-send simulation signal:
+
+- Latest route-policy replay ID: `production-sim-route-policy-screenshots-fixed-20260430T000000Z`
+- Report result: `production_ready=false` because `P2=1`; `P0=0`, `P1=0`
+- Replay decisions after route-policy reconciliation: `6 ready`, `66 manual_review`, `521 disqualified`
+- External send performed: `false`
+- Real launch batch created: `false`
+- Remaining P2: supported-route expected-ready coverage is too thin after removing phone/social/walk-in labels (`6` expected-ready labels; required minimum is `20` and profile coverage is short).
 
 Next safe no-send work block:
 
-1. Check Batch 1 and Batch 2 records for any new replies, bounces, opt-outs, objections, or stale measurement state.
-2. Convert the Batch 2 route failure into stronger preflight coverage beyond the existing phone-required form case.
-3. Prepare a no-send Batch 3 candidate/decision brief from existing ready leads or simulation replay data, explicitly separating "ready to review" from "approved to contact".
-4. Run focused tests, `audit-state`, and `git diff --check`; update this handoff with the next checkpoint.
-
-Current simulation signal remains no-send only:
-
-- Run ID: `production-sim-live-pilot-20260429T142841Z`
-- Report result: `production_ready=true` for simulation only
-- Findings: `P0=0`, `P1=0`, `P2=0`
-- Replay decisions: `63 ready`, `9 manual_review`, `521 disqualified`
-- The simulation report is not proof that any real-send phase is complete.
+1. Fix or replace the Serper maps collection path, which returned HTTP 400 for the targeted no-send expansion run `production-sim-supported-route-expansion-20260430T0135Z`.
+2. Collect or materialize more Japan ramen/izakaya candidates with real email/contact-form inquiry routes; do not contact them.
+3. Promote only evidence-reviewed supported-route candidates into high-confidence labels until the simulation has at least `20` expected-ready labels across the required positive profiles.
+4. Rerun production simulation with screenshots and keep `P0=0`, `P1=0`; then rerun `launch-decision`.
 
 ## What Changed Recently
 
@@ -111,14 +114,23 @@ Current simulation signal remains no-send only:
 - `pipeline.lead_dossier` now treats contact forms marked phone-required as unsupported outreach routes, with test coverage.
 - Future sent email records now persist attachment metadata: requested source paths, render-source flags, inline attachment filename/MIME/content-id/disposition/size/SHA-256, and file-attachment metadata. The existing らーめん錦 sent record was backfilled from local renderer state.
 - Important correction: prior "continue" handling was too broad. Future sessions must keep "continue" as no-send continuation only unless the user explicitly asks to send real outreach.
+- Route preflight is now centralized in `pipeline.contact_policy` and preserves form metadata from crawled HTML. Unsupported forms include phone-required, reservation/booking, recruiting, commerce/order, account/login, and social-profile masquerading as contact-form routes.
+- Production-sim labels were reconciled to the current outreach route policy; unsupported legacy `phone`, `LINE`, `Instagram`, and `walk_in` ready labels were moved to `manual_review`/`none`.
+- Dashboard screenshot simulation now selects actual dashboard-renderable ready/manual/disqualified records instead of stale expected labels.
+- Batch 3 no-send decision artifacts were written under `state/launch_decisions/`.
 
-Positive effect: Phase 13 now has a recorded Batch 2 outcome, a clear outbound permission boundary, and explicit no-send work that can continue without stalling.
+Positive effect: The system no longer treats unsupported route labels as production-ready, and the remaining blocker is now the real supported-route coverage gap rather than hidden phone/social/walk-in drift.
 
 ## Key Runtime Artifacts
 
 - Corpus: `state/search-replay/production-sim-live-pilot-20260429T142841Z/`
 - Report JSON: `state/production-sim/production-sim-live-pilot-20260429T142841Z/report.json`
 - Decisions: `state/production-sim/production-sim-live-pilot-20260429T142841Z/decisions.json`
+- Current route-policy report JSON: `state/production-sim/production-sim-route-policy-screenshots-fixed-20260430T000000Z/report.json`
+- Current route-policy decisions: `state/production-sim/production-sim-route-policy-screenshots-fixed-20260430T000000Z/decisions.json`
+- Current route-policy screenshots: `state/qa-screenshots/production-sim-route-policy-screenshots-fixed-20260430T000000Z/`
+- Batch 3 no-send decision brief: `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.json`, `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.md`
+- Failed targeted collection run: `state/production-sim/production-sim-supported-route-expansion-20260430T0135Z/report.json`, `state/search-replay/production-sim-supported-route-expansion-20260430T0135Z/search-failures.json`
 - Controlled Batch 1: `state/launch_batches/launch-18ce5c756f.json`
 - Controlled Batch 2 reviewed record: `state/launch_batches/launch-6f594101ca.json`
 - Repair no-send smoke: `state/launch_smoke_tests/smoke-12995a1657.json`
@@ -133,10 +145,13 @@ Positive effect: Phase 13 now has a recorded Batch 2 outcome, a clear outbound p
 
 ## Last Verified Commands
 
-- `.venv/bin/python -m pytest tests/ -q` passed with `479 passed`
+- `.venv/bin/python -m pytest tests/ -q` passed with `486 passed`
 - `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=55`, `findings=[]`, `readiness_report=[]`
-- `git diff --check` passed after the attachment-metadata and phone-required-form changes.
-- `git status --short` before commit showed only `HANDOFF.md`, `dashboard/app.py`, `pipeline/lead_dossier.py`, `tests/test_api.py`, and `tests/test_lead_dossier.py` modified.
+- `.venv/bin/python -m pipeline.cli audit-state --repair` repaired deterministic asset drift for `wrm-jikaseimen-223-okubo-ramen-japan-0b38` and `wrm-maguro-mart-nakano-seafood-5-chome-50-3-nakano-13f7`, then `audit-state` passed.
+- `git diff --check` passed.
+- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-live-pilot-20260429T142841Z --run-id production-sim-route-policy-screenshots-fixed-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `external_send_performed=false`, `real_launch_batch_created=false`.
+- `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-route-policy` wrote the Batch 3 no-send decision brief with `real_outbound_allowed=false`, `eligible_count=0`.
+- `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-20260430T0135Z ... --fail-on p0,p1` returned `P0=0`, `P1=0`, but collected `0` candidates because all `84` Serper maps jobs returned HTTP 400.
 - Batch 1 Phase 12 review remains recorded in `state/launch_batches/launch-18ce5c756f.json`.
 - Batch 2 Phase 13 repeat review is recorded in `state/launch_batches/launch-6f594101ca.json`.
 
@@ -145,9 +160,9 @@ Positive effect: Phase 13 now has a recorded Batch 2 outcome, a clear outbound p
 1. Read `PLAN.md`.
 2. Read `PRODUCTION_SIMULATION_TEST_PLAN.md` only for the current simulation gate and acceptance criteria.
 3. Use this file as the compact current checkpoint, not as proof that a phase is complete.
-4. Treat the current production simulation report as a no-send readiness signal only; Batch 1 selection exists separately in live state.
+4. Treat the current production simulation report as a no-send readiness signal only. The latest route-policy replay is not production-ready because supported-route expected-ready coverage is short.
 5. Continue mode: if the user pasted these resume instructions or says "continue", proceed through all remaining no-send actionable work as one long work block, not just the next numbered step. Do not stop just because a commit is made, a small bug is fixed, or the next outbound action requires permission. Do not send real emails or submit real contact forms from "continue" alone.
-6. Next action: continue the no-send work block listed above. Do not send Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
+6. Next action: fix or bypass the failing Serper maps collection path, expand supported-route no-send candidate/label coverage, rerun production simulation with screenshots, and rerun `launch-decision`. Do not send Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
 7. Do not use phone, Instagram, LINE, or walk-in routes for outreach. Do not select phone-only leads.
 8. Phase 12 review is recorded for Batch 1; Phase 13 repeat review is recorded for Batch 2 under `launch-6f594101ca`.
 9. Before any Batch 3 contact or human approval brief, check for new Batch 1/Batch 2 replies, bounces, opt-outs, or objections and update the relevant launch batch plus lead files if anything changed. This check must be no-send.
