@@ -5,7 +5,7 @@ from typing import Any
 
 from .business_name import business_name_is_suspicious, normalise_business_name
 from .contact_crawler import is_usable_business_email
-from .contact_policy import normalise_contact_actionability
+from .contact_policy import contact_should_be_omitted_from_routes, normalise_contact_actionability
 from .utils import utc_now, write_json, read_json, ensure_dir, slugify, sha256_text
 from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
@@ -78,6 +78,7 @@ CONTACT_METADATA_KEYS = {
     "phone_required",
     "requires_phone_number",
     "has_form",
+    "contact_form_profile",
     "failure_reason",
     "unsupported_reason",
     "page_title",
@@ -229,6 +230,8 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         if contact_type == "email" and not is_usable_business_email(str(raw.get("value") or "")):
             continue
+        if contact_should_be_omitted_from_routes(raw):
+            continue
         _append_contact(
             contacts,
             seen,
@@ -254,18 +257,6 @@ def normalise_lead_contacts(lead: dict[str, Any]) -> list[dict[str, Any]]:
             href=f"mailto:{str(lead.get('email') or '').strip()}",
             source="legacy_record",
             source_url=website or map_url,
-            confidence="medium",
-            discovered_at=generated_at,
-        )
-    if lead.get("phone"):
-        _append_contact(
-            contacts,
-            seen,
-            contact_type="phone",
-            value=str(lead.get("phone") or ""),
-            href=f"tel:{_normalise_phone(str(lead.get('phone') or ''))}",
-            source="legacy_record",
-            source_url=map_url or website,
             confidence="medium",
             discovered_at=generated_at,
         )

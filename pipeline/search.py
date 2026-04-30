@@ -13,6 +13,11 @@ from .business_name import business_name_is_suspicious, business_names_match, ex
 from .contact_crawler import extract_contact_signals, is_usable_business_email
 from .contact_policy import normalise_contact_actionability
 from .constants import DEEP_EMAIL_DISCOVERY_ENABLED
+from .japan_restaurant_intel import (
+    collect_restaurant_intel,
+    coverage_with_contact,
+    is_official_candidate_url,
+)
 from .utils import utc_now, write_json, ensure_dir
 from .qualification import qualify_candidate
 
@@ -193,20 +198,6 @@ def discover_contact_routes(
         discovered_at=discovered_at,
         actionable=False,
     )
-    if phone:
-        digits = re.sub(r"\D", "", phone)
-        _append_contact_route(
-            contacts,
-            seen,
-            contact_type="phone",
-            value=phone,
-            href=f"tel:{digits}" if digits else "",
-            source="maps_listing",
-            source_url=map_url or website,
-            confidence="high",
-            discovered_at=discovered_at,
-            actionable=False,
-        )
     if address:
         _append_contact_route(
             contacts,
@@ -257,7 +248,7 @@ def discover_contact_routes(
                 discovered_at=discovered_at,
                 actionable=True,
             )
-        if signals.has_form:
+        if signals.has_form and signals.contact_form_profile == "supported_inquiry":
             _append_contact_route(
                 contacts,
                 seen,
@@ -271,8 +262,12 @@ def discover_contact_routes(
                 discovered_at=discovered_at,
                 actionable=True,
                 metadata={
+                    "has_form": True,
                     "form_actions": signals.form_actions,
                     "required_fields": signals.required_fields,
+                    "form_field_names": signals.form_field_names,
+                    "contact_form_profile": signals.contact_form_profile,
+                    "page_text_hint": signals.page_text_hint,
                 },
             )
 
@@ -311,6 +306,56 @@ def _merge_contact_routes(
         seen.add(key)
         merged.append(normalise_contact_actionability(contact))
     return merged
+
+
+def _merge_verified_sources(*groups: list[str]) -> list[str]:
+    seen: set[str] = set()
+    merged: list[str] = []
+    for group in groups:
+        for source in group or []:
+            cleaned = str(source or "").strip()
+            key = cleaned.lower()
+            if cleaned and key not in seen:
+                seen.add(key)
+                merged.append(cleaned)
+    return merged
+
+
+def _discover_contacts_from_official_candidates(
+    *,
+    candidates: list[str],
+    primary_website: str,
+    phone: str,
+    address: str,
+    map_url: str,
+    timeout_seconds: int = 8,
+) -> list[dict[str, Any]]:
+    contacts: list[dict[str, Any]] = []
+    primary_host = _normalize_domain(primary_website)
+    seen_hosts = {primary_host} if primary_host else set()
+    for candidate in candidates[:4]:
+        if not is_official_candidate_url(candidate):
+            continue
+        host = _normalize_domain(candidate)
+        if not host or host in seen_hosts:
+            continue
+        seen_hosts.add(host)
+        try:
+            html = _fetch_page(candidate, timeout_seconds=timeout_seconds)
+        except Exception:
+            continue
+        contacts = _merge_contact_routes(
+            contacts,
+            discover_contact_routes(
+                candidate,
+                html,
+                phone=phone,
+                address=address,
+                map_url=map_url,
+                timeout_seconds=timeout_seconds,
+            ),
+        )
+    return contacts
 
 
 def run_search(
@@ -501,7 +546,7 @@ def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, s
         matches.append("simple_menu_package_fit")
     if job_id.startswith("ramen_ramendb"):
         matches.append("ramendb_lookup_source")
-    if "tabelog" in job_id or "hotpepper" in job_id:
+    if any(source in job_id for source in ("tabelog", "hotpepper", "gurunavi", "gnavi", "retty", "hitosara", "paypay")):
         matches.append("directory_menu_lookup_source")
     if expected and expected not in {"operator_supplied", "english_menu_check", "multilingual_qr_check", "mobile_order_check", "english_ticket_machine_check"}:
         matches.append(f"search_job:{expected}")
@@ -812,8 +857,11 @@ def search_and_qualify(
     for place in raw_places[:max_candidates]:
         website = str(place.get("website") or "").strip()
         source_name = str(place.get("title") or place.get("name") or "").strip()
-        if not website or not source_name:
+        if not source_name:
             continue
+        place_address = str(place.get("address", ""))
+        place_phone = str(place.get("phoneNumber", ""))
+        place_map_url = str(place.get("link") or place.get("mapUrl") or "")
 
         # Extract coordinates from Maps-like provider responses.
         position = place.get("position") or {}
@@ -829,9 +877,9 @@ def search_and_qualify(
         existing = find_existing_lead(
             business_name=source_name,
             website=website,
-            phone=str(place.get("phoneNumber", "")),
+            phone=place_phone,
             place_id=str(place.get("placeId", "")),
-            address=str(place.get("address", "")),
+            address=place_address,
             state_root=state_root,
         )
         if existing:
@@ -845,7 +893,7 @@ def search_and_qualify(
             continue
 
         # Cross-job dedup: skip if another parallel job is already processing
-        dedup_key = str(place.get("placeId") or "") or _normalize_domain(website)
+        dedup_key = str(place.get("placeId") or "") or _normalize_domain(website) or f"{source_name}:{place_address}"
         if not _try_mark_in_flight(dedup_key):
             decisions.append({
                 "business_name": source_name,
@@ -855,36 +903,105 @@ def search_and_qualify(
             continue
 
         try:
+            intel = collect_restaurant_intel(
+                business_name=source_name,
+                address=place_address,
+                phone=place_phone,
+                category=category,
+                place=place,
+                initial_website=website,
+                serper_api_key=serper_api_key,
+                search_provider=search_provider,
+                web_search=run_web_search,
+                fetch_page=_fetch_page,
+            )
+            intel_dict = intel.to_dict()
+            if (not website or not is_official_candidate_url(website)) and intel.primary_official_site:
+                website = intel.primary_official_site
+
+            if not website:
+                decisions.append({
+                    "business_name": source_name,
+                    "lead": False,
+                    "reason": "no_official_site_found",
+                    "japan_intel": intel_dict,
+                    "source_count": intel.source_count,
+                    "coverage_signals": intel.coverage_signals,
+                    "coverage_score": intel.coverage_score,
+                })
+                continue
+
             try:
-                website_html = _fetch_page(website)
+                website_html = ""
+                fetched_website = website
+                fetch_errors: list[str] = []
+                for candidate_website in dict.fromkeys([website, *intel.official_site_candidates]):
+                    if not candidate_website:
+                        continue
+                    try:
+                        website_html = _fetch_page(candidate_website)
+                        fetched_website = candidate_website
+                        break
+                    except Exception as exc:
+                        fetch_errors.append(f"{candidate_website}:{type(exc).__name__}")
+                if not website_html:
+                    raise RuntimeError("; ".join(fetch_errors) or "fetch_failed")
+                website = fetched_website
                 pages = [{"url": website, "html": website_html}]
                 if place.get("localEvidenceHtml"):
                     pages.append({
-                        "url": str(place.get("link") or place.get("mapUrl") or website),
+                        "url": place_map_url or website,
                         "html": str(place.get("localEvidenceHtml") or ""),
                     })
             except Exception as exc:
-                decisions.append({"business_name": source_name, "lead": False, "reason": "fetch_failed", "error": str(exc)})
+                decisions.append({
+                    "business_name": source_name,
+                    "lead": False,
+                    "reason": "fetch_failed",
+                    "error": str(exc),
+                    "japan_intel": intel_dict,
+                    "source_count": intel.source_count,
+                    "coverage_signals": intel.coverage_signals,
+                    "coverage_score": intel.coverage_score,
+                })
                 continue
 
             name_check = verify_business_name(
                 source_name=source_name,
                 website=website,
                 html=website_html,
-                address=str(place.get("address", "")),
+                address=place_address,
                 serper_api_key=serper_api_key,
                 category=category,
                 search_provider=search_provider,
             )
-            business_name = str(name_check.get("business_name") or "")
+            business_name = str(name_check.get("business_name") or intel.canonical_name or "")
             business_name_source = str(name_check.get("business_name_source") or "")
-            verified_by = list(name_check.get("verified_by") or [])
+            verified_by = _merge_verified_sources(list(name_check.get("verified_by") or []), intel.verified_by)
             if business_name_is_suspicious(business_name):
                 decisions.append({
                     "business_name": source_name,
                     "lead": False,
                     "reason": "invalid_business_name_detected",
                     "business_name_source": business_name_source,
+                    "japan_intel": intel_dict,
+                    "source_count": intel.source_count,
+                    "coverage_signals": intel.coverage_signals,
+                    "coverage_score": intel.coverage_score,
+                })
+                continue
+            if name_check.get("name_conflict"):
+                decisions.append({
+                    "business_name": business_name or source_name,
+                    "lead": False,
+                    "reason": "business_name_conflict",
+                    "business_name_source": business_name_source,
+                    "business_name_verified_by": verified_by,
+                    "official_name": name_check.get("official_name", ""),
+                    "japan_intel": intel_dict,
+                    "source_count": intel.source_count,
+                    "coverage_signals": intel.coverage_signals,
+                    "coverage_score": intel.coverage_score,
                 })
                 continue
             if len(verified_by) < 2:
@@ -899,9 +1016,14 @@ def search_and_qualify(
                         "business_name_source": business_name_source,
                         "business_name_verified_by": verified_by,
                         "official_name": name_check.get("official_name", ""),
+                        "japan_intel": intel_dict,
+                        "source_count": intel.source_count,
+                        "coverage_signals": intel.coverage_signals,
+                        "coverage_score": intel.coverage_score,
                     })
                     continue
 
+            pages.extend(intel.evidence_pages)
             pages.extend(_collect_targeted_evidence_pages(
                 business_name=business_name,
                 category=category,
@@ -917,10 +1039,10 @@ def search_and_qualify(
                 pages=pages,
                 rating=place.get("rating"),
                 reviews=place.get("ratingCount") or place.get("reviews"),
-                address=place.get("address", ""),
-                phone=place.get("phoneNumber", ""),
+                address=place_address,
+                phone=place_phone,
                 place_id=place.get("placeId", ""),
-                map_url=str(place.get("link") or place.get("mapUrl") or ""),
+                map_url=place_map_url,
                 latitude=place_lat,
                 longitude=place_lng,
             )
@@ -928,6 +1050,10 @@ def search_and_qualify(
             decision = qualification.to_dict()
             decision["business_name_source"] = business_name_source
             decision["business_name_verified_by"] = verified_by
+            decision["japan_intel"] = intel_dict
+            decision["source_count"] = intel.source_count
+            decision["coverage_signals"] = intel.coverage_signals
+            decision["coverage_score"] = intel.coverage_score
             if qualification.lead and category in {"ramen", "izakaya"} and qualification.primary_category_v1 != category:
                 decision["lead"] = False
                 decision["reason"] = "search_category_mismatch"
@@ -947,9 +1073,22 @@ def search_and_qualify(
                 contact_routes = discover_contact_routes(
                     website,
                     website_html,
-                    phone=str(place.get("phoneNumber", "")),
-                    address=str(place.get("address", "")),
-                    map_url=str(place.get("link") or place.get("mapUrl") or ""),
+                    phone=place_phone,
+                    address=place_address,
+                    map_url=place_map_url,
+                )
+                contact_routes = _merge_contact_routes(
+                    contact_routes,
+                    _discover_contacts_from_official_candidates(
+                        candidates=[
+                            *intel.official_site_candidates,
+                            *([intel.operator_company_url] if intel.operator_company_url else []),
+                        ],
+                        primary_website=website,
+                        phone=place_phone,
+                        address=place_address,
+                        map_url=place_map_url,
+                    ),
                 )
                 actionable_routes = [route for route in contact_routes if route.get("actionable")]
                 email_contact = next((route for route in contact_routes if route.get("type") == "email"), None)
@@ -962,8 +1101,8 @@ def search_and_qualify(
                             business_name=business_name,
                             website=website,
                             html=website_html,
-                            address=str(place.get("address", "")),
-                            phone=str(place.get("phoneNumber", "")),
+                            address=place_address,
+                            phone=place_phone,
                             genre=qualification.primary_category_v1 or category,
                         )
                         if deeper_routes:
@@ -973,6 +1112,9 @@ def search_and_qualify(
 
                 decision["contact_route_types"] = [str(route.get("type") or "") for route in contact_routes]
                 decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
+                coverage = coverage_with_contact(intel_dict, contact_found=bool(actionable_routes))
+                decision["coverage_signals"] = coverage["coverage_signals"]
+                decision["coverage_score"] = coverage["coverage_score"]
 
                 if not email_contact:
                     qualified_without_email += 1
@@ -1022,6 +1164,21 @@ def search_and_qualify(
                     record["business_name_tabelog_url"] = name_check["tabelog_url"]
                 if name_check.get("ramendb_url"):
                     record["business_name_ramendb_url"] = name_check["ramendb_url"]
+                record["japan_intel"] = intel_dict
+                record["source_count"] = intel.source_count
+                record["source_coverage_score"] = coverage["coverage_score"]
+                record["coverage_signals"] = coverage["coverage_signals"]
+                record["portal_urls"] = intel.portal_urls
+                record["official_site_candidates"] = intel.official_site_candidates
+                record["social_links"] = intel.social_links
+                record["operator_company_name"] = intel.operator_company_name
+                record["operator_company_url"] = intel.operator_company_url
+                if intel.portal_urls:
+                    source_urls = record.setdefault("source_urls", {})
+                    source_urls["portal_urls"] = intel.portal_urls
+                if intel.official_site_candidates:
+                    source_urls = record.setdefault("source_urls", {})
+                    source_urls["official_site_candidates"] = intel.official_site_candidates
                 persist_lead_record(record, state_root=state_root)
                 results.append(record)
                 decision["email_found"] = bool(email_contact)

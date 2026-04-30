@@ -2,227 +2,145 @@
 
 Updated: 2026-04-30
 
-This file is intentionally compact. Do not use it as a running changelog. Record only the current checkpoint, next action, safety boundaries, and verification results. Put detailed logs in generated reports or small targeted docs so new chats do not start with stale context bloat.
+This is the compact resume file. Keep it short. Do not append a running diary; replace stale checkpoint details after each meaningful work block.
 
-## Source Of Truth
+## Read First
 
-- Active product plan: `PLAN.md`
-- Source audit: `PRODUCT_AUDIT_2026-04-29.md`
-- Current no-send hardening plan: `PRODUCTION_SIMULATION_TEST_PLAN.md`
+- Active product plan: `PLAN.md`.
+- Simulation criteria: `PRODUCTION_SIMULATION_TEST_PLAN.md`.
+- Repo rules: Japan only, ramen + izakaya only, three fixed-price packages.
+- No HVAC references.
+- Binary lead semantics only: `lead: true|false`, never "maybe".
+- Customer-facing copy must not mention AI, automation, scraping, or internal tools.
 
-`PRODUCTION_SIMULATION_TEST_PLAN.md` is subordinate to `PLAN.md`; it does not replace the product audit plan. Do not resume from obsolete P0/P1/P2/P3/P4/P5/P6/P7 plan text.
+## Safety Boundary
 
-## Safety Boundaries
+- Do not send real email, submit real contact forms, or otherwise contact a business unless the user explicitly requests that exact outbound action in the current chat.
+- "Continue" means no-send work only.
+- Approved outreach routes are email and contact forms only.
+- Phone, LINE, Instagram, reservation links, booking forms, social DMs, and phone-required forms are not outreach routes; do not emit them as contact-route records. Walk-ins/map URLs/websites may appear only as non-actionable location/source metadata.
+- `production_ready=true` in simulation is only a no-send signal, not send permission.
 
-- ABSOLUTE OUTBOUND RULE: do not send any real email, submit any real contact form, or otherwise contact a business unless the user explicitly requests that exact outbound send/contact action in the current chat. The word "continue" is not enough permission for real outreach.
-- Treat future continuation as permission to keep executing every non-outbound step that is technically and plan-wise unblocked. Selection, scoring, validation, draft generation, simulations, audits, reviews, state repairs, and test-backed hardening are safe; real email/contact-form submission is not safe without explicit user approval.
-- Japan only.
-- Ramen and izakaya only.
-- Binary lead semantics: `lead: true|false`, never "maybe".
-- Customer-facing copy must not mention AI, automation, or internal tools.
-- Approved outreach/contact routes are email and contact forms only.
-- Phone, Instagram, LINE, and walk-in routes are reference-only metadata. They never make a lead launch-ready and cannot be selected for outreach.
-- Do not consider phone-only leads launch-ready.
-- Real outreach has occurred for selected Batch 1 and Batch 2 through approved routes only: Batch 1 had one email and four contact forms; Batch 2 had one email and three submitted contact forms. No phone call, Instagram DM, LINE message, or walk-in contact has been performed.
-- Production simulation must use isolated state and mocked send paths.
-- `production_ready=true` in a simulation report is a no-send readiness signal only. It is not permission to send real outreach.
-- Do not start Batch 2 before Phase 12.
-- When the user pastes resume instructions or says "continue", treat that as approval to continue no-send work as far as safely possible across the active `PLAN.md` and `PRODUCTION_SIMULATION_TEST_PLAN.md` tracks. Run the next pass as a long work block; do not stop after one numbered substep, one verification run, one small bugfix, one commit, or one outbound-only gate if more no-send work is available.
-- Outbound gates are not general stop points. If the next real email/contact-form action is blocked, switch to the next safe no-send task: reply/bounce/opt-out checks, batch review reconciliation, route-validation hardening, simulation coverage, dashboard QA, state audit repair, candidate preparation without contact, or tests.
-- Stop only at a failing verification gate, an unavailable external credential/channel required for no-send work, a required human-only decision with no safe parallel no-send task, a user redirect, severe context bloat, or after all useful no-send work in the current plan slice is exhausted.
-- Stop early if context bloat is noticeably affecting output quality, accuracy, or the ability to preserve the current state. Before stopping, update this handoff with the current checkpoint and next action.
+## Current Status
 
-## Current Checkpoint
+- Branch: `codex/phase11-contact-form-batch`, ahead of origin by 5 commits.
+- Worktree is intentionally dirty. Do not revert user or prior-agent changes.
+- `PLAN.md` Phases 0-12 are complete. Phase 13 is active, not complete.
+- Controlled Batch 1 and Batch 2 have already had real approved-route outreach. Do not start Batch 3.
+- Current decision: hold real Batch 3 outbound. Reason: Batch 1/2 have 0 replies/positives and the eligible candidate pool is not strong enough.
 
-`PLAN.md` Phase 13 Batch 2 send/contact and repeat review are complete. The follow-on no-send hardening block is also complete: Batch 1/2 outcomes were reconciled, route preflight was hardened, the stale broad simulation was replayed under the current email/contact-form-only policy, and a Batch 3 no-send decision brief was generated.
+## Batch Snapshot
 
-Current decision: hold real Batch 3 outbound. Do not send Batch 3 email/contact forms or submit any new real contact without an explicit user request for that exact outbound action. The no-send Batch 3 decision brief found `9` prior contacts, `0` owner responses, `1` route failure, `0` matched reply artifacts, and `0` eligible live Batch 3 candidates after excluding already-contacted leads, fixtures, unsupported routes, and review-required records.
+- Batch 1: `launch-18ce5c756f`, reviewed, `5/5` contacted, `0` replies, `0` positives, `0` bounces/opt-outs.
+- Batch 2: `launch-6f594101ca`, reviewed, `4/5` contacted, `0` replies, `0` positives, `0` bounces/opt-outs.
+- Batch 2 non-contact: `wrm-lead-lead-fb50` / 創作個室居酒屋すぎうら. Form required phone data; no phone was invented; no submission was made; now manual/do-not-contact.
 
-## Plan Completion Snapshot
+## Current Code State
 
-Conservative completion: about `93%` of `PLAN.md` is complete by phase gate count. Phases `0` through `12` are complete (`13/14` phase gates). Phase `13` is active, not complete, because the repeatable launch loop cannot justify more outbound volume yet.
+Uncommitted hardening is in progress:
 
-Phase 13 internal progress: `4/5` explicit steps are complete for Batch 2:
+- Chain/category gates now prefer first-party page text over third-party review/directory text.
+- Large first-party store directories are treated as chain/multi-store infrastructure.
+- First-party out-of-scope restaurant/hospitality text can override noisy search category hints.
+- Route policy blocks unsupported "forms" such as phone-required, booking/reservation, recruiting, commerce/order, account/login, and social-profile routes.
+- Phone routes and booking/reservation/phone-required/hidden-only/newsletter/order/recruit forms are omitted from contact-route lists instead of being kept as reference-only routes.
+- Serper collection now preserves HTTP response bodies and exposes missing credits/credential failures clearly.
+- JavaScript-rendered contact forms without literal `<form>` tags are recognized when they expose contact/inquiry controls.
+- Contact form extraction now profiles forms as `supported_inquiry`, `reservation_only`, `phone_required`, `hidden_only`, `newsletter`, `commerce`, `recruiting`, or `unknown`; only `supported_inquiry` can launch-ready.
+- Single-shop "店舗情報"/"お店"/"ご来店" copy no longer trips the multi-store infrastructure gate.
+- Local WebSerper search provider is implemented and wired into the CLI. `webserper` is the default provider, requires no `SERPER_API_KEY`, and `serper` remains available only when explicitly selected. WebSerper now combines Google Maps with Yahoo Japan + DuckDuckGo organic fallback and writes retry/fallback metadata.
+- Production-sim now has a WebSerper benchmark command and label review shortlist.
 
-- Step 1, confirm Batch 1 review: complete.
-- Step 2, select Batch 2 using updated rules: complete.
-- Step 3, repeat Phase 11 measurement: complete for Batch 2.
-- Step 4, repeat Phase 12 review: complete for Batch 2.
-- Step 5, continue only while lead quality and owner response justify volume: not satisfied. Current signal says hold real Batch 3 outbound.
+Worktree remains intentionally dirty and includes prior unrelated edits. Do not revert user or prior-agent changes.
 
-Completed major plan work:
+## Latest No-Send Simulation
 
-- Phase 0 source lock and baseline audit.
-- Phase 1 state backup and stale-state reconciliation.
-- Phase 2 lead evidence dossier gate.
-- Phase 3 restaurant fit/disqualification gates.
-- Phase 4 friction-first search.
-- Phase 5 package recommendation.
-- Phase 6 shop-specific diagnosis outreach.
-- Phase 7 preview/proof quality gates.
-- Phase 8 public positioning, package copy, and risk reversal.
-- Phase 9 paid operations path.
-- Phase 10 browser/render verification.
-- Phase 11 controlled Batch 1.
-- Phase 12 Batch 1 review and iteration.
-- Phase 13 Batch 2 selection, send/contact, measurement, repeat review, no-send route-policy hardening, and Batch 3 no-send decision brief.
+Latest focused Google+Yahoo WebSerper corpus:
 
-Remaining work:
+- `state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z/`
+- Command used explicit `--search-provider webserper`; no API key was passed or logged. Tuned verification env used shorter local waits: `WEBREFURB_LOCAL_MAPS_BATCH_WAIT_MS=1000`, `WEBREFURB_SEARCH_RETRY_ATTEMPTS=1`, `WEBREFURB_LOCAL_SEARCH_RESULT_LIMIT=12`, `WEBREFURB_LOCAL_SEARCH_PLACE_LIMIT=8`, and `--fetch-timeout-seconds 4`.
+- Captured `282` raw candidates, `110` deduped candidates, `172` duplicates, `123` fetched pages, `16` fetch failures, `0` search failures.
+- Markets: Sangenjaya, Kichijoji, Kagurazaka, Jinbocho.
+- Label workflow created `110` draft labels and `labeling/review-shortlist.json`. Finalized strict labels: `1 ready`, `1 manual_review`, `1 disqualified`.
+- Promoted ready: `wrm-replay-oilmen-e264c2f2` / らぁ麺ゃ 煮干しのRYOMA — first-party ramen, published email `info@ryoma-5.com`, Package 1.
+- Manual: `wrm-replay-marco-70431f73` / 食堂かど。 — first-party page, but stricter route policy materializes no supported route and proof is operator-only/no customer-safe proof item.
+- Disqualified: `wrm-replay-nakano-aoba-4ef37644` / 中華そば 中野 青葉 吉祥寺店 — first-party shop list shows chain/multi-store infrastructure.
+- Benchmark artifacts:
+  - `state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/google-yahoo-focused-labeled-20260430.json`
+  - `state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/google-yahoo-focused-labeled-20260430.md`
+- Benchmark status: not passed. Improved `0` search failures, `100%` first-party-site rate, `11.51%` fetch failure rate, and `0` unsupported ready labels. Still below target on candidate yield (`1.31` deduped candidates/job vs `1.60`) and reviewed-ready count (`1` vs target `6`).
 
-- Expand no-send supported-route candidate/label coverage from `1` verified expected-ready label to at least `20`, across the required positive profiles in `PRODUCTION_SIMULATION_TEST_PLAN.md`.
-- Rerun production simulation with screenshots until `P0=0`, `P1=0`; current latest credited three-label replay has `P0=0`, `P1=0`, `P2=1`.
-- Rerun the Batch 3 no-send decision brief after candidate coverage improves.
-- Only if the user explicitly requests the exact outbound action in the current chat: perform any real Batch 3 email/contact-form send. Without that explicit request, no real outbound is allowed.
+Latest replay:
 
-Controlled Batch 1 remains reviewed:
+- Run ID: `production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z`
+- Result: `production_ready=false`, `P0=0`, `P1=0`, `P2=1`
+- Counts: `1 ready`, `1 manual_review`, `1 disqualified`, `1` mocked send verified.
+- `external_send_performed=false`, `real_launch_batch_created=false`.
+- Dashboard screenshot coverage passed for required ready/manual/disqualified/editor/inline states.
 
-- Batch ID: `launch-18ce5c756f`
-- Reviewed at: `2026-04-29T23:52:39+00:00`
-- Summary: `5/5` contacted, `0` replies, `0` positives, `0` objections, `0` opt-outs, `0` bounces.
+Strict reviewed labels across credited + focused WebSerper corpora:
 
-Controlled Batch 2 review:
+- Total `19`: `8 ready`, `3 manual_review`, `8 disqualified`.
+- Current expected-ready labels:
+  - `wrm-replay-izakaya-gussanchi-190acb60` — izakaya course/nomihodai, contact form, Package 3.
+  - `wrm-replay-torisoba-salt-32897741` — ramen, email, Package 2.
+  - `wrm-replay-momokichi-kichijoji-6cebd6d4` — izakaya menu/course, contact form, Package 3.
+  - `wrm-replay-oilmen-a4e94f47` — ramen ticket-machine profile, email, Package 2.
+  - `wrm-replay-jimbocho-ton-be6980fa` — izakaya course/menu, contact form, Package 3.
+  - `wrm-replay-marco-5bd65206` — Sangenjaya izakaya/sakaba, first-party contact form, Package 2.
+  - `wrm-replay-kushinikomi-maruni-4600161b` — Kichijoji izakaya course/nomihodai, first-party contact form, Package 3.
+  - `wrm-replay-oilmen-e264c2f2` — ramen, first-party published email, Package 1.
 
-- Batch ID: `launch-6f594101ca`
-- Batch path: `state/launch_batches/launch-6f594101ca.json`
-- Created at: `2026-04-30T00:13:54+00:00`
-- Reviewed at: `2026-04-30T00:57:43+00:00`
-- Lead count: `5`
-- Contacted count: `4`
-- Response rate: `0/4` (`0.0`)
-- Positive replies: `0`
-- Objections: `0`
-- Opt-outs: `0`
-- Bounces: `0`
-- No replies/waiting: `4`
-- Operator time counted for contacted leads: `13` total minutes, `3.25` average minutes per contacted lead
-- Channel performance: email `1 contacted / 0 responses`; contact forms `3 contacted / 0 responses`; contact-form channel failure `1`
-- Package mix contacted: Package 1 `2`, Package 2 `1`, Package 3 `1`
+Google+Yahoo replay materialization found only `1` current-rule ready record (`RYOMA`). Many high-scoring shortlist items were chain/multi-store, website-only, already-solved, or reservation/booking-adjacent. Continue reviewing only legitimate high-confidence first-party ramen/izakaya records with email or supported general inquiry forms.
 
-Batch 2 final lead outcomes:
+`SERPER_API_KEY` is no longer required for the default WebSerper path. Do not use, echo, write, or log it for WebSerper runs.
 
-- `wrm-lead-492-1-d7a2` — 黄金トマトのカル麺, BASE contact form submitted, `reply_status=no_reply`, artifacts `state/contact_form_submissions/20260430T005242Z/`.
-- `wrm-lead-605-0083-416-6d57` — らーめん錦, email sent through dashboard/Resend, `reply_status=no_reply`, sent record `state/sent/wrm-lead-605-0083-416-6d57_20260430004333.json`.
-- `wrm-kyoto-ramen-kinzan-japan-a54f` — Kyoto Ramen KINZAN, BASE contact form submitted, `reply_status=no_reply`, artifacts `state/contact_form_submissions/20260430T005242Z/`.
-- `wrm-ichinohajimari-kyoto-izakaya-7f4a` — いちのはじまり, official contact form submitted, `reply_status=no_reply`, artifacts `state/contact_form_submissions/20260430T005546Z/`.
-- `wrm-lead-lead-fb50` — 創作個室居酒屋すぎうら, not contacted; official form required phone data, no phone data was invented, no restaurant form submission POST was observed, lead is now `do_not_contact` / `manual_review`.
+## Latest Batch 3 Decision
 
-Batch 2 replacements and route repairs:
+- Command run: `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-google-yahoo-webserper-20260430T000000Z`
+- Recommendation: `hold_real_outbound_prepare_more_candidates`
+- `real_outbound_allowed=false`
+- `eligible_count=0`
+- Artifacts:
+  - `state/launch_decisions/batch3-no-send-google-yahoo-webserper-20260430T000000Z-20260430T064907Z.json`
+  - `state/launch_decisions/batch3-no-send-google-yahoo-webserper-20260430T000000Z-20260430T064907Z.md`
 
-- `wrm-hakoya-meieki-shop-japan-a49c` removed before send because the official page exposed phone/HotPepper reservation paths, not an approved inquiry/contact form.
-- `wrm-lead-605-0083-416-6d57` らーめん錦 added as Hakoya replacement with approved email route.
-- `wrm-tokyo-underground-ramen-japan-6dda` removed before external send because the dashboard guard identified it as `smoke_rehearsal_only=true`.
-- `wrm-ichinohajimari-kyoto-izakaya-7f4a` いちのはじまり added as Tokyo replacement with approved contact-form route.
-- Latest repaired no-send smoke ID: `smoke-850d05261f`.
+## Key Artifacts
 
-Phase 13 repeat-review decision:
+- Latest replay report: `state/production-sim/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/report.json`
+- Latest replay decisions: `state/production-sim/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/decisions.json`
+- Latest replay screenshots: `state/qa-screenshots/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/`
+- Batch 1 record: `state/launch_batches/launch-18ce5c756f.json`
+- Batch 2 record: `state/launch_batches/launch-6f594101ca.json`
 
-- Scoring update: no change; zero owner replies, objections, opt-outs, bounces, or conversions.
-- Search terms update: no change; no owner-response signal yet.
-- Outreach wording update: no change; no reply or objection identified a copy issue.
-- Package recommendation update: no change; no package-fit objection or conversion.
-- Proof asset update: no change; no proof path produced a reply yet.
-- Contact-route validation update: preflight now treats phone-required, reservation/booking, recruiting, commerce/order, account/login, and social-profile "forms" as unsupported outreach routes unless a real supported inquiry route is present.
-- Batch 3 guidance: do not send any Batch 3 email/contact form unless the user explicitly asks for that exact outbound action. No-send Batch 3 preparation is allowed: checking replies/bounces/opt-outs, finding candidates, validating routes, drafting copy, running smoke tests, and writing a human decision brief, as long as no business is contacted.
+## Last Verification
 
-Current no-send simulation signal:
-
-- Latest credited collection run ID: `production-sim-supported-route-expansion-credited-20260430T000000Z`
-- Latest credited collection run 2 ID: `production-sim-supported-route-expansion-credited-2-20260430T000000Z`
-- Latest credited labeled replay ID: `production-sim-credited-three-labels-all-screens-20260430T000000Z`
-- Report result: `production_ready=false` because `P2=1`; `P0=0`, `P1=0`
-- Credited collection result: `72` candidates from `136` raw candidates, `64` duplicates, `238` fetched pages, `62` fetch failures, `2` Serper search timeouts out of `84` jobs.
-- Credited collection 2 result: `65` candidates from `147` raw candidates, `82` duplicates, `225` fetched pages, `41` fetch failures, `0` Serper search failures out of `84` jobs. Isolated materialization found `0` ready, `2` manual_review, `63` disqualified.
-- Credited replay decisions over finalized reviewed subset: `1 ready`, `1 manual_review`, `1 disqualified`; `3` strict labels total.
-- External send performed: `false`
-- Real launch batch created: `false`
-- Remaining P2: broad corpus/label coverage is still short (`3` strict labels in the credited subset; production target is `300-500` raw candidates, `100-150` manual labels, and at least `20` expected-ready labels).
-- Serper diagnosis: the previous HTTP 400 blocker was account credits, not malformed request shape. With a credited runtime key, collection now works. Do not write API keys into repo files or handoff.
-
-Next safe no-send work block:
-
-1. Continue reviewing the `72` credited collected candidates; promote only evidence-reviewed supported-route candidates into finalized labels.
-2. Prioritize the `18` suspected-ready draft candidates under `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/labeling/review-queue.json`.
-3. Expand finalized expected-ready labels from `1` to at least `20`, across the required positive profiles.
-4. Rerun production simulation with screenshots and keep `P0=0`, `P1=0`; then rerun `launch-decision`.
-
-## What Changed Recently
-
-- Phase 13 Batch 2 was selected, repaired, sent/contacted through approved routes, measured, and reviewed.
-- Hakoya was removed for unsupported route; Tokyo Underground was removed because it was a smoke-only fixture.
-- らーめん錦 and いちのはじまり were materialized from official pages as Batch 2 replacements.
-- Three Batch 2 contact forms were submitted successfully; one Batch 2 email was sent successfully.
-- Sugiura’s form was not submitted because it required phone data; it is now reference-only/do-not-contact.
-- `pipeline.lead_dossier` now treats contact forms marked phone-required as unsupported outreach routes, with test coverage.
-- Future sent email records now persist attachment metadata: requested source paths, render-source flags, inline attachment filename/MIME/content-id/disposition/size/SHA-256, and file-attachment metadata. The existing らーめん錦 sent record was backfilled from local renderer state.
-- Important correction: prior "continue" handling was too broad. Future sessions must keep "continue" as no-send continuation only unless the user explicitly asks to send real outreach.
-- Route preflight is now centralized in `pipeline.contact_policy` and preserves form metadata from crawled HTML. Unsupported forms include phone-required, reservation/booking, recruiting, commerce/order, account/login, and social-profile masquerading as contact-form routes.
-- Production-sim labels were reconciled to the current outreach route policy; unsupported legacy `phone`, `LINE`, `Instagram`, and `walk_in` ready labels were moved to `manual_review`/`none`.
-- Dashboard screenshot simulation now selects actual dashboard-renderable ready/manual/disqualified records instead of stale expected labels.
-- Batch 3 no-send decision artifacts were written under `state/launch_decisions/`.
-- Serper Maps collection now raises a project-level search error for missing credentials and records HTTP response bodies, exposing the current account blocker as `Not enough credits` instead of opaque HTTP 400 failures.
-- Credited no-send Serper collection produced a new 72-candidate replay corpus, generated a 72-item stratified labeling workflow, and finalized 3 reviewed labels: one ready, one manual-review, and one disqualified. No outbound was sent.
-- A second credited no-send Serper collection across Gion, Nara, Hakone, and Kamakura produced 65 more candidates and a 65-item labeling workflow. It did not add ready coverage after isolated materialization, but it expanded negative/manual coverage and confirmed those markets were mostly chains, already-solved, unsupported-route, or non-ready for this offer.
-- Dashboard production-sim rendering now keeps simulation-only manual/disqualified fixtures visible so screenshot coverage can verify those states without weakening live send gates.
-
-Positive effect: The system no longer treats unsupported or unverified form routes as production-ready, credited collection works, and the remaining blocker is now reviewed positive-label volume rather than collector failure.
-
-## Key Runtime Artifacts
-
-- Corpus: `state/search-replay/production-sim-live-pilot-20260429T142841Z/`
-- Report JSON: `state/production-sim/production-sim-live-pilot-20260429T142841Z/report.json`
-- Decisions: `state/production-sim/production-sim-live-pilot-20260429T142841Z/decisions.json`
-- Current route-policy report JSON: `state/production-sim/production-sim-credit-diagnostic-route-policy-20260430T000000Z/report.json`
-- Current route-policy decisions: `state/production-sim/production-sim-credit-diagnostic-route-policy-20260430T000000Z/decisions.json`
-- Current route-policy screenshots: `state/qa-screenshots/production-sim-credit-diagnostic-route-policy-20260430T000000Z/`
-- Credited collection corpus: `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/`
-- Credited collection report: `state/production-sim/production-sim-supported-route-expansion-credited-20260430T000000Z/report.json`
-- Credited labeling workflow: `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/labeling/`
-- Credited three-label replay report: `state/production-sim/production-sim-credited-three-labels-all-screens-20260430T000000Z/report.json`
-- Credited three-label screenshots: `state/qa-screenshots/production-sim-credited-three-labels-all-screens-20260430T000000Z/`
-- Credited collection 2 corpus: `state/search-replay/production-sim-supported-route-expansion-credited-2-20260430T000000Z/`
-- Credited collection 2 report: `state/production-sim/production-sim-supported-route-expansion-credited-2-20260430T000000Z/report.json`
-- Credited collection 2 labeling workflow: `state/search-replay/production-sim-supported-route-expansion-credited-2-20260430T000000Z/labeling/`
-- Batch 3 no-send decision brief: `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.json`, `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.md`
-- Failed targeted collection run: `state/production-sim/production-sim-supported-route-expansion-20260430T0135Z/report.json`, `state/search-replay/production-sim-supported-route-expansion-20260430T0135Z/search-failures.json`
-- Controlled Batch 1: `state/launch_batches/launch-18ce5c756f.json`
-- Controlled Batch 2 reviewed record: `state/launch_batches/launch-6f594101ca.json`
-- Repair no-send smoke: `state/launch_smoke_tests/smoke-12995a1657.json`
-- Batch 2 no-send smokes: `state/launch_smoke_tests/smoke-c1bae62975.json`, `state/launch_smoke_tests/smoke-f34f36c4f6.json`, `state/launch_smoke_tests/smoke-850d05261f.json`
-- Sent email record: `state/sent/wrm-kuraichi-286-sengokuhara-fb03_20260429173017.json`
-- Batch 2 sent email record with backfilled inline attachment metadata: `state/sent/wrm-lead-605-0083-416-6d57_20260430004333.json`
-- Batch 1 contact-form submission artifacts: `state/contact_form_submissions/20260429T185616Z/`
-- Batch 2 contact-form submission artifacts: `state/contact_form_submissions/20260430T005242Z/`, `state/contact_form_submissions/20260430T005455Z/`, `state/contact_form_submissions/20260430T005546Z/`
-- Active Batch 1 leads: `state/leads/wrm-kuraichi-286-sengokuhara-fb03.json`, `state/leads/wrm-lead-2-12-5-2392.json`, `state/leads/wrm-koshitsu-sosakuryori-musubi-namba-japan-ee35.json`, `state/leads/wrm-guusan-chi-a-home-style-izakaya-2-chome-9-16-hosai-f672.json`, `state/leads/wrm-tonkotsu-ramen-tatsu-9-18-konohanamachi-d2b8.json`
-- Active/reviewed Batch 2 leads: `state/leads/wrm-lead-492-1-d7a2.json`, `state/leads/wrm-lead-605-0083-416-6d57.json`, `state/leads/wrm-kyoto-ramen-kinzan-japan-a54f.json`, `state/leads/wrm-ichinohajimari-kyoto-izakaya-7f4a.json`, `state/leads/wrm-lead-lead-fb50.json`
-- Removed unsupported/smoke Batch 2 candidates: `state/leads/wrm-hakoya-meieki-shop-japan-a49c.json`, `state/leads/wrm-tokyo-underground-ramen-japan-6dda.json`
-
-## Last Verified Commands
-
-- `.venv/bin/python -m pytest tests/ -q` passed with `500 passed`
-- `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=55`, `findings=[]`, `readiness_report=[]`
-- `.venv/bin/python -m pipeline.cli audit-state --repair` repaired deterministic asset drift for `wrm-jikaseimen-223-okubo-ramen-japan-0b38` and `wrm-maguro-mart-nakano-seafood-5-chome-50-3-nakano-13f7`, then `audit-state` passed.
+- `.venv/bin/python -m pytest tests/ -q` passed with `611 passed`.
+- Provider config check: default provider is `webserper`; `webserper` requires no key; `serper` still requires a key.
+- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z --run-id production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`.
 - `git diff --check` passed.
-- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-live-pilot-20260429T142841Z --run-id production-sim-credit-diagnostic-route-policy-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `external_send_performed=false`, `real_launch_batch_created=false`.
-- `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-credited-20260430T000000Z ... --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `candidate_count=72`, `external_send_performed=false`, `real_launch_batch_created=false`.
-- `.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z --sample stratified --sample-size 72` generated `72` draft labels and a review queue with `18` suspected-ready candidates.
-- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z --run-id production-sim-credited-three-labels-all-screens-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `1 ready`, `1 manual_review`, `1 disqualified`, all required screenshot states captured, `external_send_performed=false`, `real_launch_batch_created=false`.
-- `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-credited-2-20260430T000000Z ... --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `candidate_count=65`, `external_send_performed=false`, `real_launch_batch_created=false`.
-- `.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/production-sim-supported-route-expansion-credited-2-20260430T000000Z --sample stratified --sample-size 65` generated `65` draft labels and a review queue with `7` suspected-ready candidates; isolated materialization found no actual ready records in that second slice.
-- `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-route-policy` wrote the Batch 3 no-send decision brief with `real_outbound_allowed=false`, `eligible_count=0`.
-- `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-20260430T0135Z ... --fail-on p0,p1` returned `P0=0`, `P1=0`, but collected `0` candidates because all `84` Serper maps jobs returned HTTP 400. Follow-up probe with body-preserving search errors showed the Serper account is out of credits.
-- Batch 1 Phase 12 review remains recorded in `state/launch_batches/launch-18ce5c756f.json`.
-- Batch 2 Phase 13 repeat review is recorded in `state/launch_batches/launch-6f594101ca.json`.
+- `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=55`, `findings=[]`, `readiness_report=[]`.
+- `audit-state --repair` previously repaired deterministic drift for `wrm-tonkotsu-ramen-tatsu-9-18-konohanamachi-d2b8` from ready to disqualified because current chain-like evidence gates now apply; rerun audit passed.
 
-## Resume Instructions
+## Next Safe Work
 
-1. Read `PLAN.md`.
-2. Read `PRODUCTION_SIMULATION_TEST_PLAN.md` only for the current simulation gate and acceptance criteria.
-3. Use this file as the compact current checkpoint, not as proof that a phase is complete.
-4. Treat the current production simulation report as a no-send readiness signal only. The latest route-policy replay is not production-ready because supported-route expected-ready coverage is short.
-5. Continue mode: if the user pasted these resume instructions or says "continue", proceed through all remaining no-send actionable work as one long work block, not just the next numbered step. Do not stop just because a commit is made, a small bug is fixed, or the next outbound action requires permission. Do not send real emails or submit real contact forms from "continue" alone.
-6. Next action: continue evidence review of the credited corpus, finalize more supported-route expected-ready labels, rerun production simulation with screenshots, and rerun `launch-decision`. Do not send Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
-7. Do not use phone, Instagram, LINE, or walk-in routes for outreach. Do not select phone-only leads.
-8. Phase 12 review is recorded for Batch 1; Phase 13 repeat review is recorded for Batch 2 under `launch-6f594101ca`.
-9. Before any Batch 3 contact or human approval brief, check for new Batch 1/Batch 2 replies, bounces, opt-outs, or objections and update the relevant launch batch plus lead files if anything changed. This check must be no-send.
-10. If context bloat starts affecting output quality or accuracy, stop after updating this handoff with a concrete next no-send task rather than continuing the next work slice.
-11. After each completed phase, simulation slice, or real-send slice, update this handoff by replacing stale checkpoint details instead of appending a long diary.
+1. Improve Google+Yahoo candidate yield without weakening first-party and route safety. Current benchmark misses candidate/job target (`1.31` vs `1.60`) even though reliability and fetch rate pass.
+2. Continue no-send evidence review for legitimate supported-route false negatives in existing corpora. Promote only high-confidence first-party ramen/izakaya records with email or supported general inquiry forms.
+3. Keep phone numbers, reservation/booking forms, hidden-only forms, newsletters, order/commerce, recruiting, LINE, and Instagram out of contact-route records.
+4. When more labels are added, rerun:
+
+```bash
+.venv/bin/python -m pipeline.cli production-sim collect --run-id <new-webserper-run-id> --city-set launch-markets --category all --stage pilot --search-provider webserper --contact-pages-per-candidate 2 --evidence-pages-per-candidate 4 --fail-on p0,p1
+.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/<new-webserper-run-id>
+.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/<new-webserper-run-id> --run-id <new-replay-run-id> --screenshots --fail-on p0,p1
+.venv/bin/python -m pipeline.cli launch-decision --label <new-label>
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pipeline.cli audit-state
+git diff --check
+```
+
+## Context Hygiene
+
+- In a new chat, read this file first, then targeted sections of `PLAN.md` and `PRODUCTION_SIMULATION_TEST_PLAN.md`.
+- Avoid broad `rg` over the whole repo without excludes; embedded assets can dump huge base64 output.
+- Prefer targeted commands and small output windows.

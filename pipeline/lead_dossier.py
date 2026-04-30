@@ -16,6 +16,7 @@ from .constants import (
 )
 from .contact_policy import (
     SUPPORTED_OUTREACH_CONTACT_TYPES,
+    contact_should_be_omitted_from_routes,
     contact_form_unsupported_reason,
     normalise_contact_actionability,
 )
@@ -266,6 +267,11 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
 
     if not _has_supported_contact(record):
         reasons.append("no_supported_contact_route")
+    if (
+        _primary_supported_contact_type(record) == "contact_form"
+        and str(record.get("hosted_menu_sample_status") or "") == "publish_failed"
+    ):
+        reasons.append("hosted_sample_publish_failed")
     if not any(item.get("customer_preview_eligible") for item in proof_items):
         reasons.append("no_customer_safe_proof_item")
     if _record_contains_bad_preview(record) or record.get("legacy_pitch_blocked_reason"):
@@ -513,16 +519,22 @@ def _proof_strength(proof_items: list[dict[str, Any]]) -> str:
 
 
 def _has_supported_contact(record: dict[str, Any]) -> bool:
+    return bool(_primary_supported_contact_type(record))
+
+
+def _primary_supported_contact_type(record: dict[str, Any]) -> str:
     contacts = record.get("contacts") or []
-    if any(
-        contact.get("actionable")
-        and str(contact.get("type") or "") in SUPPORTED_OUTREACH_CONTACT_TYPES
-        and not contact_form_unsupported_reason(contact)
-        for contact in contacts
-        if isinstance(contact, dict)
-    ):
-        return True
-    return bool(record.get("email"))
+    for contact in contacts:
+        if not isinstance(contact, dict):
+            continue
+        contact_type = str(contact.get("type") or "")
+        if (
+            contact.get("actionable")
+            and contact_type in SUPPORTED_OUTREACH_CONTACT_TYPES
+            and not contact_form_unsupported_reason(contact)
+        ):
+            return contact_type
+    return "email" if record.get("email") else ""
 
 
 def _normalise_contact_actionability(record: dict[str, Any]) -> None:
@@ -531,19 +543,26 @@ def _normalise_contact_actionability(record: dict[str, Any]) -> None:
         return
 
     first_supported: dict[str, Any] | None = None
+    filtered_contacts: list[dict[str, Any]] = []
     for index, contact in enumerate(contacts):
         if not isinstance(contact, dict):
             continue
         contact = normalise_contact_actionability(contact)
-        contacts[index] = contact
+        if contact_should_be_omitted_from_routes(contact):
+            continue
+        filtered_contacts.append(contact)
         if not contact.get("actionable"):
             continue
         if contact.get("actionable") is not False and first_supported is None:
             first_supported = contact
+    record["contacts"] = filtered_contacts
 
     primary = record.get("primary_contact")
     if isinstance(primary, dict):
         primary = normalise_contact_actionability(primary)
+        if contact_should_be_omitted_from_routes(primary):
+            record["primary_contact"] = deepcopy(first_supported) if first_supported is not None else None
+            return
         record["primary_contact"] = primary
         if not primary.get("actionable"):
             if first_supported is not None:

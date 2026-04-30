@@ -137,6 +137,11 @@ def main() -> None:
     sim_report.add_argument("--fail-on", default="p0,p1", help="Comma-separated severities that return non-zero")
     sim_reconcile = sim_sub.add_parser("reconcile-label-policy", help="Reconcile replay labels to current outreach route policy")
     sim_reconcile.add_argument("--corpus", required=True, help="Search replay corpus directory")
+    sim_benchmark = sim_sub.add_parser("benchmark", help="Benchmark a collected WebSerper replay corpus")
+    sim_benchmark.add_argument("--corpus", required=True, help="Search replay corpus directory")
+    sim_benchmark.add_argument("--baseline-corpus", default=None, help="Optional baseline replay corpus directory")
+    sim_benchmark.add_argument("--run-label", default="", help="Report label")
+    sim_benchmark.add_argument("--output-dir", default=None, help="Benchmark artifact output directory")
     sim_recommend = sim_sub.add_parser("recommend", help="Run no-send smoke and write controlled-launch recommendation")
     sim_recommend.add_argument("--run", required=True, help="Run ID or report directory")
     sim_recommend.add_argument("--lead-id", action="append", required=True, help="Lead ID for the no-send smoke; repeat 5-10 times")
@@ -163,6 +168,16 @@ def main() -> None:
     enrich_cmd.add_argument("--score-below", type=float, default=None, help="Only enrich leads with score below this value")
     enrich_cmd.add_argument("--max-leads", type=int, default=0, help="Limit number of selected leads (0=all)")
     enrich_cmd.add_argument("--state-root", default=None, help="Override state root")
+
+    sample_cmd = sub.add_parser("hosted-sample", help="Publish hosted menu sample pages for leads")
+    sample_target = sample_cmd.add_mutually_exclusive_group(required=True)
+    sample_target.add_argument("--lead-id", default=None, help="Lead ID to prepare")
+    sample_target.add_argument("--all", action="store_true", help="Prepare all qualified persisted leads")
+    sample_cmd.add_argument("--dry-run", action="store_true", help="Show URL and contact-form text without writing files or leads")
+    sample_cmd.add_argument("--state-root", default=None, help="Override state root")
+    sample_cmd.add_argument("--docs-root", default=None, help="Override static docs root")
+    sample_cmd.add_argument("--public-base-url", default=None, help="Public site base URL; defaults to https://webrefurb.com")
+    sample_cmd.add_argument("--max-leads", type=int, default=0, help="Limit selected leads when using --all")
 
     args = parser.parse_args()
 
@@ -452,7 +467,8 @@ def main() -> None:
             report_fails_on,
             run_replay,
         )
-        from .search_replay import fixture_collect_adapters, reconcile_label_contact_policy
+        from .search_provider import search_provider_requires_api_key
+        from .search_replay import benchmark_replay_corpus, fixture_collect_adapters, reconcile_label_contact_policy
 
         fail_on = {item.strip().upper() for item in str(getattr(args, "fail_on", "") or "").split(",") if item.strip()}
         if args.production_sim_command == "collect":
@@ -466,7 +482,11 @@ def main() -> None:
                 category=args.category,
                 limit_per_job=int(args.limit_per_job or 5),
                 stage=args.stage,
-                serper_api_key=str(args.api_key or os.environ.get("SERPER_API_KEY", "")),
+                serper_api_key=(
+                    str(args.api_key or os.environ.get("SERPER_API_KEY", ""))
+                    if search_provider_requires_api_key(args.search_provider)
+                    else str(args.api_key or "")
+                ),
                 search_provider=args.search_provider,
                 output_root=_P(args.output_root) if args.output_root else DEFAULT_OUTPUT_ROOT,
                 replay_root=_P(args.replay_root) if args.replay_root else DEFAULT_REPLAY_ROOT,
@@ -535,6 +555,7 @@ def main() -> None:
                 "draft_label_count": result["draft_label_count"],
                 "labeling_sample_path": result["labeling_sample_path"],
                 "labeling_review_queue_path": result["labeling_review_queue_path"],
+                "labeling_review_shortlist_path": result["labeling_review_shortlist_path"],
                 "offline_replay_ready": result["offline_replay_ready"],
                 "dashboard_verification_ready": result["dashboard_verification_ready"],
                 "external_send_performed": result["external_send_performed"],
@@ -553,6 +574,31 @@ def main() -> None:
         elif args.production_sim_command == "reconcile-label-policy":
             result = reconcile_label_contact_policy(_P(args.corpus))
             print(json.dumps(result, indent=2, ensure_ascii=False))
+        elif args.production_sim_command == "benchmark":
+            result = benchmark_replay_corpus(
+                corpus_dir=_P(args.corpus),
+                baseline_corpus_dir=_P(args.baseline_corpus) if args.baseline_corpus else None,
+                run_label=str(args.run_label or ""),
+                output_dir=_P(args.output_dir) if args.output_dir else None,
+            )
+            print(json.dumps({
+                "run_label": result["run_label"],
+                "corpus": result["corpus"],
+                "passed": result["comparison"]["passed"],
+                "meets_targets": result["comparison"]["meets_targets"],
+                "metrics": {
+                    "search_failure_count": result["metrics"]["search_failure_count"],
+                    "deduped_candidates_per_job": result["metrics"]["deduped_candidates_per_job"],
+                    "fetch_failure_rate": result["metrics"]["fetch_failure_rate"],
+                    "first_party_site_rate": result["metrics"]["first_party_site_rate"],
+                    "expected_ready_label_count": result["metrics"]["expected_ready_label_count"],
+                    "unsupported_ready_label_count": result["metrics"]["unsupported_ready_label_count"],
+                },
+                "report_path": result["report_path"],
+                "report_markdown_path": result["report_markdown_path"],
+                "external_send_performed": result["external_send_performed"],
+                "real_launch_batch_created": result["real_launch_batch_created"],
+            }, indent=2, ensure_ascii=False))
         elif args.production_sim_command == "recommend":
             result = recommend_controlled_launch(
                 run=args.run,
@@ -689,8 +735,116 @@ def main() -> None:
         if errors:
             sys.exit(1)
 
+    elif args.command == "hosted-sample":
+        from pathlib import Path as _P
+
+        from .hosted_sample import default_sample_docs_root, ensure_hosted_menu_sample
+        from .models import QualificationResult
+        from .outreach import build_manual_outreach_message, classify_business
+        from .record import authoritative_business_name, get_primary_contact, list_leads, load_lead, persist_lead_record
+
+        state_root = _P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state"
+        docs_root = _P(args.docs_root) if args.docs_root else default_sample_docs_root(state_root=state_root)
+        if args.lead_id:
+            lead = load_lead(args.lead_id, state_root=state_root)
+            if not lead:
+                print(json.dumps({"error": f"Lead not found: {args.lead_id}"}, ensure_ascii=False))
+                sys.exit(1)
+            leads = [lead]
+        else:
+            leads = [lead for lead in list_leads(state_root=state_root) if lead.get("lead") is True]
+            if args.max_leads:
+                leads = leads[: int(args.max_leads)]
+
+        results = []
+        errors = []
+        for lead in leads:
+            lead_id = str(lead.get("lead_id") or "")
+            business_name = authoritative_business_name(lead)
+            classification = str(lead.get("outreach_classification") or "") or classify_business(QualificationResult(
+                lead=lead.get("lead") is True,
+                rejection_reason=lead.get("rejection_reason"),
+                business_name=business_name,
+                menu_evidence_found=lead.get("menu_evidence_found", True),
+                machine_evidence_found=lead.get("machine_evidence_found", False),
+            ))
+            profile = _cli_effective_profile(lead)
+            updated, sample = ensure_hosted_menu_sample(
+                lead,
+                docs_root=docs_root,
+                state_root=state_root,
+                base_url=args.public_base_url,
+                dry_run=bool(args.dry_run),
+            )
+            primary_contact = get_primary_contact(updated) or {}
+            primary_contact_type = str(primary_contact.get("type") or "")
+            draft = build_manual_outreach_message(
+                business_name=business_name,
+                classification=classification,
+                channel="contact_form",
+                establishment_profile=profile,
+                include_inperson_line=updated.get("outreach_include_inperson", True),
+                lead_dossier=updated.get("lead_evidence_dossier") or {},
+                sample_menu_url=str(sample.get("sample_menu_url") or ""),
+            )
+            if primary_contact_type == "contact_form":
+                updated["outreach_classification"] = classification
+                updated["outreach_assets_selected"] = []
+                updated["outreach_asset_template_family"] = "none_contact_form"
+                updated["message_variant"] = f"contact_form:{classification}:{profile}"
+                updated["outreach_draft_subject"] = ""
+                updated["outreach_draft_body"] = draft["body"]
+                updated["outreach_draft_english_body"] = draft["english_body"]
+                updated["outreach_draft_manually_edited"] = False
+                updated["outreach_draft_edited_at"] = ""
+                if not sample.get("ok"):
+                    updated["contact_form_outreach_ready"] = False
+                    reasons = list(updated.get("launch_readiness_reasons") or [])
+                    if "hosted_sample_publish_failed" not in reasons:
+                        reasons.append("hosted_sample_publish_failed")
+                    updated["launch_readiness_status"] = "manual_review"
+                    updated["launch_readiness_reasons"] = reasons
+
+            if not args.dry_run:
+                persist_lead_record(updated, state_root=state_root)
+
+            sample_public = {key: value for key, value in sample.items() if key != "html"}
+            result_item = {
+                **sample_public,
+                "lead_id": lead_id,
+                "business_name": business_name,
+                "primary_contact_type": primary_contact_type,
+                "contact_form_outreach_text": draft["body"],
+                "persisted": not bool(args.dry_run),
+            }
+            results.append(result_item)
+            if not sample.get("ok"):
+                errors.append({"lead_id": lead_id, "error": sample.get("error") or "publish_failed"})
+
+        summary = {
+            "selected": len(leads),
+            "published": sum(1 for item in results if item.get("published")),
+            "dry_run": bool(args.dry_run),
+            "docs_root": str(docs_root),
+            "results": results,
+            "errors": errors,
+        }
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
+        if errors:
+            sys.exit(1)
+
     else:
         parser.print_help()
+
+
+def _cli_effective_profile(lead: dict) -> str:
+    profile = str(lead.get("establishment_profile") or "").strip()
+    if profile:
+        return profile
+    category = str(lead.get("primary_category_v1") or "").strip()
+    if category == "izakaya":
+        return "izakaya_food_and_drinks"
+    return "ramen_only"
 
 
 if __name__ == "__main__":
