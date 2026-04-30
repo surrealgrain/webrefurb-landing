@@ -19,6 +19,7 @@ def main() -> None:
     search_cmd = sub.add_parser("search", help="Search and qualify leads")
     search_cmd.add_argument("--query", required=True)
     search_cmd.add_argument("--api-key", default="")
+    search_cmd.add_argument("--search-provider", default=None, choices=["webserper", "serper", "local"], help="Search provider; defaults to WEBREFURB_SEARCH_PROVIDER or WebSerper")
     search_cmd.add_argument("--category", default="ramen")
 
     # manual-add
@@ -105,7 +106,8 @@ def main() -> None:
     sim_collect.add_argument("--category", choices=["all", "ramen", "izakaya"], default="all")
     sim_collect.add_argument("--limit-per-job", type=int, default=5)
     sim_collect.add_argument("--stage", choices=["pilot", "broad", "extended"], default="pilot")
-    sim_collect.add_argument("--api-key", default=None, help="Serper API key; defaults to SERPER_API_KEY")
+    sim_collect.add_argument("--api-key", default=None, help="Serper.dev API key; only used with --search-provider serper")
+    sim_collect.add_argument("--search-provider", default=None, choices=["webserper", "serper", "local"], help="Search provider; defaults to WEBREFURB_SEARCH_PROVIDER or WebSerper")
     sim_collect.add_argument("--output-root", default=None, help="Production-sim report output root")
     sim_collect.add_argument("--replay-root", default=None, help="Search replay artifact root")
     sim_collect.add_argument("--screenshot-root", default=None, help="Screenshot artifact root")
@@ -149,6 +151,7 @@ def main() -> None:
             query=args.query,
             serper_api_key=args.api_key,
             category=args.category,
+            search_provider=args.search_provider,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
@@ -443,6 +446,7 @@ def main() -> None:
                 limit_per_job=int(args.limit_per_job or 5),
                 stage=args.stage,
                 serper_api_key=str(args.api_key or os.environ.get("SERPER_API_KEY", "")),
+                search_provider=args.search_provider,
                 output_root=_P(args.output_root) if args.output_root else DEFAULT_OUTPUT_ROOT,
                 replay_root=_P(args.replay_root) if args.replay_root else DEFAULT_REPLAY_ROOT,
                 screenshot_root=_P(args.screenshot_root) if args.screenshot_root else DEFAULT_SCREENSHOT_ROOT,

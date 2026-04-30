@@ -101,7 +101,7 @@ def load_replay_corpus(corpus_dir: str | Path, *, require_labels: bool = True) -
     """Load a deterministic search replay fixture from disk.
 
     The first production-simulation slice uses committed, sanitized fixture
-    records instead of live Serper/search/fetch calls. This keeps replay stable
+    records instead of live WebSerper/search/fetch calls. This keeps replay stable
     and makes the no-send boundary explicit.
     """
     root = Path(corpus_dir)
@@ -756,8 +756,8 @@ def collect_replay_corpus(
 
     The collector only writes replay artifacts under state/search-replay. It
     does not qualify leads, create launch batches, or touch any send path.
-    Tests pass mocked search/fetch callables; CLI use can pass real Serper
-    credentials for a no-send pilot/broad capture.
+    Tests pass mocked search/fetch callables; CLI use defaults to WebSerper
+    for a no-send pilot/broad capture.
     """
     if not run_id:
         raise ReplayCorpusError("run_id is required for collection artifacts")
@@ -775,10 +775,10 @@ def collect_replay_corpus(
     web_search = web_search_fn or _default_web_search
     fetch_page = fetch_page_fn or _default_fetch_page
     if using_default_maps and search_provider_requires_api_key(provider_name) and not serper_api_key:
-        raise ReplayCorpusError("production-sim collect requires --api-key/SERPER_API_KEY for the serper search provider, --search-provider local, or an offline fixture")
+        raise ReplayCorpusError("production-sim collect requires --api-key/SERPER_API_KEY only when --search-provider serper is explicitly selected")
 
     root = Path(replay_root) / run_id
-    serper_dir = root / "serper"
+    serper_dir = root / "webserper"
     pages_dir = root / "pages"
     labels_dir = root / "labels"
     for directory in (serper_dir, pages_dir, labels_dir):
@@ -794,7 +794,7 @@ def collect_replay_corpus(
     raw_candidate_count = 0
 
     for job_index, job in enumerate(jobs):
-        artifact_rel = f"serper/{job_index:04d}-{slugify(job['city'])}-{slugify(job['job_id'])}-maps.json"
+        artifact_rel = f"webserper/{job_index:04d}-{slugify(job['city'])}-{slugify(job['job_id'])}-maps.json"
         try:
             raw_response = _call_maps_search(
                 maps_search,
@@ -817,7 +817,7 @@ def collect_replay_corpus(
             })
         raw_response = _normalise_maps_response(raw_response)
         write_json(root / artifact_rel, {
-            "artifact_type": "serper_maps_response",
+            "artifact_type": "webserper_maps_response",
             "captured_at": created_at,
             "gl": gl,
             "job": job,
@@ -832,6 +832,7 @@ def collect_replay_corpus(
                 "city": job["city"],
                 "category": job["category"],
                 "rank": rank,
+                "webserper_artifact": artifact_rel,
                 "serper_artifact": artifact_rel,
             }
             keys = _dedupe_keys_for_place(place)
@@ -872,6 +873,7 @@ def collect_replay_corpus(
                 "dedupe_keys": keys,
                 "capture": {
                     "status": "pending",
+                    "webserper_maps_artifacts": [artifact_rel],
                     "serper_maps_artifacts": [artifact_rel],
                     "serper_web_artifacts": [],
                     "pages": [],
@@ -925,7 +927,8 @@ def collect_replay_corpus(
         "requires_labels_before_replay": True,
         "candidates_file": "candidates.json",
         "labels_dir": "labels",
-        "serper_dir": "serper",
+        "webserper_dir": "webserper",
+        "serper_dir": "webserper",
         "pages_dir": "pages",
         "duplicates_file": "duplicates.json",
         "fetch_failures_file": "fetch-failures.json",
@@ -1420,8 +1423,10 @@ def _draft_english_menu_state(annotation: dict[str, Any]) -> str:
 def _candidate_artifact_refs(candidate: dict[str, Any]) -> dict[str, Any]:
     capture = candidate.get("capture") or {}
     return {
-        "serper_maps_artifacts": list(capture.get("serper_maps_artifacts") or []),
-        "serper_web_artifacts": list(capture.get("serper_web_artifacts") or []),
+        "webserper_maps_artifacts": list(capture.get("webserper_maps_artifacts") or capture.get("serper_maps_artifacts") or []),
+        "webserper_web_artifacts": list(capture.get("webserper_web_artifacts") or capture.get("serper_web_artifacts") or []),
+        "serper_maps_artifacts": list(capture.get("serper_maps_artifacts") or capture.get("webserper_maps_artifacts") or []),
+        "serper_web_artifacts": list(capture.get("serper_web_artifacts") or capture.get("webserper_web_artifacts") or []),
         "pages": list(capture.get("pages") or []),
         "fetch_failures": list(capture.get("fetch_failures") or []),
     }
@@ -1572,7 +1577,7 @@ def _capture_candidate_pages(
     evidence_pages_captured = 0
     search_job = dict(candidate.get("source_search_job") or {})
     for index, query in enumerate(_targeted_queries(candidate), start=1):
-        artifact_rel = f"serper/{candidate_id}-evidence-{index:02d}.json"
+        artifact_rel = f"webserper/{candidate_id}-evidence-{index:02d}.json"
         try:
             raw_response = _call_web_search(
                 web_search_fn,
@@ -1586,7 +1591,7 @@ def _capture_candidate_pages(
             raw_response = {"organic": [], "error": f"{type(exc).__name__}: {exc}"}
         raw_response = _normalise_web_response(raw_response)
         write_json(serper_dir / Path(artifact_rel).name, {
-            "artifact_type": "serper_organic_response",
+            "artifact_type": "webserper_organic_response",
             "captured_at": created_at,
             "gl": gl,
             "candidate_id": candidate_id,
@@ -1595,6 +1600,7 @@ def _capture_candidate_pages(
             "source_search_job": search_job,
             "response": raw_response,
         })
+        candidate["capture"].setdefault("webserper_web_artifacts", []).append(artifact_rel)
         candidate["capture"].setdefault("serper_web_artifacts", []).append(artifact_rel)
         for result in raw_response.get("organic") or []:
             link = str(result.get("link") or "").strip()

@@ -705,6 +705,14 @@ def test_google_confidence_override_helper():
     few_reviews = {**strong_place, "ratingCount": 30}
     assert search._google_confidence_override(few_reviews) is False
 
+    webserper_batch_without_review_count = {
+        **strong_place,
+        "ratingCount": None,
+        "searchProvider": "webserper_google_maps_batch",
+        "address": "東京都渋谷区神南1-2-3",
+    }
+    assert search._google_confidence_override(webserper_batch_without_review_count) is True
+
     # Missing placeId
     no_place_id = {**strong_place, "placeId": ""}
     assert search._google_confidence_override(no_place_id) is False

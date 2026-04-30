@@ -398,7 +398,7 @@ def test_collect_writes_manifest_schema_and_fetch_failures(tmp_path):
 
 def test_default_maps_search_reports_missing_or_http_error_body(monkeypatch):
     with pytest.raises(ReplaySearchError, match="requires SERPER_API_KEY"):
-        _default_maps_search(query="ラーメン Shibuya", api_key="")
+        _default_maps_search(query="ラーメン Shibuya", api_key="", search_provider="serper")
 
     class ResponseBody:
         def read(self):
@@ -419,7 +419,7 @@ def test_default_maps_search_reports_missing_or_http_error_body(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", fail_urlopen)
 
     with pytest.raises(ReplaySearchError, match="HTTP 400.*invalid query"):
-        _default_maps_search(query="ラーメン Shibuya", api_key="test-key")
+        _default_maps_search(query="ラーメン Shibuya", api_key="test-key", search_provider="serper")
 
 
 def test_collect_dedupes_across_jobs_and_records_duplicate_sources(tmp_path):

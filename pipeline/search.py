@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import json
 import re
 import html as html_lib
+import os
 import threading
 import urllib.parse
 import urllib.request
@@ -18,7 +18,7 @@ from .qualification import qualify_candidate
 
 # ---------------------------------------------------------------------------
 # Cross-job dedup: prevents parallel search jobs from processing the same
-# candidate twice (each duplicate would burn 5-6 Serper web search credits).
+# candidate twice.
 # ---------------------------------------------------------------------------
 _in_flight_keys: set[str] = set()
 _in_flight_lock = threading.Lock()
@@ -293,16 +293,18 @@ def run_search(
     api_key: str,
     gl: str = "jp",
     timeout_seconds: int = 10,
+    provider: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Run a Serper Maps search and return raw places."""
-    url = "https://google.serper.dev/maps"
-    payload = json.dumps({"q": query, "gl": gl}).encode("utf-8")
-    request = urllib.request.Request(url, data=payload, headers={
-        "Content-Type": "application/json",
-        "X-API-KEY": api_key,
-    })
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        data = json.loads(response.read().decode("utf-8"))
+    """Run a provider-backed Maps-like search and return raw places."""
+    from .search_provider import run_maps_search
+
+    data = run_maps_search(
+        query=query,
+        api_key=api_key,
+        gl=gl,
+        timeout_seconds=timeout_seconds,
+        provider=provider,
+    )
     return data.get("places") or []
 
 
@@ -312,15 +314,17 @@ def run_web_search(
     api_key: str,
     gl: str = "jp",
     timeout_seconds: int = 10,
+    provider: str | None = None,
 ) -> dict[str, Any]:
-    url = "https://google.serper.dev/search"
-    payload = json.dumps({"q": query, "gl": gl}).encode("utf-8")
-    request = urllib.request.Request(url, data=payload, headers={
-        "Content-Type": "application/json",
-        "X-API-KEY": api_key,
-    })
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        return json.loads(response.read().decode("utf-8"))
+    from .search_provider import run_organic_search
+
+    return run_organic_search(
+        query=query,
+        api_key=api_key,
+        gl=gl,
+        timeout_seconds=timeout_seconds,
+        provider=provider,
+    )
 
 
 def _address_search_token(address: str) -> str:
@@ -339,6 +343,7 @@ def _find_tabelog_candidate_url(
     address: str,
     api_key: str,
     timeout_seconds: int = 10,
+    search_provider: str | None = None,
 ) -> str:
     query_parts = [f"site:tabelog.com {business_name}"]
     address_token = _address_search_token(address)
@@ -346,7 +351,10 @@ def _find_tabelog_candidate_url(
         query_parts.append(address_token)
     query = " ".join(part for part in query_parts if part).strip()
     try:
-        data = run_web_search(query=query, api_key=api_key, timeout_seconds=timeout_seconds)
+        kwargs = {"query": query, "api_key": api_key, "timeout_seconds": timeout_seconds}
+        if search_provider is not None:
+            kwargs["provider"] = search_provider
+        data = run_web_search(**kwargs)
     except Exception:
         return ""
 
@@ -363,6 +371,7 @@ def _find_ramendb_candidate_url(
     address: str,
     api_key: str,
     timeout_seconds: int = 10,
+    search_provider: str | None = None,
 ) -> str:
     """Find a RamenDB (ramendb.supleks.jp) listing for the business."""
     query_parts = [f"site:ramendb.supleks.jp {business_name}"]
@@ -371,7 +380,10 @@ def _find_ramendb_candidate_url(
         query_parts.append(address_token)
     query = " ".join(part for part in query_parts if part).strip()
     try:
-        data = run_web_search(query=query, api_key=api_key, timeout_seconds=timeout_seconds)
+        kwargs = {"query": query, "api_key": api_key, "timeout_seconds": timeout_seconds}
+        if search_provider is not None:
+            kwargs["provider"] = search_provider
+        data = run_web_search(**kwargs)
     except Exception:
         return ""
 
@@ -397,10 +409,12 @@ def _google_confidence_override(place: dict[str, Any]) -> bool:
         reviews = int(place.get("ratingCount") or place.get("reviews") or 0)
     except (TypeError, ValueError):
         reviews = 0
+    webserper_maps_batch = str(place.get("searchProvider") or "") == "webserper_google_maps_batch"
+    has_review_confidence = reviews >= 50 or (webserper_maps_batch and place.get("address"))
     return bool(
         place.get("placeId")
         and rating >= 4.0
-        and reviews >= 50
+        and has_review_confidence
         and place.get("phoneNumber")
         and place.get("website")
     )
@@ -503,6 +517,7 @@ def verify_business_name(
     serper_api_key: str,
     timeout_seconds: int = 8,
     category: str = "",
+    search_provider: str | None = None,
 ) -> dict[str, Any]:
     resolved_name, resolved_source = resolve_business_name(source_name=source_name, html=html)
     source_candidate = str(source_name or "").strip()
@@ -513,13 +528,15 @@ def verify_business_name(
         official_name=official_name,
     )
     verified_by: list[str] = []
+    use_external_name_lookup = not _skip_local_external_name_lookup(search_provider)
 
     tabelog_url = _find_tabelog_candidate_url(
         business_name=resolved_name or source_candidate,
         address=address,
         api_key=serper_api_key,
         timeout_seconds=timeout_seconds,
-    ) if (resolved_name or source_candidate) else ""
+        search_provider=search_provider,
+    ) if (use_external_name_lookup and (resolved_name or source_candidate)) else ""
     tabelog_name = ""
     if tabelog_url:
         try:
@@ -535,12 +552,13 @@ def verify_business_name(
     # RamenDB lookup (ramen category only)
     ramendb_url = ""
     ramendb_name = ""
-    if category == "ramen" and (resolved_name or source_candidate):
+    if use_external_name_lookup and category == "ramen" and (resolved_name or source_candidate):
         ramendb_url = _find_ramendb_candidate_url(
             business_name=resolved_name or source_candidate,
             address=address,
             api_key=serper_api_key,
             timeout_seconds=timeout_seconds,
+            search_provider=search_provider,
         )
         if ramendb_url:
             try:
@@ -590,6 +608,13 @@ def verify_business_name(
         "source_candidate": source_candidate,
         "name_conflict": name_conflict,
     }
+
+
+def _skip_local_external_name_lookup(search_provider: str | None) -> bool:
+    provider = str(search_provider or "").strip().lower()
+    if provider not in {"webserper", "web-serper", "web_serper", "local", "duckduckgo", "ddg", "webrefurb"}:
+        return False
+    return os.environ.get("WEBREFURB_LOCAL_ENABLE_ORGANIC_VERIFY", "").strip().lower() not in {"1", "true", "yes", "on"}
 
 
 def _targeted_evidence_queries(
@@ -694,6 +719,7 @@ def _collect_targeted_evidence_pages(
     search_job: dict[str, str],
     serper_api_key: str,
     timeout_seconds: int = 8,
+    search_provider: str | None = None,
 ) -> list[dict[str, str]]:
     pages: list[dict[str, str]] = []
     seen_links: set[str] = set()
@@ -703,7 +729,10 @@ def _collect_targeted_evidence_pages(
         search_job=search_job,
     ):
         try:
-            data = run_web_search(query=evidence_query, api_key=serper_api_key, timeout_seconds=timeout_seconds)
+            kwargs = {"query": evidence_query, "api_key": serper_api_key, "timeout_seconds": timeout_seconds}
+            if search_provider is not None:
+                kwargs["provider"] = search_provider
+            data = run_web_search(**kwargs)
         except Exception:
             continue
         for result in data.get("organic") or []:
@@ -737,13 +766,17 @@ def search_and_qualify(
     state_root: Path | None = None,
     max_candidates: int = 24,
     search_job: dict[str, Any] | None = None,
+    search_provider: str | None = None,
 ) -> dict[str, Any]:
     """Search, fetch pages, qualify each candidate, persist leads."""
     if state_root is None:
         state_root = Path(__file__).resolve().parent.parent / "state"
 
     source_search_job = _normalise_search_job(query, category, search_job)
-    raw_places = run_search(query=query, api_key=serper_api_key)
+    search_kwargs = {"query": query, "api_key": serper_api_key}
+    if search_provider is not None:
+        search_kwargs["provider"] = search_provider
+    raw_places = run_search(**search_kwargs)
     results: list[dict[str, Any]] = []
     decisions: list[dict[str, Any]] = []
     qualified_without_email = 0
@@ -756,10 +789,14 @@ def search_and_qualify(
         if not website or not source_name:
             continue
 
-        # Extract coordinates from Serper Maps response
+        # Extract coordinates from Maps-like provider responses.
         position = place.get("position") or {}
         place_lat = position.get("lat") if isinstance(position, dict) else None
         place_lng = position.get("lng") if isinstance(position, dict) else None
+        if place_lat is None:
+            place_lat = place.get("latitude")
+        if place_lng is None:
+            place_lng = place.get("longitude")
 
         # Skip if already tracked as a lead (any status)
         from .record import find_existing_lead
@@ -795,6 +832,11 @@ def search_and_qualify(
             try:
                 website_html = _fetch_page(website)
                 pages = [{"url": website, "html": website_html}]
+                if place.get("localEvidenceHtml"):
+                    pages.append({
+                        "url": str(place.get("link") or place.get("mapUrl") or website),
+                        "html": str(place.get("localEvidenceHtml") or ""),
+                    })
             except Exception as exc:
                 decisions.append({"business_name": source_name, "lead": False, "reason": "fetch_failed", "error": str(exc)})
                 continue
@@ -806,6 +848,7 @@ def search_and_qualify(
                 address=str(place.get("address", "")),
                 serper_api_key=serper_api_key,
                 category=category,
+                search_provider=search_provider,
             )
             business_name = str(name_check.get("business_name") or "")
             business_name_source = str(name_check.get("business_name_source") or "")
@@ -838,6 +881,7 @@ def search_and_qualify(
                 category=category,
                 search_job=source_search_job,
                 serper_api_key=serper_api_key,
+                search_provider=search_provider,
             ))
 
             qualification = qualify_candidate(
@@ -952,6 +996,7 @@ def search_and_qualify(
     return {
         "run_id": run_id,
         "query": query,
+        "search_provider": search_provider or "",
         "search_job": source_search_job,
         "total_candidates": len(raw_places[:max_candidates]),
         "leads": len(results),
