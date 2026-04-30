@@ -69,9 +69,8 @@ Completed major plan work:
 
 Remaining work:
 
-- Fix or replace the Serper maps collection path that returned HTTP 400 for all targeted expansion jobs.
-- Expand no-send supported-route candidate/label coverage from `6` expected-ready labels to at least `20`, across the required positive profiles in `PRODUCTION_SIMULATION_TEST_PLAN.md`.
-- Rerun production simulation with screenshots until `P0=0`, `P1=0`; current latest route-policy replay has `P0=0`, `P1=0`, `P2=1`.
+- Expand no-send supported-route candidate/label coverage from `1` verified expected-ready label to at least `20`, across the required positive profiles in `PRODUCTION_SIMULATION_TEST_PLAN.md`.
+- Rerun production simulation with screenshots until `P0=0`, `P1=0`; current latest credited three-label replay has `P0=0`, `P1=0`, `P2=1`.
 - Rerun the Batch 3 no-send decision brief after candidate coverage improves.
 - Only if the user explicitly requests the exact outbound action in the current chat: perform any real Batch 3 email/contact-form send. Without that explicit request, no real outbound is allowed.
 
@@ -127,19 +126,21 @@ Phase 13 repeat-review decision:
 
 Current no-send simulation signal:
 
-- Latest route-policy replay ID: `production-sim-credit-diagnostic-route-policy-20260430T000000Z`
+- Latest credited collection run ID: `production-sim-supported-route-expansion-credited-20260430T000000Z`
+- Latest credited labeled replay ID: `production-sim-credited-three-labels-all-screens-20260430T000000Z`
 - Report result: `production_ready=false` because `P2=1`; `P0=0`, `P1=0`
-- Replay decisions after route-policy reconciliation: `6 ready`, `66 manual_review`, `521 disqualified`
+- Credited collection result: `72` candidates from `136` raw candidates, `64` duplicates, `238` fetched pages, `62` fetch failures, `2` Serper search timeouts out of `84` jobs.
+- Credited replay decisions over finalized reviewed subset: `1 ready`, `1 manual_review`, `1 disqualified`; `3` strict labels total.
 - External send performed: `false`
 - Real launch batch created: `false`
-- Remaining P2: supported-route expected-ready coverage is too thin after removing phone/social/walk-in labels (`6` expected-ready labels; required minimum is `20` and every positive profile is still short).
-- Serper diagnosis: the targeted expansion failure was not caused by malformed request shape. A live one-city probe returned `Serper Maps search HTTP 400: {"message":"Not enough credits","statusCode":400}`. The collector now preserves Serper HTTP response bodies in `search-failures.json`, so future failures are actionable.
+- Remaining P2: broad corpus/label coverage is still short (`3` strict labels in the credited subset; production target is `300-500` raw candidates, `100-150` manual labels, and at least `20` expected-ready labels).
+- Serper diagnosis: the previous HTTP 400 blocker was account credits, not malformed request shape. With a credited runtime key, collection now works. Do not write API keys into repo files or handoff.
 
 Next safe no-send work block:
 
-1. Restore Serper credits or use an offline/replay-backed candidate source; the Serper request path now diagnoses `Not enough credits`.
-2. Collect or materialize more Japan ramen/izakaya candidates with real email/contact-form inquiry routes; do not contact them.
-3. Promote only evidence-reviewed supported-route candidates into high-confidence labels until the simulation has at least `20` expected-ready labels across the required positive profiles.
+1. Continue reviewing the `72` credited collected candidates; promote only evidence-reviewed supported-route candidates into finalized labels.
+2. Prioritize the `18` suspected-ready draft candidates under `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/labeling/review-queue.json`.
+3. Expand finalized expected-ready labels from `1` to at least `20`, across the required positive profiles.
 4. Rerun production simulation with screenshots and keep `P0=0`, `P1=0`; then rerun `launch-decision`.
 
 ## What Changed Recently
@@ -157,8 +158,10 @@ Next safe no-send work block:
 - Dashboard screenshot simulation now selects actual dashboard-renderable ready/manual/disqualified records instead of stale expected labels.
 - Batch 3 no-send decision artifacts were written under `state/launch_decisions/`.
 - Serper Maps collection now raises a project-level search error for missing credentials and records HTTP response bodies, exposing the current account blocker as `Not enough credits` instead of opaque HTTP 400 failures.
+- Credited no-send Serper collection produced a new 72-candidate replay corpus, generated a 72-item stratified labeling workflow, and finalized 3 reviewed labels: one ready, one manual-review, and one disqualified. No outbound was sent.
+- Dashboard production-sim rendering now keeps simulation-only manual/disqualified fixtures visible so screenshot coverage can verify those states without weakening live send gates.
 
-Positive effect: The system no longer treats unsupported route labels as production-ready, and the remaining blocker is now the real supported-route coverage gap rather than hidden phone/social/walk-in drift.
+Positive effect: The system no longer treats unsupported or unverified form routes as production-ready, credited collection works, and the remaining blocker is now reviewed positive-label volume rather than collector failure.
 
 ## Key Runtime Artifacts
 
@@ -168,6 +171,11 @@ Positive effect: The system no longer treats unsupported route labels as product
 - Current route-policy report JSON: `state/production-sim/production-sim-credit-diagnostic-route-policy-20260430T000000Z/report.json`
 - Current route-policy decisions: `state/production-sim/production-sim-credit-diagnostic-route-policy-20260430T000000Z/decisions.json`
 - Current route-policy screenshots: `state/qa-screenshots/production-sim-credit-diagnostic-route-policy-20260430T000000Z/`
+- Credited collection corpus: `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/`
+- Credited collection report: `state/production-sim/production-sim-supported-route-expansion-credited-20260430T000000Z/report.json`
+- Credited labeling workflow: `state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z/labeling/`
+- Credited three-label replay report: `state/production-sim/production-sim-credited-three-labels-all-screens-20260430T000000Z/report.json`
+- Credited three-label screenshots: `state/qa-screenshots/production-sim-credited-three-labels-all-screens-20260430T000000Z/`
 - Batch 3 no-send decision brief: `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.json`, `state/launch_decisions/batch3-no-send-route-policy-20260430T013047Z.md`
 - Failed targeted collection run: `state/production-sim/production-sim-supported-route-expansion-20260430T0135Z/report.json`, `state/search-replay/production-sim-supported-route-expansion-20260430T0135Z/search-failures.json`
 - Controlled Batch 1: `state/launch_batches/launch-18ce5c756f.json`
@@ -184,11 +192,14 @@ Positive effect: The system no longer treats unsupported route labels as product
 
 ## Last Verified Commands
 
-- `.venv/bin/python -m pytest tests/ -q` passed with `487 passed`
+- `.venv/bin/python -m pytest tests/ -q` passed with `500 passed`
 - `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=55`, `findings=[]`, `readiness_report=[]`
 - `.venv/bin/python -m pipeline.cli audit-state --repair` repaired deterministic asset drift for `wrm-jikaseimen-223-okubo-ramen-japan-0b38` and `wrm-maguro-mart-nakano-seafood-5-chome-50-3-nakano-13f7`, then `audit-state` passed.
 - `git diff --check` passed.
 - `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-live-pilot-20260429T142841Z --run-id production-sim-credit-diagnostic-route-policy-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `external_send_performed=false`, `real_launch_batch_created=false`.
+- `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-credited-20260430T000000Z ... --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `candidate_count=72`, `external_send_performed=false`, `real_launch_batch_created=false`.
+- `.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z --sample stratified --sample-size 72` generated `72` draft labels and a review queue with `18` suspected-ready candidates.
+- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-supported-route-expansion-credited-20260430T000000Z --run-id production-sim-credited-three-labels-all-screens-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`, `1 ready`, `1 manual_review`, `1 disqualified`, all required screenshot states captured, `external_send_performed=false`, `real_launch_batch_created=false`.
 - `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-route-policy` wrote the Batch 3 no-send decision brief with `real_outbound_allowed=false`, `eligible_count=0`.
 - `.venv/bin/python -m pipeline.cli production-sim collect --run-id production-sim-supported-route-expansion-20260430T0135Z ... --fail-on p0,p1` returned `P0=0`, `P1=0`, but collected `0` candidates because all `84` Serper maps jobs returned HTTP 400. Follow-up probe with body-preserving search errors showed the Serper account is out of credits.
 - Batch 1 Phase 12 review remains recorded in `state/launch_batches/launch-18ce5c756f.json`.
@@ -201,7 +212,7 @@ Positive effect: The system no longer treats unsupported route labels as product
 3. Use this file as the compact current checkpoint, not as proof that a phase is complete.
 4. Treat the current production simulation report as a no-send readiness signal only. The latest route-policy replay is not production-ready because supported-route expected-ready coverage is short.
 5. Continue mode: if the user pasted these resume instructions or says "continue", proceed through all remaining no-send actionable work as one long work block, not just the next numbered step. Do not stop just because a commit is made, a small bug is fixed, or the next outbound action requires permission. Do not send real emails or submit real contact forms from "continue" alone.
-6. Next action: restore Serper credits or use a replay/offline candidate source, expand supported-route no-send candidate/label coverage, rerun production simulation with screenshots, and rerun `launch-decision`. Do not send Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
+6. Next action: continue evidence review of the credited corpus, finalize more supported-route expected-ready labels, rerun production simulation with screenshots, and rerun `launch-decision`. Do not send Batch 3 or any new outbound contact without an explicit user request for the exact real send/contact action.
 7. Do not use phone, Instagram, LINE, or walk-in routes for outreach. Do not select phone-only leads.
 8. Phase 12 review is recorded for Batch 1; Phase 13 repeat review is recorded for Batch 2 under `launch-6f594101ca`.
 9. Before any Batch 3 contact or human approval brief, check for new Batch 1/Batch 2 replies, bounces, opt-outs, or objections and update the relevant launch batch plus lead files if anything changed. This check must be no-send.

@@ -46,6 +46,7 @@ def test_normalised_lead_contacts_preserve_required_field_metadata_and_block_pho
             "type": "contact_form",
             "value": "https://real-ramen.jp/contact",
             "actionable": True,
+            "has_form": True,
             "required_fields": ["name", "tel", "message"],
             "form_actions": ["/contact"],
         }],
@@ -56,6 +57,34 @@ def test_normalised_lead_contacts_preserve_required_field_metadata_and_block_pho
     assert contacts[0]["actionable"] is False
     assert contacts[0]["status"] == "reference_only"
     assert contacts[0]["unsupported_reason"] == "phone_required"
+
+
+def test_normalised_lead_contacts_block_unverified_contact_form_route():
+    contacts = normalise_lead_contacts({
+        "contacts": [{
+            "type": "contact_form",
+            "value": "https://real-ramen.jp/info/",
+            "actionable": True,
+        }],
+    })
+
+    assert contacts[0]["actionable"] is False
+    assert contacts[0]["status"] == "reference_only"
+    assert contacts[0]["unsupported_reason"] == "unverified_contact_form"
+
+
+def test_normalised_lead_contacts_allow_verified_contact_form_without_required_fields():
+    contacts = normalise_lead_contacts({
+        "contacts": [{
+            "type": "contact_form",
+            "value": "https://real-ramen.jp/contact",
+            "actionable": True,
+            "has_form": True,
+        }],
+    })
+
+    assert contacts[0]["actionable"] is True
+    assert "unsupported_reason" not in contacts[0]
 
 
 def test_search_skips_qualified_candidates_without_email(tmp_path, monkeypatch):

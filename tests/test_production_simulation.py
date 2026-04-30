@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from pipeline.production_sim import (
+    _dashboard_records_by_actual,
     build_mock_email_payloads,
     collect_corpus,
     prepare_labeling_workflow,
@@ -127,6 +128,90 @@ def test_reconcile_label_contact_policy_moves_unsupported_ready_route_to_manual_
     validate_label_schema(updated)
 
 
+def test_reconcile_label_contact_policy_moves_unverified_contact_form_ready_label(tmp_path):
+    corpus = tmp_path / "corpus"
+    labels = corpus / "labels"
+    labels.mkdir(parents=True)
+    write_json(corpus / "manifest.json", {
+        "run_id": "test",
+        "candidates_file": "candidates.json",
+        "labels_dir": "labels",
+    })
+    write_json(corpus / "candidates.json", [{
+        "candidate_id": "wrm-test-form",
+        "record": {
+            "lead_id": "wrm-test-form",
+            "business_name": "Info Page Ramen",
+            "lead": True,
+            "contacts": [{
+                "type": "contact_form",
+                "value": "https://info-page.example.jp/info/",
+                "actionable": True,
+            }],
+        },
+    }])
+    label = {
+        "candidate_id": "wrm-test-form",
+        "business_name": "Info Page Ramen",
+        "category_expected": "ramen",
+        "readiness_expected": "ready_for_outreach",
+        "rejection_reason_expected": "",
+        "package_expected": "package_1_remote_30k",
+        "contact_route_expected": "contact_form",
+        "inline_assets_expected": ["ramen_food_menu"],
+        "ticket_machine_state_expected": "unknown",
+        "english_menu_state_expected": "missing",
+        "proof_strength_minimum": "gold",
+        "label_confidence": "high",
+        "label_notes": "",
+    }
+    write_json(labels / "wrm-test-form.json", label)
+
+    result = reconcile_label_contact_policy(corpus)
+    updated = json.loads((labels / "wrm-test-form.json").read_text(encoding="utf-8"))
+
+    assert result["changed_count"] == 1
+    assert updated["legacy_contact_route_expected"] == "contact_form"
+    assert updated["contact_route_expected"] == "none"
+    assert updated["readiness_expected"] == "manual_review"
+    assert updated["rejection_reason_expected"] == "no_supported_contact_route"
+    assert "verified-contact-form policy" in updated["label_notes"]
+    validate_label_schema(updated)
+
+
+def test_dashboard_actual_records_keep_manual_and_disqualified_without_supported_route():
+    records = [
+        {
+            "lead": True,
+            "lead_id": "ready-email",
+            "launch_readiness_status": "ready_for_outreach",
+            "contacts": [{"type": "email", "value": "owner@example.jp", "actionable": True}],
+        },
+        {
+            "lead": True,
+            "lead_id": "ready-no-route",
+            "launch_readiness_status": "ready_for_outreach",
+            "contacts": [],
+        },
+        {
+            "lead": True,
+            "lead_id": "manual-no-route",
+            "launch_readiness_status": "manual_review",
+            "contacts": [],
+        },
+        {
+            "lead": True,
+            "lead_id": "disqualified-no-route",
+            "launch_readiness_status": "disqualified",
+            "contacts": [],
+        },
+    ]
+
+    assert [item["lead_id"] for item in _dashboard_records_by_actual(records, "ready_for_outreach")] == ["ready-email"]
+    assert [item["lead_id"] for item in _dashboard_records_by_actual(records, "manual_review")] == ["manual-no-route"]
+    assert [item["lead_id"] for item in _dashboard_records_by_actual(records, "disqualified")] == ["disqualified-no-route"]
+
+
 def test_oracle_blocks_production_ready_when_p0_exists(tmp_path):
     records, labels = _records_and_labels(tmp_path)
     poisoned_labels = dict(labels)
@@ -245,6 +330,7 @@ def test_oracle_does_not_require_email_payload_for_contact_form_ready_route(tmp_
         "label": "Contact form",
         "actionable": True,
         "confidence": "high",
+        "has_form": True,
     }]
     target["primary_contact"] = target["contacts"][0]
     target["email"] = ""

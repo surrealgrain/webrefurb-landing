@@ -241,7 +241,7 @@ def test_state_audit_rejects_izakaya_food_only_template_when_claiming_food_drink
 def test_state_audit_rejects_saved_draft_claiming_attachment_without_assets(tmp_path):
     _write_lead(
         tmp_path,
-        contacts=[{"type": "contact_form", "actionable": True}],
+        contacts=[{"type": "contact_form", "value": "https://example.test/contact", "actionable": True}],
         outreach_assets_selected=[],
         outreach_draft_body="添付のサンプルをご覧ください。",
         outreach_draft_english_body="Please review the attached sample.",
@@ -256,7 +256,7 @@ def test_state_audit_rejects_saved_draft_claiming_attachment_without_assets(tmp_
 def test_repair_state_leads_clears_attachment_claim_draft_when_route_has_no_assets(tmp_path):
     lead = _write_lead(
         tmp_path,
-        contacts=[{"type": "contact_form", "actionable": True}],
+        contacts=[{"type": "contact_form", "value": "https://example.test/contact", "actionable": True}],
         outreach_assets_selected=[],
         outreach_draft_body="添付のサンプルをご覧ください。",
         outreach_draft_english_body="Please review the attached sample.",

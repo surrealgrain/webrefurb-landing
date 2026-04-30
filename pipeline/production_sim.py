@@ -131,6 +131,7 @@ def collect_corpus(
     limit_per_job: int = 5,
     stage: str = "pilot",
     serper_api_key: str = "",
+    search_provider: str | None = None,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     replay_root: str | Path = DEFAULT_REPLAY_ROOT,
     screenshot_root: str | Path = DEFAULT_SCREENSHOT_ROOT,
@@ -157,6 +158,7 @@ def collect_corpus(
         limit_per_job=limit_per_job,
         stage=stage,
         serper_api_key=serper_api_key,
+        search_provider=search_provider,
         fetch_timeout_seconds=fetch_timeout_seconds,
         contact_pages_per_candidate=contact_pages_per_candidate,
         evidence_pages_per_candidate=evidence_pages_per_candidate,
@@ -745,11 +747,23 @@ def _records_by_expected(records: list[dict[str, Any]], labels: dict[str, dict[s
 
 
 def _dashboard_records_by_actual(records: list[dict[str, Any]], readiness: str) -> list[dict[str, Any]]:
+    if readiness == "ready_for_outreach":
+        return [
+            record for record in records
+            if record.get("lead") is True
+            and record.get("launch_readiness_status") == readiness
+            and str((get_primary_contact(record) or {}).get("type") or "") in {"email", "contact_form"}
+        ]
     return [
         record for record in records
-        if record.get("lead") is True
+        if (
+            record.get("lead") is True
+            or (
+                record.get("production_sim_fixture") is True
+                and record.get("launch_readiness_status") == "disqualified"
+            )
+        )
         and record.get("launch_readiness_status") == readiness
-        and str((get_primary_contact(record) or {}).get("type") or "") in {"email", "contact_form"}
     ]
 
 

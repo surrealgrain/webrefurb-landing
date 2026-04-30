@@ -271,6 +271,50 @@ class TestAPIEndpoints:
         assert "No Email Ramen" in response.text
         assert "Website Only Ramen" not in response.text
 
+    def test_main_page_keeps_production_sim_manual_review_fixture_without_supported_route(self, tmp_path):
+        lead = {
+            "lead_id": "wrm-test-sim-manual",
+            "business_name": "Simulation Manual Ramen",
+            "lead": True,
+            "email": "",
+            "contacts": [],
+            "lead_score_v1": 75,
+            "outreach_status": "new",
+            "launch_readiness_status": "manual_review",
+            "launch_readiness_reasons": ["no_supported_contact_route"],
+            "production_sim_fixture": True,
+        }
+        (tmp_path / "leads" / f"{lead['lead_id']}.json").write_text(
+            json.dumps(lead), encoding="utf-8"
+        )
+
+        response = self.client.get("/")
+
+        assert response.status_code == 200
+        assert "Simulation Manual Ramen" in response.text
+
+    def test_main_page_keeps_production_sim_disqualified_fixture_with_lead_false(self, tmp_path):
+        lead = {
+            "lead_id": "wrm-test-sim-disqualified",
+            "business_name": "Simulation Disqualified Ramen",
+            "lead": False,
+            "email": "",
+            "contacts": [],
+            "lead_score_v1": 0,
+            "outreach_status": "disqualified",
+            "launch_readiness_status": "disqualified",
+            "launch_readiness_reasons": ["chain_or_franchise_infrastructure"],
+            "production_sim_fixture": True,
+        }
+        (tmp_path / "leads" / f"{lead['lead_id']}.json").write_text(
+            json.dumps(lead), encoding="utf-8"
+        )
+
+        response = self.client.get("/")
+
+        assert response.status_code == 200
+        assert "Simulation Disqualified Ramen" in response.text
+
     def test_main_page_renders_establishment_profile_summary(self, tmp_path):
         lead = {
             "lead_id": "wrm-test-profile",
