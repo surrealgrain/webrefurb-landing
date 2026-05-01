@@ -13,6 +13,8 @@ from .business_name import business_name_is_suspicious, business_names_match, ex
 from .contact_crawler import extract_contact_signals, is_usable_business_email
 from .contact_policy import normalise_contact_actionability
 from .constants import DEEP_EMAIL_DISCOVERY_ENABLED
+from .evidence import _count_japanese_chars, has_chain_or_franchise_infrastructure, is_chain_business
+from .html_parser import extract_page_payload
 from .japan_restaurant_intel import (
     collect_restaurant_intel,
     coverage_with_contact,
@@ -41,7 +43,6 @@ def _try_mark_in_flight(key: str) -> bool:
 def _clear_in_flight(key: str) -> None:
     with _in_flight_lock:
         _in_flight_keys.discard(key)
-from .evidence import _count_japanese_chars, has_chain_or_franchise_infrastructure
 
 
 def _fetch_page(url: str, timeout_seconds: int = 10) -> str:
@@ -1267,27 +1268,269 @@ def search_and_qualify(
 
 def _extract_emails_from_text(text: str) -> list[str]:
     """Extract all usable business emails from arbitrary text."""
-    from .contact_crawler import EMAIL_RE
+    normalized = html_lib.unescape(str(text or ""))
+    normalized = urllib.parse.unquote(normalized)
+    normalized = normalized.replace("＠", "@")
+    normalized = re.sub(
+        r"([A-Za-z0-9._%+-]+)\s*(?:\[at\]|\(at\)|【at】| at |アットマーク|アット|★|☆|●|■|◆|\(a\))\s*([A-Za-z0-9.-]+\.[A-Za-z]{2,})",
+        r"\1@\2",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    normalized = re.sub(r"\s*@\s*", "@", normalized)
     return [
         email.lower()
-        for email in (m.group(0) for m in EMAIL_RE.finditer(text or ""))
+        for email in (m.group(0) for m in _EMAIL_RE.finditer(normalized))
         if is_usable_business_email(email.lower())
     ]
+
+
+_CODEX_TABELOG_URL_RE = re.compile(
+    r"https?://tabelog[.]com/(?:tokyo|osaka|kyoto|hokkaido|fukuoka)/(?:[^/\s)]+/){1,5}[0-9]{7,8}/"
+)
+_CODEX_STALE_TABELOG_MARKERS = (
+    "掲載保留",
+    "閉店",
+    "移転前の店舗情報",
+    "リニューアル前の店舗情報",
+    "休業中",
+)
+_CODEX_NON_TARGET_CUISINE_TERMS = (
+    "タイ料理", "イタリアン", "フレンチ", "スペイン料理", "韓国料理",
+    "ネパール料理", "インド料理", "カレー", "カフェ",
+)
+_CODEX_TARGET_GENRE_TERMS = (
+    "居酒屋", "ラーメン", "つけ麺", "油そば", "中華そば", "焼き鳥",
+    "鳥料理", "やきとん", "串焼き", "串揚げ", "もつ焼き", "もつ鍋",
+    "おでん", "日本酒バー", "焼酎バー", "立ち飲み", "海鮮", "沖縄料理",
+    "ろばた", "炉端",
+)
+
+
+def _codex_normalize_tabelog_url(url: str) -> str:
+    match = _CODEX_TABELOG_URL_RE.search(str(url or ""))
+    return match.group(0) if match else ""
+
+
+def _codex_tabelog_urls_from_organic_results(organic_results: list[dict[str, Any]]) -> list[str]:
+    urls: list[str] = []
+    seen: set[str] = set()
+    for result in organic_results:
+        haystack = " ".join(str(result.get(key) or "") for key in ("link", "title", "snippet"))
+        for match in _CODEX_TABELOG_URL_RE.finditer(haystack):
+            url = _codex_normalize_tabelog_url(match.group(0))
+            if url and url not in seen:
+                seen.add(url)
+                urls.append(url)
+    return urls
+
+
+def _codex_compact_lines(value: str) -> str:
+    return " ".join(line.strip() for line in str(value or "").splitlines() if line.strip())
+
+
+def _codex_between(text: str, start: str, end: str) -> str:
+    i = text.find(start)
+    if i < 0:
+        return ""
+    i += len(start)
+    j = text.find(end, i)
+    return text[i:j if j >= 0 else None]
+
+
+def _codex_field_after(text: str, start: str, end_markers: list[str]) -> str:
+    i = text.find(start)
+    if i < 0:
+        return ""
+    i += len(start)
+    ends = [text.find(marker, i) for marker in end_markers]
+    ends = [value for value in ends if value >= 0]
+    j = min(ends) if ends else len(text)
+    return text[i:j]
+
+
+def _codex_clean_name(name: str) -> str:
+    name = re.sub(r"\s*受賞・選出歴.*$", "", str(name or ""))
+    return re.sub(r"\s+", " ", name).strip()
+
+
+def _codex_city_for_address(address: str) -> str:
+    city_terms = {
+        "Tokyo": ("東京都",),
+        "Osaka": ("大阪府大阪市", "大阪市"),
+        "Kyoto": ("京都府京都市", "京都市"),
+        "Sapporo": ("北海道札幌市", "札幌市"),
+        "Fukuoka": ("福岡県福岡市", "福岡市"),
+    }
+    for city, terms in city_terms.items():
+        if any(term in address for term in terms):
+            return city
+    return ""
+
+
+def _codex_has_obvious_english_menu(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(marker in lowered for marker in (
+        "english menu",
+        "menu english",
+        "英語メニュー",
+        "英語のメニュー",
+        "英語版メニュー",
+    ))
+
+
+def _codex_has_tabelog_english_menu_signal(html: str, text: str) -> bool:
+    haystack = f"{html or ''}\n{text or ''}"
+    compact = re.sub(r"\s+", "", html_lib.unescape(haystack))
+    return any(marker in compact for marker in (
+        "ChkEnglishMenu",
+        "英語メニューあり",
+        "複数言語メニューあり（英語）",
+        "複数言語メニューあり(英語)",
+        "多言語メニューあり（英語）",
+        "多言語メニューあり(英語)",
+    ))
+
+
+def _codex_html_title(html: str) -> str:
+    match = re.search(r"(?is)<title[^>]*>(.*?)</title>", html or "")
+    if not match:
+        return ""
+    return _codex_compact_lines(re.sub(r"(?is)<[^>]+>", " ", html_lib.unescape(match.group(1))))
+
+
+def _codex_homepage_links_from_tabelog(html: str, page_url: str) -> list[str]:
+    blocks = [match.group(0) for match in re.finditer(r"(?is)<tr\b[^>]*>.*?ホームページ.*?</tr>", html or "")]
+    if not blocks:
+        blocks = [match.group(0) for match in re.finditer(r"(?is)ホームページ.{0,2000}", html or "")]
+
+    links: list[str] = []
+    for block in blocks:
+        links.extend(re.findall(r'''(?is)<a\b[^>]+href=["']([^"']+)["']''', block))
+    if not links:
+        payload = extract_page_payload(page_url, html or "")
+        links.extend(
+            str(link.get("href") or "")
+            for link in payload.get("links", [])
+            if any(token in str(link.get("text") or "") for token in ("公式", "ホームページ", "HP"))
+        )
+
+    official_links: list[str] = []
+    for raw_href in links:
+        href = urllib.parse.urljoin(page_url, str(raw_href or "").strip())
+        parsed = urllib.parse.urlparse(href)
+        if parsed.scheme not in {"http", "https"}:
+            continue
+        host = parsed.netloc.lower().removeprefix("www.")
+        if any(blocked in host for blocked in (
+            "tabelog.com", "hotpepper.jp", "gnavi.co.jp", "instagram.com",
+            "facebook.com", "x.com", "twitter.com", "line.me",
+        )):
+            continue
+        official_links.append(urllib.parse.urlunparse((
+            parsed.scheme, parsed.netloc, parsed.path, "", parsed.query, "",
+        )))
+    return list(dict.fromkeys(official_links))
+
+
+def _codex_parse_tabelog_profile(url: str, *, category: str) -> list[dict[str, str]]:
+    """Parse a Tabelog profile the same way the v1 email collector did."""
+    try:
+        html = _fetch_page(url, timeout_seconds=10)
+    except Exception:
+        return []
+    if not html or "食べログ" not in html:
+        return []
+    payload = extract_page_payload(url, html)
+    text = str(payload.get("text") or "")
+    top = text[:3500]
+    if any(marker in top[:1800] for marker in _CODEX_STALE_TABELOG_MARKERS):
+        return []
+    if _codex_has_tabelog_english_menu_signal(html, text):
+        return []
+    if _codex_has_obvious_english_menu(text):
+        return []
+
+    info_start = text.find("店舗基本情報")
+    if info_start < 0:
+        return []
+    end_candidates = [
+        value for value in (
+            text.find("特徴・関連情報", info_start),
+            text.find("席・設備", info_start),
+        )
+        if value > info_start
+    ]
+    info_end = min(end_candidates) if end_candidates else len(text)
+    info = text[info_start:info_end]
+    full_info_end = text.find("初投稿者", info_start)
+    full_info = text[info_start:full_info_end if full_info_end > info_start else len(text)]
+
+    title = _codex_html_title(html)
+    name = _codex_clean_name(_codex_compact_lines(_codex_between(info, "店名", "ジャンル")))
+    genre = _codex_compact_lines(_codex_field_after(info, "ジャンル", ["予約・", "お問い合わせ", "住所", "交通手段"]))
+    address = _codex_compact_lines(_codex_between(info, "住所", "大きな地図"))
+    if not name or not genre or not address:
+        return []
+    if name.startswith(("移転 ", "リニューアル ", "閉店 ")):
+        return []
+    if not any(term in genre for term in _CODEX_TARGET_GENRE_TERMS):
+        return []
+    if any(term in f"{genre} {name}" for term in _CODEX_NON_TARGET_CUISINE_TERMS):
+        return []
+    if is_chain_business(name) or has_chain_or_franchise_infrastructure(f"{name} {title}"):
+        return []
+    city = _codex_city_for_address(address)
+    if not city:
+        return []
+
+    emails = _extract_emails_from_text(full_info)
+    if not emails:
+        return []
+    homepage_links = _codex_homepage_links_from_tabelog(html, url)
+    website = homepage_links[0] if homepage_links else url
+    candidates: list[dict[str, str]] = []
+    for email in emails:
+        candidates.append({
+            "name": name,
+            "email": email,
+            "website": website,
+            "snippet": genre,
+            "source_url": url,
+            "email_source_url": url,
+            "address": address,
+            "city": city,
+            "tabelog_url": url,
+            "profile_html": html,
+            "genre_jp": genre,
+            "category": category,
+        })
+    return candidates
 
 
 def _extract_emails_from_organic_results(
     organic_results: list[dict[str, Any]],
     *,
+    category: str,
     max_page_fetches: int = 6,
 ) -> list[dict[str, str]]:
     """Extract (name, email, website) candidates from organic search results.
 
-    First checks snippets for emails.  If a snippet has no email the linked
-    page is fetched (up to *max_page_fetches* times) and scanned.
+    Tabelog profile links are parsed first because the v1 collector's strongest
+    yield came from Yahoo/Tabelog profile pages with public emails. Generic
+    organic snippets/pages are still scanned as a fallback for official sites.
     """
     candidates: list[dict[str, str]] = []
     seen_emails: set[str] = set()
     page_fetches = 0
+
+    for url in _codex_tabelog_urls_from_organic_results(organic_results):
+        for candidate in _codex_parse_tabelog_profile(url, category=category):
+            email = str(candidate.get("email") or "").strip().lower()
+            if not email or email in seen_emails:
+                continue
+            seen_emails.add(email)
+            candidates.append(candidate)
 
     for result in organic_results:
         title = str(result.get("title") or "").strip()
@@ -1295,6 +1538,8 @@ def _extract_emails_from_organic_results(
         snippet = str(result.get("snippet") or "").strip()
 
         if not title or not link:
+            continue
+        if _codex_normalize_tabelog_url(link):
             continue
 
         # Try snippet first (fast path)
@@ -1319,6 +1564,7 @@ def _extract_emails_from_organic_results(
                 "website": link,
                 "snippet": snippet,
                 "source_url": link,
+                "email_source_url": link,
             })
 
     return candidates
@@ -1336,7 +1582,6 @@ def codex_search_and_qualify(
 ) -> dict[str, Any]:
     """Codex email-first search: run organic search, extract emails, qualify."""
     from .search_scope import canonical_search_category
-    from .evidence import is_chain_business
     from .record import find_existing_lead, create_lead_record, persist_lead_record
     from .preview import build_preview_menu, build_preview_html
     from .pitch import build_pitch
@@ -1364,7 +1609,7 @@ def codex_search_and_qualify(
         }
 
     organic_results: list[dict[str, Any]] = organic_response.get("organic") or []
-    candidates = _extract_emails_from_organic_results(organic_results)
+    candidates = _extract_emails_from_organic_results(organic_results, category=canonical)
 
     results: list[dict[str, Any]] = []
     decisions: list[dict[str, Any]] = []
@@ -1376,6 +1621,8 @@ def codex_search_and_qualify(
         source_name = candidate["name"]
         source_email = candidate["email"]
         source_website = candidate["website"]
+        source_address = candidate.get("address", "")
+        source_email_url = candidate.get("email_source_url") or candidate.get("source_url") or source_website
 
         # --- chain check ---
         if is_chain_business(source_name):
@@ -1408,18 +1655,27 @@ def codex_search_and_qualify(
 
         try:
             # --- fetch website ---
+            profile_html = str(candidate.get("profile_html") or "")
+            pages: list[dict[str, str]] = []
+            website_html = ""
             try:
                 website_html = _fetch_page(source_website, timeout_seconds=10)
             except Exception as exc:
-                decisions.append({
-                    "business_name": source_name, "lead": False,
-                    "reason": "fetch_failed", "error": str(exc),
-                    "email": source_email,
-                })
-                continue
+                if not profile_html:
+                    decisions.append({
+                        "business_name": source_name, "lead": False,
+                        "reason": "fetch_failed", "error": str(exc),
+                        "email": source_email,
+                    })
+                    continue
 
             website = source_website
-            pages = [{"url": website, "html": website_html}]
+            if website_html:
+                pages.append({"url": website, "html": website_html})
+            if profile_html and candidate.get("tabelog_url") != website:
+                pages.append({"url": str(candidate.get("tabelog_url") or ""), "html": profile_html})
+            elif profile_html and not pages:
+                pages.append({"url": website, "html": profile_html})
 
             # --- qualify ---
             qualification = qualify_candidate(
@@ -1427,6 +1683,7 @@ def codex_search_and_qualify(
                 website=website,
                 category=canonical,
                 pages=pages,
+                address=source_address,
             )
 
             decision = qualification.to_dict()
@@ -1451,7 +1708,7 @@ def codex_search_and_qualify(
                     "href": f"mailto:{source_email}",
                     "label": "Email (Codex)",
                     "source": "codex_organic_search",
-                    "source_url": candidate.get("source_url", ""),
+                    "source_url": source_email_url,
                     "confidence": "high",
                     "discovered_at": utc_now(),
                     "actionable": True,
@@ -1508,6 +1765,10 @@ def codex_search_and_qualify(
                 record["business_name_verified_by"] = ["codex_organic_search", "website_fetch"]
                 record["codex_source"] = True
                 record["codex_email"] = source_email
+                if candidate.get("tabelog_url"):
+                    record["codex_tabelog_url"] = candidate.get("tabelog_url")
+                    source_urls = record.setdefault("source_urls", {})
+                    source_urls["tabelog"] = candidate.get("tabelog_url")
                 persist_lead_record(record, state_root=state_root)
                 results.append(record)
                 decision["email_found"] = bool(email_contact)

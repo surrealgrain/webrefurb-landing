@@ -554,8 +554,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Kobe">Kobe</option>
         <option value="Nagoya">Nagoya</option>
       </select>
-      <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search Maps</button>
-      <button class="btn btn-outline-primary" id="codex-btn" style="width:100%;height:36px;font-size:13px;margin-top:4px;" onclick="runCodexSearch()">Codex Email Search</button>
+      <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search Leads</button>
     </div>
   </div>
 
@@ -1401,19 +1400,20 @@ async function runSearch() {
   btn.textContent = 'Searching...';
   btn.disabled = true;
   clearSearchActivityTimers();
-  setSearchActivity('active', 'Search running', 'Searching ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', [
-    { text: 'Searching ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', state: 'active' },
+  setSearchActivity('active', 'Search running', 'Searching public lead sources for ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', [
+    { text: 'Searching Yahoo/Tabelog email queries for ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', state: 'active' },
   ]);
-  scheduleSearchStep(900, 'Reviewing candidates from Maps...');
-  scheduleSearchStep(2200, 'Checking restaurant websites for menu evidence...');
-  scheduleSearchStep(3800, 'Looking for contact routes and outreach evidence...');
-  scheduleSearchStep(5200, 'Checking ticket machine evidence...');
+  scheduleSearchStep(1200, 'Parsing Tabelog profile pages for restaurant-owned emails...');
+  scheduleSearchStep(3000, 'Checking official/contact pages linked from profiles...');
+  scheduleSearchStep(5200, 'Rejecting stale listings, chains, and obvious English-menu matches...');
+  scheduleSearchStep(7600, 'Running broader official-site recovery if needed...');
+  scheduleSearchStep(9800, 'Qualifying leads and saving outreach-ready records...');
 
   try {
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: scope.query, category: scope.category, city: scope.city }),
+      body: JSON.stringify({ category: scope.category, city: scope.city, mode: 'unified' }),
     });
     clearSearchActivityTimers();
 
@@ -1446,65 +1446,6 @@ async function runSearch() {
   } finally {
     btn.textContent = origText;
     btn.disabled = false;
-  }
-}
-
-async function runCodexSearch() {
-  const category = document.getElementById('sidebar-category').value;
-  const city = document.getElementById('sidebar-city').value;
-  const btn = document.getElementById('codex-btn');
-  const origText = btn.textContent;
-  const scope = buildSearchRequest(category, city);
-
-  btn.textContent = 'Searching...';
-  btn.disabled = true;
-  document.getElementById('search-btn').disabled = true;
-  clearSearchActivityTimers();
-  setSearchActivity('active', 'Codex search running', 'Email-first search for ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', [
-    { text: 'Searching email providers for ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', state: 'active' },
-  ]);
-  scheduleSearchStep(1200, 'Checking site platforms (ameblo, jimdo, wix, peraichi...)...');
-  scheduleSearchStep(3000, 'Extracting emails from search results...');
-  scheduleSearchStep(5000, 'Fetching restaurant websites for qualification...');
-  scheduleSearchStep(8000, 'Qualifying leads and building contact routes...');
-
-  try {
-    const res = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: scope.category, city: scope.city, mode: 'codex' }),
-    });
-    clearSearchActivityTimers();
-
-    if (!res.ok) {
-      const err = await res.json();
-      setSearchActivity('error', 'Codex search failed', err.detail || 'The search could not complete.', [
-        { text: 'Search failed: ' + (err.detail || 'Unknown error'), state: 'error' },
-      ]);
-      showToast('Codex search failed: ' + (err.detail || 'Unknown error'), 'error');
-      return;
-    }
-
-    const data = await res.json();
-    const summary = summarizeSearchResult(data, scope.categoryLabel, scope.cityLabel);
-    setSearchActivity(summary.state, summary.title, summary.summary, summary.steps);
-    saveSearchActivity(summary.state, summary.title, summary.summary, summary.steps);
-    if (data.leads > 0) {
-      showToast('Codex found ' + data.leads + ' lead(s)', 'success');
-    } else {
-      showToast('Codex search complete — no new leads', 'info');
-    }
-    setTimeout(() => location.reload(), 2200);
-  } catch (err) {
-    clearSearchActivityTimers();
-    setSearchActivity('error', 'Codex search error', err.message, [
-      { text: 'Search error: ' + err.message, state: 'error' },
-    ]);
-    showToast('Codex search error: ' + err.message, 'error');
-  } finally {
-    btn.textContent = origText;
-    btn.disabled = false;
-    document.getElementById('search-btn').disabled = false;
   }
 }
 

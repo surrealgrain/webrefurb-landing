@@ -252,8 +252,8 @@ def _category_family_jobs(*, category: str, city: str) -> list[dict[str, str]]:
 
 CODEX_EMAIL_PROVIDERS: tuple[str, ...] = (
     "gmail.com", "yahoo.co.jp", "icloud.com", "i.softbank.jp",
-    "ezweb.ne.jp", "docomo.ne.jp", "softbank.ne.jp", "outlook.jp",
-    "nifty.com", "biglobe.ne.jp", "ocn.ne.jp", "platinum.email.ne.jp",
+    "ezweb.ne.jp", "docomo.ne.jp", "hotmail.com", "outlook.jp",
+    "me.com", "biglobe.ne.jp",
 )
 
 CODEX_SITE_PLATFORMS: tuple[str, ...] = (
@@ -261,7 +261,24 @@ CODEX_SITE_PLATFORMS: tuple[str, ...] = (
     "fc2.com", "hpblog.jp", "hatenablog.com", "line.blog.jp",
 )
 
-CODEX_EXCLUDE = "-求人 -採用 -通販 -チェーン -ホットペッパー"
+CODEX_TABELOG_CITY_SITES: dict[str, str] = {
+    "tokyo": "tabelog.com/tokyo",
+    "osaka": "tabelog.com/osaka",
+    "kyoto": "tabelog.com/kyoto",
+    "sapporo": "tabelog.com/hokkaido/A0101",
+    "fukuoka": "tabelog.com/fukuoka/A4001",
+}
+
+CODEX_EXCLUDE = "-求人 -採用 -通販 -チェーン -ホットペッパー -採用情報 -求人情報 -英語メニューあり -複数言語メニュー"
+
+
+def _codex_city_sites(city: str) -> list[tuple[str, str]]:
+    value = normalise_search_city(city).strip().lower()
+    if value == "japan":
+        return list(CODEX_TABELOG_CITY_SITES.items())
+    if value in CODEX_TABELOG_CITY_SITES:
+        return [(value, CODEX_TABELOG_CITY_SITES[value])]
+    return [(value, "tabelog.com")]
 
 
 def _codex_jobs_for_term(
@@ -269,21 +286,29 @@ def _codex_jobs_for_term(
 ) -> list[dict[str, str]]:
     """Generate Codex email-provider and site-specific search jobs for one term."""
     jobs: list[dict[str, str]] = []
-    place = city or "Japan"
-    for provider in CODEX_EMAIL_PROVIDERS:
-        provider_slug = provider.replace(".", "_")
-        jobs.append(_job(
-            job_id=f"codex_{slug}_email_{provider_slug}",
-            query=f"{term} {place} @{provider} {CODEX_EXCLUDE}",
-            category=canonical,
-            purpose="codex_email_provider",
-            expected_friction="codex_email_discovery",
-        ))
+    place = normalise_search_city(city)
+    for city_key, site in _codex_city_sites(place):
+        for provider in CODEX_EMAIL_PROVIDERS:
+            provider_slug = provider.replace(".", "_")
+            jobs.append(_job(
+                job_id=f"codex_{slug}_{city_key}_tabelog_genre_{provider_slug}",
+                query=f'site:{site} "@{provider}" "ジャンル" "{term}" "予約可否" {CODEX_EXCLUDE}',
+                category=canonical,
+                purpose="codex_tabelog_email_genre",
+                expected_friction="codex_tabelog_email_discovery",
+            ))
+            jobs.append(_job(
+                job_id=f"codex_{slug}_{city_key}_tabelog_address_{provider_slug}",
+                query=f'site:{site} "@{provider}" "{term}" "住所" {CODEX_EXCLUDE}',
+                category=canonical,
+                purpose="codex_tabelog_email_address",
+                expected_friction="codex_tabelog_email_discovery",
+            ))
     for platform in CODEX_SITE_PLATFORMS:
         platform_slug = platform.replace(".", "_")
         jobs.append(_job(
             job_id=f"codex_{slug}_site_{platform_slug}",
-            query=f"{term} site:{platform} {place} {CODEX_EXCLUDE}",
+            query=f"{term} site:{platform} {place} メール お問い合わせ {CODEX_EXCLUDE}",
             category=canonical,
             purpose="codex_site_specific",
             expected_friction="codex_site_discovery",
