@@ -1,6 +1,6 @@
 # WebRefurbMenu Handoff
 
-Updated: 2026-04-30
+Updated: 2026-05-01
 
 This is the compact resume file. Keep it short. Do not append a running diary; replace stale checkpoint details after each meaningful work block.
 
@@ -23,11 +23,64 @@ This is the compact resume file. Keep it short. Do not append a running diary; r
 
 ## Current Status
 
-- Branch: `codex/phase11-contact-form-batch`, ahead of origin by 6 commits.
-- Worktree should be clean after the latest optimization commit.
+- Branch: `codex/phase11-contact-form-batch`.
+- **Uncommitted changes** — do NOT commit without review.
 - `PLAN.md` Phases 0-12 are complete. Phase 13 is active, not complete.
 - Controlled Batch 1 and Batch 2 have already had real approved-route outreach. Do not start Batch 3.
 - Current decision: hold real Batch 3 outbound. Reason: Batch 1/2 have 0 replies/positives and the eligible candidate pool is not strong enough.
+
+## What Changed This Session (2026-05-01)
+
+### 1. Scrapling integrated into pipeline page fetching (`pipeline/search.py`)
+- **`_fetch_page()` now uses Scrapling `Fetcher`** (TLS fingerprint impersonation) as primary, urllib as fallback
+- This is the core page fetching function used by the entire pipeline
+- Scrapling 0.4.7 already installed from previous session
+
+### 2. Bulk lead gen script (`scripts/bulk_lead_gen.py`) — NEW
+- Standalone script for bulk lead generation with preview + inline pitch
+- Email-only filtering — leads must have email addresses
+- Generates preview HTML pages with inline pitches
+- Tokyo-specific delivery language: laminated in-person delivery offered
+- Non-Tokyo: email delivery only, laminating by negotiation
+- Uses directory_discovery + contact extraction + evidence assessment + preview generation
+- **Problem identified**: only 4 leads from 228 Tokyo candidates — homepage-only email extraction misses most emails
+
+### 3. Multi-source collection attempted
+- Ran `collect_replay_corpus()` for Tokyo, Osaka, Kyoto, Sapporo, Fukuoka
+- Uses WebSerper + Google Maps + Tabelog directory discovery simultaneously
+- Corpus saved to `state/search-replay/spray-pray-v1/`
+- **Yield was too low** — user switched to Codex for lead finding
+
+### 4. Target cities confirmed
+- **Tokyo, Osaka, Kyoto, Sapporo, Fukuoka** (tourist hotspots only)
+- User explicitly confirmed these 5 and no others
+
+### Key Insight This Session
+- Japanese restaurant websites rarely put emails on homepage. Need multi-page probing (/contact/, /access/, /info/, etc.) to extract emails. The `_probe_deterministic_contact_paths()` function exists in `search_replay.py` but hasn't been integrated into the bulk lead gen flow.
+- User is now using **Codex** to find leads externally — it's working better than the pipeline approach.
+
+## Files Modified/Created This Session
+
+- `pipeline/search.py` — `_fetch_page()` rewritten to use Scrapling Fetcher with urllib fallback
+- `scripts/bulk_lead_gen.py` — **NEW** — bulk lead gen with preview + pitch (homepage-only email extraction, low yield)
+- `HANDOFF.md` — this update
+
+### Previous Session Changes Still Uncommitted
+- `pipeline/search_scope.py` — replaced directory jobs with contact discovery queries
+- `pipeline/search_replay.py` — solution-check caps, deterministic contact probing, directory discovery integration
+- `pipeline/search_provider.py` — raised limits, organic merge triggers, stronger blocked hosts
+- `pipeline/contact_crawler.py` — full-width @ detection, `recover_contact_routes()` function
+- `pipeline/directory_discovery.py` — **REWRITTEN** — Scrapling-based Tabelog crawler
+- `pipeline/lead_qualifier/` — **NEW MODULE** — queue-based batch qualification (queue.py, pain_signals.py, review_scraper.py, models.py, run.py)
+- `pipeline/manual_import.py` — **NEW** — manual lead import
+- `scripts/webserper_benchmark_loop.py` — **NEW** — benchmark loop mechanism
+- `dashboard/app.py` + `dashboard/templates/index.html` — dashboard updates
+- `tests/test_lead_qualifier_*.py` — **NEW** — lead qualifier tests
+- `tests/test_production_simulation.py`, `tests/test_search_scope.py` — updated
+
+### Untracked Files
+- `assets/templates/ramen_food_menu_email_preview.jpg`
+- `restaurant_email_leads.md`
 
 ## Batch Snapshot
 
@@ -35,120 +88,35 @@ This is the compact resume file. Keep it short. Do not append a running diary; r
 - Batch 2: `launch-6f594101ca`, reviewed, `4/5` contacted, `0` replies, `0` positives, `0` bounces/opt-outs.
 - Batch 2 non-contact: `wrm-lead-lead-fb50` / 創作個室居酒屋すぎうら. Form required phone data; no phone was invented; no submission was made; now manual/do-not-contact.
 
-## Current Code State
+## What the User Wants for Search Results (Package Fit Checklist)
 
-Committed hardening is in place:
+User asked for a checklist of what search results should include to fit our packages. This is pending — user will continue in new chat.
 
-- Chain/category gates now prefer first-party page text over third-party review/directory text.
-- Large first-party store directories are treated as chain/multi-store infrastructure.
-- First-party out-of-scope restaurant/hospitality text can override noisy search category hints.
-- Route policy blocks unsupported "forms" such as phone-required, booking/reservation, recruiting, commerce/order, account/login, and social-profile routes.
-- Phone routes and booking/reservation/phone-required/hidden-only/newsletter/order/recruit forms are omitted from contact-route lists instead of being kept as reference-only routes.
-- Serper collection now preserves HTTP response bodies and exposes missing credits/credential failures clearly.
-- JavaScript-rendered contact forms without literal `<form>` tags are recognized when they expose contact/inquiry controls.
-- Contact form extraction now profiles forms as `supported_inquiry`, `reservation_only`, `phone_required`, `hidden_only`, `newsletter`, `commerce`, `recruiting`, or `unknown`; only `supported_inquiry` can launch-ready.
-- Single-shop "店舗情報"/"お店"/"ご来店" copy no longer trips the multi-store infrastructure gate.
-- Local WebSerper search provider is implemented and wired into the CLI. `webserper` is the default provider, requires no `SERPER_API_KEY`, and `serper` remains available only when explicitly selected. WebSerper now combines Google Maps with Yahoo Japan + DuckDuckGo organic fallback and writes retry/fallback metadata.
-- Production-sim now has a WebSerper benchmark command and label review shortlist.
-- Follow-up WebSerper optimization added Yahoo-first organic selection, Yahoo-only capped directory extraction, explicit solution-check enrichment artifacts that do not create candidates, benchmark diagnostics for job modes/source engines/route profiles, stronger reservation/social/hosted/chain flags, and CLI support for intentional `0` contact/evidence page caps.
+## Next Steps
 
-## Latest No-Send Simulation
-
-Latest focused Google+Yahoo WebSerper corpus:
-
-- `state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z/`
-- Command used explicit `--search-provider webserper`; no API key was passed or logged. Tuned verification env used shorter local waits: `WEBREFURB_LOCAL_MAPS_BATCH_WAIT_MS=1000`, `WEBREFURB_SEARCH_RETRY_ATTEMPTS=1`, `WEBREFURB_LOCAL_SEARCH_RESULT_LIMIT=12`, `WEBREFURB_LOCAL_SEARCH_PLACE_LIMIT=8`, and `--fetch-timeout-seconds 4`.
-- Captured `282` raw candidates, `110` deduped candidates, `172` duplicates, `123` fetched pages, `16` fetch failures, `0` search failures.
-- Markets: Sangenjaya, Kichijoji, Kagurazaka, Jinbocho.
-- Label workflow created `110` draft labels and `labeling/review-shortlist.json`. Finalized strict labels: `1 ready`, `1 manual_review`, `1 disqualified`.
-- Promoted ready: `wrm-replay-oilmen-e264c2f2` / らぁ麺ゃ 煮干しのRYOMA — first-party ramen, published email `info@ryoma-5.com`, Package 1.
-- Manual: `wrm-replay-marco-70431f73` / 食堂かど。 — first-party page, but stricter route policy materializes no supported route and proof is operator-only/no customer-safe proof item.
-- Disqualified: `wrm-replay-nakano-aoba-4ef37644` / 中華そば 中野 青葉 吉祥寺店 — first-party shop list shows chain/multi-store infrastructure.
-- Benchmark artifacts:
-  - `state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/google-yahoo-focused-labeled-20260430.json`
-  - `state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/google-yahoo-focused-labeled-20260430.md`
-- Benchmark status: not passed. Improved `0` search failures, `100%` first-party-site rate, `11.51%` fetch failure rate, and `0` unsupported ready labels. Still below target on candidate yield (`1.31` deduped candidates/job vs `1.60`) and reviewed-ready count (`1` vs target `6`).
-
-Latest replay:
-
-- Run ID: `production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z`
-- Result: `production_ready=false`, `P0=0`, `P1=0`, `P2=1`
-- Counts: `1 ready`, `1 manual_review`, `1 disqualified`, `1` mocked send verified.
-- `external_send_performed=false`, `real_launch_batch_created=false`.
-- Dashboard screenshot coverage passed for required ready/manual/disqualified/editor/inline states.
-
-Strict reviewed labels across credited + focused WebSerper corpora:
-
-- Total `19`: `8 ready`, `3 manual_review`, `8 disqualified`.
-- Current expected-ready labels:
-  - `wrm-replay-izakaya-gussanchi-190acb60` — izakaya course/nomihodai, contact form, Package 3.
-  - `wrm-replay-torisoba-salt-32897741` — ramen, email, Package 2.
-  - `wrm-replay-momokichi-kichijoji-6cebd6d4` — izakaya menu/course, contact form, Package 3.
-  - `wrm-replay-oilmen-a4e94f47` — ramen ticket-machine profile, email, Package 2.
-  - `wrm-replay-jimbocho-ton-be6980fa` — izakaya course/menu, contact form, Package 3.
-  - `wrm-replay-marco-5bd65206` — Sangenjaya izakaya/sakaba, first-party contact form, Package 2.
-  - `wrm-replay-kushinikomi-maruni-4600161b` — Kichijoji izakaya course/nomihodai, first-party contact form, Package 3.
-  - `wrm-replay-oilmen-e264c2f2` — ramen, first-party published email, Package 1.
-
-Google+Yahoo replay materialization found only `1` current-rule ready record (`RYOMA`). Many high-scoring shortlist items were chain/multi-store, website-only, already-solved, or reservation/booking-adjacent. Continue reviewing only legitimate high-confidence first-party ramen/izakaya records with email or supported general inquiry forms.
-
-Latest optimized no-send WebSerper verification corpus:
-
-- `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/`
-- Command used explicit `--search-provider webserper`; no API key was passed or logged.
-- Captured `133` raw candidates, `65` deduped candidates, `68` duplicates, `57` fetched pages, `8` fetch failures, `0` search failures.
-- Benchmark artifacts:
-  - `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.json`
-  - `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.md`
-- Benchmark status: not passed. Passed `0` search failures and `0` unsupported ready labels; first-party rate remained high (`96.92%`). Still below target on candidate yield (`1.08` deduped candidates/job vs `1.60`), fetch rate was just over target (`12.31%` vs `12%`), and no high-confidence ready labels were promoted from the optimized corpus.
-- Label workflow created `65` draft labels and `labeling/review-shortlist.json`. No labels were promoted because surfaced email/form candidates were not high-confidence first-party ramen/izakaya outreach records.
-
-`SERPER_API_KEY` is no longer required for the default WebSerper path. Do not use, echo, write, or log it for WebSerper runs.
-
-## Latest Batch 3 Decision
-
-- Command run: `.venv/bin/python -m pipeline.cli launch-decision --label batch3-no-send-optimized-webserper-20260430T000000Z`
-- Recommendation: `hold_real_outbound_prepare_more_candidates`
-- `real_outbound_allowed=false`
-- `eligible_count=0`
-- Artifacts:
-  - `state/launch_decisions/batch3-no-send-optimized-webserper-20260430T000000Z-20260430T084032Z.json`
-  - `state/launch_decisions/batch3-no-send-optimized-webserper-20260430T000000Z-20260430T084032Z.md`
+1. **User is using Codex to find leads externally** — pipeline approach had low email yield. May need to:
+   - Integrate multi-page email probing into bulk_lead_gen.py
+   - Accept Codex-found leads via `pipeline/manual_import.py`
+2. **Define package-fit criteria** for search results (user's pending request)
+3. **Generate 50+ pitchable leads** with emails + preview pages with inline pitches
+4. **Do NOT start Batch 3** outbound until user explicitly requests it
 
 ## Key Artifacts
 
-- Latest replay report: `state/production-sim/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/report.json`
-- Latest replay decisions: `state/production-sim/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/decisions.json`
-- Latest replay screenshots: `state/qa-screenshots/production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-20260430T000000Z/`
-- Latest optimized corpus benchmark: `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.json`
+- Bulk lead gen script: `scripts/bulk_lead_gen.py`
+- Directory discovery module: `pipeline/directory_discovery.py`
+- Lead qualifier module: `pipeline/lead_qualifier/`
+- Manual import: `pipeline/manual_import.py`
+- Benchmark loop script: `scripts/webserper_benchmark_loop.py`
 - Batch 1 record: `state/launch_batches/launch-18ce5c756f.json`
 - Batch 2 record: `state/launch_batches/launch-6f594101ca.json`
+- Latest benchmark: `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.json`
 
 ## Last Verification
 
-- `.venv/bin/python -m pytest tests/ -q` passed with `621 passed`.
-- Provider config check: default provider is `webserper`; `webserper` requires no key; `serper` still requires a key.
-- `.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/production-sim-webserper-google-yahoo-independent-neighborhoods-20260430T000000Z --run-id production-sim-webserper-google-yahoo-independent-neighborhoods-labeled-after-optimization-20260430T000000Z --screenshots --fail-on p0,p1` passed with `P0=0`, `P1=0`, `P2=1`.
-- `git diff --check` passed.
-- `.venv/bin/python -m pipeline.cli audit-state` passed with `ok=true`, `checked=55`, `findings=[]`, `readiness_report=[]`.
-- `audit-state --repair` previously repaired deterministic drift for `wrm-tonkotsu-ramen-tatsu-9-18-konohanamachi-d2b8` from ready to disqualified because current chain-like evidence gates now apply; rerun audit passed.
-
-## Next Safe Work
-
-1. Improve Google+Yahoo candidate yield without weakening first-party and route safety. Current optimized benchmark misses candidate/job target (`1.08` vs `1.60`), while the prior fuller Google+Yahoo run was `1.31`; directory extraction is safer but too low-yield.
-2. Continue no-send evidence review for legitimate supported-route false negatives in existing corpora. Promote only high-confidence first-party ramen/izakaya records with email or supported general inquiry forms.
-3. Keep phone numbers, reservation/booking forms, hidden-only forms, newsletters, order/commerce, recruiting, LINE, and Instagram out of contact-route records.
-4. When more labels are added, rerun:
-
-```bash
-.venv/bin/python -m pipeline.cli production-sim collect --run-id <new-webserper-run-id> --city-set launch-markets --category all --stage pilot --search-provider webserper --contact-pages-per-candidate 2 --evidence-pages-per-candidate 4 --fail-on p0,p1
-.venv/bin/python -m pipeline.cli production-sim label --corpus state/search-replay/<new-webserper-run-id>
-.venv/bin/python -m pipeline.cli production-sim replay --corpus state/search-replay/<new-webserper-run-id> --run-id <new-replay-run-id> --screenshots --fail-on p0,p1
-.venv/bin/python -m pipeline.cli launch-decision --label <new-label>
-.venv/bin/python -m pytest tests/ -q
-.venv/bin/python -m pipeline.cli audit-state
-git diff --check
-```
+- `.venv/bin/python -m pytest tests/ -v` — 689 passed, 7 failed (pre-existing dashboard/state failures, not caused by Scrapling change).
+- Scrapling 0.4.7 installed: `pip install "scrapling[fetchers]"` + `scrapling install`.
+- Provider config: default is `webserper`; `webserper` requires no key.
 
 ## Context Hygiene
 

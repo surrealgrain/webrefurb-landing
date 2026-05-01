@@ -22,6 +22,13 @@ _RAMEN_DATA_SECTIONS = {
     "ramen": "ramen",
     "noodles": "ramen",
     "ramen menu": "ramen",
+    "tsukemen": "ramen",
+    "dipping noodles": "ramen",
+    "abura soba": "ramen",
+    "mazesoba": "ramen",
+    "tantanmen": "ramen",
+    "tan tan men": "ramen",
+    "chuka soba": "ramen",
     "sides": "sides-add-ons",
     "sides & add-ons": "sides-add-ons",
     "sides and add-ons": "sides-add-ons",
@@ -35,9 +42,22 @@ _IZAKAYA_DATA_SECTIONS = {
     "small plates": "small-plates",
     "appetizers": "small-plates",
     "starters": "small-plates",
+    "side dishes": "small-plates",
+    "oden": "small-plates",
+    "seafood": "small-plates",
+    "sashimi": "small-plates",
+    "sake snacks": "small-plates",
     "skewers": "skewers",
     "grilled skewers": "skewers",
     "yakitori": "skewers",
+    "kushiyaki": "skewers",
+    "yakiton": "skewers",
+    "kushikatsu": "skewers",
+    "kushiage": "skewers",
+    "fried skewers": "skewers",
+    "robata": "skewers",
+    "robatayaki": "skewers",
+    "grilled dishes": "skewers",
     "rice": "rice-noodles",
     "rice & noodles": "rice-noodles",
     "noodle dishes": "rice-noodles",
@@ -69,14 +89,15 @@ _DRINK_TOKENS = frozenset({
 def _resolve_data_section(title: str, is_drink: bool) -> str:
     """Map an English section title to a v4c template data-section key."""
     normalized = title.strip().lower().replace("&", "and")
-    lookup = _DRINKS_DATA_SECTIONS if is_drink else _RAMEN_DATA_SECTIONS
-    # Exact match
-    if normalized in lookup:
-        return lookup[normalized]
-    # Partial match
-    for key, value in lookup.items():
-        if key in normalized or normalized in key:
-            return value
+    lookups = [_DRINKS_DATA_SECTIONS] if is_drink else [_RAMEN_DATA_SECTIONS, _IZAKAYA_DATA_SECTIONS]
+    for lookup in lookups:
+        # Exact match
+        if normalized in lookup:
+            return lookup[normalized]
+        # Partial match
+        for key, value in lookup.items():
+            if key in normalized or normalized in key:
+                return value
     # Fallback: use the title slug
     return slugify(title)
 

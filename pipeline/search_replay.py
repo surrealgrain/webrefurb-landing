@@ -21,7 +21,7 @@ from .search_provider import (
     run_organic_search as provider_run_organic_search,
     search_provider_requires_api_key,
 )
-from .search_scope import normalise_search_category, search_jobs_for_scope
+from .search_scope import canonical_search_category, normalise_search_category, search_jobs_for_scope
 from .utils import read_json, sha256_text, slugify, utc_now, write_json, write_text
 
 
@@ -103,7 +103,7 @@ BENCHMARK_ACCEPTANCE_TARGETS = {
     "min_expected_ready_labels": 6,
 }
 
-DIRECTORY_JOB_TOKENS = ("tabelog", "hotpepper", "ramendb", "gnavi", "gurunavi")
+DIRECTORY_JOB_TOKENS = ("tabelog", "hotpepper", "ramendb", "gnavi", "gurunavi", "site:")
 SOLUTION_CHECK_PURPOSE_TOKENS = (
     "english_solution_check",
     "multilingual_solution_check",
@@ -111,6 +111,7 @@ SOLUTION_CHECK_PURPOSE_TOKENS = (
     "ticket_machine_solution_check",
     "chain_infrastructure_check",
 )
+SOLUTION_CHECK_CANDIDATE_CAP = 2  # Max candidates from solution-check jobs per job
 
 
 def benchmark_replay_corpus(
@@ -256,11 +257,44 @@ def _benchmark_job_diagnostics(*, root: Path, manifest: dict[str, Any], candidat
                     if nested.get("recovered_by_retry"):
                         recovered_retry_count += 1
     discovery_jobs = mode_counts.get("candidate_discovery", 0) + mode_counts.get("directory_extraction", 0)
+    discovery_candidates = sum(
+        count for mode, count in candidate_mode_counts.items()
+        if mode in ("candidate_discovery", "directory_extraction")
+    )
+    solution_check_candidates = candidate_mode_counts.get("solution_check", 0)
+    maps_candidates = sum(
+        count for mode, count in candidate_mode_counts.items()
+        if mode == "candidate_discovery"
+    )
+    official_organic_candidates = sum(
+        count for mode, count in candidate_mode_counts.items()
+        if mode == "directory_extraction"
+    )
+    # Route yield breakdown
+    supported_route_count = 0
+    email_route_count = 0
+    form_route_count = 0
+    for candidate in candidates:
+        annotation = _annotate_label_candidate(root, candidate)
+        route = str(annotation.get("contact_route_profile") or "unknown")
+        if route in ("email", "contact_form"):
+            supported_route_count += 1
+        if route == "email":
+            email_route_count += 1
+        if route == "contact_form":
+            form_route_count += 1
     return {
         "search_job_mode_counts": dict(sorted(mode_counts.items())),
         "candidate_count_by_source_job_mode": dict(sorted(candidate_mode_counts.items())),
         "candidate_discovery_job_count": discovery_jobs,
         "deduped_candidates_per_discovery_job": _rate(len(candidates), discovery_jobs),
+        "maps_discovery_yield": maps_candidates,
+        "official_organic_yield": official_organic_candidates,
+        "solution_check_candidate_yield": solution_check_candidates,
+        "supported_route_yield": supported_route_count,
+        "email_route_yield": email_route_count,
+        "form_route_yield": form_route_count,
+        "supported_route_rate": _rate(supported_route_count, len(candidates)),
         "search_engine_artifact_counts": dict(sorted(engine_counts.items())),
         "search_source_engine_counts": dict(sorted(source_engine_counts.items())),
         "recovered_retry_count": recovered_retry_count,
@@ -343,6 +377,12 @@ def _benchmark_markdown(result: dict[str, Any]) -> str:
         "## Diagnostics",
         "",
         f"- Job modes: `{metrics.get('search_job_mode_counts', {})}`",
+        f"- Candidates by mode: `{metrics.get('candidate_count_by_source_job_mode', {})}`",
+        f"- Maps discovery yield: `{metrics.get('maps_discovery_yield', 0)}`",
+        f"- Official organic yield: `{metrics.get('official_organic_yield', 0)}`",
+        f"- Solution-check yield: `{metrics.get('solution_check_candidate_yield', 0)}`",
+        f"- Supported route yield: `{metrics.get('supported_route_yield', 0)}` (email: {metrics.get('email_route_yield', 0)}, form: {metrics.get('form_route_yield', 0)})",
+        f"- Supported route rate: `{metrics.get('supported_route_rate', 0):.1%}`",
         f"- Search engines: `{metrics.get('search_engine_artifact_counts', {})}`",
         f"- Source engines: `{metrics.get('search_source_engine_counts', {})}`",
         f"- Route profiles: `{metrics.get('contact_route_profile_counts', {})}`",
@@ -1071,6 +1111,9 @@ def collect_replay_corpus(
     web_search_fn: Callable[..., Any] | None = None,
     fetch_page_fn: Callable[..., str] | None = None,
     created_at: str | None = None,
+    directory_discovery: bool = False,
+    directory_max_pages: int = 50,
+    directory_max_details: int = 500,
 ) -> dict[str, Any]:
     """Collect a stratified search/fetch corpus without touching lead state.
 
@@ -1116,26 +1159,8 @@ def collect_replay_corpus(
     for job_index, job in enumerate(jobs):
         job_mode = _job_mode_for_job(job)
         artifact_rel = f"webserper/{job_index:04d}-{slugify(job['city'])}-{slugify(job['job_id'])}-maps.json"
-        if job_mode == "solution_check":
-            raw_response = {
-                "places": [],
-                "searchParameters": {
-                    "q": job["query"],
-                    "gl": gl,
-                    "engine": "skipped_solution_check_enrichment",
-                    "provider": provider_name,
-                    "sourceRuns": [],
-                },
-            }
-            write_json(root / artifact_rel, {
-                "artifact_type": "webserper_maps_response",
-                "captured_at": created_at,
-                "gl": gl,
-                "job": job,
-                "response": raw_response,
-                "candidate_creation_allowed": False,
-            })
-            continue
+        # Solution-check jobs now create candidates but with a cap
+        solution_check_cap = SOLUTION_CHECK_CANDIDATE_CAP if job_mode == "solution_check" else 0
 
         try:
             raw_response = _call_maps_search(
@@ -1164,10 +1189,16 @@ def collect_replay_corpus(
             "gl": gl,
             "job": job,
             "response": raw_response,
-            "candidate_creation_allowed": job_mode != "solution_check",
+            "candidate_creation_allowed": True,
+            "job_mode": job_mode,
         })
 
-        for rank, place in enumerate((raw_response.get("places") or [])[:limit_per_job], start=1):
+        # Apply cap for solution-check jobs
+        places_for_candidates = (raw_response.get("places") or [])[:limit_per_job]
+        if solution_check_cap > 0:
+            places_for_candidates = places_for_candidates[:solution_check_cap]
+
+        for rank, place in enumerate(places_for_candidates, start=1):
             raw_candidate_count += 1
             source_ref = {
                 "job_id": job["job_id"],
@@ -1226,6 +1257,70 @@ def collect_replay_corpus(
             candidates.append(candidate)
             candidates_by_id[candidate_id] = candidate
 
+    # Directory discovery phase: crawl Tabelog/RamenDB for high-volume candidates
+    directory_candidate_count = 0
+    if directory_discovery:
+        from .directory_discovery import discover_area_candidates
+        for city in selected_cities:
+            print(f"    Directory discovery: crawling {city}...")
+            try:
+                dir_candidates = discover_area_candidates(
+                    city=city,
+                    category=category,
+                    max_pages=directory_max_pages,
+                    max_detail_fetches=directory_max_details,
+                    delay_seconds=0.5,
+                    timeout=fetch_timeout_seconds,
+                )
+            except Exception as exc:
+                print(f"    Directory discovery warning for {city}: {exc}")
+                continue
+            for dir_cand in dir_candidates:
+                website = str(dir_cand.website or "")
+                host = urllib.parse.urlparse(website).netloc.lower().removeprefix("www.")
+                if not host:
+                    continue
+                # Dedup against search-discovered candidates
+                dedup_key = f"host:{host}"
+                if dedup_key in seen_keys:
+                    continue
+                candidate_id = f"dir-{hashlib.md5(host.encode()).hexdigest()[:12]}"
+                seen_keys[dedup_key] = candidate_id
+                candidate = {
+                    "candidate_id": candidate_id,
+                    "business_name": str(dir_cand.name or ""),
+                    "website": website,
+                    "address": str(dir_cand.address or ""),
+                    "phone": str(dir_cand.phone or ""),
+                    "place_id": "",
+                    "map_url": "",
+                    "rating": dir_cand.rating,
+                    "rating_count": dir_cand.review_count,
+                    "category_hint": str(dir_cand.category or category),
+                    "source_search_job": {
+                        "job_id": f"directory_{dir_cand.source}",
+                        "query": f"directory:{dir_cand.source}:{city}",
+                        "city": city,
+                        "category": str(dir_cand.category or category),
+                        "job_mode": "directory_discovery",
+                    },
+                    "source_jobs": [],
+                    "duplicate_source_jobs": [],
+                    "dedupe_keys": [dedup_key],
+                    "capture": {
+                        "status": "pending",
+                        "webserper_maps_artifacts": [],
+                        "serper_maps_artifacts": [],
+                        "serper_web_artifacts": [],
+                        "pages": [],
+                        "fetch_failures": [],
+                    },
+                }
+                candidates.append(candidate)
+                candidates_by_id[candidate_id] = candidate
+                directory_candidate_count += 1
+        print(f"    Directory discovery: {directory_candidate_count} new candidates from directories")
+
     for candidate in candidates:
         _capture_candidate_pages(
             root=root,
@@ -1250,8 +1345,8 @@ def collect_replay_corpus(
     write_json(root / "search-failures.json", search_failures)
 
     fetch_success_count = sum(len((candidate.get("capture") or {}).get("pages") or []) for candidate in candidates)
-    candidate_search_jobs = [job for job in jobs if _job_mode_for_job(job) != "solution_check"]
-    enrichment_search_jobs = [job for job in jobs if _job_mode_for_job(job) == "solution_check"]
+    candidate_search_jobs = [job for job in jobs if _job_mode_for_job(job) not in ("solution_check",)]
+    enrichment_search_jobs = [job for job in jobs if _job_mode_for_job(job) in ("solution_check",)]
     manifest = {
         "schema_version": COLLECTION_SCHEMA_VERSION,
         "run_id": run_id,
@@ -2042,6 +2137,8 @@ def _job_mode_for_job(job: dict[str, Any]) -> str:
     job_id = str(job.get("job_id") or "").lower()
     purpose = str(job.get("purpose") or "").lower()
     query = str(job.get("query") or "").lower()
+    if "directory_discovery" in job_id:
+        return "directory_discovery"
     if any(token in job_id or token in purpose or token in query for token in DIRECTORY_JOB_TOKENS):
         return "directory_extraction"
     if any(token in purpose for token in SOLUTION_CHECK_PURPOSE_TOKENS):
@@ -2084,7 +2181,8 @@ def fixture_collect_adapters(fixture_path: str | Path) -> tuple[Callable[..., An
 
 
 def _explicit_evidence_check_jobs(*, category: str, city: str) -> list[dict[str, str]]:
-    categories = ["ramen", "izakaya"] if normalise_search_category(category) == "all" else [normalise_search_category(category)]
+    normalised = normalise_search_category(category)
+    categories = ["ramen", "izakaya"] if normalised == "all" else [canonical_search_category(normalised)]
     jobs: list[dict[str, str]] = []
     for value in categories:
         if value == "ramen":
@@ -2174,6 +2272,21 @@ def _capture_candidate_pages(
                 fetch_failures=fetch_failures,
             )
 
+    # Second-pass deterministic contact path probing for website_only candidates
+    # If homepage didn't yield contact signals, probe common Japanese contact paths
+    if website:
+        _probe_deterministic_contact_paths(
+            root=root,
+            pages_dir=pages_dir,
+            candidate=candidate,
+            website=website,
+            homepage_html=html,
+            fetch_page_fn=fetch_page_fn,
+            timeout_seconds=fetch_timeout_seconds,
+            created_at=created_at,
+            fetch_failures=fetch_failures,
+        )
+
     evidence_urls_seen = {
         str(page.get("url") or "")
         for page in (candidate.get("capture") or {}).get("pages") or []
@@ -2248,6 +2361,105 @@ def _capture_candidate_pages(
         candidate["capture"]["status"] = "fetch_failed"
     else:
         candidate["capture"]["status"] = "no_fetch_attempted"
+
+
+# Deterministic contact paths common on Japanese restaurant sites
+_CONTACT_PATH_PROBES = (
+    "/contact/",
+    "/contact",
+    "/inquiry/",
+    "/inquiry",
+    "/otoiawase/",
+    "/otoiawase",
+    "/toiawase/",
+    "/toiawase",
+    "/mail/",
+    "/mail",
+    "/form/",
+    "/form",
+    "/info/",
+    "/info",
+    "/access/",
+    "/access",
+    "/shop/info/",
+)
+# Paths to never probe (reservation, booking, commerce, recruiting)
+_EXCLUDED_PROBE_PATH_TOKENS = (
+    "reserve", "reservation", "booking", "book-a-table", "yoyaku",
+    "tablecheck", "ebica", "toreta", "order", "cart", "checkout",
+    "newsletter", "subscribe", "recruit", "career", "login", "signup",
+    "account", "予約", "注文", "採用", "求人", "ログイン",
+)
+
+
+def _has_supported_contact_in_pages(candidate: dict[str, Any]) -> bool:
+    """Check if any already-captured page yielded a supported contact signal."""
+    from .contact_crawler import extract_contact_signals, is_usable_business_email
+    for page in (candidate.get("capture") or {}).get("pages") or []:
+        page_html = str(page.get("html") or "")
+        if not page_html:
+            continue
+        signals = extract_contact_signals(page_html)
+        if signals.emails and is_usable_business_email(signals.emails[0]):
+            return True
+        if signals.has_form and signals.contact_form_profile == "supported_inquiry":
+            return True
+    return False
+
+
+def _probe_deterministic_contact_paths(
+    *,
+    root: Path,
+    pages_dir: Path,
+    candidate: dict[str, Any],
+    website: str,
+    homepage_html: str,
+    fetch_page_fn: Callable[..., str],
+    timeout_seconds: int,
+    created_at: str,
+    fetch_failures: list[dict[str, Any]],
+) -> None:
+    """Probe deterministic contact paths for website_only candidates.
+
+    If the homepage and anchor-based contact pages didn't yield a supported
+    contact route, try common Japanese contact page paths directly.
+    """
+    # Skip if we already found a supported contact
+    if _has_supported_contact_in_pages(candidate):
+        return
+
+    from .contact_crawler import normalize_website_url
+    already_fetched = {
+        str(page.get("url") or "").rstrip("/")
+        for page in (candidate.get("capture") or {}).get("pages") or []
+    }
+
+    for path in _CONTACT_PATH_PROBES:
+        probe_url = normalize_website_url(website.rstrip("/") + path)
+        if not probe_url:
+            continue
+        # Skip if already fetched
+        if probe_url.rstrip("/") in already_fetched:
+            continue
+        # Skip excluded paths (reservation, booking, etc.)
+        path_lower = path.lower()
+        if any(token in path_lower for token in _EXCLUDED_PROBE_PATH_TOKENS):
+            continue
+
+        captured = _capture_page(
+            root=root,
+            pages_dir=pages_dir,
+            candidate=candidate,
+            url=probe_url,
+            source="deterministic_contact_probe",
+            fetch_page_fn=fetch_page_fn,
+            timeout_seconds=timeout_seconds,
+            created_at=created_at,
+            fetch_failures=fetch_failures,
+        )
+        # Stop probing once we find a supported contact
+        if captured and _has_supported_contact_in_pages(candidate):
+            return
 
 
 def _capture_page(
