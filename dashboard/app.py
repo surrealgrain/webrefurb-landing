@@ -304,6 +304,11 @@ ESTABLISHMENT_PROFILE_LABELS = {
     "izakaya_food_and_drinks": "Izakaya Food And Drinks",
     "izakaya_drink_heavy": "Izakaya Drink Heavy",
     "izakaya_course_heavy": "Izakaya Course Heavy",
+    "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki",
+    "izakaya_kushiage": "Kushikatsu / Kushiage",
+    "izakaya_seafood_sake_oden": "Seafood / Sake / Oden",
+    "izakaya_tachinomi": "Tachinomi",
+    "izakaya_robatayaki": "Robatayaki",
 }
 
 
@@ -464,24 +469,9 @@ async def dashboard_main(request: Request):
     leads = [
         _prepare_lead_for_dashboard(lead)
         for lead in list_leads(state_root=STATE_ROOT)
-        if (
-            lead.get("lead") is True
-            or (
-                lead.get("production_sim_fixture") is True
-                and lead.get("launch_readiness_status") == "disqualified"
-            )
-        )
-        and (
-            lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
-            or lead.get("launch_readiness_status") == "disqualified"
-        )
-        and (
-            _has_supported_contact_route(lead)
-            or (
-                lead.get("production_sim_fixture") is True
-                and lead.get("launch_readiness_status") in {"manual_review", "disqualified"}
-            )
-        )
+        if lead.get("lead") is True
+        and lead.get("launch_readiness_status") == "ready_for_outreach"
+        and _has_business_email(lead)
     ]
     return templates.TemplateResponse(request, "index.html", {
         "leads": leads,
@@ -653,6 +643,7 @@ async def api_search(request: Request):
     body = await request.json()
     category = body.get("category", "ramen")
     city = body.get("city", "").strip()
+    mode = body.get("mode", "friction")
 
     from pipeline.search_provider import configured_search_provider, search_provider_requires_api_key
 
@@ -667,7 +658,7 @@ async def api_search(request: Request):
     from pipeline.search_scope import search_query_for_scope, search_jobs_for_scope, merge_search_results
 
     query = search_query_for_scope(category=category, city=city)
-    _log("search_started", f"query={query[:80]} category={category} provider={search_provider}")
+    _log("search_started", f"query={query[:80]} category={category} provider={search_provider} mode={mode}")
 
     from pipeline.record import list_leads
     existing_actionable_ids = {
@@ -676,26 +667,47 @@ async def api_search(request: Request):
         if lead.get("lead") is True and _has_supported_contact_route(lead)
     }
 
-    from pipeline.search import search_and_qualify
     import concurrent.futures
     loop = asyncio.get_running_loop()
 
-    search_jobs = search_jobs_for_scope(category=category, city=city, query=query)
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        raw_results = await asyncio.gather(*[
-            loop.run_in_executor(
-                pool,
-                lambda job=job: search_and_qualify(
-                    query=job["query"],
-                    serper_api_key=serper_api_key,
-                    search_provider=search_provider,
-                    category=job["category"],
-                    state_root=STATE_ROOT,
-                    search_job=job,
-                ),
-            )
-            for job in search_jobs
-        ])
+    if mode == "codex":
+        from pipeline.search_scope import codex_search_jobs_for_scope
+        from pipeline.search import codex_search_and_qualify
+
+        search_jobs = codex_search_jobs_for_scope(category=category, city=city)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            raw_results = await asyncio.gather(*[
+                loop.run_in_executor(
+                    pool,
+                    lambda job=job: codex_search_and_qualify(
+                        query=job["query"],
+                        search_provider=search_provider,
+                        category=job["category"],
+                        state_root=STATE_ROOT,
+                        search_job=job,
+                    ),
+                )
+                for job in search_jobs
+            ])
+    else:
+        from pipeline.search import search_and_qualify
+
+        search_jobs = search_jobs_for_scope(category=category, city=city, query=query)
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            raw_results = await asyncio.gather(*[
+                loop.run_in_executor(
+                    pool,
+                    lambda job=job: search_and_qualify(
+                        query=job["query"],
+                        serper_api_key=serper_api_key,
+                        search_provider=search_provider,
+                        category=job["category"],
+                        state_root=STATE_ROOT,
+                        search_job=job,
+                    ),
+                )
+                for job in search_jobs
+            ])
 
     result = merge_search_results(raw_results, query=query, category=category)
 
@@ -1040,6 +1052,11 @@ async def api_translate_draft(request: Request):
         "izakaya_food_and_drinks",
         "izakaya_drink_heavy",
         "izakaya_course_heavy",
+        "izakaya_yakitori_kushiyaki",
+        "izakaya_kushiage",
+        "izakaya_seafood_sake_oden",
+        "izakaya_tachinomi",
+        "izakaya_robatayaki",
     ]
     japanese_body = ""
     normalised_english_body = _normalise_body(english_body)
