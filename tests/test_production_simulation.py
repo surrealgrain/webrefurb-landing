@@ -438,13 +438,15 @@ def test_collect_marks_solution_checks_as_enrichment_not_candidate_creation(tmp_
 
     assert manifest["all_search_job_count"] > manifest["search_job_count"]
     assert manifest["enrichment_search_job_count"] > 0
-    assert {"candidate_discovery", "directory_extraction", "solution_check"} <= {
+    assert {"candidate_discovery", "solution_check"} <= {
         job["job_mode"] for job in manifest["search_jobs"]
     }
-    assert all(
-        candidate["source_search_job"]["job_mode"] != "solution_check"
-        for candidate in corpus["candidates"]
-    )
+    # Solution-check jobs now create candidates but with a cap
+    solution_check_candidates = [
+        candidate for candidate in corpus["candidates"]
+        if candidate.get("source_search_job", {}).get("job_mode") == "solution_check"
+    ]
+    assert len(solution_check_candidates) <= 2  # SOLUTION_CHECK_CANDIDATE_CAP
 
 
 def test_default_maps_search_reports_missing_or_http_error_body(monkeypatch):

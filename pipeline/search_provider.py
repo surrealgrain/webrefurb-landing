@@ -56,6 +56,12 @@ BLOCKED_PLACE_HOST_TOKENS = (
     "k-img.com",
     "kakaku.com",
     "app.link",
+    "maps.gmfoods",
+    "uber.com",
+    "ubereats.com",
+    "wolt.com",
+    "demae-can.com",
+    "出前館",
 )
 RESERVATION_ROUTE_HOST_TOKENS = (
     "tablecheck.com",
@@ -65,6 +71,7 @@ RESERVATION_ROUTE_HOST_TOKENS = (
     "reserve",
     "reservation",
     "point.recruit.co.jp",
+    "maps.gmfoods",
 )
 RESERVATION_ROUTE_PATH_TOKENS = (
     "reserve",
@@ -73,6 +80,9 @@ RESERVATION_ROUTE_PATH_TOKENS = (
     "book-a-table",
     "yoyaku",
     "予約",
+    "shop-list",
+    "store-list",
+    "shoplist",
 )
 VENDOR_OR_ARTICLE_HOST_TOKENS = (
     "kenbaiki",
@@ -988,6 +998,9 @@ def _query_should_merge_organic_discovery(query: str) -> bool:
     return (
         "公式" in query
         or "official" in lowered
+        or "お問い合わせ" in query
+        or "メール" in query
+        or "店" in query
     )
 
 
@@ -1019,11 +1032,13 @@ def _official_discovery_queries(query: str) -> list[str]:
             variants.extend([
                 " ".join(part for part in [place, "ラーメン", "公式", "お問い合わせ", area] if part),
                 " ".join(part for part in [place, "ラーメン", "公式", "メール", area] if part),
+                " ".join(part for part in [place, "ラーメン", "公式", "contact", area] if part),
             ])
         if _query_targets_izakaya(query):
             variants.extend([
                 " ".join(part for part in [place, "居酒屋", "公式", "お問い合わせ", area] if part),
-                " ".join(part for part in [place, "居酒屋", "お品書き", "公式", area] if part),
+                " ".join(part for part in [place, "居酒屋", "お品書き", "問い合わせ", area] if part),
+                " ".join(part for part in [place, "居酒屋", "公式", "contact", area] if part),
             ])
     return [item for item in dict.fromkeys(variants) if item]
 
@@ -1666,11 +1681,11 @@ def _host(url: str) -> str:
 
 
 def _local_result_limit() -> int:
-    return _env_int("WEBREFURB_LOCAL_SEARCH_RESULT_LIMIT", default=24, minimum=1, maximum=60)
+    return _env_int("WEBREFURB_LOCAL_SEARCH_RESULT_LIMIT", default=30, minimum=1, maximum=60)
 
 
 def _local_place_limit() -> int:
-    return _env_int("WEBREFURB_LOCAL_SEARCH_PLACE_LIMIT", default=20, minimum=1, maximum=40)
+    return _env_int("WEBREFURB_LOCAL_SEARCH_PLACE_LIMIT", default=24, minimum=1, maximum=40)
 
 
 def _env_int(name: str, *, default: int, minimum: int, maximum: int) -> int:

@@ -277,6 +277,29 @@ class TestRunCustomBuild:
         assert menu_data["review_checklist"]["price_count"] == 0
         assert menu_data["review_checklist"]["source_price_count"] == 2
 
+    def test_izakaya_family_sections_use_izakaya_template_family(self, tmp_path, monkeypatch):
+        captured: dict[str, object] = {}
+
+        async def fake_build_custom_package(*, output_dir: Path, menu_data: dict, ticket_data=None, restaurant_name: str = "") -> Path:
+            captured["menu_data"] = menu_data
+            output_dir.mkdir(parents=True, exist_ok=True)
+            return output_dir
+
+        monkeypatch.setattr("pipeline.custom_build.build_custom_package", fake_build_custom_package)
+
+        run_custom_build(
+            CustomBuildInput(
+                restaurant_name="Tori Stand",
+                menu_items_text="【焼き鳥】\n焼き鳥 ¥180\n【おでん】\nおでん ¥200\n【ドリンク】\n生ビール ¥600",
+            ),
+            output_dir=tmp_path / "build",
+        )
+
+        menu_data = captured["menu_data"]
+        assert menu_data["menu_type"] == "izakaya"
+        assert [section["data_section"] for section in menu_data["food"]["sections"]] == ["skewers", "small-plates"]
+        assert menu_data["drinks"]["sections"][0]["data_section"] == "beer-highballs"
+
     def test_ramen_sides_fold_into_single_html_output(self, tmp_path):
         output_path = tmp_path / "food_menu.html"
         data = build_menu_data(

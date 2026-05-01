@@ -20,6 +20,32 @@ DEFAULT_USER_AGENT = "webrefurb-menu-contact-crawler/0.1"
 
 
 EMAIL_RE = re.compile(r"(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b")
+# Patterns to exclude from second-pass contact path probing
+_EXCLUDED_CONTACT_PATH_TOKENS = (
+    "reserve",
+    "reservation",
+    "booking",
+    "book-a-table",
+    "yoyaku",
+    "tablecheck",
+    "ebica",
+    "toreta",
+    "order",
+    "cart",
+    "checkout",
+    "newsletter",
+    "subscribe",
+    "recruit",
+    "career",
+    "login",
+    "signup",
+    "account",
+    "予約",
+    "注文",
+    "採用",
+    "求人",
+    "ログイン",
+)
 CONTACT_URL_TOKENS = (
     "contact",
     "contacts",
@@ -75,6 +101,23 @@ NON_BUSINESS_EMAIL_SUFFIXES = (
     ".svg",
     ".webp",
 )
+# Common Japanese contact page paths for second-pass route recovery
+CONTACT_PATH_PROBES = (
+    "/contact",
+    "/inquiry",
+    "/otoiawase",
+    "/toiawase",
+    "/mail",
+    "/form",
+    "/contact/",
+    "/inquiry/",
+    "/otoiawase/",
+    "/お問い合わせ",
+    "/info",
+    "/access",
+)
+# Regex for full-width @ (＠) used in obfuscated Japanese emails
+FULLWIDTH_AT_RE = re.compile(r"(?i)\b([a-z0-9._%+-]+)\uff20([a-z0-9.-]+\.[a-z]{2,})\b")
 AGGREGATOR_HOST_TOKENS = (
     "tabelog.com",
     "hotpepper.jp",
@@ -213,7 +256,9 @@ def _usable_email(email: str) -> bool:
 
 def extract_contact_signals(html: str, text: str = "") -> ContactSignals:
     decoded = urllib.parse.unquote(f"{html or ''}\n{text or ''}")
-    emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded) if _usable_email(email)])
+    # Replace full-width @ with standard @ for email detection
+    decoded_for_email = FULLWIDTH_AT_RE.sub(r"\1@\2", decoded)
+    emails = _ordered_unique([email.lower() for email in EMAIL_RE.findall(decoded_for_email) if _usable_email(email)])
     literal_or_js_form = bool(re.search(r"(?is)<form\b", html or "")) or _looks_like_javascript_contact_form(html)
     form_actions = _extract_form_actions(html)
     required_fields = _extract_required_form_fields(html)
@@ -789,6 +834,135 @@ def dedupe_targets(targets: list[DiscoveryTarget]) -> list[DiscoveryTarget]:
                 "phone": existing.phone or target.phone,
             })
     return list(deduped.values())
+
+
+async def recover_contact_routes(
+    target: DiscoveryTarget,
+    *,
+    context: Any,
+    max_probes: int = 6,
+    navigation_timeout_ms: int = 15_000,
+) -> CrawlResult | None:
+    """Second-pass route recovery for website_only first-party candidates.
+
+    Probes deterministic contact paths (/contact, /inquiry, /otoiawase, etc.)
+    and parses footer/nav links to find hidden contact routes.
+    Returns None if no usable contact is found.
+    """
+    base_url = target.website
+    if not base_url:
+        return None
+
+    all_signals = ContactSignals()
+    contact_url = base_url
+    notes: list[str] = []
+
+    # Phase 1: Parse homepage for footer/nav contact links
+    homepage = await context.new_page()
+    homepage.set_default_navigation_timeout(navigation_timeout_ms)
+    try:
+        await homepage.goto(base_url, wait_until="domcontentloaded")
+        await homepage.wait_for_load_state("networkidle", timeout=5_000)
+        html = await homepage.content()
+        text = await homepage.locator("body").inner_text(timeout=2_000) if await homepage.locator("body").count() else ""
+
+        # Check homepage itself for contact signals
+        all_signals = _merge_signals(all_signals, extract_contact_signals(html, text))
+
+        # Extract footer/nav links that might be contact pages
+        anchors = await homepage.evaluate(
+            """() => {
+                const links = Array.from(document.querySelectorAll('a'));
+                return links.map((a) => ({
+                    href: a.href || "",
+                    text: (a.innerText || a.textContent || "").trim()
+                }));
+            }"""
+        )
+        candidate_urls = contact_candidate_urls(base_url, anchors, limit=10)
+
+        # Also build deterministic path probes
+        probe_urls: list[str] = []
+        for path in CONTACT_PATH_PROBES:
+            probe_url = normalize_website_url(urllib.parse.urljoin(base_url, path))
+            if probe_url and _is_same_site(base_url, probe_url):
+                probe_urls.append(probe_url)
+
+        # Combine: anchor-based first, then deterministic probes
+        urls_to_try = _ordered_unique([*candidate_urls, *probe_urls])[:max_probes]
+    except Exception as exc:
+        notes.append(f"recovery_homepage_failed:{type(exc).__name__}")
+        await homepage.close()
+        return None
+    finally:
+        await homepage.close()
+
+    if all_signals.emails and _usable_email(all_signals.emails[0]):
+        return CrawlResult(
+            business_name=target.name,
+            business_type=target.category,
+            city=target.city,
+            website=target.website,
+            extracted_email=all_signals.emails[0],
+            contact_url=base_url,
+            source=target.source,
+            source_url=target.source_url,
+            place_id=target.place_id,
+            address=target.address,
+            phone=target.phone,
+            has_contact_form=_signals_have_supported_contact_form(all_signals),
+            queued_contact_urls=urls_to_try if 'urls_to_try' in dir() else [],
+            all_emails=all_signals.emails,
+            notes=notes,
+        )
+
+    # Phase 2: Probe candidate URLs
+    for url in urls_to_try:
+        # Skip reservation/booking/order paths
+        url_lower = urllib.parse.unquote(url).lower()
+        if any(token in url_lower for token in _EXCLUDED_CONTACT_PATH_TOKENS):
+            continue
+
+        page = await context.new_page()
+        page.set_default_navigation_timeout(navigation_timeout_ms)
+        try:
+            await page.goto(url, wait_until="domcontentloaded")
+            await page.wait_for_load_state("networkidle", timeout=5_000)
+            page_html = await page.content()
+            page_text = await page.locator("body").inner_text(timeout=2_000) if await page.locator("body").count() else ""
+            signals = extract_contact_signals(page_html, page_text)
+            all_signals = _merge_signals(all_signals, signals)
+            if signals.emails or _signals_have_supported_contact_form(signals):
+                contact_url = url
+            if all_signals.emails:
+                break
+        except Exception as exc:
+            notes.append(f"recovery_probe_failed:{url}:{type(exc).__name__}")
+        finally:
+            await page.close()
+
+    has_email = bool(all_signals.emails) and _usable_email(all_signals.emails[0])
+    has_form = _signals_have_supported_contact_form(all_signals)
+    if not has_email and not has_form:
+        return None
+
+    return CrawlResult(
+        business_name=target.name,
+        business_type=target.category,
+        city=target.city,
+        website=target.website,
+        extracted_email=all_signals.emails[0] if has_email else "",
+        contact_url=contact_url if (has_email or has_form) else "",
+        source=target.source,
+        source_url=target.source_url,
+        place_id=target.place_id,
+        address=target.address,
+        phone=target.phone,
+        has_contact_form=has_form,
+        queued_contact_urls=urls_to_try if 'urls_to_try' in dir() else [],
+        all_emails=all_signals.emails,
+        notes=notes,
+    )
 
 
 async def crawl_target_contacts(
