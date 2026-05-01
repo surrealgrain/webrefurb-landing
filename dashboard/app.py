@@ -469,9 +469,24 @@ async def dashboard_main(request: Request):
     leads = [
         _prepare_lead_for_dashboard(lead)
         for lead in list_leads(state_root=STATE_ROOT)
-        if lead.get("lead") is True
-        and lead.get("launch_readiness_status") == "ready_for_outreach"
-        and _has_business_email(lead)
+        if (
+            lead.get("lead") is True
+            or (
+                lead.get("production_sim_fixture") is True
+                and lead.get("launch_readiness_status") == "disqualified"
+            )
+        )
+        and (
+            lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
+            or lead.get("launch_readiness_status") == "disqualified"
+        )
+        and (
+            _has_supported_contact_route(lead)
+            or (
+                lead.get("production_sim_fixture") is True
+                and lead.get("launch_readiness_status") in {"manual_review", "disqualified"}
+            )
+        )
     ]
     return templates.TemplateResponse(request, "index.html", {
         "leads": leads,
