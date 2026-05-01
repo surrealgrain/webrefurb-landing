@@ -45,7 +45,15 @@ from .evidence import _count_japanese_chars, has_chain_or_franchise_infrastructu
 
 
 def _fetch_page(url: str, timeout_seconds: int = 10) -> str:
-    """Fetch a URL and return its HTML."""
+    """Fetch a URL and return its HTML using Scrapling (TLS fingerprint)."""
+    from scrapling import Fetcher
+    try:
+        resp = Fetcher().get(url, timeout=max(3, min(timeout_seconds, 12)))
+        if resp.status == 200:
+            return resp.html_content or ""
+    except Exception:
+        pass
+    # Fallback to urllib for non-200 or Scrapling errors
     request = urllib.request.Request(url, headers={"User-Agent": "webrefurb-menu/1.0"})
     with urllib.request.urlopen(request, timeout=max(3, min(timeout_seconds, 12))) as response:
         return response.read(700_000).decode("utf-8", errors="replace")
@@ -1245,6 +1253,282 @@ def search_and_qualify(
         "search_provider": search_provider or "",
         "search_job": source_search_job,
         "total_candidates": len(raw_places[:max_candidates]),
+        "leads": len(results),
+        "qualified_without_email": qualified_without_email,
+        "qualified_with_non_email_contact": qualified_with_non_email_contact,
+        "qualified_without_supported_contact": qualified_without_supported_contact,
+        "decisions": decisions,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Codex email-first search pipeline
+# ---------------------------------------------------------------------------
+
+def _extract_emails_from_text(text: str) -> list[str]:
+    """Extract all usable business emails from arbitrary text."""
+    from .contact_crawler import EMAIL_RE
+    return [
+        email.lower()
+        for email in (m.group(0) for m in EMAIL_RE.finditer(text or ""))
+        if is_usable_business_email(email.lower())
+    ]
+
+
+def _extract_emails_from_organic_results(
+    organic_results: list[dict[str, Any]],
+    *,
+    max_page_fetches: int = 6,
+) -> list[dict[str, str]]:
+    """Extract (name, email, website) candidates from organic search results.
+
+    First checks snippets for emails.  If a snippet has no email the linked
+    page is fetched (up to *max_page_fetches* times) and scanned.
+    """
+    candidates: list[dict[str, str]] = []
+    seen_emails: set[str] = set()
+    page_fetches = 0
+
+    for result in organic_results:
+        title = str(result.get("title") or "").strip()
+        link = str(result.get("link") or "").strip()
+        snippet = str(result.get("snippet") or "").strip()
+
+        if not title or not link:
+            continue
+
+        # Try snippet first (fast path)
+        emails = _extract_emails_from_text(snippet)
+
+        # Fallback: fetch the page
+        if not emails and page_fetches < max_page_fetches:
+            try:
+                page_html = _fetch_page(link, timeout_seconds=8)
+                emails = _extract_emails_from_text(page_html)
+                page_fetches += 1
+            except Exception:
+                pass
+
+        for email in emails:
+            if email in seen_emails:
+                continue
+            seen_emails.add(email)
+            candidates.append({
+                "name": title,
+                "email": email,
+                "website": link,
+                "snippet": snippet,
+                "source_url": link,
+            })
+
+    return candidates
+
+
+def codex_search_and_qualify(
+    *,
+    query: str,
+    category: str = "ramen",
+    state_root: Path | None = None,
+    max_candidates: int = 24,
+    search_job: dict[str, Any] | None = None,
+    search_provider: str | None = None,
+    **_kwargs: Any,
+) -> dict[str, Any]:
+    """Codex email-first search: run organic search, extract emails, qualify."""
+    from .search_scope import canonical_search_category
+    from .evidence import is_chain_business
+    from .record import find_existing_lead, create_lead_record, persist_lead_record
+    from .preview import build_preview_menu, build_preview_html
+    from .pitch import build_pitch
+
+    if state_root is None:
+        state_root = Path(__file__).resolve().parent.parent / "state"
+
+    canonical = canonical_search_category(category)
+    source_search_job = _normalise_search_job(query, canonical, search_job)
+
+    # --- organic search ---
+    try:
+        organic_response = run_web_search(
+            query=query, api_key="", gl="jp",
+            timeout_seconds=10, provider=search_provider,
+        )
+    except Exception as exc:
+        run_id = f"wrm-codex-{utc_now().replace(':', '').replace('-', '').replace('+00:00', 'z').lower()}"
+        return {
+            "run_id": run_id, "query": query, "search_provider": search_provider or "",
+            "search_job": source_search_job, "total_candidates": 0, "leads": 0,
+            "qualified_without_email": 0, "qualified_with_non_email_contact": 0,
+            "qualified_without_supported_contact": 0,
+            "decisions": [{"lead": False, "reason": "search_failed", "error": str(exc)}],
+        }
+
+    organic_results: list[dict[str, Any]] = organic_response.get("organic") or []
+    candidates = _extract_emails_from_organic_results(organic_results)
+
+    results: list[dict[str, Any]] = []
+    decisions: list[dict[str, Any]] = []
+    qualified_without_email = 0
+    qualified_with_non_email_contact = 0
+    qualified_without_supported_contact = 0
+
+    for candidate in candidates[:max_candidates]:
+        source_name = candidate["name"]
+        source_email = candidate["email"]
+        source_website = candidate["website"]
+
+        # --- chain check ---
+        if is_chain_business(source_name):
+            decisions.append({
+                "business_name": source_name, "lead": False,
+                "reason": "chain_business", "email": source_email,
+            })
+            continue
+
+        # --- dedup ---
+        existing = find_existing_lead(
+            business_name=source_name, website=source_website,
+            phone="", place_id="", address="", state_root=state_root,
+        )
+        if existing:
+            decisions.append({
+                "business_name": source_name, "lead": False,
+                "reason": "already_tracked",
+                "existing_lead_id": existing.get("lead_id"),
+            })
+            continue
+
+        dedup_key = source_email or _normalize_domain(source_website) or source_name
+        if not _try_mark_in_flight(dedup_key):
+            decisions.append({
+                "business_name": source_name, "lead": False,
+                "reason": "already_tracked",
+            })
+            continue
+
+        try:
+            # --- fetch website ---
+            try:
+                website_html = _fetch_page(source_website, timeout_seconds=10)
+            except Exception as exc:
+                decisions.append({
+                    "business_name": source_name, "lead": False,
+                    "reason": "fetch_failed", "error": str(exc),
+                    "email": source_email,
+                })
+                continue
+
+            website = source_website
+            pages = [{"url": website, "html": website_html}]
+
+            # --- qualify ---
+            qualification = qualify_candidate(
+                business_name=source_name,
+                website=website,
+                category=canonical,
+                pages=pages,
+            )
+
+            decision = qualification.to_dict()
+            decision["email"] = source_email
+            decision["codex_source"] = True
+
+            if qualification.lead and canonical in {"ramen", "izakaya"} and qualification.primary_category_v1 != canonical:
+                decision["lead"] = False
+                decision["reason"] = "search_category_mismatch"
+                decision["requested_category"] = canonical
+                decisions.append(decision)
+                continue
+
+            if qualification.lead:
+                # --- contact routes ---
+                contact_routes = discover_contact_routes(website, website_html)
+
+                # Pre-populate the Codex-found email as a high-confidence route
+                codex_email_route: dict[str, Any] = {
+                    "type": "email",
+                    "value": source_email,
+                    "href": f"mailto:{source_email}",
+                    "label": "Email (Codex)",
+                    "source": "codex_organic_search",
+                    "source_url": candidate.get("source_url", ""),
+                    "confidence": "high",
+                    "discovered_at": utc_now(),
+                    "actionable": True,
+                }
+                contact_routes = _merge_contact_routes([codex_email_route], contact_routes)
+
+                actionable_routes = [r for r in contact_routes if r.get("actionable")]
+                email_contact = next((r for r in contact_routes if r.get("type") == "email"), None)
+
+                if not email_contact:
+                    qualified_without_email += 1
+                if not actionable_routes:
+                    qualified_without_supported_contact += 1
+                    decision["lead"] = False
+                    decision["reason"] = "no_supported_contact_route_found"
+                    decisions.append(decision)
+                    continue
+                if not email_contact:
+                    qualified_with_non_email_contact += 1
+
+                decision["contact_route_types"] = [str(r.get("type") or "") for r in contact_routes]
+                decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
+
+                # --- build preview & pitch ---
+                preview_menu = build_preview_menu(
+                    assessment=qualification,
+                    snippets=qualification.evidence_snippets,
+                    business_name=source_name,
+                )
+                preview_html = build_preview_html(
+                    preview_menu=preview_menu,
+                    ticket_machine_hint=None,
+                    business_name=source_name,
+                )
+                pitch = build_pitch(
+                    business_name=source_name,
+                    category=qualification.primary_category_v1,
+                    preview_menu=preview_menu,
+                    ticket_machine_hint=None,
+                    recommended_package=qualification.recommended_primary_package,
+                )
+
+                record = create_lead_record(
+                    qualification=qualification,
+                    preview_html=preview_html,
+                    pitch_draft=pitch,
+                    contacts=contact_routes,
+                    source_query=query,
+                    source_search_job=source_search_job,
+                    matched_friction_evidence=_matched_friction_evidence(decision, source_search_job),
+                    state_root=state_root,
+                )
+                record["business_name_source"] = "codex_organic_search"
+                record["business_name_verified_by"] = ["codex_organic_search", "website_fetch"]
+                record["codex_source"] = True
+                record["codex_email"] = source_email
+                persist_lead_record(record, state_root=state_root)
+                results.append(record)
+                decision["email_found"] = bool(email_contact)
+                decision["lead_id"] = record["lead_id"]
+
+            decisions.append(decision)
+        finally:
+            _clear_in_flight(dedup_key)
+
+    run_id = f"wrm-codex-{utc_now().replace(':', '').replace('-', '').replace('+00:00', 'z').lower()}"
+    decisions = [
+        _add_search_context(d, query=query, search_job=source_search_job)
+        for d in decisions
+    ]
+
+    return {
+        "run_id": run_id,
+        "query": query,
+        "search_provider": search_provider or "",
+        "search_job": source_search_job,
+        "total_candidates": len(candidates[:max_candidates]),
         "leads": len(results),
         "qualified_without_email": qualified_without_email,
         "qualified_with_non_email_contact": qualified_with_non_email_contact,

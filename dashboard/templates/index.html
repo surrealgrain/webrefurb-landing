@@ -516,8 +516,27 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <div style="padding: 0 4px;">
       <select class="search-select" id="sidebar-category" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
         <option value="all">All Categories</option>
-        <option value="ramen">Ramen</option>
-        <option value="izakaya">Izakaya</option>
+        <optgroup label="Ramen family">
+          <option value="ramen">Ramen</option>
+          <option value="tsukemen">Tsukemen</option>
+          <option value="abura_soba">Abura Soba</option>
+          <option value="mazesoba">Mazesoba</option>
+          <option value="tantanmen">Tantanmen</option>
+          <option value="chuka_soba">Chuka Soba</option>
+        </optgroup>
+        <optgroup label="Izakaya family">
+          <option value="izakaya">Izakaya</option>
+          <option value="yakitori">Yakitori</option>
+          <option value="kushiyaki">Kushiyaki</option>
+          <option value="yakiton">Yakiton</option>
+          <option value="tachinomi">Tachinomi</option>
+          <option value="oden">Oden</option>
+          <option value="kushikatsu">Kushikatsu</option>
+          <option value="kushiage">Kushiage</option>
+          <option value="robatayaki">Robatayaki</option>
+          <option value="seafood_izakaya">Seafood Izakaya</option>
+          <option value="sakaba">Sakaba</option>
+        </optgroup>
       </select>
       <select class="search-select" id="sidebar-city" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
         <option value="all">All Japan</option>
@@ -535,7 +554,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Kobe">Kobe</option>
         <option value="Nagoya">Nagoya</option>
       </select>
-      <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search</button>
+      <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search Maps</button>
+      <button class="btn btn-outline-primary" id="codex-btn" style="width:100%;height:36px;font-size:13px;margin-top:4px;" onclick="runCodexSearch()">Codex Email Search</button>
     </div>
   </div>
 
@@ -730,6 +750,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <option value="izakaya_food_and_drinks">Izakaya Food And Drinks</option>
           <option value="izakaya_drink_heavy">Izakaya Drink Heavy</option>
           <option value="izakaya_course_heavy">Izakaya Course Heavy</option>
+          <option value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki</option>
+          <option value="izakaya_kushiage">Kushikatsu / Kushiage</option>
+          <option value="izakaya_seafood_sake_oden">Seafood / Sake / Oden</option>
+          <option value="izakaya_tachinomi">Tachinomi</option>
+          <option value="izakaya_robatayaki">Robatayaki</option>
         </select>
         <input class="profile-note-input" id="establishment-profile-note" type="text" placeholder="Optional override note">
         <button class="btn btn-secondary" id="save-profile-btn" onclick="saveEstablishmentProfileOverride()">Save Profile Override</button>
@@ -906,6 +931,31 @@ const ESTABLISHMENT_PROFILE_LABELS = {
   izakaya_food_and_drinks: 'Izakaya Food And Drinks',
   izakaya_drink_heavy: 'Izakaya Drink Heavy',
   izakaya_course_heavy: 'Izakaya Course Heavy',
+  izakaya_yakitori_kushiyaki: 'Yakitori / Kushiyaki',
+  izakaya_kushiage: 'Kushikatsu / Kushiage',
+  izakaya_seafood_sake_oden: 'Seafood / Sake / Oden',
+  izakaya_tachinomi: 'Tachinomi',
+  izakaya_robatayaki: 'Robatayaki',
+};
+const SEARCH_CATEGORY_META = {
+  all: { label: 'supported ramen and izakaya-family shops', canonical: 'all', query: place => 'ordering-friction ramen izakaya yakitori tachinomi oden ' + place },
+  ramen: { label: 'ramen shops', canonical: 'ramen', query: place => '券売機 ラーメン ' + place },
+  tsukemen: { label: 'tsukemen shops', canonical: 'ramen', query: place => 'つけ麺 公式 メール ' + place },
+  abura_soba: { label: 'abura soba shops', canonical: 'ramen', query: place => '油そば 公式 メール ' + place },
+  mazesoba: { label: 'mazesoba shops', canonical: 'ramen', query: place => 'まぜそば 公式 メール ' + place },
+  tantanmen: { label: 'tantanmen shops', canonical: 'ramen', query: place => '担々麺 公式 メール ' + place },
+  chuka_soba: { label: 'chuka soba shops', canonical: 'ramen', query: place => '中華そば 公式 メール ' + place },
+  izakaya: { label: 'izakayas', canonical: 'izakaya', query: place => '飲み放題 コース 居酒屋 ' + place },
+  yakitori: { label: 'yakitori shops', canonical: 'izakaya', query: place => '焼き鳥 公式 メール ' + place },
+  kushiyaki: { label: 'kushiyaki shops', canonical: 'izakaya', query: place => '串焼き 公式 メール ' + place },
+  yakiton: { label: 'yakiton shops', canonical: 'izakaya', query: place => 'やきとん 公式 メール ' + place },
+  tachinomi: { label: 'tachinomi shops', canonical: 'izakaya', query: place => '立ち飲み 公式 メール ' + place },
+  oden: { label: 'oden shops', canonical: 'izakaya', query: place => 'おでん 公式 メール ' + place },
+  kushikatsu: { label: 'kushikatsu shops', canonical: 'izakaya', query: place => '串カツ 公式 メール ' + place },
+  kushiage: { label: 'kushiage shops', canonical: 'izakaya', query: place => '串揚げ 公式 メール ' + place },
+  robatayaki: { label: 'robatayaki shops', canonical: 'izakaya', query: place => '炉端焼き 公式 メール ' + place },
+  seafood_izakaya: { label: 'seafood izakayas', canonical: 'izakaya', query: place => '海鮮居酒屋 公式 メール ' + place },
+  sakaba: { label: 'sakaba', canonical: 'izakaya', query: place => '酒場 公式 メール ' + place },
 };
 
 function escapeHtml(value) {
@@ -1329,10 +1379,9 @@ function switchTab(tab) {
 function buildSearchRequest(category, city) {
   const searchCategory = category || 'all';
   const cityLabel = city === 'all' ? 'Japan' : (city || 'Japan');
-  const categoryLabel = searchCategory === 'all' ? 'ramen shops and izakayas' : searchCategory === 'izakaya' ? 'izakayas' : 'ramen shops';
-  let searchQuery = 'ordering-friction ramen izakaya ' + cityLabel;
-  if (searchCategory === 'ramen') searchQuery = '券売機 ラーメン ' + cityLabel;
-  if (searchCategory === 'izakaya') searchQuery = '飲み放題 コース 居酒屋 ' + cityLabel;
+  const meta = SEARCH_CATEGORY_META[searchCategory] || SEARCH_CATEGORY_META.ramen;
+  const categoryLabel = meta.label;
+  const searchQuery = meta.query(cityLabel);
   return {
     query: searchQuery,
     category: searchCategory,
@@ -1400,6 +1449,65 @@ async function runSearch() {
   }
 }
 
+async function runCodexSearch() {
+  const category = document.getElementById('sidebar-category').value;
+  const city = document.getElementById('sidebar-city').value;
+  const btn = document.getElementById('codex-btn');
+  const origText = btn.textContent;
+  const scope = buildSearchRequest(category, city);
+
+  btn.textContent = 'Searching...';
+  btn.disabled = true;
+  document.getElementById('search-btn').disabled = true;
+  clearSearchActivityTimers();
+  setSearchActivity('active', 'Codex search running', 'Email-first search for ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', [
+    { text: 'Searching email providers for ' + scope.categoryLabel + ' in ' + scope.cityLabel + '...', state: 'active' },
+  ]);
+  scheduleSearchStep(1200, 'Checking site platforms (ameblo, jimdo, wix, peraichi...)...');
+  scheduleSearchStep(3000, 'Extracting emails from search results...');
+  scheduleSearchStep(5000, 'Fetching restaurant websites for qualification...');
+  scheduleSearchStep(8000, 'Qualifying leads and building contact routes...');
+
+  try {
+    const res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: scope.category, city: scope.city, mode: 'codex' }),
+    });
+    clearSearchActivityTimers();
+
+    if (!res.ok) {
+      const err = await res.json();
+      setSearchActivity('error', 'Codex search failed', err.detail || 'The search could not complete.', [
+        { text: 'Search failed: ' + (err.detail || 'Unknown error'), state: 'error' },
+      ]);
+      showToast('Codex search failed: ' + (err.detail || 'Unknown error'), 'error');
+      return;
+    }
+
+    const data = await res.json();
+    const summary = summarizeSearchResult(data, scope.categoryLabel, scope.cityLabel);
+    setSearchActivity(summary.state, summary.title, summary.summary, summary.steps);
+    saveSearchActivity(summary.state, summary.title, summary.summary, summary.steps);
+    if (data.leads > 0) {
+      showToast('Codex found ' + data.leads + ' lead(s)', 'success');
+    } else {
+      showToast('Codex search complete — no new leads', 'info');
+    }
+    setTimeout(() => location.reload(), 2200);
+  } catch (err) {
+    clearSearchActivityTimers();
+    setSearchActivity('error', 'Codex search error', err.message, [
+      { text: 'Search error: ' + err.message, state: 'error' },
+    ]);
+    showToast('Codex search error: ' + err.message, 'error');
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+    document.getElementById('search-btn').disabled = false;
+  }
+}
+
 function filterLeads() {
   const category = document.getElementById('sidebar-category').value;
   const city = document.getElementById('sidebar-city').value;
@@ -1413,9 +1521,12 @@ function filterLeads() {
   }
 
   cards.forEach(card => {
-    const meta = card.querySelector('.lead-meta').textContent.toLowerCase();
-    const matchCategory = category === 'all' || meta.includes(category);
-    const matchCity = city === 'all' || meta.includes(city.toLowerCase());
+    const cardText = card.textContent.toLowerCase();
+    const meta = SEARCH_CATEGORY_META[category] || SEARCH_CATEGORY_META.ramen;
+    const canonicalCategory = meta.canonical;
+    const categoryText = category.replace(/_/g, ' ').toLowerCase();
+    const matchCategory = category === 'all' || cardText.includes(categoryText) || (canonicalCategory !== 'all' && cardText.includes(canonicalCategory));
+    const matchCity = city === 'all' || cardText.includes(city.toLowerCase());
     const cardRoute = (card.dataset.contactType || '').toLowerCase();
     const matchRoute = route === 'all' || cardRoute === route;
     card.style.display = (matchCategory && matchCity && matchRoute) ? '' : 'none';
@@ -1476,12 +1587,8 @@ function renderLeadCard(lead) {
   const recommendedPackage = lead.recommended_package_label || 'Review package';
   const packageReason = lead.package_recommendation_reason ? ' · ' + titleCaseValue(lead.package_recommendation_reason) : '';
   const blockedSend = ['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
-  const ready = readiness === 'ready_for_outreach';
-  const disqualified = readiness === 'disqualified';
-  const actionLabel = disqualified ? 'Disqualified' : blockedSend ? 'View' : ready ? 'Preview' : 'Review Gate';
-  const actionAttrs = disqualified || (!ready && !blockedSend)
-    ? 'disabled title="' + escapeHtml(readinessReasons.join(', ')) + '"'
-    : 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"';
+  const actionLabel = blockedSend ? 'View' : 'Preview';
+  const actionAttrs = 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"';
   const cardStatusClass = ['sent', 'replied', 'converted'].includes(status) ? ' status-' + leadStatusClass(status) : '';
   const badges = [
     '<span class="status-badge status-' + escapeHtml(leadStatusClass(status)) + '">' + escapeHtml(titleCaseValue(status)) + '</span>',
