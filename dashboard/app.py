@@ -658,7 +658,7 @@ async def api_search(request: Request):
     body = await request.json()
     category = body.get("category", "ramen")
     city = body.get("city", "").strip()
-    mode = body.get("mode", "friction")
+    mode = body.get("mode", "unified")
 
     from pipeline.search_provider import configured_search_provider, search_provider_requires_api_key
 
@@ -685,13 +685,20 @@ async def api_search(request: Request):
     import concurrent.futures
     loop = asyncio.get_running_loop()
 
-    if mode == "codex":
+    def current_actionable_ids() -> set[str]:
+        return {
+            lead.get("lead_id")
+            for lead in list_leads(state_root=STATE_ROOT)
+            if lead.get("lead") is True and _has_supported_contact_route(lead)
+        }
+
+    async def run_codex_jobs() -> list[dict[str, Any]]:
         from pipeline.search_scope import codex_search_jobs_for_scope
         from pipeline.search import codex_search_and_qualify
 
         search_jobs = codex_search_jobs_for_scope(category=category, city=city)
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            raw_results = await asyncio.gather(*[
+            return await asyncio.gather(*[
                 loop.run_in_executor(
                     pool,
                     lambda job=job: codex_search_and_qualify(
@@ -704,12 +711,13 @@ async def api_search(request: Request):
                 )
                 for job in search_jobs
             ])
-    else:
+
+    async def run_friction_jobs() -> list[dict[str, Any]]:
         from pipeline.search import search_and_qualify
 
         search_jobs = search_jobs_for_scope(category=category, city=city, query=query)
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            raw_results = await asyncio.gather(*[
+            return await asyncio.gather(*[
                 loop.run_in_executor(
                     pool,
                     lambda job=job: search_and_qualify(
@@ -724,7 +732,18 @@ async def api_search(request: Request):
                 for job in search_jobs
             ])
 
+    if mode == "codex":
+        raw_results = await run_codex_jobs()
+    elif mode == "friction":
+        raw_results = await run_friction_jobs()
+    else:
+        raw_results = await run_codex_jobs()
+        if not (current_actionable_ids() - existing_actionable_ids):
+            raw_results.extend(await run_friction_jobs())
+        mode = "unified"
+
     result = merge_search_results(raw_results, query=query, category=category)
+    result["search_mode"] = mode
 
     actionable_leads = [
         lead for lead in list_leads(state_root=STATE_ROOT)

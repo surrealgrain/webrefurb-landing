@@ -8,6 +8,7 @@ from pipeline.search_scope import (
     CODEX_EMAIL_PROVIDERS,
     CODEX_EXCLUDE,
     CODEX_SITE_PLATFORMS,
+    CODEX_TABELOG_CITY_SITES,
     merge_search_results,
     search_category_label,
     search_jobs_for_scope,
@@ -154,15 +155,31 @@ def test_merge_search_results_sums_all_category_runs():
 
 def test_codex_single_category_generates_correct_job_count():
     jobs = codex_search_jobs_for_scope(category="yakitori", city="Tokyo")
-    expected_count = len(CODEX_EMAIL_PROVIDERS) + len(CODEX_SITE_PLATFORMS)
+    expected_count = (2 * len(CODEX_EMAIL_PROVIDERS)) + len(CODEX_SITE_PLATFORMS)
     assert len(jobs) == expected_count
 
 
 def test_codex_all_category_covers_all_specs():
     jobs = codex_search_jobs_for_scope(category="all", city="Tokyo")
     from pipeline.search_scope import SEARCH_CATEGORY_SPECS
-    expected_count = len(SEARCH_CATEGORY_SPECS) * (len(CODEX_EMAIL_PROVIDERS) + len(CODEX_SITE_PLATFORMS))
+    expected_count = len(SEARCH_CATEGORY_SPECS) * (
+        (2 * len(CODEX_EMAIL_PROVIDERS)) + len(CODEX_SITE_PLATFORMS)
+    )
     assert len(jobs) == expected_count
+
+
+def test_codex_all_japan_fans_out_to_supported_tabelog_city_sites():
+    jobs = codex_search_jobs_for_scope(category="ramen", city="all")
+    expected_count = (
+        (2 * len(CODEX_EMAIL_PROVIDERS) * len(CODEX_TABELOG_CITY_SITES))
+        + len(CODEX_SITE_PLATFORMS)
+    )
+    assert len(jobs) == expected_count
+    covered_sites = {
+        site for site in CODEX_TABELOG_CITY_SITES.values()
+        if any(site in job["query"] for job in jobs)
+    }
+    assert covered_sites == set(CODEX_TABELOG_CITY_SITES.values())
 
 
 def test_codex_queries_contain_exclude_operators():
@@ -173,10 +190,12 @@ def test_codex_queries_contain_exclude_operators():
 
 def test_codex_email_provider_queries_contain_at_sign():
     jobs = codex_search_jobs_for_scope(category="ramen", city="Tokyo")
-    email_jobs = [j for j in jobs if j["purpose"] == "codex_email_provider"]
-    assert len(email_jobs) == len(CODEX_EMAIL_PROVIDERS)
+    email_jobs = [j for j in jobs if j["purpose"].startswith("codex_tabelog_email_")]
+    assert len(email_jobs) == 2 * len(CODEX_EMAIL_PROVIDERS)
     for job in email_jobs:
         assert "@" in job["query"], f"Missing @ in email-provider query: {job['query']}"
+        assert "site:tabelog.com/tokyo" in job["query"], f"Missing Tabelog city scope: {job['query']}"
+        assert ('"ジャンル"' in job["query"] or '"住所"' in job["query"]), f"Missing v1 Tabelog profile term: {job['query']}"
 
 
 def test_codex_site_specific_queries_contain_site_operator():
@@ -212,4 +231,4 @@ def test_codex_job_ids_are_unique():
 def test_codex_queries_include_city():
     jobs = codex_search_jobs_for_scope(category="ramen", city="Osaka")
     for job in jobs:
-        assert "Osaka" in job["query"], f"Missing city in: {job['query']}"
+        assert ("Osaka" in job["query"] or "tabelog.com/osaka" in job["query"]), f"Missing city in: {job['query']}"

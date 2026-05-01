@@ -14,6 +14,116 @@ def _tabelog_result(link: str = "https://tabelog.com/tokyo/A000/A000000/12345678
     return {"organic": [{"link": link}]}
 
 
+def _codex_tabelog_profile_html() -> str:
+    return """
+    <html>
+      <head><title>麺屋はるか - 渋谷/ラーメン | 食べログ</title></head>
+      <body>
+        <h1>麺屋はるか</h1>
+        <section>
+          <h2>店舗基本情報</h2>
+          <table>
+            <tr><th>店名</th><td>麺屋はるか</td></tr>
+            <tr><th>ジャンル</th><td>ラーメン、つけ麺</td></tr>
+            <tr><th>予約・お問い合わせ</th><td>owner＠menya-haruka.jp</td></tr>
+            <tr><th>住所</th><td>東京都渋谷区神南1-2-3 大きな地図を見る</td></tr>
+            <tr><th>ホームページ</th><td><a href="https://menya-haruka.jp/">公式サイト</a></td></tr>
+          </table>
+        </section>
+        <section><h2>特徴・関連情報</h2></section>
+      </body>
+    </html>
+    """
+
+
+def test_codex_email_text_extractor_normalizes_japanese_obfuscation():
+    text = "お問い合わせ: owner＠menya-haruka.jp / info [at] menya-haruka.jp"
+
+    assert search._extract_emails_from_text(text) == [
+        "owner@menya-haruka.jp",
+        "info@menya-haruka.jp",
+    ]
+
+
+def test_codex_tabelog_parser_extracts_profile_email_and_homepage(monkeypatch):
+    url = "https://tabelog.com/tokyo/A000/A000000/12345678/"
+
+    monkeypatch.setattr(search, "_fetch_page", lambda page_url, timeout_seconds=10: _codex_tabelog_profile_html())
+
+    candidates = search._codex_parse_tabelog_profile(url, category="ramen")
+
+    assert candidates == [{
+        "name": "麺屋はるか",
+        "email": "owner@menya-haruka.jp",
+        "website": "https://menya-haruka.jp/",
+        "snippet": "ラーメン、つけ麺",
+        "source_url": url,
+        "email_source_url": url,
+        "address": "東京都渋谷区神南1-2-3",
+        "city": "Tokyo",
+        "tabelog_url": url,
+        "profile_html": _codex_tabelog_profile_html(),
+        "genre_jp": "ラーメン、つけ麺",
+        "category": "ramen",
+    }]
+
+
+def test_codex_tabelog_parser_rejects_english_menu_filter_signal(monkeypatch):
+    url = "https://tabelog.com/tokyo/A000/A000000/12345678/"
+    html = _codex_tabelog_profile_html().replace(
+        "<section><h2>特徴・関連情報</h2></section>",
+        "<section><h2>特徴・関連情報</h2><p>サービス | 複数言語メニューあり（英語）</p></section>",
+    )
+
+    monkeypatch.setattr(search, "_fetch_page", lambda page_url, timeout_seconds=10: html)
+
+    assert search._codex_parse_tabelog_profile(url, category="ramen") == []
+
+
+def test_codex_tabelog_parser_rejects_tabelog_checkbox_signal(monkeypatch):
+    url = "https://tabelog.com/tokyo/A000/A000000/12345678/"
+    html = _codex_tabelog_profile_html().replace(
+        "</body>",
+        '<input type="checkbox" name="ChkEnglishMenu" value="1"></body>',
+    )
+
+    monkeypatch.setattr(search, "_fetch_page", lambda page_url, timeout_seconds=10: html)
+
+    assert search._codex_parse_tabelog_profile(url, category="ramen") == []
+
+
+def test_codex_search_qualifies_tabelog_profile_with_official_homepage(tmp_path, monkeypatch):
+    url = "https://tabelog.com/tokyo/A000/A000000/12345678/"
+
+    def fake_fetch_page(page_url, timeout_seconds=10):
+        if "tabelog.com" in page_url:
+            return _codex_tabelog_profile_html()
+        return """
+        <html><head><title>麺屋はるか</title></head><body>
+          ラーメン メニュー 醤油ラーメン 900円 塩ラーメン 950円 味玉つけ麺 1050円
+          東京都渋谷区神南1-2-3
+        </body></html>
+        """
+
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: _tabelog_result(url))
+    monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
+
+    result = search.codex_search_and_qualify(
+        query='site:tabelog.com/tokyo "@gmail.com" "ジャンル" "ラーメン" "予約可否"',
+        category="ramen",
+        state_root=tmp_path,
+        search_provider="webserper",
+    )
+
+    assert result["leads"] == 1
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert lead["business_name"] == "麺屋はるか"
+    assert lead["email"] == "owner@menya-haruka.jp"
+    assert lead["website"] == "https://menya-haruka.jp/"
+    assert lead["codex_tabelog_url"] == url
+    assert lead["source_urls"]["tabelog"] == url
+
+
 def test_extract_contact_email_from_mailto():
     html = '<a href="mailto:owner@example-ramen.jp">お問い合わせ</a>'
     assert search.find_contact_email("https://example-ramen.jp", html) == "owner@example-ramen.jp"
