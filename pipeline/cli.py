@@ -115,6 +115,13 @@ def main() -> None:
     review_wave_cmd.add_argument("--label", default="pitch-card-review-wave", help="Artifact filename label")
     review_wave_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards per wave batch")
 
+    execution_plan_cmd = sub.add_parser("restaurant-execution-plan", help="Write the no-send restaurant lead execution-plan completion artifact")
+    execution_plan_cmd.add_argument("--state-root", default=None, help="Override state root")
+    execution_plan_cmd.add_argument("--output-dir", default=None, help="Execution-plan artifact output directory")
+    execution_plan_cmd.add_argument("--label", default="restaurant-lead-execution-plan", help="Artifact filename label")
+    execution_plan_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards per review-wave batch")
+    execution_plan_cmd.add_argument("--representative-count", type=int, default=5, help="Representative examples per GLM profile")
+
     sim_cmd = sub.add_parser("production-sim", help="Run no-send production simulation replay")
     sim_sub = sim_cmd.add_subparsers(dest="production_sim_command")
     sim_collect = sim_sub.add_parser("collect", help="Collect a no-send pilot/broad search replay corpus")
@@ -586,6 +593,50 @@ def main() -> None:
                 }
                 for batch in result["batches"]
             ],
+            "artifact_paths": result["artifact_paths"],
+        }, indent=2, ensure_ascii=False))
+
+    elif args.command == "restaurant-execution-plan":
+        from pathlib import Path as _P
+
+        from .restaurant_execution_plan import write_restaurant_execution_plan
+
+        result = write_restaurant_execution_plan(
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+            output_dir=_P(args.output_dir) if args.output_dir else None,
+            label=str(args.label or "restaurant-lead-execution-plan"),
+            batch_size=int(args.batch_size),
+            representative_count=int(args.representative_count),
+        )
+        print(json.dumps({
+            "scope": result["scope"],
+            "finished_until_external_gate": result["finished_until_external_gate"],
+            "external_gates": result["external_gates"],
+            "no_send_safety": result["no_send_safety"],
+            "queue": result["queue"],
+            "phase_status": [
+                {"phase": item["phase"], "status": item["status"]}
+                for item in result["phase_status"]
+            ],
+            "glm_design_requests": [
+                {
+                    "profile_id": item["profile_id"],
+                    "selected_cards": item["selected_cards"],
+                    "request_status": item["request_status"],
+                    "request_glm_now": item["request_glm_now"],
+                }
+                for item in result["glm_design_requests"]
+            ],
+            "promotion_gate_preview": {
+                "live_promotion_allowed": result["promotion_gate_preview"]["live_promotion_allowed"],
+                "candidate_count": result["promotion_gate_preview"]["candidate_count"],
+                "blocker_counts": result["promotion_gate_preview"]["blocker_counts"],
+            },
+            "inline_pitch_pack_plan": {
+                "draft_generation_allowed": result["inline_pitch_pack_plan"]["draft_generation_allowed"],
+                "planned_cards": result["inline_pitch_pack_plan"]["planned_cards"],
+                "glm_reference_asset_counts": result["inline_pitch_pack_plan"]["glm_reference_asset_counts"],
+            },
             "artifact_paths": result["artifact_paths"],
         }, indent=2, ensure_ascii=False))
 
