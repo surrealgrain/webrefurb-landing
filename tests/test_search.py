@@ -58,6 +58,27 @@ def test_directory_checkpoint_marks_completed_pages():
     assert checkpoint["completed_pages"]["Tokyo:ramen"] == [3]
 
 
+def test_search_checkpoint_marks_completed_jobs():
+    checkpoint = five_city_search._new_checkpoint()
+    job_key = "Tokyo:ramen:codex_ramen_tokyo_tabelog_genre_gmail_com"
+
+    assert five_city_search._job_done(checkpoint, job_key) is False
+    five_city_search._mark_job_done(checkpoint, job_key)
+    five_city_search._mark_job_done(checkpoint, job_key)
+
+    assert five_city_search._job_done(checkpoint, job_key) is True
+    assert checkpoint["completed_jobs"] == [job_key]
+
+
+def test_search_failure_result_is_not_checkpointable():
+    assert five_city_search._result_is_search_failure({
+        "decisions": [{"reason": "search_failed", "error": "provider unavailable"}],
+    }) is True
+    assert five_city_search._result_is_search_failure({
+        "decisions": [{"reason": "already_tracked"}],
+    }) is False
+
+
 def test_directory_dedup_skips_existing_host_phone_and_name_address():
     candidate = DirectoryCandidate(
         name="麺屋テスト",
@@ -232,6 +253,77 @@ def test_codex_search_qualifies_tabelog_profile_with_official_homepage(tmp_path,
     assert lead["website"] == "https://menya-haruka.jp/"
     assert lead["codex_tabelog_url"] == url
     assert lead["source_urls"]["tabelog"] == url
+
+
+def test_codex_recoverable_rejection_persists_reviewable_pitch_card(tmp_path, monkeypatch):
+    def fake_qualify_candidate(**kwargs):
+        return QualificationResult(
+            lead=False,
+            rejection_reason="no_menu_or_product_evidence",
+            business_name=kwargs["business_name"],
+            website=kwargs["website"],
+            address=kwargs.get("address", ""),
+            category=kwargs["category"],
+            primary_category_v1="other",
+            decision_reason="Rejected: no usable menu/product evidence found.",
+        )
+
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: {
+        "organic": [{
+            "title": "麺屋ゆるい",
+            "link": "https://yurui-ramen.example",
+            "snippet": "お問い合わせ owner@yurui-ramen.example",
+        }]
+    })
+    monkeypatch.setattr(search, "_fetch_page", lambda page_url, timeout_seconds=10: "<html><body>店舗情報</body></html>")
+    monkeypatch.setattr(search, "qualify_candidate", fake_qualify_candidate)
+
+    result = search.codex_search_and_qualify(
+        query='ラーメン Tokyo メール お問い合わせ',
+        category="ramen",
+        state_root=tmp_path,
+        search_provider="webserper",
+    )
+
+    assert result["leads"] == 1
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert lead["launch_readiness_status"] == "manual_review"
+    assert lead["outreach_status"] == "needs_review"
+    assert lead["pitch_ready"] is False
+    assert lead["pitch_card_openable"] is True
+    assert lead["recovered_codex_rejection_reason"] == "no_menu_or_product_evidence"
+
+
+def test_codex_hard_rejection_does_not_persist_pitch_card(tmp_path, monkeypatch):
+    def fake_qualify_candidate(**kwargs):
+        return QualificationResult(
+            lead=False,
+            rejection_reason="already_has_good_english_menu",
+            business_name=kwargs["business_name"],
+            website=kwargs["website"],
+            category=kwargs["category"],
+            primary_category_v1="ramen",
+        )
+
+    monkeypatch.setattr(search, "run_web_search", lambda **kwargs: {
+        "organic": [{
+            "title": "麺屋英語",
+            "link": "https://english-ramen.example",
+            "snippet": "お問い合わせ owner@english-ramen.example",
+        }]
+    })
+    monkeypatch.setattr(search, "_fetch_page", lambda page_url, timeout_seconds=10: "<html><body>English menu</body></html>")
+    monkeypatch.setattr(search, "qualify_candidate", fake_qualify_candidate)
+
+    result = search.codex_search_and_qualify(
+        query='ラーメン Tokyo メール お問い合わせ',
+        category="ramen",
+        state_root=tmp_path,
+        search_provider="webserper",
+    )
+
+    assert result["leads"] == 0
+    assert not (tmp_path / "leads").exists()
 
 
 def test_extract_contact_email_from_mailto():
