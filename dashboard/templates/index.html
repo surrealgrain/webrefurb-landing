@@ -173,6 +173,7 @@ button, input, select, textarea { font: inherit; }
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .review-lane:hover { border-color: #B9CACF; box-shadow: 0 8px 18px rgba(3,20,29,0.07); transform: translateY(-1px); }
+.review-lane.is-active { border-color: #0E7490; box-shadow: 0 0 0 2px rgba(14,116,144,0.12); }
 .review-lane-value { display: block; font-size: 20px; font-weight: 750; line-height: 1; color: var(--text); }
 .review-lane-label { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text-primary); }
 .review-lane-detail { display: block; margin-top: 3px; font-size: 11px; line-height: 1.35; color: var(--muted); }
@@ -1580,6 +1581,7 @@ function filterLeads() {
   ) {
     cards.forEach(c => c.style.display = '');
     updateLeadsCount();
+    updateReviewLaneSelection(currentReviewLaneFromFilters());
     return;
   }
 
@@ -1605,6 +1607,7 @@ function filterLeads() {
     ) ? '' : 'none';
   });
   updateLeadsCount();
+  updateReviewLaneSelection(currentReviewLaneFromFilters());
 }
 
 function resetLeadFilters() {
@@ -1822,6 +1825,24 @@ function applyReviewLane(lane) {
   filterLeads();
 }
 
+function currentReviewLaneFromFilters() {
+  const pitch = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
+  const route = document.getElementById('sidebar-route') ? document.getElementById('sidebar-route').value : 'all';
+  if (pitch === 'needs_email_review' && route === 'email') return 'email_route';
+  if (pitch === 'needs_email_review' && route === 'contact_form') return 'form_route';
+  if (pitch === 'needs_name_review' && route === 'all') return 'name_review';
+  if (pitch === 'needs_scope_review' && route === 'all') return 'scope_review';
+  return '';
+}
+
+function updateReviewLaneSelection(activeLane) {
+  document.querySelectorAll('[data-review-lane]').forEach(button => {
+    const active = button.dataset.reviewLane === activeLane;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
 function renderLeadReviewLanes(leads) {
   const container = document.getElementById('lead-review-lanes');
   if (!container) return;
@@ -1833,7 +1854,7 @@ function renderLeadReviewLanes(leads) {
     ['scope_review', 'Scope Review', counts.scope_review, 'Confirm ramen or izakaya fit'],
   ];
   container.innerHTML = lanes.map(([lane, label, value, detail]) =>
-    '<button class="review-lane" type="button" onclick="applyReviewLane(\'' + escapeHtml(lane) + '\')" data-review-lane="' + escapeHtml(lane) + '">' +
+    '<button class="review-lane" type="button" aria-pressed="false" onclick="applyReviewLane(\'' + escapeHtml(lane) + '\')" data-review-lane="' + escapeHtml(lane) + '">' +
       '<span class="review-lane-value">' + escapeHtml(value) + '</span>' +
       '<span class="review-lane-label">' + escapeHtml(label) + '</span>' +
       '<span class="review-lane-detail">' + escapeHtml(detail) + '</span>' +

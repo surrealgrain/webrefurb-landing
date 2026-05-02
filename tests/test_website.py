@@ -197,4 +197,8 @@ def test_dashboard_review_lanes_make_manual_work_queue_visible():
     assert "Name Review" in html
     assert "Scope Review" in html
     assert "function applyReviewLane(lane)" in html
+    assert "function currentReviewLaneFromFilters()" in html
+    assert "function updateReviewLaneSelection(activeLane)" in html
     assert "data-review-lane" in html
+    assert 'aria-pressed="false"' in html
+    assert ".review-lane.is-active" in html
