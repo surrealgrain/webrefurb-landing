@@ -185,3 +185,16 @@ def test_dashboard_review_filters_include_route_and_profile():
     assert 'value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki' in html
     assert "card.dataset.establishmentProfile === profile" in html
     assert 'data-establishment-profile="' in html
+
+
+def test_dashboard_review_lanes_make_manual_work_queue_visible():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="lead-review-lanes"' in html
+    assert "function reviewLaneCounts(leads)" in html
+    assert "Email Route Review" in html
+    assert "Contact Form Review" in html
+    assert "Name Review" in html
+    assert "Scope Review" in html
+    assert "function applyReviewLane(lane)" in html
+    assert "data-review-lane" in html
