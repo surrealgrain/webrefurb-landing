@@ -737,7 +737,8 @@ class TestAPIEndpoints:
         assert leads["wrm-ready-card"]["launch_readiness_status"] == "ready_for_outreach"
         assert leads["wrm-manual-card"]["launch_readiness_status"] == "manual_review"
         assert leads["wrm-chain-card"]["launch_readiness_status"] == "disqualified"
-        assert "Review Pitch" in response.text
+        assert "Preview" in response.text
+        assert "Review Pitch" not in response.text
         assert leads["wrm-ready-card"]["recommended_package_label"] == "Counter-Ready Ordering Kit"
         assert leads["wrm-ready-card"]["package_recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
 
