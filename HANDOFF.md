@@ -14,14 +14,22 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Live `list-leads`: 520 records, 326 dashboard-reviewable pitch cards, 193 hard blocked, 1 unsupported route.
 - Pitch-card breakdown: 281 needs_email_review, 19 needs_name_review, 26 needs_scope_review.
 - Safety counters: all 520 `launch_readiness_status=manual_review` and `outreach_status=needs_review`; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
+## Resume Phase Plan
+- Overall progress estimate: 40-45% of wider execution plan complete; no-send inventory sub-target is 326/400 reviewable cards, but directory source exhausted.
+- Phase 1 Corpus consolidation: done; imported records live under `state/leads`, summaries under `state/lead_imports`, duplicate/import safety preserved.
+- Phase 2 Verification system: mostly done; verification fields and verifier summaries exist, with uncertain records filterable and sendability blocked.
+- Phase 3 Dashboard review cards: materially done for no-send review; current lane is reviewing 326 cards and improving inventory sources if more cards are needed.
+- Phase 4 Promotion workflow: not done; do not promote automatically, and keep `pitch_ready=false` until human review rules are implemented.
+- Phase 5 GLM menu design requests: not started; wait for stable reviewed category counts.
+- Phase 6 Inline pitch packs: not started; depends on promotion workflow and locked GLM assets.
+- Phase 7 Outreach readiness: not started; final gate only after verification, GLM assets, draft review, and route confirmation.
+- When resuming a new chat, first restate this phase plan, then say the active next step before running tools.
 ## Implementation State
-- Pitch-card state is implemented in `pipeline/pitch_cards.py` and applied on record create/load/list/persist; dashboard/API separates reviewability from launch readiness.
-- Review-only GET previews work for eligible manual-review records, but POST/regenerate/send remains blocked unless launch-ready.
-- Existing imported records were rehydrated into pitch-card states without deleting emails; hard blocks are quarantined.
-- Directory crawler is checkpointed/resumable and persists supported email/contact-form candidates immediately as manual-review pitch cards.
-- Search loosening remains in force: `--max-candidates 0` means no cap; ambiguous English-menu gaps can become review-blocked inventory; chains/operators, invalid email artifacts, solved English/multilingual cases, non-restaurant names, and clear out-of-scope cuisine remain hard-blocked.
+- Pitch-card state is applied on record create/load/list/persist; dashboard/API separates reviewability from launch readiness.
+- Review-only GET previews work for manual-review cards; POST/regenerate/send remains blocked unless launch-ready.
+- Directory crawler and generic search are checkpointed/resumable; all-search-failure jobs are not marked complete.
+- Search loosening remains in force: ambiguous English-menu gaps can become review-blocked inventory; hard rejection reasons remain blocked.
 - Codex organic email fallback can persist recoverable ramen/izakaya candidates as manual-review pitch cards; hard rejection reasons still do not persist.
-- Generic search checkpointing tracks completed jobs and does not mark all-search-failure jobs complete.
 ## Evidence Pointers
 - Latest directory summary: `state/lead_imports/five_city_directory_pitch_cards_target400_recovery_v2_p100.json`.
 - Latest verifier summary: `state/lead_imports/restaurant_lead_verification_pitch_cards_continued_p100.json`.
