@@ -279,10 +279,39 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
     if dossier.get("menu_complexity_state") == "large_custom_quote":
         reasons.append("large_menu_requires_custom_quote")
     reasons.extend(_source_coverage_review_reasons(record))
+    if _restaurant_email_record_requires_promotion(record):
+        reasons.append("restaurant_email_verification_not_promoted")
+        verification_status = str(record.get("verification_status") or "")
+        if verification_status == "rejected":
+            reasons.append("restaurant_email_verification_rejected")
+        elif verification_status and verification_status != "verified":
+            reasons.append("restaurant_email_verification_needs_review")
+    if record.get("manual_review_required") is True:
+        reasons.append("manual_review_required")
 
     if reasons:
         return READINESS_MANUAL, reasons
     return READINESS_READY, ["qualified_with_safe_proof_and_contact_route"]
+
+
+def _restaurant_email_record_requires_promotion(record: dict[str, Any]) -> bool:
+    """Imported restaurant e-mail records stay review-blocked until promotion."""
+    lead_id = str(record.get("lead_id") or "")
+    source_query = str(record.get("source_query") or "")
+    source_file = str(record.get("source_file") or "")
+    is_restaurant_email_queue = (
+        lead_id.startswith("wrm-email-")
+        or source_query == "restaurant_email_import"
+        or "restaurant_email_leads" in source_file
+    )
+    if not is_restaurant_email_queue:
+        return False
+    return not (
+        record.get("pitch_ready") is True
+        and str(record.get("candidate_inbox_status") or "") == "pitch_ready"
+        and str(record.get("review_status") or "") == "approved"
+        and str(record.get("verification_status") or "") == "verified"
+    )
 
 
 def _source_coverage_review_reasons(record: dict[str, Any]) -> list[str]:

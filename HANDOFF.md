@@ -1,125 +1,86 @@
 # WebRefurbMenu Handoff
 
-Updated: 2026-05-01
+Updated: 2026-05-02
 
-This is the compact resume file. Keep it short. Do not append a running diary; replace stale checkpoint details after each meaningful work block.
+Compact resume file. Keep it under 90 lines. Replace stale facts instead of appending history.
 
-## Read First
+## Startup Read Path
 
-- Active product plan: `PLAN.md`.
-- Simulation criteria: `PRODUCTION_SIMULATION_TEST_PLAN.md`.
-- Repo rules: Japan only, ramen + izakaya only, three fixed-price packages.
-- No HVAC references.
-- Binary lead semantics only: `lead: true|false`, never "maybe".
-- Customer-facing copy must not mention AI, automation, scraping, or internal tools.
+1. Read `AGENTS.md`.
+2. Read this file.
+3. Do not read long docs at startup; open `PLAN.md`, `PRODUCTION_SIMULATION_TEST_PLAN.md`, `EXECUTION_PLAN_RESTAURANT_LEADS.md`, or `restaurant_email_leads.md` only for a specific blocker.
 
 ## Safety Boundary
 
-- Do not send real email, submit real contact forms, or otherwise contact a business unless the user explicitly requests that exact outbound action in the current chat.
+- No real email, contact-form submit, or other business contact unless explicitly requested in the current chat.
 - "Continue" means no-send work only.
 - Approved outreach routes are email and contact forms only.
-- Phone, LINE, Instagram, reservation links, booking forms, social DMs, and phone-required forms are not outreach routes; do not emit them as contact-route records. Walk-ins/map URLs/websites may appear only as non-actionable location/source metadata.
-- `production_ready=true` in simulation is only a no-send signal, not send permission.
+- Phone, LINE, Instagram, reservation links, social DMs, phone-required forms, walk-ins, map URLs, and websites are not outreach routes.
+- `production_ready=true` is only a no-send simulation signal.
+- Customer-facing copy must not mention AI, automation, scraping, or internal tools.
 
-## Current Status
+## Current State
 
 - Branch: `codex/phase11-contact-form-batch`.
-- **Uncommitted changes** — do NOT commit without review.
+- Tree is dirty; do not commit without user review.
 - `PLAN.md` Phases 0-12 are complete. Phase 13 is active, not complete.
-- Controlled Batch 1 and Batch 2 have already had real approved-route outreach. Do not start Batch 3.
-- Current decision: hold real Batch 3 outbound. Reason: Batch 1/2 have 0 replies/positives and the eligible candidate pool is not strong enough.
+- Controlled Batches 1 and 2 already had approved-route outreach; both have 0 replies/positives. Do not start Batch 3.
+- Current decision: hold real Batch 3 outbound because replies are 0 and the candidate pool is not strong enough.
+- Active workstream: preserve current email queue, loosen inventory search, and rebuild five-city candidate pool.
 
-## What Changed This Session (2026-05-01)
+## Queue Snapshot
 
-### 1. Scrapling integrated into pipeline page fetching (`pipeline/search.py`)
-- **`_fetch_page()` now uses Scrapling `Fetcher`** (TLS fingerprint impersonation) as primary, urllib as fallback
-- This is the core page fetching function used by the entire pipeline
-- Scrapling 0.4.7 already installed from previous session
+- Total records: 484 in `state/leads`; all remain blocked.
+- Existing imported restaurant queue: 483 records preserved; 0 missing existing records; 0 changed existing email records.
+- New no-send inventory: 1 Tokyo ramen-family record, `wrm-lead-2-3-9-8385` / `風土木` / `shopmaster@food-ki.jp`; manual-review blocked.
+- Status across all records: 484 `manual_review`, 0 `ready_for_outreach`, 0 `pitch_ready`, 0 `outreach_status:new`.
+- Imported restaurant queue verification: 26 verified, 107 needs_review, 350 rejected; email status 135 verified, 299 needs_review, 49 rejected.
+- Latest verification summary: `state/lead_imports/restaurant_lead_verification_final_no_send_search.json`.
 
-### 2. Bulk lead gen script (`scripts/bulk_lead_gen.py`) — NEW
-- Standalone script for bulk lead generation with preview + inline pitch
-- Email-only filtering — leads must have email addresses
-- Generates preview HTML pages with inline pitches
-- Tokyo-specific delivery language: laminated in-person delivery offered
-- Non-Tokyo: email delivery only, laminating by negotiation
-- Uses directory_discovery + contact extraction + evidence assessment + preview generation
-- **Problem identified**: only 4 leads from 228 Tokyo candidates — homepage-only email extraction misses most emails
+## Implementation State
 
-### 3. Multi-source collection attempted
-- Ran `collect_replay_corpus()` for Tokyo, Osaka, Kyoto, Sapporo, Fukuoka
-- Uses WebSerper + Google Maps + Tabelog directory discovery simultaneously
-- Corpus saved to `state/search-replay/spray-pray-v1/`
-- **Yield was too low** — user switched to Codex for lead finding
+- Search loosening is implemented and tested:
+  - `--max-candidates 0` means no cap.
+  - Ambiguous/no-record English-menu gap no longer rejects menu-qualified candidates.
+  - Single-source names can pass as review-blocked inventory.
+  - Chains/multi-location operators remain blocked.
+  - Search-created records get `manual_review_required=true`, `pitch_ready=false`, and `outreach_status=needs_review`.
+- `pipeline/search.py` uses Scrapling Fetcher with urllib fallback.
+- `pipeline/directory_discovery.py` now uses category-specific Tabelog city pages and explicit Scrapling timeouts.
+- `scripts/bulk_lead_gen.py` is patched to no-send inventory mode: no pitch/preview generation, full `qualify_candidate` gates before persistence, general restaurants skipped.
+- Do not edit GLM-locked template content in Codex.
 
-### 4. Target cities confirmed
-- **Tokyo, Osaka, Kyoto, Sapporo, Fukuoka** (tourist hotspots only)
-- User explicitly confirmed these 5 and no others
+## Search Run Status
 
-### Key Insight This Session
-- Japanese restaurant websites rarely put emails on homepage. Need multi-page probing (/contact/, /access/, /info/, etc.) to extract emails. The `_probe_deterministic_contact_paths()` function exists in `search_replay.py` but hasn't been integrated into the bulk lead gen flow.
-- User is now using **Codex** to find leads externally — it's working better than the pipeline approach.
+- Directory smoke slice: Tokyo city-wide Tabelog category pages 1-2; 33 candidates, 3 usable emails, 1 new persisted record, 3 duplicates, 2 chain/operator blocks, 5 fetch failures, 22 no-email.
+- Five-city Tabelog email-first lane: 1,700 jobs attempted with `max_candidates=0`; 8 candidates found, all duplicates; 0 new records.
+- Serper failed after Tokyo: 1,362 `search_failed` job decisions. Local WebSerper fallback was started for Osaka/Kyoto/Sapporo/Fukuoka but stopped because it was too slow and timed out repeatedly.
+- Full five-city exhaustion is not complete. No outreach happened and no records were promoted.
 
-## Files Modified/Created This Session
+## Remaining Blockers
 
-- `pipeline/search.py` — `_fetch_page()` rewritten to use Scrapling Fetcher with urllib fallback
-- `scripts/bulk_lead_gen.py` — **NEW** — bulk lead gen with preview + pitch (homepage-only email extraction, low yield)
-- `HANDOFF.md` — this update
+- Need a resumable, checkpointed five-city crawler before another no-cap run:
+  - Use city-wide Tabelog category pages (`/rstLst/ramen/`, `/rstLst/izakaya/`) with page checkpointing.
+  - Add concurrent official-site probing with tight per-host timeouts.
+  - Persist per-city/category summaries as the run progresses.
+- Serper quota/provider failure blocked the explicit Tabelog email-query lane after Tokyo.
+- Uncapped maps search is too slow without checkpointing because each job follows every physical-place candidate through source intelligence.
 
-### Previous Session Changes Still Uncommitted
-- `pipeline/search_scope.py` — replaced directory jobs with contact discovery queries
-- `pipeline/search_replay.py` — solution-check caps, deterministic contact probing, directory discovery integration
-- `pipeline/search_provider.py` — raised limits, organic merge triggers, stronger blocked hosts
-- `pipeline/contact_crawler.py` — full-width @ detection, `recover_contact_routes()` function
-- `pipeline/directory_discovery.py` — **REWRITTEN** — Scrapling-based Tabelog crawler
-- `pipeline/lead_qualifier/` — **NEW MODULE** — queue-based batch qualification (queue.py, pain_signals.py, review_scraper.py, models.py, run.py)
-- `pipeline/manual_import.py` — **NEW** — manual lead import
-- `scripts/webserper_benchmark_loop.py` — **NEW** — benchmark loop mechanism
-- `dashboard/app.py` + `dashboard/templates/index.html` — dashboard updates
-- `tests/test_lead_qualifier_*.py` — **NEW** — lead qualifier tests
-- `tests/test_production_simulation.py`, `tests/test_search_scope.py` — updated
+## Next Recommended Lane
 
-### Untracked Files
-- `assets/templates/ramen_food_menu_email_preview.jpg`
-- `restaurant_email_leads.md`
-
-## Batch Snapshot
-
-- Batch 1: `launch-18ce5c756f`, reviewed, `5/5` contacted, `0` replies, `0` positives, `0` bounces/opt-outs.
-- Batch 2: `launch-6f594101ca`, reviewed, `4/5` contacted, `0` replies, `0` positives, `0` bounces/opt-outs.
-- Batch 2 non-contact: `wrm-lead-lead-fb50` / 創作個室居酒屋すぎうら. Form required phone data; no phone was invented; no submission was made; now manual/do-not-contact.
-
-## What the User Wants for Search Results (Package Fit Checklist)
-
-User asked for a checklist of what search results should include to fit our packages. This is pending — user will continue in new chat.
-
-## Next Steps
-
-1. **User is using Codex to find leads externally** — pipeline approach had low email yield. May need to:
-   - Integrate multi-page email probing into bulk_lead_gen.py
-   - Accept Codex-found leads via `pipeline/manual_import.py`
-2. **Define package-fit criteria** for search results (user's pending request)
-3. **Generate 50+ pitchable leads** with emails + preview pages with inline pitches
-4. **Do NOT start Batch 3** outbound until user explicitly requests it
-
-## Key Artifacts
-
-- Bulk lead gen script: `scripts/bulk_lead_gen.py`
-- Directory discovery module: `pipeline/directory_discovery.py`
-- Lead qualifier module: `pipeline/lead_qualifier/`
-- Manual import: `pipeline/manual_import.py`
-- Benchmark loop script: `scripts/webserper_benchmark_loop.py`
-- Batch 1 record: `state/launch_batches/launch-18ce5c756f.json`
-- Batch 2 record: `state/launch_batches/launch-6f594101ca.json`
-- Latest benchmark: `state/search-replay/production-sim-webserper-optimized-google-yahoo-independent-neighborhoods-20260430T000000Z/benchmarks/optimized-google-yahoo-focused-20260430.json`
+1. Resume directory crawl with checkpoints: Tokyo page 3+, then Osaka, Kyoto, Sapporo, Fukuoka.
+2. Keep only ramen/izakaya-family records; continue hard-blocking general restaurants, chains, solved English/multilingual cases, and invalid email artifacts.
+3. After fresh search quota is available, rerun `scripts/no_send_five_city_lead_search.py --mode codex-tabelog` for failed cities.
 
 ## Last Verification
 
-- `.venv/bin/python -m pytest tests/ -v` — 689 passed, 7 failed (pre-existing dashboard/state failures, not caused by Scrapling change).
-- Scrapling 0.4.7 installed: `pip install "scrapling[fetchers]"` + `scrapling install`.
-- Provider config: default is `webserper`; `webserper` requires no key.
+- Search/qualification focused tests: 152 passed.
+- Restaurant import/verification focused tests: 46 passed.
+- `verify-restaurant-leads`: 483 selected, 26 verified, 107 needs_review, 350 rejected, 0 ready_for_outreach, 0 pitch_ready.
+- Existing-email preservation check: 483 baseline records preserved; 0 existing email/contact changes.
+- Queue sanity: 484 total records, all manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 outreach_status:new.
+- `audit-state` was not rerun in this pass; previous known failures were pre-existing launch-smoke proof-asset mismatches.
 
 ## Context Hygiene
 
-- In a new chat, read this file first, then targeted sections of `PLAN.md` and `PRODUCTION_SIMULATION_TEST_PLAN.md`.
-- Avoid broad `rg` over the whole repo without excludes; embedded assets can dump huge base64 output.
-- Prefer targeted commands and small output windows.
+- Keep handoffs to active phase/status, blockers, next action, latest verification, and report paths; do not paste raw lead lists/logs.

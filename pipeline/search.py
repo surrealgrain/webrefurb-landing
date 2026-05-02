@@ -561,13 +561,17 @@ def _has_verified_name_conflict(*, source_candidate: str, official_name: str) ->
 
 def _normalise_search_job(query: str, category: str, search_job: dict[str, Any] | None) -> dict[str, str]:
     job = search_job or {}
-    return {
+    normalised = {
         "job_id": str(job.get("job_id") or "operator_custom_query"),
         "query": str(job.get("query") or query),
         "category": str(job.get("category") or category),
         "purpose": str(job.get("purpose") or "operator_custom_search"),
         "expected_friction": str(job.get("expected_friction") or "operator_supplied"),
     }
+    for key in ("city", "stratum", "job_mode", "engine_policy"):
+        if job.get(key):
+            normalised[key] = str(job.get(key))
+    return normalised
 
 
 def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, str]) -> list[str]:
@@ -630,7 +634,99 @@ def _add_search_context(decision: dict[str, Any], *, query: str, search_job: dic
     decision.setdefault("source_query", query)
     decision.setdefault("source_search_job", search_job)
     decision.setdefault("matched_friction_evidence", _matched_friction_evidence(decision, search_job))
+    decision.setdefault("inventory_review_status", _inventory_review_status(decision))
     return decision
+
+
+def _candidate_window(candidates: list[Any], max_candidates: int) -> list[Any]:
+    if max_candidates and max_candidates > 0:
+        return candidates[:max_candidates]
+    return candidates
+
+
+def _inventory_review_status(decision: dict[str, Any]) -> str:
+    reason = str(decision.get("reason") or decision.get("rejection_reason") or "").strip()
+    if decision.get("lead") is True:
+        return "qualified_with_supported_contact"
+    if reason in {
+        "already_tracked",
+        "no_supported_contact_route_found",
+        "business_name_unverified",
+        "business_name_conflict",
+        "fetch_failed",
+        "no_official_site_found",
+    }:
+        return "review_blocked"
+    if reason in {
+        "already_has_good_english_menu",
+        "already_has_multilingual_ordering_solution",
+        "already_solved_solution_check",
+    }:
+        return "solved_english_or_ordering"
+    if reason in {
+        "chain_business",
+        "chain_or_franchise_infrastructure",
+        "excluded_business_type_v1",
+        "non_ramen_izakaya_v1",
+        "search_category_mismatch",
+        "invalid_business_name_detected",
+    }:
+        return "hard_invalid"
+    if reason in {
+        "no_menu_or_product_evidence",
+        "insufficient_category_evidence",
+        "directory_or_social_only",
+        "negative_evidence_score",
+    }:
+        return "weak_or_incomplete_evidence"
+    return "needs_review"
+
+
+def _source_strength_label(record: dict[str, Any]) -> str:
+    signals = record.get("coverage_signals") if isinstance(record.get("coverage_signals"), dict) else {}
+    email_source_url = str(record.get("email_source_url") or "").strip()
+    email_source = str(record.get("email_source") or "").strip()
+    if signals.get("has_official_site") and email_source_url and urllib.parse.urlparse(email_source_url).netloc:
+        return "official_site"
+    if email_source in {"codex_organic_search", "search_result", "website"}:
+        return "restaurant_owned_or_search_result"
+    if signals.get("portal_only"):
+        return "directory"
+    if signals.get("has_official_site"):
+        return "official_site"
+    return "weak_source"
+
+
+def _mark_inventory_review_blocked(
+    record: dict[str, Any],
+    *,
+    city: str = "",
+    category: str = "",
+    email_source_url: str = "",
+    email_source: str = "",
+) -> dict[str, Any]:
+    """Keep no-send search inventory out of the launch-ready queue."""
+    record["manual_review_required"] = True
+    record["inventory_review_status"] = "review_blocked"
+    record["inventory_review_reason"] = "search_inventory_requires_manual_review_before_outreach"
+    record["candidate_inbox_status"] = "review_blocked"
+    record["pitch_ready"] = False
+    record["outreach_status"] = "needs_review"
+    record["review_status"] = "pending"
+    if city:
+        record["city"] = city
+    if category:
+        record["category"] = category
+    if email_source_url:
+        record["email_source_url"] = email_source_url
+    if email_source:
+        record["email_source"] = email_source
+    record["source_url"] = str(record.get("source_url") or record.get("website") or "")
+    record["source_strength"] = _source_strength_label(record)
+    history = record.setdefault("status_history", [])
+    if isinstance(history, list) and not any(item.get("status") == "needs_review" for item in history if isinstance(item, dict)):
+        history.append({"status": "needs_review", "timestamp": utc_now()})
+    return record
 
 
 def verify_business_name(
@@ -908,7 +1004,8 @@ def search_and_qualify(
     qualified_with_non_email_contact = 0
     qualified_without_supported_contact = 0
 
-    for place in raw_places[:max_candidates]:
+    candidate_places = _candidate_window(raw_places, max_candidates)
+    for place in candidate_places:
         website = str(place.get("website") or "").strip()
         source_name = str(place.get("title") or place.get("name") or "").strip()
         if not source_name:
@@ -1062,20 +1159,12 @@ def search_and_qualify(
                 # Allow through when Google Maps signals are strong enough on their own
                 if _google_confidence_override(place) and not bool(name_check.get("name_conflict")):
                     verified_by = verified_by + ["google_confidence_override"]
+                    name_review_status = "google_confidence_override"
                 else:
-                    decisions.append({
-                        "business_name": business_name or source_name,
-                        "lead": False,
-                        "reason": "business_name_conflict" if name_check.get("name_conflict") else "business_name_unverified",
-                        "business_name_source": business_name_source,
-                        "business_name_verified_by": verified_by,
-                        "official_name": name_check.get("official_name", ""),
-                        "japan_intel": intel_dict,
-                        "source_count": intel.source_count,
-                        "coverage_signals": intel.coverage_signals,
-                        "coverage_score": intel.coverage_score,
-                    })
-                    continue
+                    verified_by = verified_by or ["single_source_search_result"]
+                    name_review_status = "single_source_needs_review"
+            else:
+                name_review_status = "multi_source_verified"
 
             pages.extend(intel.evidence_pages)
             pages.extend(_collect_targeted_evidence_pages(
@@ -1102,8 +1191,11 @@ def search_and_qualify(
             )
 
             decision = qualification.to_dict()
+            if qualification.rejection_reason:
+                decision.setdefault("reason", qualification.rejection_reason)
             decision["business_name_source"] = business_name_source
             decision["business_name_verified_by"] = verified_by
+            decision["business_name_review_status"] = name_review_status
             decision["japan_intel"] = intel_dict
             decision["source_count"] = intel.source_count
             decision["coverage_signals"] = intel.coverage_signals
@@ -1214,6 +1306,7 @@ def search_and_qualify(
                 )
                 record["business_name_source"] = business_name_source
                 record["business_name_verified_by"] = verified_by
+                record["business_name_review_status"] = name_review_status
                 if name_check.get("tabelog_url"):
                     record["business_name_tabelog_url"] = name_check["tabelog_url"]
                 if name_check.get("ramendb_url"):
@@ -1222,6 +1315,15 @@ def search_and_qualify(
                 record["source_count"] = intel.source_count
                 record["source_coverage_score"] = coverage["coverage_score"]
                 record["coverage_signals"] = coverage["coverage_signals"]
+                email_source_url = str((email_contact or {}).get("source_url") or website)
+                email_source = str((email_contact or {}).get("source") or "")
+                _mark_inventory_review_blocked(
+                    record,
+                    city=str(source_search_job.get("city") or ""),
+                    category=str(source_search_job.get("category") or qualification.primary_category_v1 or category),
+                    email_source_url=email_source_url,
+                    email_source=email_source,
+                )
                 record["portal_urls"] = intel.portal_urls
                 record["official_site_candidates"] = intel.official_site_candidates
                 record["social_links"] = intel.social_links
@@ -1253,7 +1355,7 @@ def search_and_qualify(
         "query": query,
         "search_provider": search_provider or "",
         "search_job": source_search_job,
-        "total_candidates": len(raw_places[:max_candidates]),
+        "total_candidates": len(candidate_places),
         "leads": len(results),
         "qualified_without_email": qualified_without_email,
         "qualified_with_non_email_contact": qualified_with_non_email_contact,
@@ -1578,6 +1680,7 @@ def codex_search_and_qualify(
     max_candidates: int = 24,
     search_job: dict[str, Any] | None = None,
     search_provider: str | None = None,
+    serper_api_key: str = "",
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Codex email-first search: run organic search, extract emails, qualify."""
@@ -1595,7 +1698,7 @@ def codex_search_and_qualify(
     # --- organic search ---
     try:
         organic_response = run_web_search(
-            query=query, api_key="", gl="jp",
+            query=query, api_key=serper_api_key, gl="jp",
             timeout_seconds=10, provider=search_provider,
         )
     except Exception as exc:
@@ -1617,7 +1720,8 @@ def codex_search_and_qualify(
     qualified_with_non_email_contact = 0
     qualified_without_supported_contact = 0
 
-    for candidate in candidates[:max_candidates]:
+    candidate_window = _candidate_window(candidates, max_candidates)
+    for candidate in candidate_window:
         source_name = candidate["name"]
         source_email = candidate["email"]
         source_website = candidate["website"]
@@ -1687,6 +1791,8 @@ def codex_search_and_qualify(
             )
 
             decision = qualification.to_dict()
+            if qualification.rejection_reason:
+                decision.setdefault("reason", qualification.rejection_reason)
             decision["email"] = source_email
             decision["codex_source"] = True
 
@@ -1765,6 +1871,13 @@ def codex_search_and_qualify(
                 record["business_name_verified_by"] = ["codex_organic_search", "website_fetch"]
                 record["codex_source"] = True
                 record["codex_email"] = source_email
+                _mark_inventory_review_blocked(
+                    record,
+                    city=str(source_search_job.get("city") or ""),
+                    category=str(source_search_job.get("category") or qualification.primary_category_v1 or canonical),
+                    email_source_url=source_email_url,
+                    email_source="codex_organic_search",
+                )
                 if candidate.get("tabelog_url"):
                     record["codex_tabelog_url"] = candidate.get("tabelog_url")
                     source_urls = record.setdefault("source_urls", {})
@@ -1789,7 +1902,7 @@ def codex_search_and_qualify(
         "query": query,
         "search_provider": search_provider or "",
         "search_job": source_search_job,
-        "total_candidates": len(candidates[:max_candidates]),
+        "total_candidates": len(candidate_window),
         "leads": len(results),
         "qualified_without_email": qualified_without_email,
         "qualified_with_non_email_contact": qualified_with_non_email_contact,
