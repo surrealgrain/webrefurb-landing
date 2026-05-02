@@ -14,6 +14,7 @@ def _lead(
     profile: str = "izakaya_yakitori_kushiyaki",
     contact_type: str = "email",
     pitch_case: str = "email_review",
+    outcome: str = "",
 ) -> dict:
     category = "izakaya" if profile.startswith("izakaya") else "ramen"
     contact_value = f"{lead_id}@example.test" if contact_type == "email" else "https://shop.example.test/contact"
@@ -43,6 +44,9 @@ def _lead(
     }
     if contact_type == "email":
         record["email"] = contact_value
+    if outcome:
+        record["operator_review_outcome"] = outcome
+        record["review_status"] = outcome
     return record
 
 
@@ -65,6 +69,7 @@ def test_execution_plan_finishes_no_send_artifacts_without_promotion(tmp_path):
     assert plan["promotion_gate_preview"]["live_promotion_allowed"] is False
     assert plan["promotion_gate_preview"]["pitch_ready_mutation_allowed"] is False
     assert plan["promotion_gate_preview"]["candidate_count"] == 13
+    assert plan["needs_more_info_enrichment"]["needs_more_info_cards"] == 0
     assert plan["inline_pitch_pack_plan"]["draft_generation_allowed"] is False
     yakitori = next(item for item in plan["glm_design_requests"] if item["profile_id"] == "izakaya_yakitori_kushiyaki")
     assert yakitori["request_status"] == "locked_asset_available"
@@ -76,10 +81,12 @@ def test_execution_plan_finishes_no_send_artifacts_without_promotion(tmp_path):
 
 
 def test_execution_plan_writer_creates_json_and_markdown(tmp_path):
-    _write_record(tmp_path, _lead("wrm-yakitori", profile="izakaya_yakitori_kushiyaki"))
+    _write_record(tmp_path, _lead("wrm-yakitori", profile="izakaya_yakitori_kushiyaki", outcome="needs_more_info"))
+    _write_record(tmp_path, _lead("wrm-yakitori-unreviewed", profile="izakaya_yakitori_kushiyaki"))
 
     plan = write_restaurant_execution_plan(state_root=tmp_path, batch_size=1)
 
+    assert plan["needs_more_info_enrichment"]["needs_more_info_cards"] == 1
     artifact_paths = plan["artifact_paths"]
     assert artifact_paths["json"].endswith(".json")
     assert artifact_paths["markdown"].endswith(".md")
@@ -88,5 +95,6 @@ def test_execution_plan_writer_creates_json_and_markdown(tmp_path):
     assert "Real outbound allowed: `false`" in markdown
     assert "Promotion Gate Preview" in markdown
     assert "Inline Pitch-Pack Plan" in markdown
+    assert "Needs-More-Info Enrichment" in markdown
     assert "Representative examples" in markdown
     assert "Required outputs" in markdown

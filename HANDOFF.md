@@ -17,15 +17,15 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Codex routing now maps those profiles to dedicated locked HTML templates in outreach selection, state audit expectations, review guidance, manual import, and execution-plan artifacts.
 - Generic profiles still use existing assets: ramen food, izakaya food/drinks, izakaya drinks, and ticket-machine guide as applicable.
 - Latest no-send artifacts after review outcomes: `state/review_batches/pitch-card-review-20260502T162943Z.*`, `pitch-card-review-wave-20260502T162943Z.*`, and `state/execution_plans/restaurant-lead-execution-plan-20260502T162944Z.*`.
-- Review batch/wave now have 0 selected cards, 0 active batches, and 0 operator packs; all policies remain review-only/no-send.
+- Needs-more-info enrichment lane is active: `state/review_batches/needs-more-info-enrichment-20260502T164825Z.*` has 401 cards / 4 batches / 7 packs.
+- Latest execution artifact `state/execution_plans/restaurant-lead-execution-plan-20260502T164833Z.*` includes the enrichment summary.
 ## Acquisition / Search Notes
 - `webserper` is the intended no-key acquisition path and does not require Serper credits; Scrapling/local fetch paths remain available.
 - Paid `serper` is unavailable due to credits, Google Places key is unavailable, and the five-city directory source is exhausted through page 100.
 ## Next Work
-- Decide the next no-send lane: targeted evidence enrichment for `needs_more_info` cards, or a promotion-preview artifact only if explicitly requested.
-- Regenerate review/execution artifacts after review outcomes change.
+- Work needs-more-info enrichment batches without outbound: email owner-route, name-source, scope, and contact-form-route checks.
+- Regenerate enrichment/review/execution artifacts after enrichment outcomes change.
 - Do not promote records or begin outbound without an explicit current-chat instruction.
 ## Last Verification
-- Tests passed: `tests/test_website.py -q` 12, `tests/test_api.py -q` 117, `tests/test_restaurant_lead_verification.py -q` 40, `tests/test_review_batches.py -q` 4.
-- Additional routing/audit tests passed: outreach, restaurant_email_import, state_audit, restaurant_execution_plan, review_batches (78 total).
-- Latest `pipeline.cli audit-state` passed after review outcomes: 604 checked, 0 findings; dashboard GET `/` returned HTML.
+- Tests passed: `tests/test_website.py -q` 12, `tests/test_api.py -q` 117, `tests/test_restaurant_lead_verification.py -q` 40, review/enrichment/execution tests 8.
+- Latest `pipeline.cli audit-state` passed after enrichment artifact generation: 604 checked, 0 findings.

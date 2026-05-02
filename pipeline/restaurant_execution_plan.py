@@ -6,6 +6,7 @@ from typing import Any
 
 from .constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE
 from .record import list_leads
+from .review_enrichment import build_needs_more_info_enrichment_plan
 from .review_batches import (
     ALLOWED_REVIEW_OUTCOMES,
     FORBIDDEN_REVIEW_ACTIONS,
@@ -41,6 +42,7 @@ def build_restaurant_execution_plan(
     """
     records = list_leads(state_root=state_root)
     wave = build_no_send_review_wave(state_root=state_root, batch_size=batch_size)
+    enrichment = build_needs_more_info_enrichment_plan(state_root=state_root, batch_size=batch_size)
     queue = _flatten_wave_queue(wave)
     safety = wave["no_send_safety"]
     return {
@@ -71,6 +73,13 @@ def build_restaurant_execution_plan(
             "operator_pack_count": wave["counts"]["operator_pack_count"],
             "batches": _wave_batch_summary(wave),
         },
+        "needs_more_info_enrichment": {
+            "needs_more_info_cards": enrichment["counts"]["needs_more_info_cards"],
+            "batch_count": enrichment["counts"]["batch_count"],
+            "operator_pack_count": enrichment["counts"]["operator_pack_count"],
+            "enrichment_lane_counts": enrichment["counts"]["enrichment_lane_counts"],
+            "profile_counts": enrichment["counts"]["profile_counts"],
+        },
         "glm_design_requests": _glm_design_requests(queue, representative_count=representative_count),
         "promotion_gate_preview": _promotion_gate_preview(queue),
         "inline_pitch_pack_plan": _inline_pitch_pack_plan(wave),
@@ -78,6 +87,7 @@ def build_restaurant_execution_plan(
             "Work review-wave batches in order and save only hold, needs_more_info, or reject outcomes.",
             "Keep locked asset routing and audit expectations aligned as review artifacts are regenerated.",
             "Regenerate this execution-plan artifact after operator review outcomes are saved.",
+            "If the review wave is drained, work the needs-more-info enrichment batches without outbound.",
             "Do not send, submit forms, promote records, or set pitch_ready without a new explicit outbound instruction.",
         ],
     }
@@ -354,6 +364,13 @@ def _execution_plan_markdown(plan: dict[str, Any]) -> str:
     lines.append(f"- Live promotion allowed: `{str(gate['live_promotion_allowed']).lower()}`")
     for blocker, count in gate["blocker_counts"].items():
         lines.append(f"- `{blocker}`: `{count}`")
+    lines.extend(["", "## Needs-More-Info Enrichment", ""])
+    enrichment = plan["needs_more_info_enrichment"]
+    lines.append(f"- Needs-more-info cards: `{enrichment['needs_more_info_cards']}`")
+    lines.append(f"- Enrichment batches: `{enrichment['batch_count']}`")
+    lines.append(f"- Operator packs: `{enrichment['operator_pack_count']}`")
+    for lane, count in enrichment["enrichment_lane_counts"].items():
+        lines.append(f"- `{lane}`: `{count}`")
     lines.extend(["", "## Inline Pitch-Pack Plan", ""])
     pack = plan["inline_pitch_pack_plan"]
     lines.append(f"- Draft generation allowed: `{str(pack['draft_generation_allowed']).lower()}`")
