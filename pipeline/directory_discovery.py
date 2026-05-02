@@ -192,6 +192,18 @@ class DirectoryCandidate:
     city: str = ""
 
 
+@dataclass
+class TabelogPageResult:
+    city: str
+    category: str
+    page: int
+    listing_url: str
+    listing_count: int
+    detail_fetches: int
+    exhausted: bool
+    candidates: list[DirectoryCandidate]
+
+
 def _clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
@@ -371,12 +383,12 @@ def crawl_tabelog_area(
                 if detail_fetches >= max_detail_fetches:
                     break
 
-                # Build category-specific listing URL.
-                page_suffix = "" if page == 1 else f"{page}/"
-                if area_path:
-                    url = f"{TABELOG_BASE}/{city_slug}/{area_path}/rstLst/{category_path}/{page_suffix}"
-                else:
-                    url = f"{TABELOG_BASE}/{city_slug}/rstLst/{category_path}/{page_suffix}"
+                url = _tabelog_listing_url(
+                    city_slug=city_slug,
+                    category_path=category_path,
+                    page=page,
+                    area_path=area_path,
+                )
 
                 try:
                     resp = fetcher.get(url, timeout=timeout)
@@ -425,6 +437,8 @@ def crawl_tabelog_area(
 
                     genres = _extract_genres_from_dtlmenu(detail_html)
                     matched_category = _classify_genre(genres, category=category)
+                    if matched_category == "restaurant" and category in {"ramen", "izakaya"}:
+                        matched_category = category
 
                     # Extract official URL.
                     official_url = _extract_official_url_from_dtlmenu(detail_html)
@@ -455,6 +469,88 @@ def crawl_tabelog_area(
                     ))
 
     return candidates
+
+
+def crawl_tabelog_listing_page(
+    *,
+    city: str,
+    category: str,
+    page: int,
+    timeout: int = 10,
+    delay_seconds: float = 0.0,
+) -> TabelogPageResult:
+    """Fetch one city/category Tabelog listing page for checkpointed crawls."""
+    fetcher = _get_fetcher()
+    city_slug = TABELOG_CITY_AREAS.get(city, city.lower())
+    category_paths = TABELOG_CATEGORY_PATHS.get(category, [category])
+    category_path = category_paths[0]
+    listing_url = _tabelog_listing_url(city_slug=city_slug, category_path=category_path, page=page)
+
+    try:
+        resp = fetcher.get(listing_url, timeout=timeout)
+        if resp.status != 200:
+            return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [])
+        html = resp.html_content
+    except Exception:
+        return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [])
+
+    listings = _extract_detail_links(html)
+    if not listings:
+        return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [])
+
+    candidates: list[DirectoryCandidate] = []
+    seen_websites: set[str] = set()
+    detail_fetches = 0
+    for listing in listings:
+        name = listing["name"]
+        if _is_chain(name):
+            continue
+        detail_url = listing["url"]
+        dtlmenu_url = detail_url.rstrip("/") + "/dtlmenu/"
+        try:
+            detail_resp = fetcher.get(dtlmenu_url, timeout=timeout)
+            if detail_resp.status != 200:
+                continue
+            detail_html = detail_resp.html_content
+            detail_fetches += 1
+        except Exception:
+            continue
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+
+        official_url = _extract_official_url_from_dtlmenu(detail_html)
+        if not official_url:
+            continue
+        website_host = urllib.parse.urlparse(official_url).netloc.lower().removeprefix("www.")
+        if website_host in seen_websites:
+            continue
+        seen_websites.add(website_host)
+
+        genres = _extract_genres_from_dtlmenu(detail_html)
+        matched_category = _classify_genre(genres, category=category)
+        if matched_category == "restaurant" and category in {"ramen", "izakaya"}:
+            matched_category = category
+        candidates.append(DirectoryCandidate(
+            name=name,
+            website=official_url,
+            address=_extract_address_from_dtlmenu(detail_html),
+            phone=_extract_phone_from_dtlmenu(detail_html),
+            rating=_extract_rating_from_dtlmenu(detail_html)[0],
+            review_count=_extract_rating_from_dtlmenu(detail_html)[1],
+            source="tabelog",
+            source_url=detail_url,
+            category=matched_category,
+            city=city,
+        ))
+
+    return TabelogPageResult(city, category, page, listing_url, len(listings), detail_fetches, False, candidates)
+
+
+def _tabelog_listing_url(*, city_slug: str, category_path: str, page: int, area_path: str | None = None) -> str:
+    page_suffix = "" if page == 1 else f"{page}/"
+    if area_path:
+        return f"{TABELOG_BASE}/{city_slug}/{area_path}/rstLst/{category_path}/{page_suffix}"
+    return f"{TABELOG_BASE}/{city_slug}/rstLst/{category_path}/{page_suffix}"
 
 
 def discover_area_candidates(

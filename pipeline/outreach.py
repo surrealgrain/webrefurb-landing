@@ -471,6 +471,11 @@ def _menu_sample_for_profile(establishment_profile: str, classification: str) ->
         "izakaya_food_and_drinks": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
         "izakaya_drink_heavy": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
         "izakaya_course_heavy": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
+        "izakaya_yakitori_kushiyaki": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
+        "izakaya_kushiage": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
+        "izakaya_seafood_sake_oden": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
+        "izakaya_tachinomi": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
+        "izakaya_robatayaki": OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
     }
     candidate = profile_assets.get(establishment_profile, GENERIC_MENU_PDF)
     return candidate if candidate.exists() else GENERIC_MENU_PDF

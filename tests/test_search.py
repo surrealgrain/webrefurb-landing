@@ -6,8 +6,11 @@ import json
 from pathlib import Path
 
 from pipeline.business_name import business_name_is_suspicious, extract_business_name_candidates, resolve_business_name
+from pipeline.models import QualificationResult
 from pipeline.record import normalise_lead_contacts
 from pipeline import search
+from pipeline.directory_discovery import DirectoryCandidate
+from scripts import no_send_five_city_lead_search as five_city_search
 
 
 def _tabelog_result(link: str = "https://tabelog.com/tokyo/A000/A000000/12345678/") -> dict:
@@ -42,6 +45,105 @@ def test_candidate_window_zero_means_no_cap():
     assert search._candidate_window(candidates, 0) == candidates
     assert search._candidate_window(candidates, -1) == candidates
     assert search._candidate_window(candidates, 2) == candidates[:2]
+
+
+def test_directory_checkpoint_marks_completed_pages():
+    checkpoint = five_city_search._new_checkpoint()
+
+    assert five_city_search._page_done(checkpoint, "Tokyo:ramen", 3) is False
+    five_city_search._mark_page_done(checkpoint, "Tokyo:ramen", 3)
+    five_city_search._mark_page_done(checkpoint, "Tokyo:ramen", 3)
+
+    assert five_city_search._page_done(checkpoint, "Tokyo:ramen", 3) is True
+    assert checkpoint["completed_pages"]["Tokyo:ramen"] == [3]
+
+
+def test_directory_dedup_skips_existing_host_phone_and_name_address():
+    candidate = DirectoryCandidate(
+        name="麺屋テスト",
+        website="https://menya-test.jp",
+        address="東京都渋谷区1-2-3",
+        phone="03-1234-5678",
+        source_url="https://tabelog.com/tokyo/A0000/1/",
+    )
+    keys = {
+        "emails": set(),
+        "hosts": {"menya-test.jp"},
+        "phones": set(),
+        "name_address": set(),
+        "source_urls": set(),
+    }
+
+    assert five_city_search._dedup_candidate(candidate, keys) is True
+
+    keys["hosts"] = set()
+    keys["phones"] = {"0312345678"}
+    assert five_city_search._dedup_candidate(candidate, keys) is True
+
+    keys["phones"] = set()
+    keys["name_address"] = {"麺屋テスト|東京都渋谷区1-2-3"}
+    assert five_city_search._dedup_candidate(candidate, keys) is True
+
+
+def test_directory_recoverable_rejection_persists_reviewable_pitch_card(tmp_path, monkeypatch):
+    candidate = DirectoryCandidate(
+        name="麺屋レビュー",
+        website="https://review-ramen.example",
+        address="東京都渋谷区1-2-3",
+        phone="03-1234-5678",
+        source_url="https://tabelog.com/tokyo/A0000/A000000/12345678/",
+        category="ramen",
+        city="Tokyo",
+    )
+
+    class FakeResponse:
+        status = 200
+        html_content = "<html><body>ラーメン 店舗情報</body></html>"
+
+    class FakeFetcher:
+        def get(self, url, timeout=10):
+            return FakeResponse()
+
+    def fake_routes(fetcher, website, html, *, timeout):
+        return ["owner@review-ramen.example"], website, "", {}
+
+    def fake_qualify_candidate(**kwargs):
+        return QualificationResult(
+            lead=False,
+            rejection_reason="no_menu_or_product_evidence",
+            business_name=kwargs["business_name"],
+            website=kwargs["website"],
+            category=kwargs["category"],
+            primary_category_v1="other",
+            decision_reason="Rejected: no usable menu/product evidence found.",
+        )
+
+    monkeypatch.setattr(five_city_search, "Fetcher", FakeFetcher)
+    monkeypatch.setattr(five_city_search, "_find_candidate_routes", fake_routes)
+    monkeypatch.setattr(five_city_search, "qualify_candidate", fake_qualify_candidate)
+
+    result = five_city_search._process_directory_candidate(candidate, tmp_path, timeout=3)
+
+    assert result["new_records_persisted"] == 1
+    record = json.loads(next((tmp_path / "leads").glob("*.json")).read_text(encoding="utf-8"))
+    assert record["launch_readiness_status"] == "manual_review"
+    assert record["outreach_status"] == "needs_review"
+    assert record["pitch_ready"] is False
+    assert record["pitch_card_openable"] is True
+    assert record["pitch_card_status"] in {"needs_email_review", "needs_scope_review", "needs_name_review"}
+    assert record["recovered_directory_rejection_reason"] == "no_menu_or_product_evidence"
+
+
+def test_directory_clear_hard_scope_rejection_is_not_recovered():
+    candidate = DirectoryCandidate(
+        name="鮨レビュー",
+        website="https://sushi-review.example",
+        address="東京都中央区1-2-3",
+        category="izakaya",
+    )
+
+    assert five_city_search._directory_rejection_is_recoverable("excluded_business_type_v1", candidate) is False
+    assert five_city_search._directory_rejection_is_recoverable("no_menu_or_product_evidence", candidate) is True
 
 
 def test_codex_email_text_extractor_normalizes_japanese_obfuscation():

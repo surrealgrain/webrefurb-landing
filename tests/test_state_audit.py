@@ -180,6 +180,32 @@ def test_state_audit_rejects_poisoned_name_when_locked_name_exists(tmp_path):
     assert "poisoned_name_in_customer_text" in _codes(result)
 
 
+def test_state_audit_allows_quarantined_restaurant_email_reject_name(tmp_path):
+    _write_lead(
+        tmp_path,
+        lead_id="wrm-email-v2-round-2-elissa-828-5e83eb8e",
+        business_name="elissa_828@hotmail.com",
+        locked_business_name="elissa_828@hotmail.com",
+        business_name_locked=True,
+        source_query="restaurant_email_import",
+        source_file="restaurant_email_leads.json",
+        verification_status="rejected",
+        pitch_readiness_status="rejected",
+        pitch_ready=False,
+        candidate_inbox_status="rejected",
+        outreach_status="needs_review",
+        launch_readiness_status="manual_review",
+        launch_readiness_reasons=[
+            "restaurant_email_verification_not_promoted",
+            "restaurant_email_verification_rejected",
+        ],
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert "authoritative_business_name_suspicious" not in _codes(result)
+
+
 def test_expected_dark_assets_maps_profiles():
     assert expected_dark_assets({
         "lead": True,

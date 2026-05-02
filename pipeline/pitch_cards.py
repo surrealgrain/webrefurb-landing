@@ -1,0 +1,260 @@
+from __future__ import annotations
+
+import re
+from collections import Counter
+from typing import Any
+
+
+PITCH_CARD_REVIEWABLE = "reviewable"
+PITCH_CARD_NEEDS_EMAIL_REVIEW = "needs_email_review"
+PITCH_CARD_NEEDS_NAME_REVIEW = "needs_name_review"
+PITCH_CARD_NEEDS_SCOPE_REVIEW = "needs_scope_review"
+PITCH_CARD_HARD_BLOCKED = "hard_blocked"
+PITCH_CARD_UNSUPPORTED_ROUTE = "unsupported_route"
+
+OPENABLE_PITCH_CARD_STATUSES = {
+    PITCH_CARD_REVIEWABLE,
+    PITCH_CARD_NEEDS_EMAIL_REVIEW,
+    PITCH_CARD_NEEDS_NAME_REVIEW,
+    PITCH_CARD_NEEDS_SCOPE_REVIEW,
+}
+
+PITCH_CARD_STATUS_LABELS = {
+    PITCH_CARD_REVIEWABLE: "Reviewable",
+    PITCH_CARD_NEEDS_EMAIL_REVIEW: "Needs Email Review",
+    PITCH_CARD_NEEDS_NAME_REVIEW: "Needs Name Review",
+    PITCH_CARD_NEEDS_SCOPE_REVIEW: "Needs Scope Review",
+    PITCH_CARD_HARD_BLOCKED: "Hard Blocked",
+    PITCH_CARD_UNSUPPORTED_ROUTE: "Unsupported Route",
+}
+
+_TERMINAL_UNSENDABLE_STATUSES = {"do_not_contact", "invalid", "rejected"}
+_SUPPORTED_ROUTE_TYPES = {"email", "contact_form"}
+
+_EMAIL_ARTIFACT_TOKENS = (
+    "invalid",
+    "artifact",
+    "blocked",
+    "placeholder",
+    "institutional",
+    "not a usable business email",
+    "missing direct email",
+)
+_NAME_ARTIFACT_TOKENS = (
+    "contact-derived",
+    "unsafe",
+    "malformed",
+    "malformed extraction artifact",
+)
+_SCOPE_HARD_TOKENS = (
+    "manually rejected",
+    "sushi",
+    "yakiniku",
+    "kaiseki",
+    "cafe",
+)
+_ENGLISH_SOLVED_TOKENS = (
+    "english-menu hard reject",
+    "already_has_good_english_menu",
+    "already has good english",
+    "already_has_multilingual_ordering_solution",
+    "multilingual",
+    "clear usable",
+)
+_CHAIN_TOKENS = (
+    "chain",
+    "franchise",
+    "multi-branch",
+    "multi-location",
+    "operator",
+)
+
+
+def apply_pitch_card_state(record: dict[str, Any]) -> dict[str, Any]:
+    """Attach the no-send dashboard pitch-card state to a lead record."""
+    status, reasons = assess_pitch_card_state(record)
+    record["pitch_card_status"] = status
+    record["pitch_card_reasons"] = reasons
+    record["pitch_card_openable"] = status in OPENABLE_PITCH_CARD_STATUSES
+    record["pitch_card_label"] = PITCH_CARD_STATUS_LABELS.get(status, status.replace("_", " ").title())
+    return record
+
+
+def assess_pitch_card_state(record: dict[str, Any]) -> tuple[str, list[str]]:
+    """Classify a record for no-send dashboard pitch review.
+
+    This is intentionally separate from launch readiness. A lead can be
+    pitch-card-openable while still manual-review blocked and unsendable.
+    """
+    reasons: list[str] = []
+
+    if record.get("lead") is not True:
+        return PITCH_CARD_HARD_BLOCKED, ["record is not a binary lead"]
+
+    outreach_status = str(record.get("outreach_status") or "").strip()
+    if outreach_status in _TERMINAL_UNSENDABLE_STATUSES:
+        return PITCH_CARD_HARD_BLOCKED, [f"terminal outreach status: {outreach_status}"]
+
+    hard_reasons = _hard_block_reasons(record)
+    if hard_reasons:
+        return PITCH_CARD_HARD_BLOCKED, hard_reasons
+
+    if not _has_supported_route(record):
+        return PITCH_CARD_UNSUPPORTED_ROUTE, ["no supported email or contact-form route"]
+
+    has_email_route = _has_email_route(record)
+    email_status = str(record.get("email_verification_status") or "").strip()
+    email_reason = str(record.get("email_verification_reason") or "").strip()
+    if has_email_route and email_status in {"", "needs_review"}:
+        reasons.append(email_reason or "email needs review")
+        return PITCH_CARD_NEEDS_EMAIL_REVIEW, _compact(reasons)
+
+    name_status = str(record.get("name_verification_status") or "").strip()
+    name_reason = str(record.get("name_verification_reason") or "").strip()
+    if name_status in {"", "single_source", "needs_review", "rejected"}:
+        reasons.append(name_reason or "business name needs review")
+        return PITCH_CARD_NEEDS_NAME_REVIEW, _compact(reasons)
+
+    if _needs_scope_review(record):
+        return PITCH_CARD_NEEDS_SCOPE_REVIEW, _scope_review_reasons(record)
+
+    if str(record.get("pitch_readiness_status") or "") == "needs_scope_review":
+        return PITCH_CARD_NEEDS_SCOPE_REVIEW, _compact(record.get("pitch_readiness_reasons") or ["scope needs review"])
+
+    return PITCH_CARD_REVIEWABLE, ["supported route and no hard pitch-card block"]
+
+
+def pitch_card_counts(records: list[dict[str, Any]]) -> dict[str, int]:
+    counts = Counter(str((record.get("pitch_card_status") or assess_pitch_card_state(record)[0])) for record in records)
+    openable = sum(counts[status] for status in OPENABLE_PITCH_CARD_STATUSES)
+    return {
+        "reviewable_pitch_cards": openable,
+        "needs_review": counts[PITCH_CARD_NEEDS_EMAIL_REVIEW] + counts[PITCH_CARD_NEEDS_NAME_REVIEW] + counts[PITCH_CARD_NEEDS_SCOPE_REVIEW],
+        "hard_blocked": counts[PITCH_CARD_HARD_BLOCKED],
+        "unsupported_route": counts[PITCH_CARD_UNSUPPORTED_ROUTE],
+        "ready_for_outreach": sum(1 for record in records if record.get("launch_readiness_status") == "ready_for_outreach"),
+        **dict(counts),
+    }
+
+
+def is_pitch_card_openable(record: dict[str, Any]) -> bool:
+    status = str(record.get("pitch_card_status") or assess_pitch_card_state(record)[0])
+    return status in OPENABLE_PITCH_CARD_STATUSES
+
+
+def _hard_block_reasons(record: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    rejection_reason = str(record.get("rejection_reason") or "")
+    verification_reason = str(record.get("verification_reason") or "")
+
+    chain_reason = " ".join([rejection_reason, verification_reason]).lower()
+    if str(record.get("chain_verification_status") or "") == "rejected" or _contains_any(chain_reason, _CHAIN_TOKENS):
+        reasons.append(str(record.get("chain_verification_reason") or "chain/operator hard block"))
+
+    category_reason = " ".join([
+        str(record.get("category_verification_reason") or ""),
+        rejection_reason,
+        verification_reason,
+    ]).lower()
+    if (
+        str(record.get("category_verification_status") or "") == "rejected"
+        and _contains_any(category_reason, _SCOPE_HARD_TOKENS)
+    ):
+        reasons.append(str(record.get("category_verification_reason") or "outside ramen/izakaya scope"))
+
+    english_reason = " ".join([
+        str(record.get("english_menu_check_reason") or ""),
+        rejection_reason,
+        verification_reason,
+        str(record.get("english_availability") or ""),
+    ]).lower()
+    if str(record.get("english_menu_check_status") or "") == "rejected" or _contains_any(english_reason, _ENGLISH_SOLVED_TOKENS):
+        reasons.append(str(record.get("english_menu_check_reason") or "confirmed English/multilingual solution"))
+
+    email_reason = str(record.get("email_verification_reason") or "").lower()
+    if str(record.get("email_verification_status") or "") == "rejected" and _contains_any(email_reason, _EMAIL_ARTIFACT_TOKENS):
+        reasons.append(str(record.get("email_verification_reason") or "invalid email artifact"))
+
+    name_reason = str(record.get("name_verification_reason") or "").lower()
+    if str(record.get("name_verification_status") or "") == "rejected" and _contains_any(name_reason, _NAME_ARTIFACT_TOKENS):
+        reasons.append(str(record.get("name_verification_reason") or "unsafe business name"))
+
+    if record.get("manual_review_required") is True and str(record.get("inventory_review_reason") or "").lower() in {"hard_blocked", "invalid_email_artifact"}:
+        reasons.append(str(record.get("inventory_review_reason")))
+
+    return _compact(reasons)
+
+
+def _needs_scope_review(record: dict[str, Any]) -> bool:
+    if str(record.get("city_verification_status") or "") == "needs_review":
+        return True
+    if str(record.get("category_verification_status") or "") in {"needs_review", "rejected"}:
+        return True
+    if str(record.get("chain_verification_status") or "") == "needs_review":
+        return True
+    if str(record.get("source_strength") or "") in {"directory", "weak_source"}:
+        return True
+    if str(record.get("primary_category_v1") or record.get("category") or "") in {"", "other", "restaurant", "general_japanese_review"}:
+        return True
+    return False
+
+
+def _scope_review_reasons(record: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    for field in (
+        "city_verification_reason",
+        "category_verification_reason",
+        "chain_verification_reason",
+        "source_strength_reason",
+    ):
+        value = str(record.get(field) or "").strip()
+        if value:
+            reasons.append(value)
+    if not reasons:
+        reasons.append("scope needs review")
+    return _compact(reasons)
+
+
+def _has_supported_route(record: dict[str, Any]) -> bool:
+    if _has_email_route(record):
+        return True
+    for contact in record.get("contacts") or []:
+        if not isinstance(contact, dict):
+            continue
+        contact_type = str(contact.get("type") or "").strip()
+        if contact_type != "contact_form":
+            continue
+        if contact.get("actionable") is False:
+            continue
+        return True
+    return False
+
+
+def _has_email_route(record: dict[str, Any]) -> bool:
+    email = str(record.get("email") or "").strip()
+    if email and re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return True
+    for contact in record.get("contacts") or []:
+        if not isinstance(contact, dict):
+            continue
+        contact_type = str(contact.get("type") or "").strip()
+        if contact_type != "email" or contact.get("actionable") is False:
+            continue
+        value = str(contact.get("value") or "").strip()
+        if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+            return True
+    return False
+
+
+def _contains_any(text: str, tokens: tuple[str, ...]) -> bool:
+    lowered = text.lower()
+    return any(token in lowered for token in tokens)
+
+
+def _compact(values: Any) -> list[str]:
+    result: list[str] = []
+    for value in values or []:
+        text = str(value or "").strip()
+        if text and text not in result:
+            result.append(text)
+    return result[:4]

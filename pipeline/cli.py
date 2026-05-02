@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from .utils import load_project_env, slugify
+from .utils import load_project_env, slugify, utc_now
 
 
 def main() -> None:
@@ -21,6 +21,7 @@ def main() -> None:
     search_cmd.add_argument("--api-key", default="")
     search_cmd.add_argument("--search-provider", default=None, choices=["webserper", "serper", "local"], help="Search provider; defaults to WEBREFURB_SEARCH_PROVIDER or WebSerper")
     search_cmd.add_argument("--category", default="ramen")
+    search_cmd.add_argument("--max-candidates", type=int, default=0, help="Max candidates to process; 0 means no cap")
 
     # manual-add
     manual_cmd = sub.add_parser("manual-add", help="Manually add a business")
@@ -85,6 +86,11 @@ def main() -> None:
     audit_cmd = sub.add_parser("audit-state", help="Audit persisted lead state for stale assets and name drift")
     audit_cmd.add_argument("--state-root", default=None, help="Override state root")
     audit_cmd.add_argument("--repair", action="store_true", help="Repair deterministic state drift before auditing")
+
+    verify_restaurant_cmd = sub.add_parser("verify-restaurant-leads", help="Run the no-send restaurant email lead verification pass")
+    verify_restaurant_cmd.add_argument("--state-root", default=None, help="Override state root")
+    verify_restaurant_cmd.add_argument("--dry-run", action="store_true", help="Report verification results without writing lead records")
+    verify_restaurant_cmd.add_argument("--summary-path", default=None, help="Write verification summary JSON to this path")
 
     smoke_cmd = sub.add_parser("launch-smoke", help="Create a no-send launch rehearsal from ready leads")
     smoke_cmd.add_argument("--lead-id", action="append", required=True, help="Lead ID to include; repeat 5-10 times")
@@ -188,6 +194,7 @@ def main() -> None:
             serper_api_key=args.api_key,
             category=args.category,
             search_provider=args.search_provider,
+            max_candidates=args.max_candidates,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
@@ -416,6 +423,23 @@ def main() -> None:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         if not result["ok"]:
             sys.exit(1)
+
+    elif args.command == "verify-restaurant-leads":
+        from pathlib import Path as _P
+
+        from .restaurant_lead_verification import verify_restaurant_lead_queue
+
+        state_root = _P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state"
+        summary_path = _P(args.summary_path) if args.summary_path else state_root / "lead_imports" / f"restaurant_lead_verification_{slugify(utc_now())}.json"
+        result = verify_restaurant_lead_queue(
+            state_root=state_root,
+            dry_run=bool(args.dry_run),
+            summary_path=summary_path,
+        )
+        print(json.dumps({
+            "summary_path": str(summary_path),
+            **result,
+        }, indent=2, ensure_ascii=False))
 
     elif args.command == "launch-smoke":
         from pathlib import Path as _P
