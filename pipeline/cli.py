@@ -103,6 +103,12 @@ def main() -> None:
     launch_decision_cmd.add_argument("--output-dir", default=None, help="Decision artifact output directory")
     launch_decision_cmd.add_argument("--label", default="batch3-no-send", help="Artifact filename label")
 
+    review_batch_cmd = sub.add_parser("review-batch", help="Write a no-send pitch-card review batch brief")
+    review_batch_cmd.add_argument("--state-root", default=None, help="Override state root")
+    review_batch_cmd.add_argument("--output-dir", default=None, help="Review artifact output directory")
+    review_batch_cmd.add_argument("--label", default="pitch-card-review", help="Artifact filename label")
+    review_batch_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards to include")
+
     sim_cmd = sub.add_parser("production-sim", help="Run no-send production simulation replay")
     sim_sub = sim_cmd.add_subparsers(dest="production_sim_command")
     sim_collect = sim_sub.add_parser("collect", help="Collect a no-send pilot/broad search replay corpus")
@@ -472,6 +478,33 @@ def main() -> None:
                 "eligible_count": result["candidate_pool"]["eligible_count"],
                 "candidate_set_complete": result["candidate_pool"]["candidate_set_complete"],
                 "required_mix": result["candidate_pool"]["required_mix"],
+            },
+            "artifact_paths": result["artifact_paths"],
+        }, indent=2, ensure_ascii=False))
+
+    elif args.command == "review-batch":
+        from pathlib import Path as _P
+
+        from .review_batches import write_no_send_review_batch_brief
+
+        result = write_no_send_review_batch_brief(
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+            output_dir=_P(args.output_dir) if args.output_dir else None,
+            label=str(args.label or "pitch-card-review"),
+            batch_size=int(args.batch_size),
+        )
+        print(json.dumps({
+            "scope": result["scope"],
+            "batch_size": result["batch_size"],
+            "no_send_safety": result["no_send_safety"],
+            "counts": {
+                "records": result["counts"]["records"],
+                "openable_pitch_cards": result["counts"]["openable_pitch_cards"],
+                "unreviewed_openable_pitch_cards": result["counts"]["unreviewed_openable_pitch_cards"],
+                "selected_review_queue": result["counts"]["selected_review_queue"],
+                "pitch_card_counts": result["counts"]["pitch_card_counts"],
+                "review_lane_counts": result["counts"]["review_lane_counts"],
+                "profile_counts": result["counts"]["profile_counts"],
             },
             "artifact_paths": result["artifact_paths"],
         }, indent=2, ensure_ascii=False))

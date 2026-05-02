@@ -19,20 +19,22 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - P2 Verification: 2.1 fields done; 2.2 verifier pass done; 2.3 hard blocks quarantined; 2.4 unresolved email/name/scope cases stay manual review.
 - P3 Dashboard review: 3.1 previews done; 3.2 filters done; 3.3 route/profile filters done; 3.4 lanes done; 3.5 no-send outcome workflow active.
 - P4 Promotion: 4.1 hold/needs-info/reject outcomes only; 4.2 approve/promote-to-pitch_ready not built; 4.3 launch readiness remains blocked.
-- P5 GLM: 5.1 category counts pending; 5.2 briefs not started; 5.3 locked profile asset mapping pending.
-- P6 Pitch packs: 6.1 batch dimensions pending; 6.2 GLM-locked asset routing pending; 6.3 draft generation/review pending.
+- P5 GLM: 5.1 category counts active; 5.2 no-send review briefs generated; 5.3 locked profile asset mapping active.
+- P6 Pitch packs: 6.1 review-batch dimensions active; 6.2 GLM-locked asset routing pending; 6.3 draft generation/review pending.
 - P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 final gate not started.
 ## Implementation State
 - Added no-key `duckduckgo-contact` acquisition mode; it searches official contact-page results and persists only no-send manual-review cards.
 - Tabelog subarea scanning and Japanese inquiry/contact route recovery remain available; city-wide Tabelog remains exhausted below target.
 - No-send persistence now forces manual-review/needs-review after lead hardening, and DDG import filters obvious chain/manufacturer hosts such as Ichiran.
 - Live acquisition reached the 400-card target: +73 openable cards this turn, from 328/522 to 401/596.
+- Added `pipeline.cli review-batch`; latest ignored artifact: `state/review_batches/pitch-card-review-401-20260502T142945Z.*` with 120 selected no-send review cards.
+- GLM profile counts: ramen_only 191, izakaya_food_and_drinks 117, yakitori/kushiyaki 44, seafood/sake/oden 24, kushiage 10, tachinomi 7, course 5, plus small specialty profiles.
 ## Blockers / Next Work
 - Serper still returns `Not enough credits`; Google Places key is unavailable; provider-backed search is still blocked.
-- Ignored `state/` inventory changed locally; tracked code/handoff changes are the durable commit artifacts.
+- Ignored `state/` inventory and review-batch artifacts changed locally; tracked code/handoff changes are the durable commit artifacts.
 - `audit-state` has reported pre-existing launch/smoke asset-profile drift; live no-send safety counters remain clean.
-- Next lane: manual review/triage of the 401 openable cards, then GLM category-count/design brief work when review outcomes are ready.
+- Next lane: operator review the selected 120-card no-send batch, saving only hold/needs-info/reject outcomes.
 ## Last Verification
 - Tests: `tests/test_search.py -q` 60 passed; `tests/test_contact_crawler.py -q` 17 passed.
-- Requested focused tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed.
+- Requested focused tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed; `tests/test_review_batches.py -q` 2 passed.
 - Live safety audit: 596 manual-review records; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`; no outreach happened.

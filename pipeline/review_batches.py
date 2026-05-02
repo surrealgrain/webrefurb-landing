@@ -1,0 +1,385 @@
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any
+
+from .pitch_cards import OPENABLE_PITCH_CARD_STATUSES, pitch_card_counts
+from .record import get_primary_contact, list_leads
+from .utils import ensure_dir, slugify, utc_now, write_json, write_text
+
+
+APPROVED_REVIEW_ROUTE_TYPES = {"email", "contact_form"}
+REFERENCE_ONLY_ROUTE_TYPES = {"phone", "line", "instagram", "reservation", "map_url", "walk_in", "website"}
+
+PITCH_CARD_REVIEW_ORDER = {
+    "needs_email_review": 0,
+    "reviewable": 1,
+    "needs_name_review": 2,
+    "needs_scope_review": 3,
+}
+
+QUALITY_ORDER = {"v1_clean": 0, "high": 1, "medium": 2, "low": 3}
+CITY_ORDER = {"Tokyo": 0, "Osaka": 1, "Sapporo": 2, "Fukuoka": 3, "Kyoto": 4}
+
+PROFILE_LABELS = {
+    "ramen_ticket_machine": "Ramen Ticket Machine",
+    "ramen_only": "Ramen Menu Translation",
+    "ramen_with_drinks": "Ramen With Drinks",
+    "ramen_with_sides_add_ons": "Ramen With Sides / Add-ons",
+    "izakaya_food_and_drinks": "Izakaya Food And Drinks",
+    "izakaya_drink_heavy": "Izakaya Drinks / Courses",
+    "izakaya_course_heavy": "Izakaya Courses",
+    "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki",
+    "izakaya_kushiage": "Kushikatsu / Kushiage",
+    "izakaya_seafood_sake_oden": "Seafood / Sake / Oden",
+    "izakaya_tachinomi": "Tachinomi",
+    "izakaya_robatayaki": "Robatayaki",
+}
+
+PROFILE_ASSET_GUIDANCE = {
+    "ramen_ticket_machine": {
+        "family": "ramen",
+        "asset_profile": "ramen_food_menu + ticket_machine_guide",
+        "brief": "Prioritize compact item names, topping clarity, and a ticket-machine ordering explainer.",
+    },
+    "ramen_only": {
+        "family": "ramen",
+        "asset_profile": "ramen_food_menu",
+        "brief": "Prioritize one-page ramen translation with soup, noodle, topping, and set-menu sections.",
+    },
+    "ramen_with_drinks": {
+        "family": "ramen",
+        "asset_profile": "ramen_food_menu + ramen_drinks_menu",
+        "brief": "Prioritize ramen item clarity with a small drink section for beer, highball, and pairings.",
+    },
+    "ramen_with_sides_add_ons": {
+        "family": "ramen",
+        "asset_profile": "ramen_food_menu",
+        "brief": "Prioritize ramen, toppings, side dishes, add-ons, and set combinations on one compact page.",
+    },
+    "izakaya_food_and_drinks": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_food_menu + izakaya_drinks_menu",
+        "brief": "Prioritize food and drink pairing clarity, house recommendations, and group-order scanning.",
+    },
+    "izakaya_drink_heavy": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_drinks_menu",
+        "brief": "Prioritize drink categories, all-you-can-drink rules, and concise pairing notes.",
+    },
+    "izakaya_course_heavy": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize course structure, reservation notes, drink-plan options, and per-person pricing clarity.",
+    },
+    "izakaya_yakitori_kushiyaki": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize skewer cuts, sauce/salt options, set platters, and drink pairing sections.",
+    },
+    "izakaya_kushiage": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize fried skewer categories, dipping rules, set counts, and allergen-friendly labels.",
+    },
+    "izakaya_seafood_sake_oden": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize seasonal seafood, sake/shochu pairing, oden items, and freshness notes.",
+    },
+    "izakaya_tachinomi": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_drinks_menu",
+        "brief": "Prioritize fast scanning, small plates, drink rounds, and standing-bar ordering cues.",
+    },
+    "izakaya_robatayaki": {
+        "family": "izakaya",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize grill categories, ingredient display, doneness notes, and shared-plate ordering.",
+    },
+}
+
+
+def build_no_send_review_batch(*, state_root: Path, batch_size: int = 120) -> dict[str, Any]:
+    """Build a no-send pitch-card review batch without mutating lead state."""
+    records = list_leads(state_root=state_root)
+    openable_records = [
+        record
+        for record in records
+        if str(record.get("pitch_card_status") or "") in OPENABLE_PITCH_CARD_STATUSES
+    ]
+    unreviewed_records = [
+        record
+        for record in openable_records
+        if not str(record.get("operator_review_outcome") or "").strip()
+    ]
+    queue = [_review_queue_entry(record) for record in sorted(unreviewed_records, key=_review_sort_key)]
+    queue = [entry for entry in queue if entry["primary_route_type"] in APPROVED_REVIEW_ROUTE_TYPES][: max(0, batch_size)]
+
+    return {
+        "generated_at": utc_now(),
+        "scope": "no_send_pitch_card_review_batch",
+        "batch_size": batch_size,
+        "no_send_safety": _safety_summary(records),
+        "counts": {
+            "records": len(records),
+            "openable_pitch_cards": len(openable_records),
+            "unreviewed_openable_pitch_cards": len(unreviewed_records),
+            "selected_review_queue": len(queue),
+            "pitch_card_counts": pitch_card_counts(records),
+            "route_counts": _counter(records, _primary_route_type),
+            "approved_review_route_counts": _counter(openable_records, _primary_route_type, allowed=APPROVED_REVIEW_ROUTE_TYPES),
+            "review_outcome_counts": _review_outcome_counts(openable_records),
+            "review_lane_counts": _counter(openable_records, _review_lane),
+            "city_counts": _counter(openable_records, lambda record: str(record.get("city") or "unknown")),
+            "category_counts": _nested_counter(openable_records, _primary_category, _menu_type),
+            "profile_counts": _counter(openable_records, _profile_id),
+        },
+        "glm": {
+            "category_counts": _glm_category_counts(openable_records),
+            "design_briefs": _glm_design_briefs(openable_records),
+        },
+        "review_queue": queue,
+        "next_actions": [
+            "Review selected cards using email/contact-form routes only; do not send or submit.",
+            "Save hold, needs_more_info, or reject outcomes for manual-review tracking.",
+            "Keep launch readiness manual_review until an explicit outbound approval gate is added.",
+        ],
+    }
+
+
+def write_no_send_review_batch_brief(
+    *,
+    state_root: Path,
+    output_dir: Path | None = None,
+    label: str = "pitch-card-review",
+    batch_size: int = 120,
+) -> dict[str, Any]:
+    batch = build_no_send_review_batch(state_root=state_root, batch_size=batch_size)
+    output_dir = output_dir or state_root / "review_batches"
+    ensure_dir(output_dir)
+    stamp = batch["generated_at"].replace(":", "").replace("-", "").split("+")[0]
+    base = output_dir / f"{slugify(label)}-{stamp}Z"
+    json_path = base.with_suffix(".json")
+    md_path = base.with_suffix(".md")
+    write_json(json_path, batch)
+    write_text(md_path, _review_batch_markdown(batch))
+    batch["artifact_paths"] = {"json": str(json_path), "markdown": str(md_path)}
+    write_json(json_path, batch)
+    return batch
+
+
+def _safety_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "real_outbound_allowed": False,
+        "contact_form_submit_allowed": False,
+        "email_send_allowed": False,
+        "approved_review_route_types": sorted(APPROVED_REVIEW_ROUTE_TYPES),
+        "reference_only_route_types": sorted(REFERENCE_ONLY_ROUTE_TYPES),
+        "launch_readiness_status_counts": _counter(records, lambda record: str(record.get("launch_readiness_status") or "unknown")),
+        "outreach_status_counts": _counter(records, lambda record: str(record.get("outreach_status") or "unknown")),
+        "ready_for_outreach": sum(1 for record in records if record.get("launch_readiness_status") == "ready_for_outreach"),
+        "pitch_ready": sum(1 for record in records if record.get("pitch_ready") is True),
+        "outreach_status_new": sum(1 for record in records if record.get("outreach_status") == "new"),
+    }
+
+
+def _review_queue_entry(record: dict[str, Any]) -> dict[str, Any]:
+    primary = get_primary_contact(record) or {}
+    route_type = str(primary.get("type") or "")
+    return {
+        "lead_id": str(record.get("lead_id") or ""),
+        "business_name": str(record.get("business_name") or ""),
+        "city": str(record.get("city") or ""),
+        "address": str(record.get("address") or ""),
+        "primary_category": _primary_category(record),
+        "menu_type": _menu_type(record),
+        "establishment_profile": _profile_id(record),
+        "establishment_profile_label": PROFILE_LABELS.get(_profile_id(record), _profile_id(record).replace("_", " ").title()),
+        "pitch_card_status": str(record.get("pitch_card_status") or ""),
+        "review_lane": _review_lane(record),
+        "primary_route_type": route_type,
+        "primary_route_value": _approved_route_value(primary),
+        "quality_tier": str(record.get("quality_tier") or ""),
+        "source_strength": str(record.get("source_strength") or ""),
+        "review_action": _review_action(record),
+        "pitch_card_reasons": list(record.get("pitch_card_reasons") or [])[:4],
+    }
+
+
+def _review_sort_key(record: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        PITCH_CARD_REVIEW_ORDER.get(str(record.get("pitch_card_status") or ""), 99),
+        QUALITY_ORDER.get(str(record.get("quality_tier") or ""), 99),
+        CITY_ORDER.get(str(record.get("city") or ""), 99),
+        str(record.get("establishment_profile") or ""),
+        str(record.get("business_name") or ""),
+        str(record.get("lead_id") or ""),
+    )
+
+
+def _review_action(record: dict[str, Any]) -> str:
+    lane = _review_lane(record)
+    if lane == "email_route_review":
+        return "Confirm the saved address is a business owner route, then hold or needs_more_info."
+    if lane == "contact_form_review":
+        return "Open the form only for inspection; do not submit. Confirm it is a business contact route."
+    if lane == "name_review":
+        return "Confirm the saved shop name is not a directory or extraction artifact."
+    if lane == "scope_review":
+        return "Confirm Japan ramen/izakaya scope and reject non-scope records."
+    return "Review evidence and save a no-send manual outcome."
+
+
+def _review_lane(record: dict[str, Any]) -> str:
+    route_type = _primary_route_type(record)
+    pitch_status = str(record.get("pitch_card_status") or "")
+    if route_type == "contact_form":
+        return "contact_form_review"
+    if pitch_status == "needs_email_review":
+        return "email_route_review"
+    if pitch_status == "needs_name_review":
+        return "name_review"
+    if pitch_status == "needs_scope_review":
+        return "scope_review"
+    if pitch_status == "reviewable":
+        return "final_quality_review"
+    return "blocked"
+
+
+def _approved_route_value(primary: dict[str, Any]) -> str:
+    route_type = str(primary.get("type") or "")
+    if route_type not in APPROVED_REVIEW_ROUTE_TYPES:
+        return ""
+    return str(primary.get("value") or primary.get("url") or primary.get("label") or "")
+
+
+def _primary_route_type(record: dict[str, Any]) -> str:
+    primary = get_primary_contact(record) or {}
+    return str(primary.get("type") or "none")
+
+
+def _primary_category(record: dict[str, Any]) -> str:
+    return str(record.get("primary_category_v1") or record.get("type_of_restaurant") or "unknown")
+
+
+def _menu_type(record: dict[str, Any]) -> str:
+    return str(record.get("menu_type") or "unknown")
+
+
+def _profile_id(record: dict[str, Any]) -> str:
+    return str(record.get("establishment_profile_override") or record.get("establishment_profile") or "unknown")
+
+
+def _review_outcome_counts(records: list[dict[str, Any]]) -> dict[str, int]:
+    counts = Counter(str(record.get("operator_review_outcome") or "not_reviewed") for record in records)
+    counts["reviewed"] = sum(value for key, value in counts.items() if key != "not_reviewed")
+    return dict(sorted(counts.items()))
+
+
+def _counter(
+    records: list[dict[str, Any]],
+    key_fn: Any,
+    *,
+    allowed: set[str] | None = None,
+) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for record in records:
+        value = str(key_fn(record) or "unknown")
+        if allowed is not None and value not in allowed:
+            continue
+        counts[value] += 1
+    return dict(sorted(counts.items()))
+
+
+def _nested_counter(records: list[dict[str, Any]], outer_fn: Any, inner_fn: Any) -> dict[str, dict[str, int]]:
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for record in records:
+        counts[str(outer_fn(record) or "unknown")][str(inner_fn(record) or "unknown")] += 1
+    return {outer: dict(sorted(inner.items())) for outer, inner in sorted(counts.items())}
+
+
+def _glm_category_counts(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for profile, profile_records in _grouped(records, _profile_id).items():
+        guidance = PROFILE_ASSET_GUIDANCE.get(profile, {})
+        result[profile] = {
+            "profile_label": PROFILE_LABELS.get(profile, profile.replace("_", " ").title()),
+            "template_owner": "GLM",
+            "template_edit_policy": "locked_glm_seedstyle_only",
+            "family": guidance.get("family", "manual_review"),
+            "asset_profile": guidance.get("asset_profile", "manual_review"),
+            "openable_cards": len(profile_records),
+            "review_lanes": _counter(profile_records, _review_lane),
+            "routes": _counter(profile_records, _primary_route_type),
+            "categories": _nested_counter(profile_records, _primary_category, _menu_type),
+            "cities": _counter(profile_records, lambda record: str(record.get("city") or "unknown")),
+        }
+    return result
+
+
+def _glm_design_briefs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    briefs: list[dict[str, Any]] = []
+    for profile, profile_records in sorted(_grouped(records, _profile_id).items()):
+        guidance = PROFILE_ASSET_GUIDANCE.get(profile, {})
+        briefs.append({
+            "profile_id": profile,
+            "profile_label": PROFILE_LABELS.get(profile, profile.replace("_", " ").title()),
+            "template_owner": "GLM",
+            "template_edit_policy": "locked_glm_seedstyle_only",
+            "family": guidance.get("family", "manual_review"),
+            "asset_profile": guidance.get("asset_profile", "manual_review"),
+            "openable_cards": len(profile_records),
+            "unreviewed_cards": sum(1 for record in profile_records if not str(record.get("operator_review_outcome") or "").strip()),
+            "review_lane_counts": _counter(profile_records, _review_lane),
+            "route_counts": _counter(profile_records, _primary_route_type),
+            "city_counts": _counter(profile_records, lambda record: str(record.get("city") or "unknown")),
+            "brief": guidance.get("brief", "Confirm scope and route quality before assigning locked GLM assets."),
+        })
+    return briefs
+
+
+def _grouped(records: list[dict[str, Any]], key_fn: Any) -> dict[str, list[dict[str, Any]]]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for record in records:
+        groups[str(key_fn(record) or "unknown")].append(record)
+    return dict(groups)
+
+
+def _review_batch_markdown(batch: dict[str, Any]) -> str:
+    safety = batch["no_send_safety"]
+    counts = batch["counts"]
+    lines = [
+        "# No-Send Pitch-Card Review Batch",
+        "",
+        f"Generated: {batch['generated_at']}",
+        "",
+        "Real outbound allowed: `false`.",
+        "Email sending and contact-form submission are blocked for this batch.",
+        "",
+        "## Queue",
+        "",
+        f"- Openable pitch cards: `{counts['openable_pitch_cards']}`",
+        f"- Unreviewed openable cards: `{counts['unreviewed_openable_pitch_cards']}`",
+        f"- Selected review queue: `{counts['selected_review_queue']}`",
+        f"- Ready for outreach: `{safety['ready_for_outreach']}`",
+        f"- Pitch ready: `{safety['pitch_ready']}`",
+        f"- Outreach status new: `{safety['outreach_status_new']}`",
+        "",
+        "## GLM Briefs",
+        "",
+    ]
+    for brief in batch["glm"]["design_briefs"]:
+        lines.append(
+            f"- `{brief['profile_id']}`: `{brief['openable_cards']}` cards, "
+            f"asset profile `{brief['asset_profile']}`. {brief['brief']}"
+        )
+    lines.extend(["", "## Selected Review Cards", ""])
+    for entry in batch["review_queue"]:
+        lines.append(
+            f"- `{entry['lead_id']}` | {entry['business_name']} | {entry['city']} | "
+            f"`{entry['review_lane']}` | `{entry['primary_route_type']}` | `{entry['establishment_profile']}`"
+        )
+    lines.append("")
+    return "\n".join(lines)
