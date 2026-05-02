@@ -109,6 +109,12 @@ def main() -> None:
     review_batch_cmd.add_argument("--label", default="pitch-card-review", help="Artifact filename label")
     review_batch_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards to include")
 
+    review_wave_cmd = sub.add_parser("review-wave", help="Write no-send pitch-card review waves for all unreviewed cards")
+    review_wave_cmd.add_argument("--state-root", default=None, help="Override state root")
+    review_wave_cmd.add_argument("--output-dir", default=None, help="Review artifact output directory")
+    review_wave_cmd.add_argument("--label", default="pitch-card-review-wave", help="Artifact filename label")
+    review_wave_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards per wave batch")
+
     sim_cmd = sub.add_parser("production-sim", help="Run no-send production simulation replay")
     sim_sub = sim_cmd.add_subparsers(dest="production_sim_command")
     sim_collect = sim_sub.add_parser("collect", help="Collect a no-send pilot/broad search replay corpus")
@@ -524,6 +530,62 @@ def main() -> None:
                 "forbidden_actions": result["review_throughput"]["forbidden_actions"],
                 "required_state": result["review_throughput"]["required_state"],
             },
+            "artifact_paths": result["artifact_paths"],
+        }, indent=2, ensure_ascii=False))
+
+    elif args.command == "review-wave":
+        from pathlib import Path as _P
+
+        from .review_batches import write_no_send_review_wave_brief
+
+        result = write_no_send_review_wave_brief(
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+            output_dir=_P(args.output_dir) if args.output_dir else None,
+            label=str(args.label or "pitch-card-review-wave"),
+            batch_size=int(args.batch_size),
+        )
+        print(json.dumps({
+            "scope": result["scope"],
+            "batch_size": result["batch_size"],
+            "no_send_safety": result["no_send_safety"],
+            "counts": {
+                "records": result["counts"]["records"],
+                "openable_pitch_cards": result["counts"]["openable_pitch_cards"],
+                "unreviewed_openable_pitch_cards": result["counts"]["unreviewed_openable_pitch_cards"],
+                "approved_route_review_cards": result["counts"]["approved_route_review_cards"],
+                "batch_count": result["counts"]["batch_count"],
+                "operator_pack_count": result["counts"]["operator_pack_count"],
+                "pitch_card_counts": result["counts"]["pitch_card_counts"],
+                "review_lane_counts": result["counts"]["review_lane_counts"],
+                "profile_counts": result["counts"]["profile_counts"],
+            },
+            "glm": {
+                "wave_briefs": len(result["glm"]["wave_briefs"]),
+            },
+            "pitch_pack_plan": {
+                "selected_cards": result["pitch_pack_plan"]["selected_cards"],
+                "stage": result["pitch_pack_plan"]["stage"],
+                "email_policy": result["pitch_pack_plan"]["email_policy"],
+                "contact_form_policy": result["pitch_pack_plan"]["contact_form_policy"],
+                "attachment_policy_counts": result["pitch_pack_plan"]["attachment_policy_counts"],
+                "glm_reference_asset_counts": result["pitch_pack_plan"]["glm_reference_asset_counts"],
+            },
+            "review_throughput": {
+                "operator_pack_count": result["review_throughput"]["operator_pack_count"],
+                "operator_pack_size": result["review_throughput"]["operator_pack_size"],
+                "allowed_operator_outcomes": result["review_throughput"]["allowed_operator_outcomes"],
+                "forbidden_actions": result["review_throughput"]["forbidden_actions"],
+                "required_state": result["review_throughput"]["required_state"],
+            },
+            "batches": [
+                {
+                    "batch_id": batch["batch_id"],
+                    "card_count": batch["card_count"],
+                    "review_lane_counts": batch["review_lane_counts"],
+                    "operator_pack_count": batch["review_throughput"]["operator_pack_count"],
+                }
+                for batch in result["batches"]
+            ],
             "artifact_paths": result["artifact_paths"],
         }, indent=2, ensure_ascii=False))
 

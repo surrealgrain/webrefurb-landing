@@ -198,6 +198,95 @@ def write_no_send_review_batch_brief(
     return batch
 
 
+def build_no_send_review_wave(*, state_root: Path, batch_size: int = 120) -> dict[str, Any]:
+    """Build no-send review waves for all unreviewed approved-route pitch cards."""
+    records = list_leads(state_root=state_root)
+    openable_records = [
+        record
+        for record in records
+        if str(record.get("pitch_card_status") or "") in OPENABLE_PITCH_CARD_STATUSES
+    ]
+    unreviewed_records = [
+        record
+        for record in openable_records
+        if not str(record.get("operator_review_outcome") or "").strip()
+    ]
+    queue = [_review_queue_entry(record) for record in sorted(unreviewed_records, key=_review_sort_key)]
+    queue = [entry for entry in queue if entry["primary_route_type"] in APPROVED_REVIEW_ROUTE_TYPES]
+    effective_batch_size = max(1, int(batch_size))
+    batches = [
+        _review_wave_batch(
+            batch_index=index + 1,
+            entries=queue[offset : offset + effective_batch_size],
+            total_batches=(len(queue) + effective_batch_size - 1) // effective_batch_size,
+        )
+        for index, offset in enumerate(range(0, len(queue), effective_batch_size))
+    ]
+
+    return {
+        "generated_at": utc_now(),
+        "scope": "no_send_pitch_card_review_wave",
+        "batch_size": effective_batch_size,
+        "no_send_safety": _safety_summary(records),
+        "counts": {
+            "records": len(records),
+            "openable_pitch_cards": len(openable_records),
+            "unreviewed_openable_pitch_cards": len(unreviewed_records),
+            "approved_route_review_cards": len(queue),
+            "batch_count": len(batches),
+            "operator_pack_count": sum(batch["review_throughput"]["operator_pack_count"] for batch in batches),
+            "pitch_card_counts": pitch_card_counts(records),
+            "route_counts": _counter(records, _primary_route_type),
+            "approved_review_route_counts": _counter(openable_records, _primary_route_type, allowed=APPROVED_REVIEW_ROUTE_TYPES),
+            "review_outcome_counts": _review_outcome_counts(openable_records),
+            "review_lane_counts": _entry_counter(queue, "review_lane"),
+            "city_counts": _entry_counter(queue, "city"),
+            "profile_counts": _entry_counter(queue, "establishment_profile"),
+        },
+        "glm": {
+            "category_counts": _glm_category_counts(openable_records),
+            "design_briefs": _glm_design_briefs(openable_records),
+            "wave_briefs": _selected_glm_briefs(queue),
+        },
+        "pitch_pack_plan": _pitch_pack_plan(queue),
+        "review_throughput": {
+            "selected_cards": len(queue),
+            "operator_pack_size": DEFAULT_OPERATOR_PACK_SIZE,
+            "operator_pack_count": sum(batch["review_throughput"]["operator_pack_count"] for batch in batches),
+            "allowed_operator_outcomes": list(ALLOWED_REVIEW_OUTCOMES),
+            "forbidden_actions": list(FORBIDDEN_REVIEW_ACTIONS),
+            "required_state": dict(REQUIRED_REVIEW_STATE),
+        },
+        "batches": batches,
+        "next_actions": [
+            "Work batches in order and save only hold, needs_more_info, or reject outcomes.",
+            "Do not send emails, submit contact forms, promote records, or set pitch_ready.",
+            "Regenerate the wave after operator outcomes are saved so reviewed cards fall out of the queue.",
+        ],
+    }
+
+
+def write_no_send_review_wave_brief(
+    *,
+    state_root: Path,
+    output_dir: Path | None = None,
+    label: str = "pitch-card-review-wave",
+    batch_size: int = 120,
+) -> dict[str, Any]:
+    wave = build_no_send_review_wave(state_root=state_root, batch_size=batch_size)
+    output_dir = output_dir or state_root / "review_batches"
+    ensure_dir(output_dir)
+    stamp = wave["generated_at"].replace(":", "").replace("-", "").split("+")[0]
+    base = output_dir / f"{slugify(label)}-{stamp}Z"
+    json_path = base.with_suffix(".json")
+    md_path = base.with_suffix(".md")
+    write_json(json_path, wave)
+    write_text(md_path, _review_wave_markdown(wave))
+    wave["artifact_paths"] = {"json": str(json_path), "markdown": str(md_path)}
+    write_json(json_path, wave)
+    return wave
+
+
 def _safety_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "real_outbound_allowed": False,
@@ -485,6 +574,7 @@ def _operator_review_packs(
     queue: list[dict[str, Any]],
     *,
     pack_size: int = DEFAULT_OPERATOR_PACK_SIZE,
+    pack_id_prefix: str = "",
 ) -> list[dict[str, Any]]:
     packs: list[dict[str, Any]] = []
     if pack_size <= 0:
@@ -500,7 +590,7 @@ def _operator_review_packs(
             review_lane = str(chunk[0].get("review_lane") or "manual_review")
             pack_number = len(packs) + 1
             packs.append({
-                "pack_id": f"pack-{pack_number:02d}-{slugify(group_key)}",
+                "pack_id": f"{pack_id_prefix}pack-{pack_number:02d}-{slugify(group_key)}",
                 "scope": "no_send_manual_review_only",
                 "card_count": len(chunk),
                 "review_lane": review_lane,
@@ -517,6 +607,35 @@ def _operator_review_packs(
                 "lead_ids": [str(entry["lead_id"]) for entry in chunk],
             })
     return packs
+
+
+def _review_wave_batch(*, batch_index: int, entries: list[dict[str, Any]], total_batches: int) -> dict[str, Any]:
+    operator_packs = _operator_review_packs(entries, pack_id_prefix=f"batch-{batch_index:02d}-")
+    return {
+        "batch_id": f"review-wave-{batch_index:02d}",
+        "scope": "no_send_manual_review_only",
+        "batch_index": batch_index,
+        "total_batches": total_batches,
+        "card_count": len(entries),
+        "review_lane_counts": _entry_counter(entries, "review_lane"),
+        "route_counts": _entry_counter(entries, "primary_route_type"),
+        "profile_counts": _entry_counter(entries, "establishment_profile"),
+        "city_counts": _entry_counter(entries, "city"),
+        "glm": {
+            "selected_batch_briefs": _selected_glm_briefs(entries),
+        },
+        "pitch_pack_plan": _pitch_pack_plan(entries),
+        "review_throughput": {
+            "selected_cards": len(entries),
+            "operator_pack_size": DEFAULT_OPERATOR_PACK_SIZE,
+            "operator_pack_count": len(operator_packs),
+            "allowed_operator_outcomes": list(ALLOWED_REVIEW_OUTCOMES),
+            "forbidden_actions": list(FORBIDDEN_REVIEW_ACTIONS),
+            "required_state": dict(REQUIRED_REVIEW_STATE),
+            "operator_packs": operator_packs,
+        },
+        "review_queue": entries,
+    }
 
 
 def _operator_pack_key(entry: dict[str, Any]) -> str:
@@ -633,5 +752,58 @@ def _review_batch_markdown(batch: dict[str, Any]) -> str:
             f"- `{entry['lead_id']}` | {entry['business_name']} | {entry['city']} | "
             f"`{entry['review_lane']}` | `{entry['primary_route_type']}` | `{entry['establishment_profile']}`"
         )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _review_wave_markdown(wave: dict[str, Any]) -> str:
+    safety = wave["no_send_safety"]
+    counts = wave["counts"]
+    lines = [
+        "# No-Send Pitch-Card Review Wave",
+        "",
+        f"Generated: {wave['generated_at']}",
+        "",
+        "Real outbound allowed: `false`.",
+        "Email sending, contact-form submission, promotion, and pitch-ready changes are blocked for this wave.",
+        "",
+        "## Queue",
+        "",
+        f"- Openable pitch cards: `{counts['openable_pitch_cards']}`",
+        f"- Unreviewed openable cards: `{counts['unreviewed_openable_pitch_cards']}`",
+        f"- Approved-route review cards: `{counts['approved_route_review_cards']}`",
+        f"- Review batches: `{counts['batch_count']}`",
+        f"- Operator packs: `{counts['operator_pack_count']}`",
+        f"- Ready for outreach: `{safety['ready_for_outreach']}`",
+        f"- Pitch ready: `{safety['pitch_ready']}`",
+        f"- Outreach status new: `{safety['outreach_status_new']}`",
+        "",
+        "## Wave GLM Briefs",
+        "",
+    ]
+    for brief in wave["glm"]["wave_briefs"]:
+        lines.append(
+            f"- `{brief['profile_id']}`: `{brief['selected_cards']}` cards, "
+            f"routes `{brief['route_counts']}`, assets `{brief['glm_reference_asset_counts']}`. "
+            f"{brief['review_focus']}"
+        )
+    lines.extend(["", "## Wave Pitch-Pack Plan", ""])
+    lines.append(f"- Stage: `{wave['pitch_pack_plan']['stage']}`")
+    lines.append(f"- Email policy: `{wave['pitch_pack_plan']['email_policy']}`")
+    lines.append(f"- Contact-form policy: `{wave['pitch_pack_plan']['contact_form_policy']}`")
+    for path, count in wave["pitch_pack_plan"]["glm_reference_asset_counts"].items():
+        lines.append(f"- `{path}`: `{count}` review cards")
+    lines.extend(["", "## Review Batches", ""])
+    for batch in wave["batches"]:
+        lines.append(
+            f"- `{batch['batch_id']}`: `{batch['card_count']}` cards, "
+            f"lanes `{batch['review_lane_counts']}`, profiles `{batch['profile_counts']}`, "
+            f"operator packs `{batch['review_throughput']['operator_pack_count']}`"
+        )
+        for pack in batch["review_throughput"]["operator_packs"]:
+            lines.append(
+                f"  - `{pack['pack_id']}`: `{pack['card_count']}` cards, "
+                f"lane `{pack['review_lane']}`. {pack['review_focus']}"
+            )
     lines.append("")
     return "\n".join(lines)
