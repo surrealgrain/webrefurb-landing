@@ -82,7 +82,7 @@ class TestAPIEndpoints:
     def test_get_leads_empty(self):
         response = self.client.get("/api/leads")
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json()["leads"] == []
 
     def test_get_leads_with_data(self, tmp_path):
         lead = {
@@ -102,12 +102,14 @@ class TestAPIEndpoints:
 
         response = self.client.get("/api/leads")
         assert response.status_code == 200
-        data = response.json()
+        payload = response.json()
+        data = payload["leads"]
         assert len(data) == 1
         assert data[0]["business_name"] == "Test Ramen"
         assert data[0]["primary_contact_type"] == "email"
         assert data[0]["can_send_email"] is True
         assert data[0]["establishment_profile_label"] == "Manual Review"
+        assert payload["card_counts"]["reviewable_pitch_cards"] == 1
 
     def test_paid_order_workflow_records_quote_payment_intake_and_owner_approval(self):
         created = self.client.post("/api/orders", json={
@@ -209,7 +211,7 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json()["status"] == "deleted"
         assert not path.exists()
-        assert self.client.get("/api/leads").json() == []
+        assert self.client.get("/api/leads").json()["leads"] == []
 
     def test_delete_lead_not_found(self):
         response = self.client.delete("/api/leads/nonexistent")
@@ -2115,7 +2117,7 @@ class TestStatusPersistence:
         self.client.post("/api/flag-dnc/wrm-status-test", json={"flag": True})
         # Reload leads via API (simulates page refresh)
         response = self.client.get("/api/leads")
-        leads = response.json()
+        leads = response.json()["leads"]
         lead = next(l for l in leads if l["lead_id"] == "wrm-status-test")
         assert lead["outreach_status"] == "do_not_contact"
 
@@ -2125,7 +2127,7 @@ class TestStatusPersistence:
         self.client.post("/api/flag-dnc/wrm-status-test", json={"flag": False})
         # Reload
         response = self.client.get("/api/leads")
-        leads = response.json()
+        leads = response.json()["leads"]
         lead = next(l for l in leads if l["lead_id"] == "wrm-status-test")
         assert lead["outreach_status"] == "new"
 

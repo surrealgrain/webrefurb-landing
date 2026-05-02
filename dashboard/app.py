@@ -366,6 +366,24 @@ PITCH_READINESS_LABELS = {
     "rejected": "Rejected",
 }
 
+PITCH_CARD_LABELS = {
+    "reviewable": "Reviewable",
+    "needs_email_review": "Needs Email Review",
+    "needs_name_review": "Needs Name Review",
+    "needs_scope_review": "Needs Scope Review",
+    "hard_blocked": "Hard Blocked",
+    "unsupported_route": "Unsupported Route",
+}
+
+PITCH_CARD_ORDER = {
+    "reviewable": 0,
+    "needs_email_review": 1,
+    "needs_name_review": 2,
+    "needs_scope_review": 3,
+    "unsupported_route": 4,
+    "hard_blocked": 5,
+}
+
 MENU_TYPE_LABELS = {
     "ramen": "Ramen",
     "tsukemen": "Tsukemen",
@@ -389,6 +407,7 @@ MENU_TYPE_LABELS = {
 
 def _lead_queue_sort_key(lead: dict[str, Any]) -> tuple[Any, ...]:
     return (
+        PITCH_CARD_ORDER.get(str(lead.get("pitch_card_status") or "").lower(), 99),
         LEAD_QUEUE_QUALITY_ORDER.get(str(lead.get("quality_tier") or "").lower(), 99),
         LEAD_QUEUE_VERIFICATION_ORDER.get(str(lead.get("verification_status") or "").lower(), 99),
         LEAD_QUEUE_PITCH_ORDER.get(str(lead.get("pitch_readiness_status") or "").lower(), 99),
@@ -499,8 +518,9 @@ def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
 def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     from pipeline.lead_dossier import ensure_lead_dossier
     from pipeline.constants import PACKAGE_REGISTRY
+    from pipeline.pitch_cards import apply_pitch_card_state
 
-    lead = ensure_lead_dossier(lead)
+    lead = apply_pitch_card_state(ensure_lead_dossier(lead))
     prepared = dict(lead)
     contacts = _lead_contacts(lead)
     primary_contact = _lead_primary_contact(lead)
@@ -537,12 +557,21 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["name_verification_status_label"] = _label_from_map(lead.get("name_verification_status"), NAME_STATUS_LABELS, default="Name Unchecked")
     prepared["source_strength_label"] = _label_from_map(lead.get("source_strength"), SOURCE_STRENGTH_LABELS, default="Source Unchecked")
     prepared["pitch_readiness_label"] = _label_from_map(lead.get("pitch_readiness_status"), PITCH_READINESS_LABELS, default="Review Blocked")
+    prepared["pitch_card_label"] = _label_from_map(lead.get("pitch_card_status"), PITCH_CARD_LABELS, default="Review Blocked")
+    prepared["pitch_card_reasons"] = list(lead.get("pitch_card_reasons") or [])
+    prepared["pitch_card_openable"] = bool(lead.get("pitch_card_openable"))
     package_key = str(lead.get("recommended_primary_package") or "")
     package = PACKAGE_REGISTRY.get(package_key, {})
     prepared["recommended_package_label"] = package.get("label") or ("Custom quote" if package_key == "custom_quote" else package_key)
     prepared["package_recommendation_reason"] = str(lead.get("package_recommendation_reason") or "")
     prepared["custom_quote_reason"] = str(lead.get("custom_quote_reason") or "")
     return prepared
+
+
+def _dashboard_card_counts(leads: list[dict[str, Any]]) -> dict[str, int]:
+    from pipeline.pitch_cards import pitch_card_counts
+
+    return pitch_card_counts(leads)
 
 
 def _is_test_recipient_email(value: str) -> bool:
@@ -602,8 +631,10 @@ async def dashboard_main(request: Request):
             )
         )
     ]
+    leads = sorted(leads, key=_lead_queue_sort_key)
     return templates.TemplateResponse(request, "index.html", {
-        "leads": sorted(leads, key=_lead_queue_sort_key),
+        "leads": leads,
+        "lead_card_counts": _dashboard_card_counts(leads),
     })
 
 
@@ -616,7 +647,11 @@ async def api_leads():
     """Return dashboard-ready lead records as JSON."""
     from pipeline.record import list_leads
     leads = [_prepare_lead_for_dashboard(lead) for lead in list_leads(state_root=STATE_ROOT)]
-    return sorted(leads, key=_lead_queue_sort_key)
+    leads = sorted(leads, key=_lead_queue_sort_key)
+    return {
+        "leads": leads,
+        "card_counts": _dashboard_card_counts(leads),
+    }
 
 
 @app.get("/api/launch-batches")
@@ -972,6 +1007,15 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             status_code=422,
             detail="Lead is disqualified and cannot be previewed as a pitch.",
         )
+    if not regenerate:
+        from pipeline.pitch_cards import apply_pitch_card_state, is_pitch_card_openable
+
+        record = apply_pitch_card_state(record)
+        if not is_pitch_card_openable(record):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Lead is not launch-ready for outreach: not pitch-card reviewable: {record.get('pitch_card_status') or 'blocked'}",
+            )
 
     # Build qualification result for classification
     q = QualificationResult(

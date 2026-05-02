@@ -2,13 +2,13 @@
 
 Updated: 2026-05-02
 
-Compact resume file. Keep it under 90 lines. Replace stale facts instead of appending history.
+Compact resume file. Keep it under 90 lines. Replace stale facts instead of appending logs.
 
 ## Startup Read Path
 
 1. Read `AGENTS.md`.
 2. Read this file.
-3. Do not read long docs at startup; open `PLAN.md`, `PRODUCTION_SIMULATION_TEST_PLAN.md`, `EXECUTION_PLAN_RESTAURANT_LEADS.md`, or `restaurant_email_leads.md` only for a specific blocker.
+3. Do not read long docs at startup; open `PLAN.md`, `PRODUCTION_SIMULATION_TEST_PLAN.md`, `EXECUTION_PLAN_RESTAURANT_LEADS.md`, raw lead files, or generated reports only for a specific blocker.
 
 ## Safety Boundary
 
@@ -16,71 +16,78 @@ Compact resume file. Keep it under 90 lines. Replace stale facts instead of appe
 - "Continue" means no-send work only.
 - Approved outreach routes are email and contact forms only.
 - Phone, LINE, Instagram, reservation links, social DMs, phone-required forms, walk-ins, map URLs, and websites are not outreach routes.
-- `production_ready=true` is only a no-send simulation signal.
+- Do not set `pitch_ready=true`, `ready_for_outreach`, or `outreach_status=new` during no-send inventory work.
 - Customer-facing copy must not mention AI, automation, scraping, or internal tools.
 
 ## Current State
 
 - Branch: `codex/phase11-contact-form-batch`.
-- Tree is dirty; do not commit without user review.
-- `PLAN.md` Phases 0-12 are complete. Phase 13 is active, not complete.
-- Controlled Batches 1 and 2 already had approved-route outreach; both have 0 replies/positives. Do not start Batch 3.
-- Current decision: hold real Batch 3 outbound because replies are 0 and the candidate pool is not strong enough.
-- Active workstream: preserve current email queue, loosen inventory search, and rebuild five-city candidate pool.
+- Tree is dirty; several unrelated files pre-existed. Do not revert user/unrelated changes.
+- Active workstream: no-send restaurant pitch-card inventory for Tokyo, Osaka, Kyoto, Sapporo, and Fukuoka.
+- Product goal clarified: create dashboard-reviewable pitch cards while all records remain manual-review blocked and unsendable.
+- Target reached: 300 reviewable pitch cards.
 
 ## Queue Snapshot
 
-- Total records: 484 in `state/leads`; all remain blocked.
-- Existing imported restaurant queue: 483 records preserved; 0 missing existing records; 0 changed existing email records.
-- New no-send inventory: 1 Tokyo ramen-family record, `wrm-lead-2-3-9-8385` / `風土木` / `shopmaster@food-ki.jp`; manual-review blocked.
-- Status across all records: 484 `manual_review`, 0 `ready_for_outreach`, 0 `pitch_ready`, 0 `outreach_status:new`.
-- Imported restaurant queue verification: 26 verified, 107 needs_review, 350 rejected; email status 135 verified, 299 needs_review, 49 rejected.
-- Latest verification summary: `state/lead_imports/restaurant_lead_verification_final_no_send_search.json`.
+- Total records: 493 in `state/leads`; all are `launch_readiness_status=manual_review`.
+- Existing baseline preserved: 484 snapshot records preserved, 0 missing, 0 changed existing email fields, 0 changed existing email contacts.
+- Imported restaurant queue preserved: verifier still selects 483 imported records.
+- No-send inventory over the 484-record baseline: 9 records total; this final pass added 8 review-blocked records.
+- Full queue pitch-card counts: 300 reviewable pitch cards, 300 needs review, 193 hard blocked, 0 unsupported route, 0 ready for outreach.
+- Full queue review breakdown: 255 needs_email_review, 19 needs_name_review, 26 needs_scope_review.
+- Safety counters: 0 `ready_for_outreach`, 0 `pitch_ready`, 0 `outreach_status:new`.
 
 ## Implementation State
 
-- Search loosening is implemented and tested:
+- Pitch-card state is implemented in `pipeline/pitch_cards.py` and applied on record create/load/list/persist.
+- Dashboard/API now separates pitch-card reviewability from launch readiness:
+  - `/api/leads` returns `leads` plus `card_counts`.
+  - Manual-review email/contact-form records can open review-only GET pitch previews when not hard-blocked.
+  - POST/regenerate/send paths remain blocked unless launch-ready.
+  - Hard blocks are quarantined by pitch-card status instead of counted as reviewable.
+- Existing imported records were rehydrated into pitch-card states without deleting emails.
+- Directory crawler is checkpointed/resumable and persists supported email/contact-form candidates immediately as manual-review pitch cards.
+- Search loosening remains in force:
   - `--max-candidates 0` means no cap.
-  - Ambiguous/no-record English-menu gap no longer rejects menu-qualified candidates.
-  - Single-source names can pass as review-blocked inventory.
-  - Chains/multi-location operators remain blocked.
-  - Search-created records get `manual_review_required=true`, `pitch_ready=false`, and `outreach_status=needs_review`.
-- `pipeline/search.py` uses Scrapling Fetcher with urllib fallback.
-- `pipeline/directory_discovery.py` now uses category-specific Tabelog city pages and explicit Scrapling timeouts.
-- `scripts/bulk_lead_gen.py` is patched to no-send inventory mode: no pitch/preview generation, full `qualify_candidate` gates before persistence, general restaurants skipped.
-- Do not edit GLM-locked template content in Codex.
+  - Ambiguous/no-record English-menu gap is acceptable inventory.
+  - Single-source names can be review-blocked inventory.
+  - Weak/menu-evidence failures from directory pages can become scope-review cards.
+  - Chains/operators, invalid email artifacts, solved English/multilingual cases, non-restaurant names, and clear out-of-scope cuisine remain hard-blocked.
 
-## Search Run Status
+## Final Search Counts
 
-- Directory smoke slice: Tokyo city-wide Tabelog category pages 1-2; 33 candidates, 3 usable emails, 1 new persisted record, 3 duplicates, 2 chain/operator blocks, 5 fetch failures, 22 no-email.
-- Five-city Tabelog email-first lane: 1,700 jobs attempted with `max_candidates=0`; 8 candidates found, all duplicates; 0 new records.
-- Serper failed after Tokyo: 1,362 `search_failed` job decisions. Local WebSerper fallback was started for Osaka/Kyoto/Sapporo/Fukuoka but stopped because it was too slow and timed out repeatedly.
-- Full five-city exhaustion is not complete. No outreach happened and no records were promoted.
+- Final target-reaching runs searched 162 directory pages and 4,222 candidates.
+- Usable email/contact-form routes found: 27.
+- New records persisted: 8.
+- Duplicates skipped: 2,238.
+- Hard-blocked chains/operators: 503.
+- Hard-blocked invalid email/artifacts: 0.
+- Hard-blocked scope: 14.
+- Review-blocked ambiguous records: 8.
+- Fetch failures: 103.
+- No supported route: 364.
+- Target stop happened during Tokyo izakaya page 17 of the pages-11-to-20 recovery loop.
+- Latest summaries:
+  - `state/lead_imports/five_city_directory_pitch_cards_target300_loop2.json`
+  - `state/lead_imports/five_city_directory_pitch_cards_target300_recovery_v2.json`
+  - `state/lead_imports/five_city_directory_pitch_cards_target300_recovery_v2_p20.json`
 
 ## Remaining Blockers
 
-- Need a resumable, checkpointed five-city crawler before another no-cap run:
-  - Use city-wide Tabelog category pages (`/rstLst/ramen/`, `/rstLst/izakaya/`) with page checkpointing.
-  - Add concurrent official-site probing with tight per-host timeouts.
-  - Persist per-city/category summaries as the run progresses.
-- Serper quota/provider failure blocked the explicit Tabelog email-query lane after Tokyo.
-- Uncapped maps search is too slow without checkpointing because each job follows every physical-place candidate through source intelligence.
+- The directory lane reached the 300-card target before true five-city/category exhaustion; deeper pages remain for full exhaustion if desired.
+- Supported-route discovery is sparse: many Tabelog official-site candidates have no usable email/contact form or are already duplicates.
+- Some supported routes still hard-block as clear scope mismatches; inspect reasons before loosening further.
+- Serper/provider failures previously limited the Codex Tabelog email-query lane; use checkpointed organic/contact fallback only if the next target exceeds 300 cards.
 
 ## Next Recommended Lane
 
-1. Resume directory crawl with checkpoints: Tokyo page 3+, then Osaka, Kyoto, Sapporo, Fukuoka.
-2. Keep only ramen/izakaya-family records; continue hard-blocking general restaurants, chains, solved English/multilingual cases, and invalid email artifacts.
-3. After fresh search quota is available, rerun `scripts/no_send_five_city_lead_search.py --mode codex-tabelog` for failed cities.
+1. Use dashboard manual review on the 300 pitch cards; do not promote records automatically.
+2. If a higher target is needed, continue the checkpointed directory crawl past page 17 for Tokyo izakaya and pages 11+ for remaining city/categories.
+3. Add a narrow organic/contact fallback only after directory depth is consumed: official contact/email queries for ramen/izakaya family terms, still no-send and checkpointed.
 
 ## Last Verification
 
-- Search/qualification focused tests: 152 passed.
-- Restaurant import/verification focused tests: 46 passed.
-- `verify-restaurant-leads`: 483 selected, 26 verified, 107 needs_review, 350 rejected, 0 ready_for_outreach, 0 pitch_ready.
-- Existing-email preservation check: 483 baseline records preserved; 0 existing email/contact changes.
-- Queue sanity: 484 total records, all manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 outreach_status:new.
-- `audit-state` was not rerun in this pass; previous known failures were pre-existing launch-smoke proof-asset mismatches.
-
-## Context Hygiene
-
-- Keep handoffs to active phase/status, blockers, next action, latest verification, and report paths; do not paste raw lead lists/logs.
+- Focused tests: `.venv/bin/python -m pytest tests/test_api.py tests/test_restaurant_lead_verification.py tests/test_restaurant_email_import.py tests/test_search.py tests/test_pipeline.py -q` -> 317 passed.
+- `verify-restaurant-leads`: `state/lead_imports/restaurant_lead_verification_pitch_cards_final_300.json`; 483 selected, 26 verified, 107 needs_review, 350 rejected, 0 ready_for_outreach, 0 pitch_ready.
+- Whole-queue preservation audit: 493 records, 300 reviewable pitch cards, all manual-review blocked, existing emails/contact emails preserved, 0 `ready_for_outreach`, 0 `pitch_ready`, 0 `outreach_status:new`.
+- No outreach happened.

@@ -10,6 +10,7 @@ from .utils import utc_now, write_json, read_json, ensure_dir, slugify, sha256_t
 from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
 from .lead_dossier import ensure_lead_dossier
+from .pitch_cards import apply_pitch_card_state
 
 
 # ---------------------------------------------------------------------------
@@ -517,7 +518,7 @@ def create_lead_record(
             {"status": OUTREACH_STATUS_NEW, "timestamp": utc_now()},
         ],
     }
-    return ensure_lead_dossier(record)
+    return apply_pitch_card_state(ensure_lead_dossier(record))
 
 
 def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) -> Path:
@@ -529,7 +530,7 @@ def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) 
     ensure_dir(leads_dir)
 
     ensure_locked_business_name(record)
-    record = ensure_lead_dossier(record)
+    record = apply_pitch_card_state(ensure_lead_dossier(record))
     path = leads_dir / f"{record['lead_id']}.json"
     write_json(path, record)
     return path
@@ -542,7 +543,7 @@ def load_lead(lead_id: str, state_root: Path | None = None) -> dict[str, Any] | 
     record = read_json(path)
     if record:
         ensure_locked_business_name(record)
-        record = ensure_lead_dossier(record)
+        record = apply_pitch_card_state(ensure_lead_dossier(record))
     return record
 
 
@@ -557,6 +558,6 @@ def list_leads(state_root: Path | None = None) -> list[dict[str, Any]]:
         record = read_json(path)
         if record:
             ensure_locked_business_name(record)
-            record = ensure_lead_dossier(record)
+            record = apply_pitch_card_state(ensure_lead_dossier(record))
             results.append(record)
     return results

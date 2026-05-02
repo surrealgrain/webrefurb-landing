@@ -304,6 +304,7 @@ def _audit_business_name(record: dict[str, Any], path: Path, lead_id: str, findi
     business_name = str(record.get("business_name") or "").strip()
     locked_name = str(record.get("locked_business_name") or "").strip()
     authoritative = authoritative_business_name(record)
+    quarantined_reject = _is_quarantined_restaurant_email_reject(record)
 
     if locked_name and business_name and locked_name != business_name:
         findings.append(_finding(
@@ -313,7 +314,7 @@ def _audit_business_name(record: dict[str, Any], path: Path, lead_id: str, findi
             f"business_name={business_name!r} locked_business_name={locked_name!r}",
         ))
 
-    if business_name_is_suspicious(authoritative):
+    if business_name_is_suspicious(authoritative) and not quarantined_reject:
         findings.append(_finding(
             path,
             lead_id,
@@ -331,6 +332,25 @@ def _audit_business_name(record: dict[str, Any], path: Path, lead_id: str, findi
                     "poisoned_name_in_customer_text",
                     f"{field} contains stale business_name={business_name!r}",
                 ))
+
+
+def _is_quarantined_restaurant_email_reject(record: dict[str, Any]) -> bool:
+    lead_id = str(record.get("lead_id") or "")
+    source_query = str(record.get("source_query") or "")
+    source_file = str(record.get("source_file") or "")
+    is_restaurant_email_queue = (
+        lead_id.startswith("wrm-email-")
+        or source_query == "restaurant_email_import"
+        or "restaurant_email_leads" in source_file
+    )
+    if not is_restaurant_email_queue:
+        return False
+    return (
+        str(record.get("verification_status") or "") == "rejected"
+        and str(record.get("pitch_readiness_status") or "") == "rejected"
+        and record.get("pitch_ready") is not True
+        and str(record.get("launch_readiness_status") or "") != "ready_for_outreach"
+    )
 
 
 def _audit_launch_location(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
