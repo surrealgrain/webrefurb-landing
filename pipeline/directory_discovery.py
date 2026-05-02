@@ -202,6 +202,7 @@ class TabelogPageResult:
     detail_fetches: int
     exhausted: bool
     candidates: list[DirectoryCandidate]
+    area_path: str = ""
 
 
 def _clean_text(text: str) -> str:
@@ -341,6 +342,11 @@ def _get_sub_areas_for_city(city: str) -> list[str]:
     return TABELOG_SUB_AREAS.get(city_slug, [])
 
 
+def tabelog_sub_area_paths_for_city(city: str) -> list[str]:
+    """Return configured Tabelog sub-area paths for a city."""
+    return list(_get_sub_areas_for_city(city))
+
+
 def crawl_tabelog_area(
     *,
     city: str,
@@ -476,6 +482,7 @@ def crawl_tabelog_listing_page(
     city: str,
     category: str,
     page: int,
+    area_path: str | None = None,
     timeout: int = 10,
     delay_seconds: float = 0.0,
 ) -> TabelogPageResult:
@@ -484,19 +491,24 @@ def crawl_tabelog_listing_page(
     city_slug = TABELOG_CITY_AREAS.get(city, city.lower())
     category_paths = TABELOG_CATEGORY_PATHS.get(category, [category])
     category_path = category_paths[0]
-    listing_url = _tabelog_listing_url(city_slug=city_slug, category_path=category_path, page=page)
+    listing_url = _tabelog_listing_url(
+        city_slug=city_slug,
+        category_path=category_path,
+        page=page,
+        area_path=area_path,
+    )
 
     try:
         resp = fetcher.get(listing_url, timeout=timeout)
         if resp.status != 200:
-            return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [])
+            return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [], area_path or "")
         html = resp.html_content
     except Exception:
-        return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [])
+        return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [], area_path or "")
 
     listings = _extract_detail_links(html)
     if not listings:
-        return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [])
+        return TabelogPageResult(city, category, page, listing_url, 0, 0, True, [], area_path or "")
 
     candidates: list[DirectoryCandidate] = []
     seen_websites: set[str] = set()
@@ -543,7 +555,7 @@ def crawl_tabelog_listing_page(
             city=city,
         ))
 
-    return TabelogPageResult(city, category, page, listing_url, len(listings), detail_fetches, False, candidates)
+    return TabelogPageResult(city, category, page, listing_url, len(listings), detail_fetches, False, candidates, area_path or "")
 
 
 def _tabelog_listing_url(*, city_slug: str, category_path: str, page: int, area_path: str | None = None) -> str:

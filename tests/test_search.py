@@ -58,6 +58,25 @@ def test_directory_checkpoint_marks_completed_pages():
     assert checkpoint["completed_pages"]["Tokyo:ramen"] == [3]
 
 
+def test_directory_scope_units_include_configured_subareas():
+    units = five_city_search._directory_scope_units(["Tokyo"], "subarea")
+
+    assert ("Tokyo", "A1304/A130401") in units
+    assert ("Tokyo", "") not in units
+
+
+def test_directory_scope_units_fallback_to_city_when_no_subareas():
+    assert five_city_search._directory_scope_units(["UnlistedCity"], "subarea") == [("UnlistedCity", "")]
+
+
+def test_directory_scope_key_names_city_wide_and_subarea_pages():
+    assert five_city_search._directory_scope_key(city="Tokyo", category="ramen", area_path="") == "Tokyo:ramen:city"
+    assert (
+        five_city_search._directory_scope_key(city="Tokyo", category="ramen", area_path="A1304/A130401")
+        == "Tokyo:ramen:A1304/A130401"
+    )
+
+
 def test_search_checkpoint_marks_completed_jobs():
     checkpoint = five_city_search._new_checkpoint()
     job_key = "Tokyo:ramen:codex_ramen_tokyo_tabelog_genre_gmail_com"
@@ -153,6 +172,42 @@ def test_directory_recoverable_rejection_persists_reviewable_pitch_card(tmp_path
     assert record["pitch_card_openable"] is True
     assert record["pitch_card_status"] in {"needs_email_review", "needs_scope_review", "needs_name_review"}
     assert record["recovered_directory_rejection_reason"] == "no_menu_or_product_evidence"
+
+
+def test_directory_route_finder_follows_homepage_contact_links():
+    class FakeResponse:
+        def __init__(self, status: int, html: str):
+            self.status = status
+            self.html_content = html
+
+    class FakeFetcher:
+        def get(self, url, timeout=10):
+            if url == "https://menya.example/otoiawase":
+                return FakeResponse(200, """
+                <html><body>
+                  <form class="wpcf7-form" action="/otoiawase/#wpcf7-f1-p1-o1">
+                    <input name="your-name" aria-required="true">
+                    <input name="your-email" aria-required="true">
+                    <textarea name="your-message" aria-required="true"></textarea>
+                    <input type="submit" value="送信">
+                  </form>
+                </body></html>
+                """)
+            return FakeResponse(404, "")
+
+    home_html = '<html><body><a href="/otoiawase/">お問い合わせ</a></body></html>'
+
+    emails, email_source_url, contact_form_url, signal = five_city_search._find_candidate_routes(
+        FakeFetcher(),
+        "https://menya.example",
+        home_html,
+        timeout=3,
+    )
+
+    assert emails == []
+    assert email_source_url == "https://menya.example"
+    assert contact_form_url == "https://menya.example/otoiawase"
+    assert signal["required_fields"] == ["your-name", "your-email", "your-message"]
 
 
 def test_directory_clear_hard_scope_rejection_is_not_recovered():

@@ -4,6 +4,7 @@ from pipeline.contact_crawler import (
     DiscoveryTarget,
     _official_external_url,
     contact_candidate_urls,
+    contact_candidate_urls_from_html,
     dedupe_targets,
     extract_contact_signals,
     mock_llm_parse_contact_points,
@@ -229,6 +230,22 @@ def test_contact_candidate_urls_prefers_same_site_contact_links():
     assert urls == [
         "https://example-ramen.jp/contact",
         "https://example-ramen.jp/company",
+    ]
+
+
+def test_contact_candidate_urls_from_html_extracts_japanese_inquiry_links():
+    html = """
+    <html><body>
+      <nav>
+        <a href="/otoiawase/">お問い合わせ</a>
+        <a href="/reserve/">ご予約</a>
+        <a href="https://instagram.com/example">Instagram</a>
+      </nav>
+    </body></html>
+    """
+
+    assert contact_candidate_urls_from_html("https://example-ramen.jp", html) == [
+        "https://example-ramen.jp/otoiawase"
     ]
 
 
