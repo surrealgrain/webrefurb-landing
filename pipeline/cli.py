@@ -115,6 +115,12 @@ def main() -> None:
     review_wave_cmd.add_argument("--label", default="pitch-card-review-wave", help="Artifact filename label")
     review_wave_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards per wave batch")
 
+    enrichment_cmd = sub.add_parser("needs-more-info-enrichment", help="Write no-send enrichment batches for reviewed needs_more_info cards")
+    enrichment_cmd.add_argument("--state-root", default=None, help="Override state root")
+    enrichment_cmd.add_argument("--output-dir", default=None, help="Review artifact output directory")
+    enrichment_cmd.add_argument("--label", default="needs-more-info-enrichment", help="Artifact filename label")
+    enrichment_cmd.add_argument("--batch-size", type=int, default=80, help="Number of needs_more_info cards per enrichment batch")
+
     execution_plan_cmd = sub.add_parser("restaurant-execution-plan", help="Write the no-send restaurant lead execution-plan completion artifact")
     execution_plan_cmd.add_argument("--state-root", default=None, help="Override state root")
     execution_plan_cmd.add_argument("--output-dir", default=None, help="Execution-plan artifact output directory")
@@ -596,6 +602,37 @@ def main() -> None:
             "artifact_paths": result["artifact_paths"],
         }, indent=2, ensure_ascii=False))
 
+    elif args.command == "needs-more-info-enrichment":
+        from pathlib import Path as _P
+
+        from .review_enrichment import write_needs_more_info_enrichment_plan
+
+        result = write_needs_more_info_enrichment_plan(
+            state_root=_P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state",
+            output_dir=_P(args.output_dir) if args.output_dir else None,
+            label=str(args.label or "needs-more-info-enrichment"),
+            batch_size=int(args.batch_size),
+        )
+        print(json.dumps({
+            "scope": result["scope"],
+            "batch_size": result["batch_size"],
+            "no_send_safety": result["no_send_safety"],
+            "counts": result["counts"],
+            "allowed_enrichment_outcomes": result["allowed_enrichment_outcomes"],
+            "forbidden_actions": result["forbidden_actions"],
+            "required_state": result["required_state"],
+            "batches": [
+                {
+                    "batch_id": batch["batch_id"],
+                    "card_count": batch["card_count"],
+                    "enrichment_lane_counts": batch["enrichment_lane_counts"],
+                    "operator_pack_count": batch["operator_pack_count"],
+                }
+                for batch in result["batches"]
+            ],
+            "artifact_paths": result["artifact_paths"],
+        }, indent=2, ensure_ascii=False))
+
     elif args.command == "restaurant-execution-plan":
         from pathlib import Path as _P
 
@@ -614,6 +651,7 @@ def main() -> None:
             "external_gates": result["external_gates"],
             "no_send_safety": result["no_send_safety"],
             "queue": result["queue"],
+            "needs_more_info_enrichment": result["needs_more_info_enrichment"],
             "phase_status": [
                 {"phase": item["phase"], "status": item["status"]}
                 for item in result["phase_status"]
