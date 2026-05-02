@@ -559,7 +559,7 @@ def _load_checkpoint(path: Path) -> dict[str, Any]:
 
 
 def _new_checkpoint() -> dict[str, Any]:
-    return {"version": 1, "completed_pages": {}, "updated_at": utc_now()}
+    return {"version": 1, "completed_pages": {}, "completed_jobs": [], "updated_at": utc_now()}
 
 
 def _page_done(checkpoint: dict[str, Any], key: str, page: int) -> bool:
@@ -570,6 +570,16 @@ def _mark_page_done(checkpoint: dict[str, Any], key: str, page: int) -> None:
     pages = set(int(value) for value in checkpoint.setdefault("completed_pages", {}).setdefault(key, []))
     pages.add(int(page))
     checkpoint["completed_pages"][key] = sorted(pages)
+
+
+def _job_done(checkpoint: dict[str, Any], job_key: str) -> bool:
+    return job_key in {str(value) for value in checkpoint.get("completed_jobs", [])}
+
+
+def _mark_job_done(checkpoint: dict[str, Any], job_key: str) -> None:
+    jobs = {str(value) for value in checkpoint.setdefault("completed_jobs", [])}
+    jobs.add(job_key)
+    checkpoint["completed_jobs"] = sorted(jobs)
 
 
 def _write_checkpoint(path: Path, checkpoint: dict[str, Any]) -> None:
@@ -588,11 +598,33 @@ def _openable_count(state_root: Path) -> int:
     return pitch_card_counts(list_leads(state_root=state_root)).get("reviewable_pitch_cards", 0)
 
 
+def _save_generic_summary(summary: dict[str, Any], *, state_root: Path, output: Path) -> None:
+    summary["completed_at"] = utc_now()
+    summary["final_pitch_card_counts"] = pitch_card_counts(list_leads(state_root=state_root))
+    summary["totals"] = _normalise_bucket(summary["totals"])
+    summary["by_city"] = {city: _normalise_bucket(bucket) for city, bucket in summary["by_city"].items()}
+    summary["by_city_category"] = {
+        key: _normalise_bucket(bucket) for key, bucket in summary["by_city_category"].items()
+    }
+    ensure_dir(output.parent)
+    output.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    summary["summary_path"] = str(output)
+
+
 def _existing_dedup_keys(state_root: Path) -> dict[str, set[str]]:
     keys = {"emails": set(), "hosts": set(), "phones": set(), "name_address": set(), "source_urls": set()}
     for record in list_leads(state_root=state_root):
         _add_dedup_record(record, keys)
     return keys
+
+
+def _result_is_search_failure(result: dict[str, Any]) -> bool:
+    decisions = result.get("decisions") or []
+    return bool(decisions) and all(
+        str(decision.get("reason") or "") == "search_failed"
+        for decision in decisions
+        if isinstance(decision, dict)
+    )
 
 
 def _add_dedup_record(record: dict[str, Any], keys: dict[str, set[str]]) -> None:
@@ -672,6 +704,12 @@ def main() -> int:
     state_root = Path(args.state_root)
     provider = str(args.provider or "webserper")
     serper_key = os.environ.get("SERPER_API_KEY", "") if provider == "serper" else ""
+    checkpoint_path = Path(args.checkpoint_path) if args.checkpoint_path else state_root / "lead_imports" / "five_city_search_checkpoint.json"
+    summary_output = (
+        Path(args.summary_path)
+        if args.summary_path
+        else state_root / "lead_imports" / f"five_city_no_send_search_{utc_now().replace(':', '').replace('-', '').replace('+00:00', 'z').lower()}.json"
+    )
 
     if args.mode == "directory":
         result = _run_directory_mode(
@@ -690,6 +728,7 @@ def main() -> int:
         return 0
 
     started_at = utc_now()
+    checkpoint = _load_checkpoint(checkpoint_path) if args.resume else _new_checkpoint()
     summary: dict[str, Any] = {
         "started_at": started_at,
         "completed_at": "",
@@ -697,6 +736,10 @@ def main() -> int:
         "engine": args.mode,
         "max_candidates": 0,
         "no_send": True,
+        "target_reviewable_cards": args.target_reviewable_cards,
+        "initial_pitch_card_counts": pitch_card_counts(list_leads(state_root=state_root)),
+        "final_pitch_card_counts": {},
+        "checkpoint_path": str(checkpoint_path),
         "cities": cities,
         "categories": categories,
         "totals": _new_bucket(),
@@ -718,8 +761,15 @@ def main() -> int:
                 if args.mode == "codex-tabelog":
                     jobs = [job for job in jobs if "_tabelog_" in str(job.get("job_id") or "")]
             for job in jobs:
+                if _openable_count(state_root) >= args.target_reviewable_cards:
+                    _save_generic_summary(summary, state_root=state_root, output=summary_output)
+                    print(json.dumps({"summary_path": str(summary_output), "totals": summary["totals"], "target_reached": True}, ensure_ascii=False))
+                    return 0
                 if args.max_jobs and jobs_seen >= args.max_jobs:
                     break
+                job_key = f"{key}:{job.get('job_id') or job.get('query')}"
+                if args.resume and _job_done(checkpoint, job_key):
+                    continue
                 jobs_seen += 1
                 try:
                     if args.mode == "maps":
@@ -753,6 +803,10 @@ def main() -> int:
                 _update_bucket(bucket, result)
                 _update_bucket(summary["by_city"][city], result)
                 _update_bucket(summary["totals"], result)
+                if not _result_is_search_failure(result):
+                    _mark_job_done(checkpoint, job_key)
+                    checkpoint["updated_at"] = utc_now()
+                    _write_checkpoint(checkpoint_path, checkpoint)
 
                 if args.delay > 0:
                     time.sleep(args.delay)
@@ -763,17 +817,8 @@ def main() -> int:
         if args.max_jobs and jobs_seen >= args.max_jobs:
             break
 
-    summary["completed_at"] = utc_now()
-    summary["totals"] = _normalise_bucket(summary["totals"])
-    summary["by_city"] = {city: _normalise_bucket(bucket) for city, bucket in summary["by_city"].items()}
-    summary["by_city_category"] = {
-        key: _normalise_bucket(bucket) for key, bucket in summary["by_city_category"].items()
-    }
-
-    output = Path(args.summary_path) if args.summary_path else state_root / "lead_imports" / f"five_city_no_send_search_{started_at.replace(':', '').replace('-', '').replace('+00:00', 'z').lower()}.json"
-    ensure_dir(output.parent)
-    output.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"summary_path": str(output), "totals": summary["totals"]}, ensure_ascii=False))
+    _save_generic_summary(summary, state_root=state_root, output=summary_output)
+    print(json.dumps({"summary_path": str(summary_output), "totals": summary["totals"]}, ensure_ascii=False))
     return 0
 
 

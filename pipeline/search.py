@@ -6,13 +6,19 @@ import os
 import threading
 import urllib.parse
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from .business_name import business_name_is_suspicious, business_names_match, extract_business_name_candidates, resolve_business_name
 from .contact_crawler import extract_contact_signals, is_usable_business_email
 from .contact_policy import normalise_contact_actionability
-from .constants import DEEP_EMAIL_DISCOVERY_ENABLED
+from .constants import (
+    DEEP_EMAIL_DISCOVERY_ENABLED,
+    LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION,
+    LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
+    PACKAGE_1_KEY,
+)
 from .evidence import _count_japanese_chars, has_chain_or_franchise_infrastructure, is_chain_business
 from .html_parser import extract_page_payload
 from .japan_restaurant_intel import (
@@ -1407,6 +1413,26 @@ _CODEX_TARGET_GENRE_TERMS = (
     "おでん", "日本酒バー", "焼酎バー", "立ち飲み", "海鮮", "沖縄料理",
     "ろばた", "炉端",
 )
+_CODEX_RECOVERABLE_REJECTION_REASONS = {
+    "directory_or_social_only",
+    "non_ramen_izakaya_v1",
+    "no_menu_or_product_evidence",
+    "insufficient_category_evidence",
+    "negative_evidence_score",
+}
+_CODEX_HARD_REJECTION_REASONS = {
+    "already_has_good_english_menu",
+    "already_has_multilingual_ordering_solution",
+    "chain_business",
+    "chain_or_franchise_infrastructure",
+    "chain_or_franchise_like_business",
+    "excluded_business_type_v1",
+    "invalid_business_name_detected",
+    "invalid_email_artifact",
+    "non_restaurant_page_title",
+    "no_physical_location_evidence",
+    "not_in_japan",
+}
 
 
 def _codex_normalize_tabelog_url(url: str) -> str:
@@ -1672,6 +1698,108 @@ def _extract_emails_from_organic_results(
     return candidates
 
 
+def _codex_rejection_is_recoverable(reason: str, canonical: str) -> bool:
+    if canonical not in {"ramen", "izakaya"}:
+        return False
+    if reason in _CODEX_HARD_REJECTION_REASONS:
+        return False
+    return reason in _CODEX_RECOVERABLE_REJECTION_REASONS
+
+
+def _recover_codex_review_qualification(
+    *,
+    qualification: Any,
+    canonical: str,
+    source_name: str,
+    source_website: str,
+    source_address: str,
+    source_url: str,
+    rejection_reason: str,
+) -> Any:
+    lead_category = (
+        LEAD_CATEGORY_RAMEN_MENU_TRANSLATION
+        if canonical == "ramen"
+        else LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION
+    )
+    establishment_profile = "ramen_only" if canonical == "ramen" else "izakaya_food_and_drinks"
+    evidence_urls = _ordered_unique([
+        *(getattr(qualification, "evidence_urls", []) or []),
+        source_url,
+        source_website,
+    ])
+    evidence_classes = _ordered_unique([
+        *(getattr(qualification, "evidence_classes", []) or []),
+        "organic_supported_email_route",
+        "recoverable_organic_scope_review",
+    ])
+    lead_signals = _ordered_unique([
+        *(getattr(qualification, "lead_signals", []) or []),
+        "supported_contact_route_found",
+        "organic_email_candidate_requires_review",
+        "english_menu_gap_unconfirmed",
+    ])
+    snippets = _ordered_unique([
+        *(getattr(qualification, "evidence_snippets", []) or []),
+        f"Organic email search supplied supported route; qualification needs manual review: {rejection_reason}",
+    ])
+    return replace(
+        qualification,
+        lead=True,
+        rejection_reason=None,
+        business_name=source_name or getattr(qualification, "business_name", ""),
+        website=source_website or getattr(qualification, "website", ""),
+        address=source_address or getattr(qualification, "address", ""),
+        primary_category_v1=canonical,
+        lead_category=lead_category,
+        establishment_profile=establishment_profile,
+        establishment_profile_evidence=[f"organic_category:{canonical}", f"recoverable_reason:{rejection_reason}"],
+        establishment_profile_confidence="low",
+        establishment_profile_source_urls=[source_url] if source_url else [],
+        lead_signals=lead_signals,
+        evidence_classes=evidence_classes,
+        evidence_urls=evidence_urls,
+        evidence_snippets=snippets[:8],
+        english_availability=getattr(qualification, "english_availability", "") or "unknown",
+        english_menu_issue=bool(getattr(qualification, "english_menu_issue", False)),
+        menu_complexity_state="medium" if canonical == "izakaya" else "simple",
+        izakaya_rules_state="unknown" if canonical == "izakaya" else "none_found",
+        launch_readiness_status="manual_review",
+        launch_readiness_reasons=[f"recoverable_organic_scope_review:{rejection_reason}", "manual_review_required"],
+        recommended_primary_package=getattr(qualification, "recommended_primary_package", "") or PACKAGE_1_KEY,
+        package_recommendation_reason=getattr(qualification, "package_recommendation_reason", "") or "Organic email pitch-card review candidate.",
+        decision_reason=f"Recovered for no-send pitch-card review after {rejection_reason}.",
+        false_positive_risk="high",
+        preview_available=True,
+        pitch_available=True,
+    )
+
+
+def _email_already_tracked(email: str, *, state_root: Path) -> dict[str, Any] | None:
+    wanted = str(email or "").strip().lower()
+    if not wanted:
+        return None
+    from .record import list_leads
+
+    for lead in list_leads(state_root=state_root):
+        values = {str(lead.get("email") or "").strip().lower()}
+        for contact in lead.get("contacts") or []:
+            if isinstance(contact, dict) and contact.get("type") == "email":
+                values.add(str(contact.get("value") or "").strip().lower())
+        if wanted in values:
+            return lead
+    return None
+
+
+def _ordered_unique(values: list[Any]) -> list[Any]:
+    result: list[Any] = []
+    for value in values:
+        if value in (None, "", []):
+            continue
+        if value not in result:
+            result.append(value)
+    return result
+
+
 def codex_search_and_qualify(
     *,
     query: str,
@@ -1736,6 +1864,15 @@ def codex_search_and_qualify(
             })
             continue
 
+        existing_email = _email_already_tracked(source_email, state_root=state_root)
+        if existing_email:
+            decisions.append({
+                "business_name": source_name, "lead": False,
+                "reason": "already_tracked",
+                "existing_lead_id": existing_email.get("lead_id"),
+            })
+            continue
+
         # --- dedup ---
         existing = find_existing_lead(
             business_name=source_name, website=source_website,
@@ -1795,6 +1932,28 @@ def codex_search_and_qualify(
                 decision.setdefault("reason", qualification.rejection_reason)
             decision["email"] = source_email
             decision["codex_source"] = True
+            recovered_rejection_reason = ""
+
+            if not qualification.lead:
+                reason = str(qualification.rejection_reason or "")
+                if _codex_rejection_is_recoverable(reason, canonical):
+                    recovered_rejection_reason = reason
+                    qualification = _recover_codex_review_qualification(
+                        qualification=qualification,
+                        canonical=canonical,
+                        source_name=source_name,
+                        source_website=website,
+                        source_address=source_address,
+                        source_url=source_email_url,
+                        rejection_reason=reason,
+                    )
+                    decision = qualification.to_dict()
+                    decision["email"] = source_email
+                    decision["codex_source"] = True
+                    decision["recovered_codex_rejection_reason"] = recovered_rejection_reason
+                else:
+                    decisions.append(decision)
+                    continue
 
             if qualification.lead and canonical in {"ramen", "izakaya"} and qualification.primary_category_v1 != canonical:
                 decision["lead"] = False
@@ -1882,6 +2041,13 @@ def codex_search_and_qualify(
                     record["codex_tabelog_url"] = candidate.get("tabelog_url")
                     source_urls = record.setdefault("source_urls", {})
                     source_urls["tabelog"] = candidate.get("tabelog_url")
+                if recovered_rejection_reason:
+                    record["recovered_codex_rejection_reason"] = recovered_rejection_reason
+                    record["candidate_inbox_status"] = "needs_scope_review"
+                    record["category_verification_status"] = "needs_review"
+                    record["category_verification_reason"] = f"recoverable organic scope review: {recovered_rejection_reason}"
+                    record["verification_status"] = "needs_review"
+                    record["verification_reason"] = "organic email pitch-card candidate requires manual review"
                 persist_lead_record(record, state_root=state_root)
                 results.append(record)
                 decision["email_found"] = bool(email_contact)
