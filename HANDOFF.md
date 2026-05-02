@@ -4,45 +4,37 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 ## Safety Boundary
 - No real email, contact-form submit, or other business contact unless explicitly requested in the current chat; "continue" means no-send work only.
 - Approved outreach routes are email and contact forms only; phone, LINE, Instagram, reservation links, social DMs, phone-required forms, walk-ins, map URLs, and websites are reference-only.
-- During no-send inventory, do not set `pitch_ready=true`, `ready_for_outreach`, or `outreach_status=new`.
+- During no-send inventory/review, do not set `pitch_ready=true`, `ready_for_outreach`, or `outreach_status=new`.
 - Customer-facing copy must not mention AI, automation, scraping, or internal tools.
 ## Current Snapshot
-- Branch: `codex/phase11-contact-form-batch`.
-- Tree is dirty with unrelated pre-existing files. Do not revert user/unrelated changes.
+- Branch: `codex/phase11-contact-form-batch`; tree also has unrelated pre-existing dirty files, so stage only mission files.
 - Active workstream: no-send restaurant pitch-card inventory for Tokyo, Osaka, Kyoto, Sapporo, and Fukuoka; all records remain manual-review blocked and unsendable.
-- Page-100 directory pass exhausted all five-city ramen/izakaya lanes below the 400-card target.
-- Live `list-leads`: 520 records, 326 dashboard-reviewable pitch cards, 193 hard blocked, 1 unsupported route.
+- Live `list-leads`/API state: 520 records, 326 dashboard-reviewable pitch cards, 193 hard blocked, 1 unsupported route.
 - Pitch-card breakdown: 281 needs_email_review, 19 needs_name_review, 26 needs_scope_review.
 - Safety counters: all 520 `launch_readiness_status=manual_review` and `outreach_status=needs_review`; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
+- Dashboard server is live at `http://127.0.0.1:8000/`.
 ## Resume Phase Plan
-- Overall: 40-45% complete. P0 safety guardrails are always active; no-send inventory is 326/400 reviewable cards, directory source exhausted.
-- P1 Corpus: 1.1 import queue done; 1.2 duplicate preservation done; 1.3 import/idempotency safety done; 1.4 future imports must keep same manifest discipline.
-- P2 Verification: 2.1 fields done; 2.2 verifier pass done; 2.3 hard blocks quarantine done; 2.4 unresolved email/name/scope cases stay manual review.
-- P3 Dashboard review: 3.1 review-only previews done; 3.2 filters done; 3.3 route/profile filters done; 3.4 review-lane quick filters + active lane state done; 3.5 human review of 326 cards can now record no-send outcomes.
-- P4 Promotion: 4.1 hold/needs-info/reject outcomes done; 4.2 approve/promote-to-pitch_ready not built; 4.3 launch readiness remains blocked.
-- P5 GLM: 5.1 stable reviewed category counts pending; 5.2 GLM briefs not started; 5.3 locked profile asset mapping pending.
+- P0 Safety: always active; no-send/no-promotion/manual-review constraints unchanged.
+- P1 Corpus: 1.1 import queue done; 1.2 duplicate preservation done; 1.3 import/idempotency safety done; 1.4 future imports keep manifest discipline.
+- P2 Verification: 2.1 fields done; 2.2 verifier pass done; 2.3 hard blocks quarantined; 2.4 unresolved email/name/scope cases stay manual review.
+- P3 Dashboard review: 3.1 previews done; 3.2 filters done; 3.3 route/profile filters done; 3.4 lanes done; 3.5 no-send outcome workflow improved and active.
+- P4 Promotion: 4.1 hold/needs-info/reject outcomes only; 4.2 approve/promote-to-pitch_ready not built; 4.3 launch readiness remains blocked.
+- P5 GLM: 5.1 category counts pending; 5.2 briefs not started; 5.3 locked profile asset mapping pending.
 - P6 Pitch packs: 6.1 batch dimensions pending; 6.2 GLM-locked asset routing pending; 6.3 draft generation/review pending.
-- P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 `ready_for_outreach` final gate not started.
-- Resume rule: restate P0-P7, identify active subphase, then run tools.
+- P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 final gate not started.
 ## Implementation State
-- Pitch-card state is applied on record create/load/list/persist; dashboard/API separates reviewability from launch readiness.
-- Review-only GET previews work for manual-review cards; POST/regenerate/send remains blocked unless launch-ready.
-- Dashboard queue filters include city, menu/category, quality, verification, email/name status, source strength, contact route, profile, pitch-card state, active review-lane quick filters, and no-send review outcome controls.
-- Review outcomes enforce `manual_review`, `outreach_status=needs_review`, and `pitch_ready=false`; operator reject hard-blocks the pitch card.
-- Directory crawler and generic search are checkpointed/resumable; all-search-failure jobs are not marked complete.
-- Search loosening remains in force: ambiguous English-menu gaps can become review-blocked inventory; hard rejection reasons remain blocked.
-- Codex organic email fallback can persist recoverable ramen/izakaya candidates as manual-review pitch cards; hard rejection reasons still do not persist.
-## Evidence Pointers
-- Latest directory summary: `state/lead_imports/five_city_directory_pitch_cards_target400_recovery_v2_p100.json`.
-- Latest verifier summary: `state/lead_imports/restaurant_lead_verification_pitch_cards_continued_p100.json`.
+- Dashboard sidebar now restates P0-P7 with substeps; active work is P3.5/P4.1 manual review only.
+- Queue review support now includes outcome filter, unreviewed lane, review progress stats, outcome badges, and a fixed Reviewable filter that covers needs_email/name/scope cards.
+- Preview modal now receives saved no-send review outcome fields; saving an outcome reloads live API queue state instead of reusing stale embedded data.
+- Review outcome API still enforces `manual_review`, `outreach_status=needs_review`, and `pitch_ready=false`; reject hard-blocks only the pitch card.
+- Directory crawler and generic search remain checkpointed/resumable; all-search-failure jobs are not marked complete.
 ## Blockers / Next Work
-- Five-city directory source is exhausted through page 100; supported routes are sparse, duplicate-heavy, often fetch-failing, or hard-blocked by scope.
+- Five-city directory source is exhausted through page 100 below the 400-card target.
 - Serper failed with not-enough-credits; webserper degraded into search failures, so provider-backed organic fallback is unreliable until provider access recovers.
-- Next lane: dashboard manual review of the 326 cards, then a narrow no-send organic/contact fallback or a second directory source; keep everything manual_review only.
+- `audit-state` currently reports pre-existing launch/smoke asset-profile drift; no no-send safety drift was found in live counters.
+- Next lane: manually review the 326 cards using unreviewed/email/form/name/scope lanes, then consider a narrow no-send organic/contact fallback or second directory source.
 ## Last Verification
-- P100 directory crawl completed with 326 reviewable cards and 0 ready_for_outreach in its final summary.
-- `tests/test_search.py -q`: 52 passed; focused suite (`test_api`, restaurant verification/import, search, pipeline): 321 passed.
-- Latest dashboard/review checks: `tests/test_website.py -q` 11 passed; `tests/test_api.py -q` 116 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed.
-- `verify-restaurant-leads --summary-path state/lead_imports/restaurant_lead_verification_pitch_cards_continued_p100.json`: 0 ready_for_outreach, 0 pitch_ready.
-- Live `list-leads` safety audit: all records manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
+- Tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed.
+- Dashboard script parse check passed; live `GET /` returned 200 and `/api/leads` returned 520 records with the expected card counts.
+- Live safety audit: all records manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
 - No outreach happened.

@@ -472,6 +472,33 @@ class TestAPIEndpoints:
         assert "operator_review_outcome" not in stored
         assert stored["launch_readiness_status"] == "manual_review"
 
+    def test_outreach_preview_includes_no_send_review_outcome(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-review-preview",
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+            launch_readiness_reasons=["manual_review_required"],
+            operator_review_outcome="needs_more_info",
+            operator_review_note="Needs owner route check",
+            operator_reviewed_at="2026-05-02T10:00:00+00:00",
+            review_status="needs_more_info",
+            manual_review_required=True,
+        )
+
+        response = self.client.get("/api/outreach/wrm-test-review-preview")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["operator_review_outcome"] == "needs_more_info"
+        assert data["operator_review_outcome_label"] == "Needs More Info"
+        assert data["operator_review_note"] == "Needs owner route check"
+        assert data["review_status"] == "needs_more_info"
+        assert data["launch_readiness_status"] == "manual_review"
+        assert data["outreach_status"] == "needs_review"
+        assert data["review_only"] is True
+        assert data["send_blocked"] is True
+
     def test_outreach_preview_marks_non_email_route_as_manual(self, tmp_path):
         self._create_lead(
             tmp_path,
