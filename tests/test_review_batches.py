@@ -90,9 +90,32 @@ def test_review_batch_groups_openable_cards_without_promoting(tmp_path):
     assert batch["counts"]["review_outcome_counts"]["hold"] == 1
     assert batch["counts"]["review_outcome_counts"]["not_reviewed"] >= 3
     assert batch["glm"]["category_counts"]["ramen_only"]["openable_cards"] >= 2
+    selected_briefs = {brief["profile_id"]: brief for brief in batch["glm"]["selected_batch_briefs"]}
+    assert selected_briefs["ramen_only"]["selected_cards"] == 2
+    assert selected_briefs["izakaya_food_and_drinks"]["selected_cards"] == 1
+    assert selected_briefs["izakaya_food_and_drinks"]["attachment_policy_counts"] == {
+        "contact_form_no_attachment_no_submit": 1
+    }
     assert batch["pitch_pack_plan"]["real_outbound_allowed"] is False
+    assert batch["pitch_pack_plan"]["stage"] == "planning_only_no_send"
+    assert batch["pitch_pack_plan"]["operator_review_required"] is True
     assert batch["pitch_pack_plan"]["glm_reference_asset_counts"]
     assert batch["counts"]["pitch_pack_asset_counts"]
+    assert batch["review_throughput"]["allowed_operator_outcomes"] == ["hold", "needs_more_info", "reject"]
+    assert "set_pitch_ready" in batch["review_throughput"]["forbidden_actions"]
+    assert batch["review_throughput"]["required_state"] == {
+        "launch_readiness_status": "manual_review",
+        "outreach_status": "needs_review",
+        "pitch_ready": False,
+    }
+    assert batch["review_throughput"]["operator_pack_count"] == 3
+    contact_form_packs = [
+        pack for pack in batch["review_throughput"]["operator_packs"]
+        if pack["review_lane"] == "contact_form_review"
+    ]
+    assert contact_form_packs[0]["route_asset_counts"] == {}
+    assert contact_form_packs[0]["glm_reference_asset_counts"]
+    assert "submit_contact_form" in contact_form_packs[0]["forbidden_actions"]
 
 
 def test_review_batch_writer_creates_json_and_markdown(tmp_path):
@@ -105,5 +128,8 @@ def test_review_batch_writer_creates_json_and_markdown(tmp_path):
     assert artifact_paths["markdown"].endswith(".md")
     markdown = open(artifact_paths["markdown"], encoding="utf-8").read()
     assert "No-Send Pitch-Card Review Batch" in markdown
+    assert "Selected Batch GLM Briefs" in markdown
     assert "Pitch-Pack Plan" in markdown
+    assert "Operator Review Packs" in markdown
+    assert "planning_only_no_send" in markdown
     assert batch["counts"]["selected_review_queue"] == 1

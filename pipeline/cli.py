@@ -506,6 +506,24 @@ def main() -> None:
                 "review_lane_counts": result["counts"]["review_lane_counts"],
                 "profile_counts": result["counts"]["profile_counts"],
             },
+            "glm": {
+                "selected_batch_briefs": len(result["glm"]["selected_batch_briefs"]),
+            },
+            "pitch_pack_plan": {
+                "selected_cards": result["pitch_pack_plan"]["selected_cards"],
+                "stage": result["pitch_pack_plan"]["stage"],
+                "email_policy": result["pitch_pack_plan"]["email_policy"],
+                "contact_form_policy": result["pitch_pack_plan"]["contact_form_policy"],
+                "attachment_policy_counts": result["pitch_pack_plan"]["attachment_policy_counts"],
+                "glm_reference_asset_counts": result["pitch_pack_plan"]["glm_reference_asset_counts"],
+            },
+            "review_throughput": {
+                "operator_pack_count": result["review_throughput"]["operator_pack_count"],
+                "operator_pack_size": result["review_throughput"]["operator_pack_size"],
+                "allowed_operator_outcomes": result["review_throughput"]["allowed_operator_outcomes"],
+                "forbidden_actions": result["review_throughput"]["forbidden_actions"],
+                "required_state": result["review_throughput"]["required_state"],
+            },
             "artifact_paths": result["artifact_paths"],
         }, indent=2, ensure_ascii=False))
 

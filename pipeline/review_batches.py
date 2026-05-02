@@ -12,6 +12,20 @@ from .utils import ensure_dir, slugify, utc_now, write_json, write_text
 
 APPROVED_REVIEW_ROUTE_TYPES = {"email", "contact_form"}
 REFERENCE_ONLY_ROUTE_TYPES = {"phone", "line", "instagram", "reservation", "map_url", "walk_in", "website"}
+ALLOWED_REVIEW_OUTCOMES = ("hold", "needs_more_info", "reject")
+FORBIDDEN_REVIEW_ACTIONS = (
+    "send_email",
+    "submit_contact_form",
+    "promote_record",
+    "set_pitch_ready",
+    "set_ready_for_outreach",
+)
+REQUIRED_REVIEW_STATE = {
+    "launch_readiness_status": "manual_review",
+    "outreach_status": "needs_review",
+    "pitch_ready": False,
+}
+DEFAULT_OPERATOR_PACK_SIZE = 30
 
 PITCH_CARD_REVIEW_ORDER = {
     "needs_email_review": 0,
@@ -117,6 +131,7 @@ def build_no_send_review_batch(*, state_root: Path, batch_size: int = 120) -> di
     ]
     queue = [_review_queue_entry(record) for record in sorted(unreviewed_records, key=_review_sort_key)]
     queue = [entry for entry in queue if entry["primary_route_type"] in APPROVED_REVIEW_ROUTE_TYPES][: max(0, batch_size)]
+    operator_packs = _operator_review_packs(queue)
 
     return {
         "generated_at": utc_now(),
@@ -141,8 +156,18 @@ def build_no_send_review_batch(*, state_root: Path, batch_size: int = 120) -> di
         "glm": {
             "category_counts": _glm_category_counts(openable_records),
             "design_briefs": _glm_design_briefs(openable_records),
+            "selected_batch_briefs": _selected_glm_briefs(queue),
         },
         "pitch_pack_plan": _pitch_pack_plan(queue),
+        "review_throughput": {
+            "selected_cards": len(queue),
+            "operator_pack_size": DEFAULT_OPERATOR_PACK_SIZE,
+            "operator_pack_count": len(operator_packs),
+            "allowed_operator_outcomes": list(ALLOWED_REVIEW_OUTCOMES),
+            "forbidden_actions": list(FORBIDDEN_REVIEW_ACTIONS),
+            "required_state": dict(REQUIRED_REVIEW_STATE),
+            "operator_packs": operator_packs,
+        },
         "review_queue": queue,
         "next_actions": [
             "Review selected cards using email/contact-form routes only; do not send or submit.",
@@ -263,6 +288,7 @@ def _record_pitch_pack_plan(record: dict[str, Any]) -> dict[str, Any]:
     profile = _profile_id(record)
     classification = _classification(record)
     route_type = _primary_route_type(record)
+    guidance = PROFILE_ASSET_GUIDANCE.get(profile, {})
     route_assets = select_outreach_assets(classification, contact_type=route_type, establishment_profile=profile)
     reference_assets = select_outreach_assets(classification, contact_type="email", establishment_profile=profile)
     route_description = describe_outreach_assets(route_assets, classification=classification, establishment_profile=profile)
@@ -271,6 +297,8 @@ def _record_pitch_pack_plan(record: dict[str, Any]) -> dict[str, Any]:
         "classification": classification,
         "template_owner": "GLM",
         "template_edit_policy": "locked_glm_seedstyle_only",
+        "family": guidance.get("family", "manual_review"),
+        "asset_profile": guidance.get("asset_profile", "manual_review"),
         "selected_channel": route_type,
         "attachment_policy": _attachment_policy(route_type),
         "strategy_label": reference_description["strategy_label"],
@@ -354,7 +382,11 @@ def _pitch_pack_plan(queue: list[dict[str, Any]]) -> dict[str, Any]:
         "selected_cards": len(queue),
         "template_owner": "GLM",
         "template_edit_policy": "locked_glm_seedstyle_only",
+        "stage": "planning_only_no_send",
         "real_outbound_allowed": False,
+        "operator_review_required": True,
+        "email_policy": "review_assets_only_no_send",
+        "contact_form_policy": "inspect_only_no_attachment_no_submit",
         "route_asset_counts": dict(sorted(route_assets.items())),
         "glm_reference_asset_counts": dict(sorted(reference_assets.items())),
         "attachment_policy_counts": dict(sorted(attachment_policies.items())),
@@ -424,6 +456,122 @@ def _glm_design_briefs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return briefs
 
 
+def _selected_glm_briefs(queue: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    briefs: list[dict[str, Any]] = []
+    for profile, entries in sorted(_grouped(queue, lambda entry: entry["establishment_profile"]).items()):
+        guidance = PROFILE_ASSET_GUIDANCE.get(profile, {})
+        briefs.append({
+            "profile_id": profile,
+            "profile_label": PROFILE_LABELS.get(profile, profile.replace("_", " ").title()),
+            "template_owner": "GLM",
+            "template_edit_policy": "locked_glm_seedstyle_only",
+            "family": guidance.get("family", "manual_review"),
+            "asset_profile": guidance.get("asset_profile", "manual_review"),
+            "selected_cards": len(entries),
+            "review_lane_counts": _entry_counter(entries, "review_lane"),
+            "route_counts": _entry_counter(entries, "primary_route_type"),
+            "city_counts": _entry_counter(entries, "city"),
+            "attachment_policy_counts": _entry_plan_counter(entries, "attachment_policy"),
+            "route_asset_counts": _entry_asset_counts(entries, "route_assets"),
+            "glm_reference_asset_counts": _entry_asset_counts(entries, "glm_reference_assets"),
+            "allowed_operator_outcomes": list(ALLOWED_REVIEW_OUTCOMES),
+            "brief": guidance.get("brief", "Confirm scope and route quality before assigning locked GLM assets."),
+            "review_focus": _selected_brief_focus(entries),
+        })
+    return briefs
+
+
+def _operator_review_packs(
+    queue: list[dict[str, Any]],
+    *,
+    pack_size: int = DEFAULT_OPERATOR_PACK_SIZE,
+) -> list[dict[str, Any]]:
+    packs: list[dict[str, Any]] = []
+    if pack_size <= 0:
+        return packs
+
+    grouped_entries = _grouped(queue, _operator_pack_key)
+    for group_key in sorted(grouped_entries):
+        entries = grouped_entries[group_key]
+        for offset in range(0, len(entries), pack_size):
+            chunk = entries[offset : offset + pack_size]
+            if not chunk:
+                continue
+            review_lane = str(chunk[0].get("review_lane") or "manual_review")
+            pack_number = len(packs) + 1
+            packs.append({
+                "pack_id": f"pack-{pack_number:02d}-{slugify(group_key)}",
+                "scope": "no_send_manual_review_only",
+                "card_count": len(chunk),
+                "review_lane": review_lane,
+                "primary_route_counts": _entry_counter(chunk, "primary_route_type"),
+                "profile_counts": _entry_counter(chunk, "establishment_profile"),
+                "city_counts": _entry_counter(chunk, "city"),
+                "attachment_policy_counts": _entry_plan_counter(chunk, "attachment_policy"),
+                "route_asset_counts": _entry_asset_counts(chunk, "route_assets"),
+                "glm_reference_asset_counts": _entry_asset_counts(chunk, "glm_reference_assets"),
+                "allowed_operator_outcomes": list(ALLOWED_REVIEW_OUTCOMES),
+                "forbidden_actions": list(FORBIDDEN_REVIEW_ACTIONS),
+                "required_state": dict(REQUIRED_REVIEW_STATE),
+                "review_focus": _pack_review_focus(review_lane),
+                "lead_ids": [str(entry["lead_id"]) for entry in chunk],
+            })
+    return packs
+
+
+def _operator_pack_key(entry: dict[str, Any]) -> str:
+    plan = entry.get("pitch_pack_plan") or {}
+    return "|".join([
+        str(entry.get("review_lane") or "manual_review"),
+        str(entry.get("primary_route_type") or "none"),
+        str(entry.get("establishment_profile") or "unknown"),
+        str(plan.get("asset_profile") or plan.get("strategy_label") or "asset_review"),
+    ])
+
+
+def _pack_review_focus(review_lane: str) -> str:
+    if review_lane == "email_route_review":
+        return "Confirm the saved email is a business owner route; do not send. Save hold, needs_more_info, or reject only."
+    if review_lane == "contact_form_review":
+        return "Inspect the contact form route only; do not submit and do not attach assets. Save hold, needs_more_info, or reject only."
+    if review_lane == "name_review":
+        return "Confirm the shop name is a real restaurant name, not a directory artifact. Save hold, needs_more_info, or reject only."
+    if review_lane == "scope_review":
+        return "Confirm Japan ramen/izakaya scope and reject non-scope records. Keep valid but unresolved records on hold."
+    return "Review evidence quality only; keep the record manual-review blocked."
+
+
+def _selected_brief_focus(entries: list[dict[str, Any]]) -> str:
+    route_counts = _entry_counter(entries, "primary_route_type")
+    if route_counts == {"contact_form": len(entries)}:
+        return "Use GLM assets as reference only; contact forms stay no-attachment and no-submit during review."
+    if "contact_form" in route_counts:
+        return "Split email and contact-form cards before drafting; forms cannot carry attachments and must not be submitted."
+    return "Review GLM asset fit for email-route cards only; do not draft or send outbound messages from this batch."
+
+
+def _entry_counter(entries: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts = Counter(str(entry.get(key) or "unknown") for entry in entries)
+    return dict(sorted(counts.items()))
+
+
+def _entry_plan_counter(entries: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for entry in entries:
+        plan = entry.get("pitch_pack_plan") or {}
+        counts[str(plan.get(key) or "unknown")] += 1
+    return dict(sorted(counts.items()))
+
+
+def _entry_asset_counts(entries: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for entry in entries:
+        plan = entry.get("pitch_pack_plan") or {}
+        for path in plan.get(key) or []:
+            counts[str(path)] += 1
+    return dict(sorted(counts.items()))
+
+
 def _grouped(records: list[dict[str, Any]], key_fn: Any) -> dict[str, list[dict[str, Any]]]:
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
@@ -459,9 +607,26 @@ def _review_batch_markdown(batch: dict[str, Any]) -> str:
             f"- `{brief['profile_id']}`: `{brief['openable_cards']}` cards, "
             f"asset profile `{brief['asset_profile']}`. {brief['brief']}"
         )
+    lines.extend(["", "## Selected Batch GLM Briefs", ""])
+    for brief in batch["glm"]["selected_batch_briefs"]:
+        lines.append(
+            f"- `{brief['profile_id']}`: `{brief['selected_cards']}` selected cards, "
+            f"routes `{brief['route_counts']}`, assets `{brief['glm_reference_asset_counts']}`. "
+            f"{brief['review_focus']}"
+        )
     lines.extend(["", "## Pitch-Pack Plan", ""])
+    lines.append(f"- Stage: `{batch['pitch_pack_plan']['stage']}`")
+    lines.append(f"- Email policy: `{batch['pitch_pack_plan']['email_policy']}`")
+    lines.append(f"- Contact-form policy: `{batch['pitch_pack_plan']['contact_form_policy']}`")
     for path, count in batch["pitch_pack_plan"]["glm_reference_asset_counts"].items():
         lines.append(f"- `{path}`: `{count}` selected review cards")
+    lines.extend(["", "## Operator Review Packs", ""])
+    for pack in batch["review_throughput"]["operator_packs"]:
+        lines.append(
+            f"- `{pack['pack_id']}`: `{pack['card_count']}` cards, "
+            f"lane `{pack['review_lane']}`, routes `{pack['primary_route_counts']}`. "
+            f"{pack['review_focus']}"
+        )
     lines.extend(["", "## Selected Review Cards", ""])
     for entry in batch["review_queue"]:
         lines.append(
