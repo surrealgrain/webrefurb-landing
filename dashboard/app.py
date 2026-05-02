@@ -311,6 +311,93 @@ ESTABLISHMENT_PROFILE_LABELS = {
     "izakaya_robatayaki": "Robatayaki",
 }
 
+LEAD_QUEUE_QUALITY_ORDER = {"v1_clean": 0, "high": 1, "medium": 2, "low": 3}
+LEAD_QUEUE_CITY_ORDER = {"Tokyo": 0, "Osaka": 1, "Sapporo": 2, "Fukuoka": 3, "Kyoto": 4}
+LEAD_QUEUE_VERIFICATION_ORDER = {"verified": 0, "needs_review": 1, "rejected": 2}
+LEAD_QUEUE_PITCH_ORDER = {
+    "pitch_ready": 0,
+    "review_blocked": 1,
+    "needs_name_review": 2,
+    "needs_email_review": 3,
+    "needs_scope_review": 4,
+    "rejected": 5,
+}
+
+QUALITY_TIER_LABELS = {
+    "v1_clean": "V1 Clean",
+    "high": "High",
+    "medium": "Medium Review",
+    "low": "Low Review",
+}
+
+VERIFICATION_STATUS_LABELS = {
+    "verified": "Verified",
+    "needs_review": "Needs Review",
+    "rejected": "Rejected",
+}
+
+EMAIL_STATUS_LABELS = {
+    "verified": "Email Verified",
+    "needs_review": "Email Review",
+    "rejected": "Email Rejected",
+}
+
+NAME_STATUS_LABELS = {
+    "two_source_verified": "Name 2x Verified",
+    "single_source": "Name Single Source",
+    "manually_accepted": "Name Accepted",
+    "needs_review": "Name Review",
+    "rejected": "Name Rejected",
+}
+
+SOURCE_STRENGTH_LABELS = {
+    "official_site": "Official Site",
+    "restaurant_owned_page": "Restaurant-Owned Page",
+    "directory": "Directory",
+    "weak_source": "Weak Source",
+}
+
+PITCH_READINESS_LABELS = {
+    "pitch_ready": "Pitch Ready",
+    "review_blocked": "Review Blocked",
+    "needs_scope_review": "Needs Scope Review",
+    "needs_name_review": "Needs Name Review",
+    "needs_email_review": "Needs Email Review",
+    "rejected": "Rejected",
+}
+
+MENU_TYPE_LABELS = {
+    "ramen": "Ramen",
+    "tsukemen": "Tsukemen",
+    "abura_soba": "Abura Soba",
+    "mazesoba": "Mazesoba",
+    "tantanmen": "Tantanmen",
+    "chuka_soba": "Chuka Soba",
+    "izakaya": "Izakaya",
+    "yakitori": "Yakitori",
+    "kushiyaki": "Kushiyaki",
+    "yakiton": "Yakiton",
+    "kushikatsu": "Kushikatsu",
+    "kushiage": "Kushiage",
+    "seafood_izakaya": "Seafood / Sake / Oden",
+    "oden": "Oden",
+    "tachinomi": "Tachinomi",
+    "robatayaki": "Robatayaki",
+    "sakaba": "Sakaba",
+}
+
+
+def _lead_queue_sort_key(lead: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        LEAD_QUEUE_QUALITY_ORDER.get(str(lead.get("quality_tier") or "").lower(), 99),
+        LEAD_QUEUE_VERIFICATION_ORDER.get(str(lead.get("verification_status") or "").lower(), 99),
+        LEAD_QUEUE_PITCH_ORDER.get(str(lead.get("pitch_readiness_status") or "").lower(), 99),
+        LEAD_QUEUE_CITY_ORDER.get(str(lead.get("city") or ""), 99),
+        str(lead.get("establishment_profile") or ""),
+        str(lead.get("business_name") or ""),
+        str(lead.get("lead_id") or ""),
+    )
+
 
 def _normalise_contact_label(contact: dict[str, Any] | None) -> str:
     if not contact:
@@ -371,6 +458,24 @@ def _dashboard_state_label(value: Any, *, default: str = "Unknown") -> str:
     return text.replace("_", " ").title()
 
 
+def _restaurant_email_queue_record(lead: dict[str, Any]) -> bool:
+    lead_id = str(lead.get("lead_id") or "")
+    source_query = str(lead.get("source_query") or "")
+    source_file = str(lead.get("source_file") or "")
+    return (
+        lead_id.startswith("wrm-email-")
+        or source_query == "restaurant_email_import"
+        or "restaurant_email_leads" in source_file
+    )
+
+
+def _label_from_map(value: Any, labels: dict[str, str], *, default: str = "Unknown") -> str:
+    key = str(value or "").strip()
+    if not key:
+        return default
+    return labels.get(key, _dashboard_state_label(key, default=default))
+
+
 def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
     override = str(lead.get("establishment_profile_override") or "").strip()
     stored = str(lead.get("establishment_profile") or "").strip() or "unknown"
@@ -425,6 +530,13 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["ticket_machine_state_label"] = _dashboard_state_label(lead.get("ticket_machine_state") or prepared["lead_evidence_dossier"].get("ticket_machine_state"))
     prepared["english_menu_state_label"] = _dashboard_state_label(lead.get("english_menu_state") or prepared["lead_evidence_dossier"].get("english_menu_state"))
     prepared["lead_category_label"] = _dashboard_state_label(lead.get("lead_category"), default="Unclassified")
+    prepared["quality_tier_label"] = _label_from_map(lead.get("quality_tier"), QUALITY_TIER_LABELS, default="Unscored")
+    prepared["menu_type_label"] = _label_from_map(lead.get("menu_type"), MENU_TYPE_LABELS, default="Unclassified")
+    prepared["verification_status_label"] = _label_from_map(lead.get("verification_status"), VERIFICATION_STATUS_LABELS, default="Unverified")
+    prepared["email_verification_status_label"] = _label_from_map(lead.get("email_verification_status"), EMAIL_STATUS_LABELS, default="Email Unchecked")
+    prepared["name_verification_status_label"] = _label_from_map(lead.get("name_verification_status"), NAME_STATUS_LABELS, default="Name Unchecked")
+    prepared["source_strength_label"] = _label_from_map(lead.get("source_strength"), SOURCE_STRENGTH_LABELS, default="Source Unchecked")
+    prepared["pitch_readiness_label"] = _label_from_map(lead.get("pitch_readiness_status"), PITCH_READINESS_LABELS, default="Review Blocked")
     package_key = str(lead.get("recommended_primary_package") or "")
     package = PACKAGE_REGISTRY.get(package_key, {})
     prepared["recommended_package_label"] = package.get("label") or ("Custom quote" if package_key == "custom_quote" else package_key)
@@ -477,11 +589,13 @@ async def dashboard_main(request: Request):
             )
         )
         and (
-            lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
+            _restaurant_email_queue_record(lead)
+            or lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
             or lead.get("launch_readiness_status") == "disqualified"
         )
         and (
-            _has_supported_contact_route(lead)
+            _restaurant_email_queue_record(lead)
+            or _has_supported_contact_route(lead)
             or (
                 lead.get("production_sim_fixture") is True
                 and lead.get("launch_readiness_status") in {"manual_review", "disqualified"}
@@ -489,7 +603,7 @@ async def dashboard_main(request: Request):
         )
     ]
     return templates.TemplateResponse(request, "index.html", {
-        "leads": leads,
+        "leads": sorted(leads, key=_lead_queue_sort_key),
     })
 
 
@@ -501,7 +615,8 @@ async def dashboard_main(request: Request):
 async def api_leads():
     """Return dashboard-ready lead records as JSON."""
     from pipeline.record import list_leads
-    return [_prepare_lead_for_dashboard(lead) for lead in list_leads(state_root=STATE_ROOT)]
+    leads = [_prepare_lead_for_dashboard(lead) for lead in list_leads(state_root=STATE_ROOT)]
+    return sorted(leads, key=_lead_queue_sort_key)
 
 
 @app.get("/api/launch-batches")
@@ -839,15 +954,23 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             detail=f"Lead already has status '{record.get('outreach_status')}'",
         )
 
-    from pipeline.lead_dossier import ensure_lead_dossier, READINESS_READY
+    from pipeline.lead_dossier import ensure_lead_dossier, READINESS_DISQUALIFIED, READINESS_READY
     record = ensure_lead_dossier(record)
-    if record.get("launch_readiness_status") != READINESS_READY:
+    launch_readiness_status = record.get("launch_readiness_status")
+    if regenerate and launch_readiness_status != READINESS_READY:
         from pipeline.record import persist_lead_record
         persist_lead_record(record, state_root=STATE_ROOT)
         reasons = ", ".join(record.get("launch_readiness_reasons") or ["not_ready"])
         raise HTTPException(
             status_code=422,
             detail=f"Lead is not launch-ready for outreach: {reasons}",
+        )
+    if not regenerate and launch_readiness_status == READINESS_DISQUALIFIED:
+        from pipeline.record import persist_lead_record
+        persist_lead_record(record, state_root=STATE_ROOT)
+        raise HTTPException(
+            status_code=422,
+            detail="Lead is disqualified and cannot be previewed as a pitch.",
         )
 
     # Build qualification result for classification
@@ -865,6 +988,11 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     profile = _effective_establishment_profile(record)
     send_enabled = _has_business_email(record)
     primary_contact_type = str((primary_contact or {}).get("type") or "")
+    if primary_contact_type not in {"email", "contact_form"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Lead is not launch-ready for outreach: no supported e-mail or contact-form route for pitch preview.",
+        )
     sample_result: dict[str, Any] = {}
     sample_menu_url = str(record.get("sample_menu_url") or record.get("hosted_menu_sample_url") or "").strip()
     if primary_contact_type == "contact_form":
@@ -1009,6 +1137,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "contact_action_note": contact_action_note,
         "has_saved_draft": bool(record.get("outreach_draft_body") or record.get("outreach_draft_english_body")),
         "send_blocked": bool(test_fixture_label) or record.get("outreach_status") in BLOCKED_SEND_STATUSES,
+        "review_only": record.get("launch_readiness_status") != READINESS_READY,
         "outreach_status": record.get("outreach_status"),
         "launch_readiness_status": record.get("launch_readiness_status"),
         "launch_readiness_reasons": record.get("launch_readiness_reasons") or [],
