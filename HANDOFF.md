@@ -9,9 +9,9 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 ## Current Snapshot
 - Branch: `codex/phase11-contact-form-batch`; unrelated pre-existing dirty files remain, so stage only mission files.
 - Active workstream: no-send restaurant pitch-card inventory; all records remain manual-review blocked and unsendable.
-- Live state: 522 records, 328 openable pitch cards, 193 hard blocked, 1 unsupported route.
-- Pitch-card breakdown: 283 needs_email_review, 19 needs_name_review, 26 needs_scope_review.
-- Safety counters: all 522 `launch_readiness_status=manual_review` and `outreach_status=needs_review`; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
+- Live state: 596 records, 401 openable pitch cards, 193 hard blocked, 2 unsupported route.
+- Pitch-card breakdown: 355 needs_email_review, 20 needs_name_review, 26 needs_scope_review.
+- Safety counters: all 596 `launch_readiness_status=manual_review` and `outreach_status=needs_review`; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
 - Dashboard server is live at `http://127.0.0.1:8000/` (PID 76776 last checked).
 ## Resume Phase Plan
 - P0 Safety: always active; no-send/no-promotion/manual-review constraints unchanged.
@@ -23,16 +23,16 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - P6 Pitch packs: 6.1 batch dimensions pending; 6.2 GLM-locked asset routing pending; 6.3 draft generation/review pending.
 - P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 final gate not started.
 ## Implementation State
-- Added checkpointed Tabelog subarea scanning behind `--directory-scope subarea|both`; default city-wide directory behavior remains unchanged.
-- Directory route recovery now follows same-site Japanese inquiry/contact links and expanded deterministic probes before persisting review-only cards.
-- Live acquisition added 2 safe review cards, but expanded city/subarea directory yield remains low; ignored `state/` inventory changed locally, with no tracked state files.
-- Dashboard review support from prior commits remains: outcome filter, unreviewed lane, progress stats, outcome badges, Save & Next/Next Unreviewed controls.
+- Added no-key `duckduckgo-contact` acquisition mode; it searches official contact-page results and persists only no-send manual-review cards.
+- Tabelog subarea scanning and Japanese inquiry/contact route recovery remain available; city-wide Tabelog remains exhausted below target.
+- No-send persistence now forces manual-review/needs-review after lead hardening, and DDG import filters obvious chain/manufacturer hosts such as Ichiran.
+- Live acquisition reached the 400-card target: +73 openable cards this turn, from 328/522 to 401/596.
 ## Blockers / Next Work
-- Five-city city-wide Tabelog source is exhausted through page 100 below the 400-card target; subarea probing improved route discovery but did not materially solve volume.
-- Serper/webserper/Google Places API keys are missing or unavailable in this shell; provider-backed organic fallback is unavailable until access is restored.
+- Serper still returns `Not enough credits`; Google Places key is unavailable; provider-backed search is still blocked.
+- Ignored `state/` inventory changed locally; tracked code/handoff changes are the durable commit artifacts.
 - `audit-state` has reported pre-existing launch/smoke asset-profile drift; live no-send safety counters remain clean.
-- Next lane: unlock a higher-yield source/provider or explicitly authorize use of blocked raw lead sources; otherwise keep no-send manual review of the 328 openable cards.
+- Next lane: manual review/triage of the 401 openable cards, then GLM category-count/design brief work when review outcomes are ready.
 ## Last Verification
-- Tests: `tests/test_search.py -q` 56 passed; `tests/test_contact_crawler.py -q` 17 passed.
+- Tests: `tests/test_search.py -q` 60 passed; `tests/test_contact_crawler.py -q` 17 passed.
 - Requested focused tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed.
-- Live safety audit: 522 manual-review records; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`; no outreach happened.
+- Live safety audit: 596 manual-review records; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`; no outreach happened.

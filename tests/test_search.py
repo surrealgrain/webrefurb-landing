@@ -77,6 +77,41 @@ def test_directory_scope_key_names_city_wide_and_subarea_pages():
     )
 
 
+def test_duckduckgo_unwraps_redirect_urls():
+    url = (
+        "https://duckduckgo.com/l/?uddg="
+        "https%3A%2F%2Fmenya.example%2Fcontact%2F%3Futm_source%3Dduck"
+    )
+
+    assert five_city_search._duckduckgo_unwrap_url(url) == "https://menya.example/contact"
+
+
+def test_duckduckgo_result_candidate_filters_aggregators_and_extracts_name():
+    candidate = five_city_search._duckduckgo_result_candidate(
+        {
+            "url": "https://menya.example/contact/",
+            "title": "お問い合わせ | 東京濃厚味噌らーめん萬馬軒",
+        },
+        city="Tokyo",
+        category="ramen",
+    )
+
+    assert candidate is not None
+    assert candidate.name == "東京濃厚味噌らーめん萬馬軒"
+    assert candidate.website == "https://menya.example/contact"
+    assert candidate.city == "Tokyo"
+    assert five_city_search._duckduckgo_result_candidate(
+        {"url": "https://tabelog.com/tokyo/A0000/123/", "title": "お問い合わせ | 麺屋"},
+        city="Tokyo",
+        category="ramen",
+    ) is None
+    assert five_city_search._duckduckgo_result_candidate(
+        {"url": "https://food-maker.example/contact/", "title": "お問い合わせ | 東京拉麺株式会社"},
+        city="Tokyo",
+        category="ramen",
+    ) is None
+
+
 def test_search_checkpoint_marks_completed_jobs():
     checkpoint = five_city_search._new_checkpoint()
     job_key = "Tokyo:ramen:codex_ramen_tokyo_tabelog_genre_gmail_com"
@@ -210,6 +245,78 @@ def test_directory_route_finder_follows_homepage_contact_links():
     assert signal["required_fields"] == ["your-name", "your-email", "your-message"]
 
 
+def test_no_send_persist_forces_manual_review_after_hardening(tmp_path):
+    record = {
+        "lead_id": "wrm-test-chain",
+        "generated_at": "2026-05-02T00:00:00+00:00",
+        "business_name": "一蘭 テスト店",
+        "website": "https://ichiran.example/contact",
+        "address": "",
+        "phone": "",
+        "map_url": "",
+        "contacts": [{"type": "email", "value": "owner@example.jp", "actionable": True}],
+        "primary_contact": {"type": "email", "value": "owner@example.jp", "actionable": True},
+        "primary_category_v1": "ramen",
+        "category": "ramen",
+        "lead_category": "ramen_menu_translation",
+        "source_query": "directory_pitch_card_crawl",
+        "source_search_job": {},
+        "manual_review_required": True,
+        "launch_readiness_status": "manual_review",
+        "outreach_status": "needs_review",
+        "pitch_ready": False,
+        "candidate_inbox_status": "needs_email_review",
+        "verification_status": "needs_review",
+    }
+
+    five_city_search._persist_no_send_review_record(record, state_root=tmp_path)
+
+    stored = json.loads(next((tmp_path / "leads").glob("*.json")).read_text(encoding="utf-8"))
+    assert stored["launch_readiness_status"] == "manual_review"
+    assert stored["outreach_status"] == "needs_review"
+    assert stored["pitch_ready"] is False
+    assert "disqualified_at_hardening" not in stored
+
+
+def test_directory_candidate_rejects_chain_name_after_qualification(tmp_path, monkeypatch):
+    candidate = DirectoryCandidate(
+        name="天然とんこつラーメン",
+        website="https://ichiran.example/contact",
+        category="ramen",
+        city="Fukuoka",
+    )
+
+    class FakeResponse:
+        status = 200
+        html_content = "<html><body>ラーメン お問い合わせ owner@ichiran.example</body></html>"
+
+    class FakeFetcher:
+        def get(self, url, timeout=10):
+            return FakeResponse()
+
+    def fake_routes(fetcher, website, html, *, timeout):
+        return ["owner@ichiran.example"], website, "", {}
+
+    def fake_qualify_candidate(**kwargs):
+        return QualificationResult(
+            lead=True,
+            rejection_reason=None,
+            business_name="一蘭 テスト店",
+            website=kwargs["website"],
+            category=kwargs["category"],
+            primary_category_v1="ramen",
+        )
+
+    monkeypatch.setattr(five_city_search, "Fetcher", FakeFetcher)
+    monkeypatch.setattr(five_city_search, "_find_candidate_routes", fake_routes)
+    monkeypatch.setattr(five_city_search, "qualify_candidate", fake_qualify_candidate)
+
+    result = five_city_search._process_directory_candidate(candidate, tmp_path, timeout=3)
+
+    assert result["hard_blocked_chains_operators"] == 1
+    assert not (tmp_path / "leads").exists()
+
+
 def test_directory_clear_hard_scope_rejection_is_not_recovered():
     candidate = DirectoryCandidate(
         name="鮨レビュー",
@@ -220,6 +327,12 @@ def test_directory_clear_hard_scope_rejection_is_not_recovered():
 
     assert five_city_search._directory_rejection_is_recoverable("excluded_business_type_v1", candidate) is False
     assert five_city_search._directory_rejection_is_recoverable("no_menu_or_product_evidence", candidate) is True
+    assert five_city_search._directory_rejection_is_recoverable("no_physical_location_evidence", candidate) is False
+    assert five_city_search._directory_rejection_is_recoverable(
+        "no_physical_location_evidence",
+        candidate,
+        recover_city_scope_review=True,
+    ) is True
 
 
 def test_codex_email_text_extractor_normalizes_japanese_obfuscation():
