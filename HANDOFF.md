@@ -20,20 +20,21 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - P3 Dashboard review active; no-send outcome workflow uses hold/needs_more_info/reject only.
 - P4 Promotion not built; approve/promote-to-pitch_ready remains out of scope.
 - P5 GLM category counts/routing active; locked profile asset mapping active.
-- P6 Pitch packs active for review planning only; draft generation/review still no-send and pending operator review.
+- P6 Pitch packs active for review planning only; all batch/wave artifacts remain no-send.
 - P7 Outreach readiness not started.
 ## Implementation State
 - No-key `duckduckgo-contact` acquisition, Tabelog subarea scanning, and Japanese inquiry/contact route recovery remain available; provider-backed search is blocked.
 - Live acquisition reached the 400-card target earlier: 401 openable cards across 596 records.
-- `pipeline.cli review-batch` now emits selected-batch GLM briefs, pitch-pack planning policies, and operator review packs with required state guards.
-- Latest ignored review artifact: `state/review_batches/pitch-card-review-20260502T145502Z.*` with 120 selected no-send cards, 7 selected GLM briefs, and 9 operator packs.
-- Selected batch GLM routing: 89 izakaya asset references, 31 ramen asset references; all review-only/no-send.
+- `pipeline.cli review-batch` emits selected-batch GLM briefs, pitch-pack policies, and operator packs for one selected no-send batch.
+- New `pipeline.cli review-wave` chunks all unreviewed approved-route pitch cards into no-send review batches and operator packs.
+- Latest ignored artifacts: batch `pitch-card-review-20260502T145502Z.*` has 120 cards/7 GLM briefs/9 packs; wave `pitch-card-review-wave-20260502T150010Z.*` has 401 cards/4 batches/38 packs/10 GLM briefs.
+- Wave GLM routing: 209 izakaya asset references, 192 ramen asset references; all review-only/no-send.
 ## Blockers / Next Work
 - Serper still returns `Not enough credits`; Google Places key is unavailable; five-city directory source remains exhausted through page 100.
 - Ignored `state/` inventory and review-batch artifacts changed locally; tracked code/handoff changes are the durable commit artifacts.
 - `audit-state` previously reported pre-existing launch/smoke asset-profile drift; live no-send safety counters remain clean.
-- Next lane: operator review the selected 120-card no-send batch, saving only hold/needs_more_info/reject outcomes.
+- Next lane: operator review wave batches in order, saving only hold/needs_more_info/reject outcomes.
 ## Last Verification
-- Tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed; `tests/test_review_batches.py -q` 2 passed.
+- Tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed; `tests/test_review_batches.py -q` 4 passed.
 - Dashboard: PID 76776 listening on `127.0.0.1:8000`; GET `/` returned dashboard HTML.
 - Live safety audit: 596 manual-review records; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`; no outreach happened.

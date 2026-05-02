@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from pipeline.review_batches import build_no_send_review_batch, write_no_send_review_batch_brief
+from pipeline.review_batches import (
+    build_no_send_review_batch,
+    build_no_send_review_wave,
+    write_no_send_review_batch_brief,
+    write_no_send_review_wave_brief,
+)
 from pipeline.utils import write_json
 
 
@@ -133,3 +138,67 @@ def test_review_batch_writer_creates_json_and_markdown(tmp_path):
     assert "Operator Review Packs" in markdown
     assert "planning_only_no_send" in markdown
     assert batch["counts"]["selected_review_queue"] == 1
+
+
+def test_review_wave_chunks_all_unreviewed_approved_route_cards(tmp_path):
+    for index in range(5):
+        _write_record(tmp_path, _lead(f"wrm-review-email-{index}", pitch_case="email_review"))
+    _write_record(
+        tmp_path,
+        _lead(
+            "wrm-review-form",
+            contact_type="contact_form",
+            contact_value="https://shop.example.test/contact",
+            pitch_case="final_review",
+            profile="izakaya_food_and_drinks",
+        ),
+    )
+    _write_record(tmp_path, _lead("wrm-review-reviewed", outcome="hold"))
+    _write_record(tmp_path, _lead("wrm-reference-phone", contact_type="phone", contact_value="03-0000-0000"))
+
+    wave = build_no_send_review_wave(state_root=tmp_path, batch_size=2)
+
+    assert wave["scope"] == "no_send_pitch_card_review_wave"
+    assert wave["no_send_safety"]["real_outbound_allowed"] is False
+    assert wave["no_send_safety"]["ready_for_outreach"] == 0
+    assert wave["no_send_safety"]["pitch_ready"] == 0
+    assert wave["no_send_safety"]["outreach_status_new"] == 0
+    assert wave["counts"]["approved_route_review_cards"] == 6
+    assert wave["counts"]["batch_count"] == 3
+    assert [batch["card_count"] for batch in wave["batches"]] == [2, 2, 2]
+    assert sum(batch["card_count"] for batch in wave["batches"]) == wave["pitch_pack_plan"]["selected_cards"]
+    assert wave["pitch_pack_plan"]["stage"] == "planning_only_no_send"
+    assert wave["review_throughput"]["required_state"] == {
+        "launch_readiness_status": "manual_review",
+        "outreach_status": "needs_review",
+        "pitch_ready": False,
+    }
+    assert all(
+        pack["pack_id"].startswith(f"batch-{batch['batch_index']:02d}-pack-")
+        for batch in wave["batches"]
+        for pack in batch["review_throughput"]["operator_packs"]
+    )
+    queued_ids = {
+        entry["lead_id"]
+        for batch in wave["batches"]
+        for entry in batch["review_queue"]
+    }
+    assert "wrm-review-reviewed" not in queued_ids
+    assert "wrm-reference-phone" not in queued_ids
+
+
+def test_review_wave_writer_creates_json_and_markdown(tmp_path):
+    _write_record(tmp_path, _lead("wrm-review-email", pitch_case="email_review"))
+
+    wave = write_no_send_review_wave_brief(state_root=tmp_path, batch_size=1)
+
+    artifact_paths = wave["artifact_paths"]
+    assert artifact_paths["json"].endswith(".json")
+    assert artifact_paths["markdown"].endswith(".md")
+    markdown = open(artifact_paths["markdown"], encoding="utf-8").read()
+    assert "No-Send Pitch-Card Review Wave" in markdown
+    assert "Wave GLM Briefs" in markdown
+    assert "Wave Pitch-Pack Plan" in markdown
+    assert "Review Batches" in markdown
+    assert "planning_only_no_send" in markdown
+    assert wave["counts"]["batch_count"] == 1
