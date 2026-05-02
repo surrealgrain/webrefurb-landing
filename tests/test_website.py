@@ -194,6 +194,7 @@ def test_dashboard_review_lanes_make_manual_work_queue_visible():
     assert "function reviewLaneCounts(leads)" in html
     assert "Email Route Review" in html
     assert "Contact Form Review" in html
+    assert "Unreviewed Cards" in html
     assert "Name Review" in html
     assert "Scope Review" in html
     assert "function applyReviewLane(lane)" in html
@@ -204,13 +205,28 @@ def test_dashboard_review_lanes_make_manual_work_queue_visible():
     assert ".review-lane.is-active" in html
 
 
+def test_dashboard_sidebar_restates_no_send_phase_plan():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+
+    assert "Phase Plan" in html
+    assert "P0" in html and "Safety guardrails" in html
+    assert "P3" in html and "Dashboard review" in html
+    assert "P4" in html and "approve not built" in html
+    assert "P7" in html and "final gate not started" in html
+
+
 def test_dashboard_has_no_send_review_outcome_controls():
     html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
 
     assert 'id="review-outcome-panel"' in html
+    assert 'id="sidebar-review-outcome"' in html
     assert 'id="review-outcome-select"' in html
+    assert 'value="not_reviewed">Not Reviewed' in html
     assert 'value="hold">Hold' in html
     assert 'value="needs_more_info">Needs More Info' in html
     assert 'value="reject">Reject' in html
+    assert 'data-review-outcome="' in html
+    assert "reviewOutcomeValue(lead)" in html
+    assert "loadDashboardLeads(true)" in html
     assert "saveLeadReviewOutcome" in html
     assert "/review-outcome" in html

@@ -69,6 +69,25 @@ button, input, select, textarea { font: inherit; }
 .badge-cyan { background: var(--accent); }
 .badge-quiet { background: rgba(255,255,255,0.16); color: #B8DDE4; }
 
+.phase-plan {
+  display: flex; flex-direction: column; gap: 8px; max-height: 260px;
+  overflow-y: auto; padding: 0 4px 2px;
+}
+.phase-item {
+  display: grid; grid-template-columns: 32px 1fr; gap: 8px;
+  padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.045); color: #C7E2E7;
+}
+.phase-code {
+  width: 30px; height: 24px; border-radius: 6px; display: inline-flex;
+  align-items: center; justify-content: center; font: 700 10px/1 'Fira Code', monospace;
+  background: rgba(141,227,240,0.12); color: #8DE3F0;
+}
+.phase-title { display: block; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.25; }
+.phase-steps { display: block; margin-top: 3px; color: #9EC6CF; font-size: 10px; line-height: 1.35; }
+.phase-item.is-active { border-color: rgba(141,227,240,0.42); background: rgba(10,39,54,0.82); }
+.phase-item.is-pending { opacity: 0.76; }
+
 .search-activity {
   margin-top: auto; border-radius: 16px; border: 1px solid rgba(141,227,240,0.18);
   background: rgba(255,255,255,0.055); padding: 12px; color: #D8EEF2;
@@ -164,7 +183,7 @@ button, input, select, textarea { font: inherit; }
 .lead-stat-value { font-size: 22px; font-weight: 750; line-height: 1; color: var(--text); }
 .lead-stat-label { margin-top: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .review-lanes {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px; margin-bottom: 14px;
 }
 .review-lane {
@@ -215,6 +234,10 @@ button, input, select, textarea { font: inherit; }
 }
 .verification-rejected, .pitch-rejected, .pitch-hard-blocked { background: #FFF8F6; border-color: #E5A39B; color: #A52F24; }
 .pitch-unsupported-route { background: #F3F4F6; border-color: #D1D5DB; color: #4B5563; }
+.outcome-not-reviewed { background: #F7FBFC; border-color: #D7E4E7; color: #455A62; }
+.outcome-hold { background: #FFF7ED; border-color: #FDBA74; color: #9A3412; }
+.outcome-needs-more-info { background: #FEF3C7; border-color: #FCD34D; color: #92400E; }
+.outcome-reject { background: #FFF8F6; border-color: #E5A39B; color: #A52F24; }
 .source-official-site { background: #ECFEFF; border-color: #BFE5EA; color: #0E7490; }
 .source-restaurant-owned-page { background: #EEF2FF; border-color: #C7D2FE; color: #3730A3; }
 .source-directory { background: #F7FBFC; border-color: #D7E4E7; color: #455A62; }
@@ -554,6 +577,44 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   </div>
 
   <div class="sidebar-section">
+    <div class="sidebar-section-title">Phase Plan</div>
+    <div class="phase-plan" aria-label="P0 to P7 resume plan">
+      <div class="phase-item is-active">
+        <span class="phase-code">P0</span>
+        <span><span class="phase-title">Safety guardrails</span><span class="phase-steps">Always on: no send, no promotion, manual_review plus needs_review only.</span></span>
+      </div>
+      <div class="phase-item">
+        <span class="phase-code">P1</span>
+        <span><span class="phase-title">Corpus consolidation</span><span class="phase-steps">1.1 import queue done; 1.2 duplicates preserved; 1.3 idempotency done; 1.4 manifest discipline continues.</span></span>
+      </div>
+      <div class="phase-item">
+        <span class="phase-code">P2</span>
+        <span><span class="phase-title">Verification</span><span class="phase-steps">2.1 fields done; 2.2 verifier pass done; 2.3 hard blocks quarantined; 2.4 unresolved cases stay manual.</span></span>
+      </div>
+      <div class="phase-item is-active">
+        <span class="phase-code">P3</span>
+        <span><span class="phase-title">Dashboard review</span><span class="phase-steps">3.1 previews; 3.2 filters; 3.3 route/profile; 3.4 lanes; 3.5 no-send outcomes active.</span></span>
+      </div>
+      <div class="phase-item is-active">
+        <span class="phase-code">P4</span>
+        <span><span class="phase-title">Promotion hold</span><span class="phase-steps">4.1 hold/needs-info/reject only; 4.2 approve not built; 4.3 launch readiness blocked.</span></span>
+      </div>
+      <div class="phase-item is-pending">
+        <span class="phase-code">P5</span>
+        <span><span class="phase-title">GLM briefs</span><span class="phase-steps">5.1 category counts pending; 5.2 briefs not started; 5.3 profile assets pending.</span></span>
+      </div>
+      <div class="phase-item is-pending">
+        <span class="phase-code">P6</span>
+        <span><span class="phase-title">Pitch packs</span><span class="phase-steps">6.1 batch dimensions pending; 6.2 asset routing pending; 6.3 draft review pending.</span></span>
+      </div>
+      <div class="phase-item is-pending">
+        <span class="phase-code">P7</span>
+        <span><span class="phase-title">Outreach readiness</span><span class="phase-steps">7.1 draft review pending; 7.2 route confirmation pending; 7.3 final gate not started.</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
     <div class="sidebar-section-title">Search</div>
     <div style="padding: 0 4px;">
       <select class="search-select" id="sidebar-category" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
@@ -660,6 +721,13 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="needs_scope_review">Needs Scope Review</option>
         <option value="hard_blocked">Hard Blocked</option>
         <option value="unsupported_route">Unsupported Route</option>
+      </select>
+      <select class="search-select" id="sidebar-review-outcome" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
+        <option value="all">All Review Outcomes</option>
+        <option value="not_reviewed">Not Reviewed</option>
+        <option value="hold">Hold</option>
+        <option value="needs_more_info">Needs More Info</option>
+        <option value="reject">Rejected</option>
       </select>
       <button class="btn btn-secondary" type="button" style="width:100%;height:34px;font-size:12px;" onclick="resetLeadFilters()">Reset Filters</button>
     </div>
@@ -1042,6 +1110,8 @@ let pendingDeleteLead = null;
 let replyCountsSeen = false;
 let lastReplyUnreadTotal = 0;
 let currentContactAction = 'send_email';
+let dashboardLeadState = null;
+let dashboardCardCountsState = {};
 const DISMISSED_LEADS_STORAGE_KEY = 'webrefurbmenu.dismissedLeadIds';
 const ESTABLISHMENT_PROFILE_LABELS = {
   unknown: 'Manual Review',
@@ -1222,6 +1292,15 @@ function renderContactRoutes(data) {
 function reviewOutcomeLabel(outcome) {
   const labels = { hold: 'Hold', needs_more_info: 'Needs More Info', reject: 'Reject' };
   return labels[outcome] || 'Not Reviewed';
+}
+
+function reviewOutcomeValue(lead) {
+  const outcome = String((lead || {}).operator_review_outcome || '').trim();
+  return outcome || 'not_reviewed';
+}
+
+function reviewOutcomeClass(outcome) {
+  return String(outcome || 'not_reviewed').replace(/_/g, '-');
 }
 
 function renderReviewOutcome(data) {
@@ -1415,7 +1494,7 @@ async function saveLeadReviewOutcome() {
     if (currentEmail) Object.assign(currentEmail, data);
     renderReviewOutcome(data);
     renderLeadDossier(currentEmail || data);
-    await loadDashboardLeads();
+    await loadDashboardLeads(true);
     showToast('Review outcome saved', 'success');
   } catch (err) {
     showToast('Review save failed: ' + err.message, 'error');
@@ -1631,6 +1710,7 @@ function filterLeads() {
   const nameStatus = document.getElementById('sidebar-name-status') ? document.getElementById('sidebar-name-status').value : 'all';
   const sourceStrength = document.getElementById('sidebar-source-strength') ? document.getElementById('sidebar-source-strength').value : 'all';
   const pitchReadiness = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
+  const reviewOutcome = document.getElementById('sidebar-review-outcome') ? document.getElementById('sidebar-review-outcome').value : 'all';
   const profile = document.getElementById('sidebar-profile') ? document.getElementById('sidebar-profile').value : 'all';
   const routeSelect = document.getElementById('sidebar-route');
   const route = routeSelect ? routeSelect.value : 'all';
@@ -1639,7 +1719,7 @@ function filterLeads() {
   if (
     category === 'all' && city === 'all' && route === 'all' && quality === 'all' &&
     verification === 'all' && emailStatus === 'all' && nameStatus === 'all' &&
-    sourceStrength === 'all' && pitchReadiness === 'all' && profile === 'all'
+    sourceStrength === 'all' && pitchReadiness === 'all' && reviewOutcome === 'all' && profile === 'all'
   ) {
     cards.forEach(c => c.style.display = '');
     updateLeadsCount();
@@ -1661,11 +1741,14 @@ function filterLeads() {
     const matchEmail = emailStatus === 'all' || card.dataset.emailStatus === emailStatus;
     const matchName = nameStatus === 'all' || card.dataset.nameStatus === nameStatus;
     const matchSource = sourceStrength === 'all' || card.dataset.sourceStrength === sourceStrength;
-    const matchPitch = pitchReadiness === 'all' || card.dataset.pitchReadiness === pitchReadiness;
+    const matchPitch = pitchReadiness === 'all'
+      || card.dataset.pitchReadiness === pitchReadiness
+      || (pitchReadiness === 'reviewable' && reviewablePitchStatus(card.dataset.pitchReadiness));
+    const matchReviewOutcome = reviewOutcome === 'all' || card.dataset.reviewOutcome === reviewOutcome;
     const matchProfile = profile === 'all' || card.dataset.establishmentProfile === profile;
     card.style.display = (
       matchCategory && matchCity && matchRoute && matchQuality && matchVerification &&
-      matchEmail && matchName && matchSource && matchPitch && matchProfile
+      matchEmail && matchName && matchSource && matchPitch && matchReviewOutcome && matchProfile
     ) ? '' : 'none';
   });
   updateLeadsCount();
@@ -1684,6 +1767,7 @@ function resetLeadFilters() {
     'sidebar-route',
     'sidebar-profile',
     'sidebar-pitch-readiness',
+    'sidebar-review-outcome',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = 'all';
@@ -1767,6 +1851,8 @@ function renderLeadCard(lead) {
   const nameStatus = String(lead.name_verification_status || 'unchecked');
   const sourceStrength = String(lead.source_strength || 'unchecked');
   const pitchCardStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || (readiness === 'ready_for_outreach' ? 'reviewable' : 'needs_scope_review'));
+  const reviewOutcome = reviewOutcomeValue(lead);
+  const reviewOutcomeText = lead.operator_review_outcome_label || reviewOutcomeLabel(reviewOutcome);
   const blockedSend = ['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
   const canReviewPitch = !blockedSend && lead.pitch_card_openable === true && ['email', 'contact_form'].includes(contactType);
   const reviewBlocked = !blockedSend && (readiness !== 'ready_for_outreach' || pitchCardStatus !== 'reviewable');
@@ -1784,6 +1870,7 @@ function renderLeadCard(lead) {
     '<span class="verification-pill verification-' + escapeHtml(statusSlug(nameStatus)) + '">' + escapeHtml(lead.name_verification_status_label || titleCaseValue(nameStatus)) + '</span>',
     '<span class="verification-pill source-' + escapeHtml(statusSlug(sourceStrength)) + '">' + escapeHtml(lead.source_strength_label || titleCaseValue(sourceStrength)) + '</span>',
     '<span class="verification-pill pitch-' + escapeHtml(statusSlug(pitchCardStatus)) + '">' + escapeHtml(lead.pitch_card_label || titleCaseValue(pitchCardStatus)) + '</span>',
+    '<span class="verification-pill outcome-' + escapeHtml(reviewOutcomeClass(reviewOutcome)) + '">' + escapeHtml(reviewOutcomeText) + '</span>',
     contactType ? '<span class="classification-badge">' + escapeHtml(titleCaseValue(contactType)) + '</span>' : '',
     '<span class="classification-badge establishment-profile-badge" data-role="profile-badge">' + escapeHtml(profileLabel) + '</span>',
     lead.menu_evidence_found ? '<span class="evidence-pill evidence-pill-menu">Menu</span>' : '',
@@ -1805,7 +1892,8 @@ function renderLeadCard(lead) {
       ' data-city="' + escapeHtml(lead.city || '') + '"' +
       ' data-menu-type="' + escapeHtml(lead.menu_type || '') + '"' +
       ' data-primary-category="' + escapeHtml(lead.primary_category_v1 || '') + '"' +
-      ' data-pitch-readiness="' + escapeHtml(pitchCardStatus) + '">' +
+      ' data-pitch-readiness="' + escapeHtml(pitchCardStatus) + '"' +
+      ' data-review-outcome="' + escapeHtml(reviewOutcome) + '">' +
     '<div class="score-pill">' + escapeHtml(lead.lead_score_v1 || 0) + '</div>' +
     '<div class="lead-info">' +
       '<div class="lead-name">' + escapeHtml(lead.business_name || 'Unnamed lead') + '</div>' +
@@ -1849,6 +1937,7 @@ function reviewablePitchStatus(status) {
 
 function reviewLaneCounts(leads) {
   const counts = {
+    unreviewed: 0,
     email_route: 0,
     form_route: 0,
     name_review: 0,
@@ -1857,6 +1946,7 @@ function reviewLaneCounts(leads) {
   (Array.isArray(leads) ? leads : []).forEach(lead => {
     const pitchStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || '');
     if (!reviewablePitchStatus(pitchStatus)) return;
+    if (reviewOutcomeValue(lead) === 'not_reviewed') counts.unreviewed += 1;
     const contactType = String(lead.primary_contact_type || '').toLowerCase();
     if (pitchStatus === 'needs_email_review' && contactType === 'contact_form') counts.form_route += 1;
     else if (pitchStatus === 'needs_email_review') counts.email_route += 1;
@@ -1873,7 +1963,10 @@ function setFilterValue(id, value) {
 
 function applyReviewLane(lane) {
   resetLeadFilters();
-  if (lane === 'email_route') {
+  if (lane === 'unreviewed') {
+    setFilterValue('sidebar-pitch-readiness', 'reviewable');
+    setFilterValue('sidebar-review-outcome', 'not_reviewed');
+  } else if (lane === 'email_route') {
     setFilterValue('sidebar-pitch-readiness', 'needs_email_review');
     setFilterValue('sidebar-route', 'email');
   } else if (lane === 'form_route') {
@@ -1890,6 +1983,8 @@ function applyReviewLane(lane) {
 function currentReviewLaneFromFilters() {
   const pitch = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
   const route = document.getElementById('sidebar-route') ? document.getElementById('sidebar-route').value : 'all';
+  const outcome = document.getElementById('sidebar-review-outcome') ? document.getElementById('sidebar-review-outcome').value : 'all';
+  if (pitch === 'reviewable' && outcome === 'not_reviewed') return 'unreviewed';
   if (pitch === 'needs_email_review' && route === 'email') return 'email_route';
   if (pitch === 'needs_email_review' && route === 'contact_form') return 'form_route';
   if (pitch === 'needs_name_review' && route === 'all') return 'name_review';
@@ -1910,6 +2005,7 @@ function renderLeadReviewLanes(leads) {
   if (!container) return;
   const counts = reviewLaneCounts(leads);
   const lanes = [
+    ['unreviewed', 'Unreviewed Cards', counts.unreviewed, 'Reviewable cards without an outcome'],
     ['email_route', 'Email Route Review', counts.email_route, 'Confirm owner e-mail candidates'],
     ['form_route', 'Contact Form Review', counts.form_route, 'Open supported forms without submitting'],
     ['name_review', 'Name Review', counts.name_review, 'Check single-source shop names'],
@@ -1924,13 +2020,26 @@ function renderLeadReviewLanes(leads) {
   ).join('');
 }
 
-function renderLeadCardStats(counts) {
+function manualReviewOutcomeCounts(leads) {
+  const counts = { not_reviewed: 0, reviewed: 0 };
+  (Array.isArray(leads) ? leads : []).forEach(lead => {
+    const pitchStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || '');
+    if (!reviewablePitchStatus(pitchStatus)) return;
+    if (reviewOutcomeValue(lead) === 'not_reviewed') counts.not_reviewed += 1;
+    else counts.reviewed += 1;
+  });
+  return counts;
+}
+
+function renderLeadCardStats(counts, leads) {
   const stats = document.getElementById('lead-card-stats');
   if (!stats) return;
   const values = counts || {};
+  const reviewCounts = manualReviewOutcomeCounts(leads);
   const items = [
     ['Reviewable pitch cards', values.reviewable_pitch_cards || 0],
-    ['Needs review', values.needs_review || 0],
+    ['Not reviewed', reviewCounts.not_reviewed || 0],
+    ['Reviewed outcomes', reviewCounts.reviewed || 0],
     ['Hard blocked', values.hard_blocked || 0],
     ['Ready for outreach', values.ready_for_outreach || 0],
   ];
@@ -1940,12 +2049,22 @@ function renderLeadCardStats(counts) {
   ).join('');
 }
 
-async function loadDashboardLeads() {
-  const initialLeads = readInitialLeads();
+function renderDashboardQueue(leads, counts) {
+  dashboardLeadState = Array.isArray(leads) ? leads : [];
+  dashboardCardCountsState = counts || {};
+  renderLeadCardStats(dashboardCardCountsState, dashboardLeadState);
+  renderLeadReviewLanes(dashboardLeadState);
+  renderLeadList(dashboardLeadState);
+}
+
+async function loadDashboardLeads(forceApi = false) {
+  if (!forceApi && dashboardLeadState) {
+    renderDashboardQueue(dashboardLeadState, dashboardCardCountsState);
+    return;
+  }
+  const initialLeads = forceApi ? null : readInitialLeads();
   if (initialLeads) {
-    renderLeadCardStats(readInitialLeadCardCounts());
-    renderLeadReviewLanes(initialLeads);
-    renderLeadList(initialLeads);
+    renderDashboardQueue(initialLeads, readInitialLeadCardCounts());
     return;
   }
   if (window.location.protocol === 'file:') {
@@ -1959,9 +2078,7 @@ async function loadDashboardLeads() {
     if (!res.ok) throw new Error('Lead API unavailable');
     const data = await res.json();
     const leads = Array.isArray(data) ? data : (Array.isArray(data.leads) ? data.leads : []);
-    renderLeadCardStats(Array.isArray(data) ? {} : (data.card_counts || {}));
-    renderLeadReviewLanes(leads);
-    renderLeadList(leads);
+    renderDashboardQueue(leads, Array.isArray(data) ? {} : (data.card_counts || {}));
   } catch {
     const list = document.getElementById('lead-list');
     if (list) list.innerHTML = renderEmptyLeadsState();

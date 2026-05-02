@@ -1246,6 +1246,12 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "launch_readiness_reasons": record.get("launch_readiness_reasons") or [],
         "lead_evidence_dossier": record.get("lead_evidence_dossier") or {},
         "proof_items": proof_items,
+        "operator_review_outcome": record.get("operator_review_outcome", ""),
+        "operator_review_outcome_label": _label_from_map(record.get("operator_review_outcome"), LEAD_REVIEW_OUTCOME_LABELS, default="Not Reviewed"),
+        "operator_review_note": record.get("operator_review_note", ""),
+        "operator_reviewed_at": record.get("operator_reviewed_at", ""),
+        "review_status": record.get("review_status", "pending"),
+        "review_status_label": _dashboard_state_label(record.get("review_status"), default="Pending"),
         "message_variant": record.get("message_variant", ""),
         "sample_menu_url": sample_menu_url,
         "hosted_menu_sample": sample_result or {
