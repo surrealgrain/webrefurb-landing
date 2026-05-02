@@ -180,6 +180,20 @@ button, input, select, textarea { font: inherit; }
   padding: 3px 10px; font-size: 10px; font-weight: 600;
   background: #F7FBFC; border: 1px solid var(--input-border); color: #666;
 }
+.verification-pill {
+  display: inline-flex; align-items: center; border-radius: 9999px;
+  padding: 3px 10px; font-size: 10px; font-weight: 700;
+  background: #F7FBFC; border: 1px solid var(--input-border); color: #455A62;
+}
+.verification-verified, .pitch-pitch-ready { background: #EEF8F2; border-color: #BDE7CA; color: #166534; }
+.verification-needs-review, .pitch-review-blocked, .pitch-needs-scope-review, .pitch-needs-name-review, .pitch-needs-email-review {
+  background: #FFF7ED; border-color: #FDBA74; color: #9A3412;
+}
+.verification-rejected, .pitch-rejected { background: #FFF8F6; border-color: #E5A39B; color: #A52F24; }
+.source-official-site { background: #ECFEFF; border-color: #BFE5EA; color: #0E7490; }
+.source-restaurant-owned-page { background: #EEF2FF; border-color: #C7D2FE; color: #3730A3; }
+.source-directory { background: #F7FBFC; border-color: #D7E4E7; color: #455A62; }
+.source-weak-source { background: #F3F4F6; border-color: #D1D5DB; color: #4B5563; }
 
 .evidence-pill {
   display: inline-flex; align-items: center; border-radius: 9999px;
@@ -555,6 +569,50 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Nagoya">Nagoya</option>
       </select>
       <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search Leads</button>
+      <div class="sidebar-section-title" style="padding:12px 0 6px;margin:0;">Queue Filters</div>
+      <select class="search-select" id="sidebar-quality" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Quality</option>
+        <option value="v1_clean">V1 Clean</option>
+        <option value="high">High</option>
+        <option value="medium">Medium Review</option>
+        <option value="low">Low Review</option>
+      </select>
+      <select class="search-select" id="sidebar-verification" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Verification</option>
+        <option value="verified">Verified</option>
+        <option value="needs_review">Needs Review</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <select class="search-select" id="sidebar-email-status" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Email</option>
+        <option value="verified">Email Verified</option>
+        <option value="needs_review">Email Review</option>
+        <option value="rejected">Email Rejected</option>
+      </select>
+      <select class="search-select" id="sidebar-name-status" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Name</option>
+        <option value="two_source_verified">Name 2x Verified</option>
+        <option value="single_source">Name Single Source</option>
+        <option value="needs_review">Name Review</option>
+        <option value="rejected">Name Rejected</option>
+      </select>
+      <select class="search-select" id="sidebar-source-strength" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Sources</option>
+        <option value="official_site">Official Site</option>
+        <option value="restaurant_owned_page">Restaurant-Owned Page</option>
+        <option value="directory">Directory</option>
+        <option value="weak_source">Weak Source</option>
+      </select>
+      <select class="search-select" id="sidebar-pitch-readiness" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
+        <option value="all">All Pitch States</option>
+        <option value="pitch_ready">Pitch Ready</option>
+        <option value="review_blocked">Review Blocked</option>
+        <option value="needs_scope_review">Needs Scope Review</option>
+        <option value="needs_name_review">Needs Name Review</option>
+        <option value="needs_email_review">Needs Email Review</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <button class="btn btn-secondary" type="button" style="width:100%;height:34px;font-size:12px;" onclick="resetLeadFilters()">Reset Filters</button>
     </div>
   </div>
 
@@ -1452,26 +1510,64 @@ async function runSearch() {
 function filterLeads() {
   const category = document.getElementById('sidebar-category').value;
   const city = document.getElementById('sidebar-city').value;
+  const quality = document.getElementById('sidebar-quality') ? document.getElementById('sidebar-quality').value : 'all';
+  const verification = document.getElementById('sidebar-verification') ? document.getElementById('sidebar-verification').value : 'all';
+  const emailStatus = document.getElementById('sidebar-email-status') ? document.getElementById('sidebar-email-status').value : 'all';
+  const nameStatus = document.getElementById('sidebar-name-status') ? document.getElementById('sidebar-name-status').value : 'all';
+  const sourceStrength = document.getElementById('sidebar-source-strength') ? document.getElementById('sidebar-source-strength').value : 'all';
+  const pitchReadiness = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
   const routeSelect = document.getElementById('sidebar-route');
   const route = routeSelect ? routeSelect.value : 'all';
 
   const cards = document.querySelectorAll('.lead-card');
-  if (category === 'all' && city === 'all' && route === 'all') {
+  if (
+    category === 'all' && city === 'all' && route === 'all' && quality === 'all' &&
+    verification === 'all' && emailStatus === 'all' && nameStatus === 'all' &&
+    sourceStrength === 'all' && pitchReadiness === 'all'
+  ) {
     cards.forEach(c => c.style.display = '');
+    updateLeadsCount();
     return;
   }
 
   cards.forEach(card => {
-    const cardText = card.textContent.toLowerCase();
     const meta = SEARCH_CATEGORY_META[category] || SEARCH_CATEGORY_META.ramen;
     const canonicalCategory = meta.canonical;
-    const categoryText = category.replace(/_/g, ' ').toLowerCase();
-    const matchCategory = category === 'all' || cardText.includes(categoryText) || (canonicalCategory !== 'all' && cardText.includes(canonicalCategory));
-    const matchCity = city === 'all' || cardText.includes(city.toLowerCase());
+    const cardMenuType = card.dataset.menuType || '';
+    const cardPrimaryCategory = card.dataset.primaryCategory || '';
+    const matchCategory = category === 'all' || cardMenuType === category || (canonicalCategory !== 'all' && cardPrimaryCategory === canonicalCategory);
+    const matchCity = city === 'all' || card.dataset.city === city;
     const cardRoute = (card.dataset.contactType || '').toLowerCase();
     const matchRoute = route === 'all' || cardRoute === route;
-    card.style.display = (matchCategory && matchCity && matchRoute) ? '' : 'none';
+    const matchQuality = quality === 'all' || card.dataset.qualityTier === quality;
+    const matchVerification = verification === 'all' || card.dataset.verificationStatus === verification;
+    const matchEmail = emailStatus === 'all' || card.dataset.emailStatus === emailStatus;
+    const matchName = nameStatus === 'all' || card.dataset.nameStatus === nameStatus;
+    const matchSource = sourceStrength === 'all' || card.dataset.sourceStrength === sourceStrength;
+    const matchPitch = pitchReadiness === 'all' || card.dataset.pitchReadiness === pitchReadiness;
+    card.style.display = (
+      matchCategory && matchCity && matchRoute && matchQuality && matchVerification &&
+      matchEmail && matchName && matchSource && matchPitch
+    ) ? '' : 'none';
   });
+  updateLeadsCount();
+}
+
+function resetLeadFilters() {
+  [
+    'sidebar-category',
+    'sidebar-city',
+    'sidebar-quality',
+    'sidebar-verification',
+    'sidebar-email-status',
+    'sidebar-name-status',
+    'sidebar-source-strength',
+    'sidebar-pitch-readiness',
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = 'all';
+  });
+  filterLeads();
 }
 
 function renderEmptyLeadsState() {
@@ -1511,6 +1607,10 @@ function leadStatusClass(status) {
   return String(status || 'new').replace(/_/g, '-');
 }
 
+function statusSlug(value) {
+  return String(value || 'unknown').replace(/_/g, '-');
+}
+
 function leadReadinessClass(status) {
   if (status === 'ready_for_outreach') return 'ready';
   if (status === 'disqualified') return 'disqualified';
@@ -1527,22 +1627,49 @@ function renderLeadCard(lead) {
   const profileLabel = lead.establishment_profile_label || establishmentProfileLabel(lead.establishment_profile);
   const recommendedPackage = lead.recommended_package_label || 'Review package';
   const packageReason = lead.package_recommendation_reason ? ' · ' + titleCaseValue(lead.package_recommendation_reason) : '';
+  const verificationStatus = String(lead.verification_status || 'unchecked');
+  const emailStatus = String(lead.email_verification_status || 'unchecked');
+  const nameStatus = String(lead.name_verification_status || 'unchecked');
+  const sourceStrength = String(lead.source_strength || 'unchecked');
+  const pitchReadiness = String(lead.pitch_readiness_status || (readiness === 'ready_for_outreach' ? 'pitch_ready' : 'review_blocked'));
   const blockedSend = ['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
-  const actionLabel = blockedSend ? 'View' : 'Preview';
-  const actionAttrs = 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"';
+  const reviewBlocked = !blockedSend && (readiness !== 'ready_for_outreach' || pitchReadiness !== 'pitch_ready');
+  const canReviewPitch = !blockedSend && readiness !== 'disqualified' && lead.lead === true && ['email', 'contact_form'].includes(contactType);
+  const canOpenPitch = blockedSend || !reviewBlocked || canReviewPitch;
+  const actionLabel = blockedSend ? 'View' : reviewBlocked ? 'Review Pitch' : 'Preview';
+  const actionAttrs = canOpenPitch
+    ? 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"'
+    : 'disabled title="Verification and explicit promotion are required before pitch preview."';
   const cardStatusClass = ['sent', 'replied', 'converted'].includes(status) ? ' status-' + leadStatusClass(status) : '';
   const badges = [
     '<span class="status-badge status-' + escapeHtml(leadStatusClass(status)) + '">' + escapeHtml(titleCaseValue(status)) + '</span>',
     '<span class="status-badge readiness-' + escapeHtml(leadReadinessClass(readiness)) + '">' + escapeHtml(titleCaseValue(readiness)) + '</span>',
+    '<span class="verification-pill verification-' + escapeHtml(statusSlug(verificationStatus)) + '">' + escapeHtml(lead.verification_status_label || titleCaseValue(verificationStatus)) + '</span>',
+    '<span class="verification-pill verification-' + escapeHtml(statusSlug(emailStatus)) + '">' + escapeHtml(lead.email_verification_status_label || titleCaseValue(emailStatus)) + '</span>',
+    '<span class="verification-pill verification-' + escapeHtml(statusSlug(nameStatus)) + '">' + escapeHtml(lead.name_verification_status_label || titleCaseValue(nameStatus)) + '</span>',
+    '<span class="verification-pill source-' + escapeHtml(statusSlug(sourceStrength)) + '">' + escapeHtml(lead.source_strength_label || titleCaseValue(sourceStrength)) + '</span>',
+    '<span class="verification-pill pitch-' + escapeHtml(statusSlug(pitchReadiness)) + '">' + escapeHtml(lead.pitch_readiness_label || titleCaseValue(pitchReadiness)) + '</span>',
     contactType ? '<span class="classification-badge">' + escapeHtml(titleCaseValue(contactType)) + '</span>' : '',
     '<span class="classification-badge establishment-profile-badge" data-role="profile-badge">' + escapeHtml(profileLabel) + '</span>',
     lead.menu_evidence_found ? '<span class="evidence-pill evidence-pill-menu">Menu</span>' : '',
     lead.machine_evidence_found ? '<span class="evidence-pill evidence-pill-vending">Ticket Machine</span>' : '',
     lead.outreach_classification ? '<span class="classification-badge">' + escapeHtml(lead.outreach_classification) + '</span>' : '',
+    lead.quality_tier ? '<span class="classification-badge">Quality: ' + escapeHtml(lead.quality_tier_label || titleCaseValue(lead.quality_tier)) + '</span>' : '',
+    lead.menu_type ? '<span class="classification-badge">Menu: ' + escapeHtml(lead.menu_type_label || titleCaseValue(lead.menu_type)) + '</span>' : '',
     lead.outreach_draft_manually_edited ? '<span class="draft-badge">Edited draft</span>' : '',
   ].join('');
 
-  return '<div class="lead-card' + cardStatusClass + '" data-lead-id="' + escapeHtml(leadId) + '" data-contact-type="' + escapeHtml(contactType || 'none') + '">' +
+  return '<div class="lead-card' + cardStatusClass + '" data-lead-id="' + escapeHtml(leadId) + '"' +
+      ' data-contact-type="' + escapeHtml(contactType || 'none') + '"' +
+      ' data-quality-tier="' + escapeHtml(lead.quality_tier || 'unknown') + '"' +
+      ' data-verification-status="' + escapeHtml(verificationStatus) + '"' +
+      ' data-email-status="' + escapeHtml(emailStatus) + '"' +
+      ' data-name-status="' + escapeHtml(nameStatus) + '"' +
+      ' data-source-strength="' + escapeHtml(sourceStrength) + '"' +
+      ' data-city="' + escapeHtml(lead.city || '') + '"' +
+      ' data-menu-type="' + escapeHtml(lead.menu_type || '') + '"' +
+      ' data-primary-category="' + escapeHtml(lead.primary_category_v1 || '') + '"' +
+      ' data-pitch-readiness="' + escapeHtml(pitchReadiness) + '">' +
     '<div class="score-pill">' + escapeHtml(lead.lead_score_v1 || 0) + '</div>' +
     '<div class="lead-info">' +
       '<div class="lead-name">' + escapeHtml(lead.business_name || 'Unnamed lead') + '</div>' +
@@ -1577,7 +1704,7 @@ function renderLeadList(leads) {
   }
   list.innerHTML = leads.map(renderLeadCard).join('');
   applyDismissedLeadCards();
-  updateLeadsCount();
+  filterLeads();
 }
 
 async function loadDashboardLeads() {
@@ -1642,7 +1769,8 @@ function applyDismissedLeadCards() {
 }
 
 function updateLeadsCount() {
-  const count = document.querySelectorAll('#lead-list .lead-card').length;
+  const cards = Array.from(document.querySelectorAll('#lead-list .lead-card'));
+  const count = cards.filter(card => card.style.display !== 'none').length;
   const badge = document.getElementById('leads-count');
   if (badge) badge.textContent = count;
   return count;

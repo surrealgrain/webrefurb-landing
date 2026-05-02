@@ -633,7 +633,7 @@ class TestAPIEndpoints:
         assert leads["wrm-ready-card"]["launch_readiness_status"] == "ready_for_outreach"
         assert leads["wrm-manual-card"]["launch_readiness_status"] == "manual_review"
         assert leads["wrm-chain-card"]["launch_readiness_status"] == "disqualified"
-        assert "Review Gate" in response.text
+        assert "Review Pitch" in response.text
         assert leads["wrm-ready-card"]["recommended_package_label"] == "Counter-Ready Ordering Kit"
         assert leads["wrm-ready-card"]["package_recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
 
@@ -1437,6 +1437,35 @@ class TestDraftSaveAndLoad:
         assert data["body"] == "Saved draft body"
         assert data["english_body"] == "Saved English draft"
         assert data["subject"] == "Saved subject"
+
+    def test_preview_get_allows_manual_review_lead_as_no_send_pitch_card(self):
+        self._create_lead(
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+            launch_readiness_reasons=["manual_review_required"],
+            manual_review_required=True,
+            pitch_ready=False,
+        )
+        response = self.client.get("/api/outreach/wrm-draft-test")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["business_name"] == "Draft Test Ramen"
+        assert data["send_blocked"] is True
+        assert data["review_only"] is True
+        assert data["outreach_status"] == "needs_review"
+        assert data["launch_readiness_status"] == "manual_review"
+
+    def test_preview_post_still_blocks_manual_review_regeneration(self):
+        self._create_lead(
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+            launch_readiness_reasons=["manual_review_required"],
+            manual_review_required=True,
+            pitch_ready=False,
+        )
+        response = self.client.post("/api/outreach/wrm-draft-test")
+        assert response.status_code == 422
+        assert "not launch-ready" in response.json()["detail"]
 
     def test_regenerate_post_clears_saved_draft(self):
         self._create_lead(
