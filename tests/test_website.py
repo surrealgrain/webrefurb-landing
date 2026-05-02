@@ -174,3 +174,14 @@ def test_dashboard_template_has_no_visible_jinja_when_opened_directly():
     assert "{%" not in visible_markup
     assert "{{" not in visible_markup
     assert "initial-leads-data" in html
+
+
+def test_dashboard_review_filters_include_route_and_profile():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="sidebar-route"' in html
+    assert 'value="contact_form">Contact Form' in html
+    assert 'id="sidebar-profile"' in html
+    assert 'value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki' in html
+    assert "card.dataset.establishmentProfile === profile" in html
+    assert 'data-establishment-profile="' in html
