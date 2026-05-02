@@ -202,3 +202,15 @@ def test_dashboard_review_lanes_make_manual_work_queue_visible():
     assert "data-review-lane" in html
     assert 'aria-pressed="false"' in html
     assert ".review-lane.is-active" in html
+
+
+def test_dashboard_has_no_send_review_outcome_controls():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="review-outcome-panel"' in html
+    assert 'id="review-outcome-select"' in html
+    assert 'value="hold">Hold' in html
+    assert 'value="needs_more_info">Needs More Info' in html
+    assert 'value="reject">Reject' in html
+    assert "saveLeadReviewOutcome" in html
+    assert "/review-outcome" in html

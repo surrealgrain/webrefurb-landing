@@ -384,6 +384,18 @@ PITCH_CARD_ORDER = {
     "hard_blocked": 5,
 }
 
+LEAD_REVIEW_OUTCOME_LABELS = {
+    "hold": "Hold",
+    "needs_more_info": "Needs More Info",
+    "reject": "Reject",
+}
+
+LEAD_REVIEW_STATUS_BY_OUTCOME = {
+    "hold": "held",
+    "needs_more_info": "needs_more_info",
+    "reject": "rejected",
+}
+
 MENU_TYPE_LABELS = {
     "ramen": "Ramen",
     "tsukemen": "Tsukemen",
@@ -560,6 +572,8 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["pitch_card_label"] = _label_from_map(lead.get("pitch_card_status"), PITCH_CARD_LABELS, default="Review Blocked")
     prepared["pitch_card_reasons"] = list(lead.get("pitch_card_reasons") or [])
     prepared["pitch_card_openable"] = bool(lead.get("pitch_card_openable"))
+    prepared["operator_review_outcome_label"] = _label_from_map(lead.get("operator_review_outcome"), LEAD_REVIEW_OUTCOME_LABELS, default="Not Reviewed")
+    prepared["review_status_label"] = _dashboard_state_label(lead.get("review_status"), default="Pending")
     package_key = str(lead.get("recommended_primary_package") or "")
     package = PACKAGE_REGISTRY.get(package_key, {})
     prepared["recommended_package_label"] = package.get("label") or ("Custom quote" if package_key == "custom_quote" else package_key)
@@ -757,6 +771,51 @@ async def api_update_lead_profile(lead_id: str, request: Request):
     persist_lead_record(record, state_root=STATE_ROOT)
     prepared = _prepare_lead_for_dashboard(record)
     _log(action, f"profile={prepared.get('establishment_profile_effective', '')}", lead_id=lead_id)
+    return prepared
+
+
+@app.post("/api/leads/{lead_id}/review-outcome")
+async def api_update_lead_review_outcome(lead_id: str, request: Request):
+    """Record a no-send manual review outcome without promoting the lead."""
+    from pipeline.record import load_lead, persist_lead_record
+
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    body = await request.json()
+    outcome = str(body.get("outcome") or "").strip()
+    note = str(body.get("note") or "").strip()
+    if outcome not in LEAD_REVIEW_OUTCOME_LABELS:
+        raise HTTPException(status_code=400, detail="Invalid no-send review outcome")
+    if str(record.get("launch_readiness_status") or "manual_review") != "manual_review":
+        raise HTTPException(status_code=409, detail="Only manual-review leads can be reviewed here")
+    if str(record.get("outreach_status") or "") != "needs_review":
+        raise HTTPException(status_code=409, detail="Only needs_review leads can be reviewed here")
+
+    now = datetime.now(timezone.utc).isoformat()
+    record["operator_review_outcome"] = outcome
+    record["operator_review_note"] = note
+    record["operator_reviewed_at"] = now
+    record["review_status"] = LEAD_REVIEW_STATUS_BY_OUTCOME[outcome]
+    record["manual_review_required"] = True
+    record["launch_readiness_status"] = "manual_review"
+    reasons = list(record.get("launch_readiness_reasons") or [])
+    reason = f"operator_review_outcome:{outcome}"
+    if reason not in reasons:
+        reasons.append(reason)
+    record["launch_readiness_reasons"] = reasons
+    record["pitch_ready"] = False
+    record["outreach_status"] = "needs_review"
+    record.setdefault("status_history", []).append({
+        "status": f"operator_review_{outcome}",
+        "timestamp": now,
+        "note": note or LEAD_REVIEW_OUTCOME_LABELS[outcome],
+    })
+
+    persist_lead_record(record, state_root=STATE_ROOT)
+    prepared = _prepare_lead_for_dashboard(record)
+    _log("lead_review_outcome_saved", f"outcome={outcome}", lead_id=lead_id)
     return prepared
 
 

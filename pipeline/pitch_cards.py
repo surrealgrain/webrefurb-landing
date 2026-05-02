@@ -91,6 +91,9 @@ def assess_pitch_card_state(record: dict[str, Any]) -> tuple[str, list[str]]:
     if record.get("lead") is not True:
         return PITCH_CARD_HARD_BLOCKED, ["record is not a binary lead"]
 
+    if str(record.get("operator_review_outcome") or "") == "reject" or str(record.get("review_status") or "") == "rejected":
+        return PITCH_CARD_HARD_BLOCKED, ["operator rejected during manual review"]
+
     outreach_status = str(record.get("outreach_status") or "").strip()
     if outreach_status in _TERMINAL_UNSENDABLE_STATUSES:
         return PITCH_CARD_HARD_BLOCKED, [f"terminal outreach status: {outreach_status}"]

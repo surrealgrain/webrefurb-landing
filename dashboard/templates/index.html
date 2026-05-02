@@ -843,6 +843,19 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <div class="contact-route-summary" id="contact-route-summary"></div>
       <div class="contact-route-list" id="contact-route-list"></div>
     </div>
+    <div class="profile-panel" id="review-outcome-panel">
+      <div class="profile-panel-title">Review outcome</div>
+      <div class="profile-panel-summary" id="review-outcome-summary"></div>
+      <div class="profile-override-controls">
+        <select class="profile-select" id="review-outcome-select">
+          <option value="hold">Hold</option>
+          <option value="needs_more_info">Needs More Info</option>
+          <option value="reject">Reject</option>
+        </select>
+        <input class="profile-note-input" id="review-outcome-note" type="text" placeholder="Optional review note">
+        <button class="btn btn-secondary" id="save-review-outcome-btn" onclick="saveLeadReviewOutcome()">Save Review Outcome</button>
+      </div>
+    </div>
     <div class="profile-panel" id="establishment-profile-panel">
       <div class="profile-panel-title">Establishment profile</div>
       <div class="profile-panel-summary" id="establishment-profile-summary"></div>
@@ -1206,6 +1219,26 @@ function renderContactRoutes(data) {
   }).join('');
 }
 
+function reviewOutcomeLabel(outcome) {
+  const labels = { hold: 'Hold', needs_more_info: 'Needs More Info', reject: 'Reject' };
+  return labels[outcome] || 'Not Reviewed';
+}
+
+function renderReviewOutcome(data) {
+  const summary = document.getElementById('review-outcome-summary');
+  const select = document.getElementById('review-outcome-select');
+  const note = document.getElementById('review-outcome-note');
+  if (!summary || !select || !note) return;
+  const outcome = data.operator_review_outcome || 'hold';
+  const status = data.review_status_label || titleCaseValue(data.review_status || 'pending');
+  const reviewedAt = data.operator_reviewed_at ? ' · ' + data.operator_reviewed_at : '';
+  summary.textContent = data.operator_review_outcome
+    ? reviewOutcomeLabel(outcome) + ' · ' + status + reviewedAt
+    : 'No saved review outcome. Saving here keeps the lead manual-review blocked.';
+  select.value = outcome;
+  note.value = data.operator_review_note || '';
+}
+
 function renderEstablishmentProfile(data) {
   const summary = document.getElementById('establishment-profile-summary');
   const evidence = document.getElementById('establishment-profile-evidence');
@@ -1360,6 +1393,35 @@ async function clearEstablishmentProfileOverride() {
     saveBtn.disabled = false;
     clearBtn.disabled = false;
     clearBtn.textContent = originalText;
+  }
+}
+
+async function saveLeadReviewOutcome() {
+  if (!currentLeadId) return;
+  const outcome = document.getElementById('review-outcome-select').value;
+  const note = document.getElementById('review-outcome-note').value.trim();
+  const saveBtn = document.getElementById('save-review-outcome-btn');
+  const originalText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+  try {
+    const res = await fetch('/api/leads/' + encodeURIComponent(currentLeadId) + '/review-outcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcome, note }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Save failed');
+    if (currentEmail) Object.assign(currentEmail, data);
+    renderReviewOutcome(data);
+    renderLeadDossier(currentEmail || data);
+    await loadDashboardLeads();
+    showToast('Review outcome saved', 'success');
+  } catch (err) {
+    showToast('Review save failed: ' + err.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalText;
   }
 }
 
@@ -2171,6 +2233,7 @@ async function openPreview(leadId) {
       data.primary_contact ? ('Primary route: ' + (data.primary_contact.label || data.primary_contact.value || contactTypeLabel(data.primary_contact.type))) : 'No contact route on file';
     setSaveState(data.has_saved_draft ? 'Saved draft loaded' : 'Template loaded', data.has_saved_draft ? 'saved' : '');
     renderContactRoutes(data);
+    renderReviewOutcome(data);
     renderEstablishmentProfile(data);
     renderLeadDossier(data);
 

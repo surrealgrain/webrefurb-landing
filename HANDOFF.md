@@ -18,8 +18,8 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Overall: 40-45% complete. P0 safety guardrails are always active; no-send inventory is 326/400 reviewable cards, directory source exhausted.
 - P1 Corpus: 1.1 import queue done; 1.2 duplicate preservation done; 1.3 import/idempotency safety done; 1.4 future imports must keep same manifest discipline.
 - P2 Verification: 2.1 fields done; 2.2 verifier pass done; 2.3 hard blocks quarantine done; 2.4 unresolved email/name/scope cases stay manual review.
-- P3 Dashboard review: 3.1 review-only previews done; 3.2 filters done; 3.3 route/profile filters done; 3.4 review-lane quick filters + active lane state done; 3.5 human review of 326 cards remains.
-- P4 Promotion: 4.1 approval/hold/reject rules not built; 4.2 promote-to-pitch_ready not allowed yet; 4.3 launch readiness remains blocked.
+- P3 Dashboard review: 3.1 review-only previews done; 3.2 filters done; 3.3 route/profile filters done; 3.4 review-lane quick filters + active lane state done; 3.5 human review of 326 cards can now record no-send outcomes.
+- P4 Promotion: 4.1 hold/needs-info/reject outcomes done; 4.2 approve/promote-to-pitch_ready not built; 4.3 launch readiness remains blocked.
 - P5 GLM: 5.1 stable reviewed category counts pending; 5.2 GLM briefs not started; 5.3 locked profile asset mapping pending.
 - P6 Pitch packs: 6.1 batch dimensions pending; 6.2 GLM-locked asset routing pending; 6.3 draft generation/review pending.
 - P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 `ready_for_outreach` final gate not started.
@@ -27,7 +27,8 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 ## Implementation State
 - Pitch-card state is applied on record create/load/list/persist; dashboard/API separates reviewability from launch readiness.
 - Review-only GET previews work for manual-review cards; POST/regenerate/send remains blocked unless launch-ready.
-- Dashboard queue filters include city, menu/category, quality, verification, email/name status, source strength, contact route, profile, pitch-card state, and active review-lane quick filters.
+- Dashboard queue filters include city, menu/category, quality, verification, email/name status, source strength, contact route, profile, pitch-card state, active review-lane quick filters, and no-send review outcome controls.
+- Review outcomes enforce `manual_review`, `outreach_status=needs_review`, and `pitch_ready=false`; operator reject hard-blocks the pitch card.
 - Directory crawler and generic search are checkpointed/resumable; all-search-failure jobs are not marked complete.
 - Search loosening remains in force: ambiguous English-menu gaps can become review-blocked inventory; hard rejection reasons remain blocked.
 - Codex organic email fallback can persist recoverable ramen/izakaya candidates as manual-review pitch cards; hard rejection reasons still do not persist.
@@ -41,7 +42,7 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 ## Last Verification
 - P100 directory crawl completed with 326 reviewable cards and 0 ready_for_outreach in its final summary.
 - `tests/test_search.py -q`: 52 passed; focused suite (`test_api`, restaurant verification/import, search, pipeline): 321 passed.
-- Latest dashboard checks: `tests/test_website.py -q` 10 passed; `tests/test_api.py -q` 113 passed.
+- Latest dashboard/review checks: `tests/test_website.py -q` 11 passed; `tests/test_api.py -q` 116 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed.
 - `verify-restaurant-leads --summary-path state/lead_imports/restaurant_lead_verification_pitch_cards_continued_p100.json`: 0 ready_for_outreach, 0 pitch_ready.
 - Live `list-leads` safety audit: all records manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
 - No outreach happened.
