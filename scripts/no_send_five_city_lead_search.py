@@ -8,12 +8,16 @@ manual-review-blocked lead inventory. It never sends email or submits forms.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import logging
 import os
+import re
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
@@ -32,6 +36,7 @@ from pipeline.contact_crawler import (
     normalize_website_url,
 )
 from pipeline.directory_discovery import (
+    AGGREGATOR_HOSTS,
     DirectoryCandidate,
     crawl_tabelog_listing_page,
     tabelog_sub_area_paths_for_city,
@@ -73,6 +78,89 @@ DEFAULT_CATEGORIES = (
     "robatayaki",
     "seafood_izakaya",
     "sakaba",
+)
+DUCKDUCKGO_CITY_TERMS = {
+    "Tokyo": "東京",
+    "Osaka": "大阪",
+    "Kyoto": "京都",
+    "Sapporo": "札幌",
+    "Fukuoka": "福岡",
+    "Nagoya": "名古屋",
+    "Yokohama": "横浜",
+    "Kobe": "神戸",
+    "Hiroshima": "広島",
+    "Nara": "奈良",
+    "Kanazawa": "金沢",
+    "Hakone": "箱根",
+    "Kamakura": "鎌倉",
+    "Sendai": "仙台",
+}
+DUCKDUCKGO_CATEGORY_TERMS = {
+    "ramen": "ラーメン",
+    "tsukemen": "つけ麺",
+    "abura_soba": "油そば",
+    "mazesoba": "まぜそば",
+    "tantanmen": "担々麺",
+    "chuka_soba": "中華そば",
+    "izakaya": "居酒屋",
+    "yakitori": "焼き鳥 居酒屋",
+    "kushiyaki": "串焼き 居酒屋",
+    "yakiton": "やきとん 居酒屋",
+    "tachinomi": "立ち飲み 居酒屋",
+    "oden": "おでん 居酒屋",
+    "kushikatsu": "串カツ 居酒屋",
+    "kushiage": "串揚げ 居酒屋",
+    "robatayaki": "炉端焼き 居酒屋",
+    "seafood_izakaya": "海鮮 居酒屋",
+    "sakaba": "酒場",
+}
+DUCKDUCKGO_USER_AGENT = "Mozilla/5.0 WebRefurbMenu no-send lead research"
+DUCKDUCKGO_CONTACT_TITLE_TOKENS = (
+    "お問い合わせ",
+    "お問合せ",
+    "問い合わせ",
+    "問合せ",
+    "ご意見",
+    "contact",
+    "mail",
+    "メール",
+    "公式",
+)
+DUCKDUCKGO_BAD_HOST_TOKENS = (
+    "ramendb.supleks.jp",
+    "supleks.jp",
+    "maruchan.co.jp",
+    "tokyo-ramen.com",
+    "tokyo-ramen.co.jp",
+    "4527.com",
+    "syodai-marugen.jp",
+    "ichiran.com",
+    "gurunavi.com",
+    "gnavi.co.jp",
+    "gorp.jp",
+)
+DUCKDUCKGO_BAD_URL_TOKENS = (
+    "/recruit",
+    "/career",
+    "/job",
+    "/reservation",
+    "/reserve",
+    "/booking",
+    "/privacy",
+    "/customer",
+    "/company",
+)
+DUCKDUCKGO_BAD_TITLE_TOKENS = (
+    "株式会社",
+    "コーポレート",
+    "ブランドサイト",
+    "お客様窓口",
+    "通販",
+    "採用",
+    "求人",
+    "製麺",
+    "食品",
+    "メーカー",
 )
 
 CHAIN_REASONS = {
@@ -282,7 +370,107 @@ def _run_directory_mode(
     return summary
 
 
-def _process_directory_candidate(candidate: DirectoryCandidate, state_root: Path, timeout: int) -> dict[str, Any]:
+def _run_duckduckgo_contact_mode(
+    *,
+    cities: list[str],
+    categories: list[str],
+    state_root: Path,
+    max_pages: int,
+    timeout: int,
+    delay: float,
+    workers: int,
+    resume: bool,
+    checkpoint_path: Path,
+    summary_path: Path | None,
+    target_reviewable_cards: int,
+) -> dict[str, Any]:
+    checkpoint = _load_checkpoint(checkpoint_path) if resume else _new_checkpoint()
+    dedup = _existing_dedup_keys(state_root)
+    started_at = utc_now()
+    summary: dict[str, Any] = {
+        "started_at": started_at,
+        "completed_at": "",
+        "engine": "duckduckgo-contact",
+        "no_send": True,
+        "target_reviewable_cards": target_reviewable_cards,
+        "initial_pitch_card_counts": pitch_card_counts(list_leads(state_root=state_root)),
+        "final_pitch_card_counts": {},
+        "totals": _directory_bucket() | {"queries_searched": 0, "search_failures": 0},
+        "by_city_category": {},
+        "checkpoint_path": str(checkpoint_path),
+    }
+
+    for city in cities:
+        for search_category in categories:
+            category = _directory_category_for_search_category(search_category)
+            key = f"{city}:{search_category}"
+            bucket = summary["by_city_category"].setdefault(key, _directory_bucket() | {"queries_searched": 0, "search_failures": 0})
+            for query in _duckduckgo_contact_queries(city=city, category=search_category):
+                for page in range(1, max_pages + 1):
+                    if _openable_count(state_root) >= target_reviewable_cards:
+                        _save_directory_summary(summary, state_root=state_root, summary_path=summary_path, started_at=started_at)
+                        return summary
+                    job_key = f"duckduckgo:{key}:{page}:{query}"
+                    if resume and _job_done(checkpoint, job_key):
+                        continue
+                    bucket["queries_searched"] += 1
+                    summary["totals"]["queries_searched"] += 1
+                    try:
+                        results = _duckduckgo_search(query, page=page, timeout=timeout)
+                    except Exception:
+                        bucket["search_failures"] += 1
+                        summary["totals"]["search_failures"] += 1
+                        results = []
+
+                    candidates: list[DirectoryCandidate] = []
+                    for result in results:
+                        candidate = _duckduckgo_result_candidate(result, city=city, category=category)
+                        if not candidate:
+                            continue
+                        if _dedup_candidate(candidate, dedup):
+                            bucket["duplicates_skipped"] += 1
+                            summary["totals"]["duplicates_skipped"] += 1
+                            continue
+                        candidates.append(candidate)
+                    bucket["candidates_searched"] += len(results)
+                    summary["totals"]["candidates_searched"] += len(results)
+
+                    with ThreadPoolExecutor(max_workers=max(1, workers)) as executor:
+                        futures = [
+                            executor.submit(
+                                _process_directory_candidate,
+                                candidate,
+                                state_root,
+                                timeout,
+                                True,
+                            )
+                            for candidate in candidates
+                        ]
+                        for future in as_completed(futures):
+                            result = future.result()
+                            _merge_directory_result(bucket, result)
+                            _merge_directory_result(summary["totals"], result)
+                            if result.get("record"):
+                                _add_dedup_record(result["record"], dedup)
+
+                    _mark_job_done(checkpoint, job_key)
+                    checkpoint["updated_at"] = utc_now()
+                    _write_checkpoint(checkpoint_path, checkpoint)
+                    print(json.dumps({"city": city, "category": search_category, "query": query, "page": page, **bucket}, ensure_ascii=False))
+                    sys.stdout.flush()
+                    if delay > 0:
+                        time.sleep(delay)
+
+    _save_directory_summary(summary, state_root=state_root, summary_path=summary_path, started_at=started_at)
+    return summary
+
+
+def _process_directory_candidate(
+    candidate: DirectoryCandidate,
+    state_root: Path,
+    timeout: int,
+    recover_city_scope_review: bool = False,
+) -> dict[str, Any]:
     result = _directory_bucket()
     result["candidates_searched"] = 1
     if is_chain_business(candidate.name):
@@ -336,7 +524,11 @@ def _process_directory_candidate(candidate: DirectoryCandidate, state_root: Path
         elif reason in INVALID_ARTIFACT_REASONS:
             result["hard_blocked_invalid_emails_artifacts"] = 1
             return result
-        elif _directory_rejection_is_recoverable(reason, candidate):
+        elif _directory_rejection_is_recoverable(
+            reason,
+            candidate,
+            recover_city_scope_review=recover_city_scope_review,
+        ):
             recovered_rejection_reason = reason
             qualification = _recover_directory_review_qualification(
                 candidate=candidate,
@@ -346,6 +538,9 @@ def _process_directory_candidate(candidate: DirectoryCandidate, state_root: Path
         else:
             result["hard_blocked_scope"] = 1
             return result
+    if is_chain_business(str(qualification.business_name or candidate.name or "")):
+        result["hard_blocked_chains_operators"] = 1
+        return result
 
     raw_contacts: list[dict[str, Any]] = [
         {
@@ -425,8 +620,12 @@ def _process_directory_candidate(candidate: DirectoryCandidate, state_root: Path
             if recovered_rejection_reason
             else f"{qualification.primary_category_v1} category from Tabelog/detail-page evidence"
         ),
-        "city_verification_status": "verified",
-        "city_verification_reason": f"city from directory crawl: {candidate.city}",
+        "city_verification_status": "verified" if candidate.address else "needs_review",
+        "city_verification_reason": (
+            f"city from directory crawl: {candidate.city}"
+            if candidate.address
+            else f"city inferred from no-send search scope: {candidate.city}; operator confirmation required"
+        ),
         "english_menu_check_status": "no_hard_reject",
         "english_menu_check_reason": "no hard English-menu reject found during crawl",
         "chain_verification_status": "clear",
@@ -435,18 +634,52 @@ def _process_directory_candidate(candidate: DirectoryCandidate, state_root: Path
         "verification_reason": "directory pitch-card candidate requires manual review",
     })
     apply_pitch_card_state(record)
-    persist_lead_record(record, state_root=state_root)
+    _persist_no_send_review_record(record, state_root=state_root)
     result["new_records_persisted"] = 1
     result["review_blocked_ambiguous_records"] = 1
     result["record"] = record
     return result
 
 
-def _directory_rejection_is_recoverable(reason: str, candidate: DirectoryCandidate) -> bool:
+def _persist_no_send_review_record(record: dict[str, Any], *, state_root: Path) -> None:
+    """Persist a no-send record after hardening without allowing launch-state drift."""
+    persist_lead_record(record, state_root=state_root)
+    path = state_root / "leads" / f"{record['lead_id']}.json"
+    stored = read_json(path, default=record) or record
+    stored.update({
+        "manual_review_required": True,
+        "inventory_review_status": "review_blocked",
+        "inventory_review_reason": "directory_pitch_card_requires_manual_review_before_outreach",
+        "launch_readiness_status": "manual_review",
+        "outreach_status": "needs_review",
+        "pitch_ready": False,
+        "ready_for_outreach": False,
+    })
+    stored["launch_readiness_reasons"] = _ordered_unique([
+        *(stored.get("launch_readiness_reasons") or []),
+        "no_send_manual_review_required",
+    ])
+    stored.pop("disqualified_at_hardening", None)
+    history = list(stored.get("status_history") or [])
+    if not history or history[-1].get("status") != "needs_review":
+        history.append({"status": "needs_review", "timestamp": utc_now()})
+    stored["status_history"] = history
+    apply_pitch_card_state(stored)
+    write_json(path, stored)
+
+
+def _directory_rejection_is_recoverable(
+    reason: str,
+    candidate: DirectoryCandidate,
+    *,
+    recover_city_scope_review: bool = False,
+) -> bool:
     """Return True when a no-send card should be saved for operator review."""
     category = str(candidate.category or "").strip().lower()
     if category not in {"ramen", "izakaya"}:
         return False
+    if reason == "no_physical_location_evidence" and recover_city_scope_review:
+        return True
     if reason in DIRECTORY_HARD_SCOPE_REASONS:
         return False
     return reason in DIRECTORY_RECOVERABLE_REASONS
@@ -610,6 +843,113 @@ def _directory_scope_key(*, city: str, category: str, area_path: str) -> str:
     return f"{city}:{category}:{scope}"
 
 
+def _directory_category_for_search_category(category: str) -> str:
+    return "ramen" if category in {
+        "ramen",
+        "tsukemen",
+        "abura_soba",
+        "mazesoba",
+        "tantanmen",
+        "chuka_soba",
+    } else "izakaya"
+
+
+def _duckduckgo_contact_queries(*, city: str, category: str) -> list[str]:
+    city_term = DUCKDUCKGO_CITY_TERMS.get(city, city)
+    category_term = DUCKDUCKGO_CATEGORY_TERMS.get(category, category.replace("_", " "))
+    return [
+        f'{city_term} {category_term} お問い合わせ メール 公式',
+        f'{city_term} {category_term} "お問い合わせ" "メール"',
+        f'site:.jp {city_term} {category_term} お問い合わせ',
+    ]
+
+
+def _duckduckgo_search(query: str, *, page: int, timeout: int) -> list[dict[str, str]]:
+    offset = max(0, int(page) - 1) * 30
+    params = urllib.parse.urlencode({"q": query, "s": str(offset)})
+    request = urllib.request.Request(
+        f"https://html.duckduckgo.com/html/?{params}",
+        headers={"User-Agent": DUCKDUCKGO_USER_AGENT},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=max(3, timeout)) as response:
+            body = response.read().decode("utf-8", errors="ignore")
+    except (urllib.error.URLError, TimeoutError):
+        return []
+    results: list[dict[str, str]] = []
+    for match in re.finditer(r'class="result__a" href="([^"]+)"[^>]*>(.*?)</a>', body, re.DOTALL):
+        url = _duckduckgo_unwrap_url(html.unescape(match.group(1)))
+        title = _strip_html(match.group(2))
+        if url and title:
+            results.append({"url": url, "title": title})
+    return results
+
+
+def _duckduckgo_unwrap_url(url: str) -> str:
+    cleaned = html.unescape(str(url or "").strip())
+    if cleaned.startswith("//"):
+        cleaned = f"https:{cleaned}"
+    parsed = urllib.parse.urlparse(cleaned)
+    if "duckduckgo.com" in parsed.netloc and parsed.path.startswith("/l/"):
+        target = urllib.parse.parse_qs(parsed.query).get("uddg", [""])[0]
+        cleaned = urllib.parse.unquote(target)
+    return normalize_website_url(cleaned)
+
+
+def _duckduckgo_result_candidate(result: dict[str, str], *, city: str, category: str) -> DirectoryCandidate | None:
+    url = normalize_website_url(str(result.get("url") or ""))
+    if not url:
+        return None
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.netloc.lower().removeprefix("www.")
+    lowered_url = urllib.parse.unquote(url).lower()
+    if not host or any(token in host for token in (*DUCKDUCKGO_BAD_HOST_TOKENS, *AGGREGATOR_HOSTS)):
+        return None
+    if any(token in lowered_url for token in DUCKDUCKGO_BAD_URL_TOKENS):
+        return None
+    title = _strip_html(str(result.get("title") or ""))
+    if any(token.lower() in title.lower() for token in DUCKDUCKGO_BAD_TITLE_TOKENS):
+        return None
+    name = _business_name_from_search_title(title, host)
+    if not name or is_chain_business(name):
+        return None
+    return DirectoryCandidate(
+        name=name,
+        website=url,
+        source="duckduckgo_contact_search",
+        source_url=url,
+        category=category,
+        city=city,
+    )
+
+
+def _strip_html(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html.unescape(str(value or "")))).strip()
+
+
+def _business_name_from_search_title(title: str, host: str) -> str:
+    cleaned = re.sub(r"\s+", " ", title or "").strip()
+    if not cleaned:
+        return host.split(".", 1)[0].replace("-", " ").title()
+    parts = [
+        part.strip(" -|｜:：")
+        for part in re.split(r"\s*[|｜–—]\s*", cleaned)
+        if part.strip(" -|｜:：")
+    ]
+    useful = [
+        part
+        for part in parts
+        if not any(token.lower() in part.lower() for token in DUCKDUCKGO_CONTACT_TITLE_TOKENS)
+    ]
+    if useful:
+        return useful[-1][:120]
+    name = cleaned
+    for token in DUCKDUCKGO_CONTACT_TITLE_TOKENS:
+        name = re.sub(re.escape(token), " ", name, flags=re.IGNORECASE)
+    name = re.sub(r"\s+", " ", name).strip(" -|｜:：")
+    return (name or host.split(".", 1)[0].replace("-", " ").title())[:120]
+
+
 def _merge_directory_result(bucket: dict[str, Any], result: dict[str, Any]) -> None:
     for key in _directory_bucket():
         bucket[key] = int(bucket.get(key) or 0) + int(result.get(key) or 0)
@@ -744,9 +1084,9 @@ def main() -> int:
     parser.add_argument("--provider", default=os.environ.get("WEBREFURB_SEARCH_PROVIDER") or ("serper" if os.environ.get("SERPER_API_KEY") else "webserper"))
     parser.add_argument(
         "--mode",
-        choices=["directory", "maps", "codex-tabelog", "codex-all"],
+        choices=["directory", "duckduckgo-contact", "maps", "codex-tabelog", "codex-all"],
         default="directory",
-        help="directory is the checkpointed Tabelog/official-site crawler; maps uses physical-place searches; codex-tabelog uses Tabelog email jobs; codex-all also includes broad platform jobs.",
+        help="directory is the checkpointed Tabelog/official-site crawler; duckduckgo-contact finds official contact pages without API keys; maps uses physical-place searches; codex-tabelog uses Tabelog email jobs; codex-all also includes broad platform jobs.",
     )
     parser.add_argument("--delay", type=float, default=0.05)
     parser.add_argument("--max-jobs", type=int, default=0, help="Debug cap; 0 means all generated jobs")
@@ -791,6 +1131,23 @@ def main() -> int:
             summary_path=Path(args.summary_path) if args.summary_path else None,
             target_reviewable_cards=args.target_reviewable_cards,
             directory_scope=args.directory_scope,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.mode == "duckduckgo-contact":
+        result = _run_duckduckgo_contact_mode(
+            cities=cities,
+            categories=categories,
+            state_root=state_root,
+            max_pages=args.max_pages,
+            timeout=args.timeout,
+            delay=max(args.delay, 0.25),
+            workers=args.workers,
+            resume=args.resume,
+            checkpoint_path=Path(args.checkpoint_path) if args.checkpoint_path else state_root / "lead_imports" / "duckduckgo_contact_checkpoint.json",
+            summary_path=Path(args.summary_path) if args.summary_path else None,
+            target_reviewable_cards=args.target_reviewable_cards,
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0
