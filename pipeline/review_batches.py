@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from .outreach import describe_outreach_assets, select_outreach_assets
 from .pitch_cards import OPENABLE_PITCH_CARD_STATUSES, pitch_card_counts
 from .record import get_primary_contact, list_leads
 from .utils import ensure_dir, slugify, utc_now, write_json, write_text
@@ -135,11 +136,13 @@ def build_no_send_review_batch(*, state_root: Path, batch_size: int = 120) -> di
             "city_counts": _counter(openable_records, lambda record: str(record.get("city") or "unknown")),
             "category_counts": _nested_counter(openable_records, _primary_category, _menu_type),
             "profile_counts": _counter(openable_records, _profile_id),
+            "pitch_pack_asset_counts": _pitch_pack_asset_counts(openable_records),
         },
         "glm": {
             "category_counts": _glm_category_counts(openable_records),
             "design_briefs": _glm_design_briefs(openable_records),
         },
+        "pitch_pack_plan": _pitch_pack_plan(queue),
         "review_queue": queue,
         "next_actions": [
             "Review selected cards using email/contact-form routes only; do not send or submit.",
@@ -204,6 +207,7 @@ def _review_queue_entry(record: dict[str, Any]) -> dict[str, Any]:
         "quality_tier": str(record.get("quality_tier") or ""),
         "source_strength": str(record.get("source_strength") or ""),
         "review_action": _review_action(record),
+        "pitch_pack_plan": _record_pitch_pack_plan(record),
         "pitch_card_reasons": list(record.get("pitch_card_reasons") or [])[:4],
     }
 
@@ -255,6 +259,52 @@ def _approved_route_value(primary: dict[str, Any]) -> str:
     return str(primary.get("value") or primary.get("url") or primary.get("label") or "")
 
 
+def _record_pitch_pack_plan(record: dict[str, Any]) -> dict[str, Any]:
+    profile = _profile_id(record)
+    classification = _classification(record)
+    route_type = _primary_route_type(record)
+    route_assets = select_outreach_assets(classification, contact_type=route_type, establishment_profile=profile)
+    reference_assets = select_outreach_assets(classification, contact_type="email", establishment_profile=profile)
+    route_description = describe_outreach_assets(route_assets, classification=classification, establishment_profile=profile)
+    reference_description = describe_outreach_assets(reference_assets, classification=classification, establishment_profile=profile)
+    return {
+        "classification": classification,
+        "template_owner": "GLM",
+        "template_edit_policy": "locked_glm_seedstyle_only",
+        "selected_channel": route_type,
+        "attachment_policy": _attachment_policy(route_type),
+        "strategy_label": reference_description["strategy_label"],
+        "strategy_note": reference_description["strategy_note"],
+        "route_assets": [str(path) for path in route_assets],
+        "route_asset_labels": [item["label"] for item in route_description["assets"]],
+        "glm_reference_assets": [str(path) for path in reference_assets],
+        "glm_reference_asset_labels": [item["label"] for item in reference_description["assets"]],
+    }
+
+
+def _classification(record: dict[str, Any]) -> str:
+    existing = str(record.get("outreach_classification") or "").strip()
+    if existing:
+        return existing
+    has_menu = bool(record.get("menu_evidence_found"))
+    has_machine = bool(record.get("machine_evidence_found"))
+    if has_menu and has_machine:
+        return "menu_and_machine"
+    if has_menu:
+        return "menu_machine_unconfirmed"
+    if has_machine:
+        return "machine_only"
+    return "menu_only"
+
+
+def _attachment_policy(route_type: str) -> str:
+    if route_type == "email":
+        return "email_assets_review_only_no_send"
+    if route_type == "contact_form":
+        return "contact_form_no_attachment_no_submit"
+    return "reference_only_no_outreach"
+
+
 def _primary_route_type(record: dict[str, Any]) -> str:
     primary = get_primary_contact(record) or {}
     return str(primary.get("type") or "none")
@@ -276,6 +326,40 @@ def _review_outcome_counts(records: list[dict[str, Any]]) -> dict[str, int]:
     counts = Counter(str(record.get("operator_review_outcome") or "not_reviewed") for record in records)
     counts["reviewed"] = sum(value for key, value in counts.items() if key != "not_reviewed")
     return dict(sorted(counts.items()))
+
+
+def _pitch_pack_asset_counts(records: list[dict[str, Any]]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for record in records:
+        plan = _record_pitch_pack_plan(record)
+        for path in plan["glm_reference_assets"]:
+            counts[path] += 1
+    return dict(sorted(counts.items()))
+
+
+def _pitch_pack_plan(queue: list[dict[str, Any]]) -> dict[str, Any]:
+    route_assets: Counter[str] = Counter()
+    reference_assets: Counter[str] = Counter()
+    attachment_policies: Counter[str] = Counter()
+    strategies: Counter[str] = Counter()
+    for entry in queue:
+        plan = entry["pitch_pack_plan"]
+        attachment_policies[str(plan["attachment_policy"])] += 1
+        strategies[str(plan["strategy_label"])] += 1
+        for path in plan["route_assets"]:
+            route_assets[path] += 1
+        for path in plan["glm_reference_assets"]:
+            reference_assets[path] += 1
+    return {
+        "selected_cards": len(queue),
+        "template_owner": "GLM",
+        "template_edit_policy": "locked_glm_seedstyle_only",
+        "real_outbound_allowed": False,
+        "route_asset_counts": dict(sorted(route_assets.items())),
+        "glm_reference_asset_counts": dict(sorted(reference_assets.items())),
+        "attachment_policy_counts": dict(sorted(attachment_policies.items())),
+        "strategy_counts": dict(sorted(strategies.items())),
+    }
 
 
 def _counter(
@@ -375,6 +459,9 @@ def _review_batch_markdown(batch: dict[str, Any]) -> str:
             f"- `{brief['profile_id']}`: `{brief['openable_cards']}` cards, "
             f"asset profile `{brief['asset_profile']}`. {brief['brief']}"
         )
+    lines.extend(["", "## Pitch-Pack Plan", ""])
+    for path, count in batch["pitch_pack_plan"]["glm_reference_asset_counts"].items():
+        lines.append(f"- `{path}`: `{count}` selected review cards")
     lines.extend(["", "## Selected Review Cards", ""])
     for entry in batch["review_queue"]:
         lines.append(

@@ -80,11 +80,19 @@ def test_review_batch_groups_openable_cards_without_promoting(tmp_path):
     assert queue["wrm-review-email"]["review_lane"] == "email_route_review"
     assert queue["wrm-review-form"]["review_lane"] == "contact_form_review"
     assert queue["wrm-review-scope"]["review_lane"] == "scope_review"
+    assert queue["wrm-review-email"]["pitch_pack_plan"]["attachment_policy"] == "email_assets_review_only_no_send"
+    assert queue["wrm-review-email"]["pitch_pack_plan"]["route_assets"]
+    assert queue["wrm-review-form"]["pitch_pack_plan"]["attachment_policy"] == "contact_form_no_attachment_no_submit"
+    assert queue["wrm-review-form"]["pitch_pack_plan"]["route_assets"] == []
+    assert queue["wrm-review-form"]["pitch_pack_plan"]["glm_reference_assets"]
     assert "wrm-reference-phone" not in queue
     assert "wrm-review-reviewed" not in queue
     assert batch["counts"]["review_outcome_counts"]["hold"] == 1
     assert batch["counts"]["review_outcome_counts"]["not_reviewed"] >= 3
     assert batch["glm"]["category_counts"]["ramen_only"]["openable_cards"] >= 2
+    assert batch["pitch_pack_plan"]["real_outbound_allowed"] is False
+    assert batch["pitch_pack_plan"]["glm_reference_asset_counts"]
+    assert batch["counts"]["pitch_pack_asset_counts"]
 
 
 def test_review_batch_writer_creates_json_and_markdown(tmp_path):
@@ -95,5 +103,7 @@ def test_review_batch_writer_creates_json_and_markdown(tmp_path):
     artifact_paths = batch["artifact_paths"]
     assert artifact_paths["json"].endswith(".json")
     assert artifact_paths["markdown"].endswith(".md")
-    assert "No-Send Pitch-Card Review Batch" in open(artifact_paths["markdown"], encoding="utf-8").read()
+    markdown = open(artifact_paths["markdown"], encoding="utf-8").read()
+    assert "No-Send Pitch-Card Review Batch" in markdown
+    assert "Pitch-Pack Plan" in markdown
     assert batch["counts"]["selected_review_queue"] == 1
