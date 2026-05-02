@@ -225,8 +225,13 @@ def test_dashboard_has_no_send_review_outcome_controls():
     assert 'value="hold">Hold' in html
     assert 'value="needs_more_info">Needs More Info' in html
     assert 'value="reject">Reject' in html
+    assert 'id="save-review-next-btn"' in html
+    assert 'id="next-review-card-btn"' in html
     assert 'data-review-outcome="' in html
     assert "reviewOutcomeValue(lead)" in html
+    assert "visibleReviewCardIds" in html
+    assert "nextReviewLeadIdAfterSave" in html
+    assert "openNextReviewCard" in html
     assert "loadDashboardLeads(true)" in html
     assert "saveLeadReviewOutcome" in html
     assert "/review-outcome" in html
