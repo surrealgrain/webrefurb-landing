@@ -91,6 +91,33 @@ class TestBinaryLead:
         assert result.lead_score_v1 > 0
         assert result.recommended_primary_package != ""
 
+    def test_menu_qualified_candidate_without_explicit_english_gap_still_passes_inventory(self):
+        html = """
+        <html><body>
+        <h1>メニューラーメン</h1>
+        <div class="menu">
+            <h2>メニュー</h2>
+            <ul>
+                <li>醤油ラーメン ¥850</li>
+                <li>味噌ラーメン ¥900</li>
+                <li>塩ラーメン ¥800</li>
+            </ul>
+        </div>
+        <p>住所：東京都渋谷区神南1-2-3</p>
+        </body></html>
+        """
+        result = qualify_candidate(
+            business_name="メニューラーメン",
+            website="https://menu-ramen.example",
+            category="ramen",
+            pages=[{"url": "https://menu-ramen.example", "html": html}],
+            address="東京都渋谷区神南1-2-3",
+        )
+
+        assert result.lead is True
+        assert result.rejection_reason is None
+        assert "source_menu_available" in result.lead_signals
+
     def test_izakaya_qualifies(self):
         result = qualify_candidate(
             business_name="テスト居酒屋",

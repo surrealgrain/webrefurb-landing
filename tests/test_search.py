@@ -36,6 +36,14 @@ def _codex_tabelog_profile_html() -> str:
     """
 
 
+def test_candidate_window_zero_means_no_cap():
+    candidates = [{"name": f"candidate-{idx}"} for idx in range(3)]
+
+    assert search._candidate_window(candidates, 0) == candidates
+    assert search._candidate_window(candidates, -1) == candidates
+    assert search._candidate_window(candidates, 2) == candidates[:2]
+
+
 def test_codex_email_text_extractor_normalizes_japanese_obfuscation():
     text = "お問い合わせ: owner＠menya-haruka.jp / info [at] menya-haruka.jp"
 
@@ -894,13 +902,13 @@ def test_search_blocks_google_confidence_override_when_official_name_conflicts(t
     assert result["decisions"][0]["reason"] == "business_name_conflict"
 
 
-def test_search_blocks_lead_when_google_confidence_override_conditions_not_met(tmp_path, monkeypatch):
-    """Google confidence override should not fire when phone is missing."""
+def test_search_keeps_single_source_name_review_blocked_when_google_override_missing(tmp_path, monkeypatch):
+    """Single-source names can become review-blocked inventory without Google override."""
     def fake_run_search(*, query, api_key, gl="jp", timeout_seconds=10):
         return [{
             "title": "No Phone Ramen",
             "website": "https://nophone-ramen.example",
-            "address": "Tokyo",
+            "address": "東京都渋谷区神南1-2-3",
             "phoneNumber": "",  # No phone — override should NOT fire
             "placeId": "place-nophone-1",
             "rating": 4.5,
@@ -908,7 +916,11 @@ def test_search_blocks_lead_when_google_confidence_override_conditions_not_met(t
         }]
 
     def fake_fetch_page(url, timeout_seconds=10):
-        return "<html><head><title>Different Name | Official Site</title></head><body><h1>Different Name</h1>ラーメン メニュー 醤油ラーメン 900円</body></html>"
+        return (
+            "<html><head><title>No Phone Ramen | Official Site</title></head>"
+            "<body><h1>No Phone Ramen</h1>ラーメン メニュー 醤油ラーメン 900円 "
+            "owner@nophone-ramen.example</body></html>"
+        )
 
     monkeypatch.setattr(search, "run_search", fake_run_search)
     monkeypatch.setattr(search, "_fetch_page", fake_fetch_page)
@@ -921,8 +933,14 @@ def test_search_blocks_lead_when_google_confidence_override_conditions_not_met(t
         state_root=tmp_path,
     )
 
-    assert result["leads"] == 0
-    assert result["decisions"][0]["reason"] == "business_name_unverified"
+    assert result["leads"] == 1
+    lead = json.loads(list((tmp_path / "leads").glob("*.json"))[0].read_text(encoding="utf-8"))
+    assert "google_confidence_override" not in lead["business_name_verified_by"]
+    assert lead["business_name_review_status"] == "single_source_needs_review"
+    assert lead["manual_review_required"] is True
+    assert lead["launch_readiness_status"] == "manual_review"
+    assert lead["pitch_ready"] is False
+    assert lead["outreach_status"] == "needs_review"
 
 
 def test_google_confidence_override_helper():

@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 import time
 import urllib.parse
+import logging
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -20,7 +21,6 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from pipeline.constants import OUTREACH_STATUS_NEW
 from pipeline.contact_crawler import (
     extract_contact_signals,
     is_usable_business_email,
@@ -32,16 +32,21 @@ from pipeline.directory_discovery import (
 )
 from pipeline.evidence import assess_evidence
 from pipeline.html_parser import extract_page_payload
+from pipeline.qualification import qualify_candidate
 from pipeline.preview import build_preview_menu, build_preview_html
 from pipeline.pitch import build_pitch
 from pipeline.models import EvidenceAssessment, TicketMachineHint
 from pipeline.record import (
+    create_lead_record,
     persist_lead_record,
     find_existing_lead,
     normalise_lead_contacts,
 )
 from pipeline.utils import utc_now, slugify, sha256_text, ensure_dir
 from scrapling import Fetcher
+
+logging.getLogger().setLevel(logging.ERROR)
+logging.getLogger("scrapling").setLevel(logging.ERROR)
 
 WEBSITE_TIMEOUT = 10
 
@@ -255,6 +260,8 @@ def _build_lead_record(
     pitch: dict,
     preview_available: bool,
     city: str,
+    email_source_url: str,
+    email_source: str,
 ) -> dict:
     name = cand.name
     website = cand.website
@@ -289,6 +296,7 @@ def _build_lead_record(
         "source_search_job": {
             "mode": "directory_discovery",
             "city": city,
+            "category": primary_cat,
             "source": cand.source,
             "source_url": cand.source_url,
         },
@@ -302,6 +310,10 @@ def _build_lead_record(
         "primary_contact": primary_contact,
         "has_supported_contact_route": bool(primary_contact),
         "email": email_val,
+        "email_source_url": email_source_url,
+        "email_source": email_source,
+        "source_url": cand.source_url,
+        "source_strength": "official_site",
 
         "lead": True,
         "rejection_reason": "",
@@ -336,8 +348,13 @@ def _build_lead_record(
         "evidence_strength_score": assessment.score,
         "lead_evidence_dossier": {},
         "proof_items": [],
-        "launch_readiness_status": "ready_for_outreach",
-        "launch_readiness_reasons": ["spray_and_pray_volume_strategy"],
+        "manual_review_required": True,
+        "inventory_review_status": "review_blocked",
+        "inventory_review_reason": "directory_inventory_requires_manual_review_before_outreach",
+        "candidate_inbox_status": "review_blocked",
+        "pitch_ready": False,
+        "launch_readiness_status": "manual_review",
+        "launch_readiness_reasons": ["manual_review_required"],
         "message_variant": "",
         "launch_batch_id": "",
         "launch_outcome": {},
@@ -353,15 +370,15 @@ def _build_lead_record(
         "record_path": f"state/leads/{lead_id}.json",
         "review_status": "pending",
 
-        "outreach_status": OUTREACH_STATUS_NEW,
-        "outreach_classification": "spray_and_pray",
+        "outreach_status": "needs_review",
+        "outreach_classification": "directory_inventory_review_blocked",
         "outreach_assets_selected": [],
         "outreach_asset_template_family": "none_contact_form",
         "outreach_sent_at": None,
         "outreach_draft_body": None,
         "outreach_include_inperson": city == "Tokyo",
         "status_history": [
-            {"status": OUTREACH_STATUS_NEW, "timestamp": utc_now()},
+            {"status": "needs_review", "timestamp": utc_now()},
         ],
     }
 
@@ -371,7 +388,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Bulk lead generation with preview + pitch")
     parser.add_argument("--cities", required=True, help="Comma-separated city list")
     parser.add_argument("--max-pages", type=int, default=50)
-    parser.add_argument("--max-details", type=int, default=2000)
+    parser.add_argument("--max-details", type=int, default=0, help="Max detail pages per city; 0 means no cap")
     parser.add_argument("--delay", type=float, default=0.3)
     args = parser.parse_args()
 
@@ -384,13 +401,16 @@ def main() -> int:
     chains_skipped = 0
     fetch_failures = 0
     no_email = 0
+    out_of_scope = 0
+    duplicates_skipped = 0
+    by_city_category: dict[str, dict[str, int]] = {}
     seen_hosts: set[str] = set()
     state_root = PROJECT_ROOT / "state"
 
-    print(f"Bulk Lead Generation (email-only, with preview + pitch)")
+    print(f"Bulk Lead Generation (email-only, no-send manual-review inventory)")
     print(f"  Cities: {', '.join(cities)}")
     print(f"  Max pages/area: {args.max_pages}")
-    print(f"  Max details/city: {args.max_details}")
+    print(f"  Max details/city: {'unlimited' if args.max_details == 0 else args.max_details}")
     print()
 
     for city in cities:
@@ -402,7 +422,7 @@ def main() -> int:
                 city=city,
                 category="all",
                 max_pages=args.max_pages,
-                max_detail_fetches=args.max_details,
+                max_detail_fetches=args.max_details or 1_000_000,
                 delay_seconds=args.delay,
             )
         except Exception as exc:
@@ -416,6 +436,26 @@ def main() -> int:
             candidates_seen += 1
             name = cand.name
             website = cand.website
+            category = cand.category or "restaurant"
+            primary_cat = {"ramen": "ramen", "izakaya": "izakaya"}.get(category, "restaurant")
+
+            city_cat_key = f"{city}:{primary_cat}"
+            by_city_category.setdefault(city_cat_key, {
+                "candidates_searched": 0,
+                "usable_emails_found": 0,
+                "new_records_persisted": 0,
+                "duplicates_skipped": 0,
+                "hard_blocked_chains_operators": 0,
+                "hard_blocked_invalid_emails_artifacts": 0,
+                "review_blocked_ambiguous_records": 0,
+                "out_of_scope_skipped": 0,
+            })
+            by_city_category[city_cat_key]["candidates_searched"] += 1
+
+            if primary_cat not in {"ramen", "izakaya"}:
+                out_of_scope += 1
+                by_city_category[city_cat_key]["out_of_scope_skipped"] += 1
+                continue
 
             # Dedup by website host
             host = urllib.parse.urlparse(website).netloc.lower().removeprefix("www.")
@@ -426,6 +466,7 @@ def main() -> int:
             # Skip chains
             if _is_chain(name):
                 chains_skipped += 1
+                by_city_category[city_cat_key]["hard_blocked_chains_operators"] += 1
                 continue
 
             # Skip existing leads
@@ -437,6 +478,8 @@ def main() -> int:
                 state_root=state_root,
             )
             if existing:
+                duplicates_skipped += 1
+                by_city_category[city_cat_key]["duplicates_skipped"] += 1
                 continue
 
             # Fetch website
@@ -459,6 +502,8 @@ def main() -> int:
             # First check homepage, then probe contact paths
             signals = extract_contact_signals(html)
             usable_emails = [e for e in signals.emails if is_usable_business_email(e)]
+            email_source_url = website
+            email_source = "homepage"
             probe_hits = 0
 
             if not usable_emails:
@@ -477,6 +522,8 @@ def main() -> int:
                         pemails = [e for e in psig.emails if is_usable_business_email(e)]
                         if pemails:
                             usable_emails = pemails
+                            email_source_url = probe_url
+                            email_source = "contact_probe"
                             # Also accumulate any page text for evidence
                             html += "\n" + (probe_html or "")
                             break
@@ -491,6 +538,7 @@ def main() -> int:
                 continue
 
             email_val = usable_emails[0]
+            by_city_category[city_cat_key]["usable_emails_found"] += 1
             print(f"  OK ({email_val})")
 
             # Build contacts
@@ -499,68 +547,78 @@ def main() -> int:
                 contact_records.append({
                     "type": "email", "value": email,
                     "actionable": True, "confidence": "high",
-                    "source": "website", "status": "new",
+                    "source": email_source, "source_url": email_source_url,
+                    "status": "needs_review",
                 })
             normalised = normalise_lead_contacts({"contacts": contact_records})
             primary_contact = next((c for c in normalised if c.get("actionable")), None)
 
-            # Extract evidence from website
             category = cand.category or "restaurant"
-            payload = extract_page_payload(website, html)
-            assessment = assess_evidence(
+            qualification = qualify_candidate(
                 business_name=name,
                 website=website,
                 category=category,
-                payloads=[payload],
+                pages=[{"url": website, "html": html}],
+                rating=cand.rating,
+                reviews=cand.review_count,
+                address=cand.address,
+                phone=cand.phone,
             )
-            snippets = [s for s in (payload.get("text") or "").split("\n") if s.strip()][:20]
+            if not qualification.lead:
+                reason = str(qualification.rejection_reason or "")
+                if reason in {"chain_business", "chain_or_franchise_infrastructure"}:
+                    chains_skipped += 1
+                    by_city_category[city_cat_key]["hard_blocked_chains_operators"] += 1
+                elif reason in {"excluded_business_type_v1", "non_ramen_izakaya_v1"}:
+                    out_of_scope += 1
+                    by_city_category[city_cat_key]["out_of_scope_skipped"] += 1
+                continue
 
-            # Build preview + pitch
             preview_available = False
-            pitch: dict = {}
-            try:
-                result = _build_full_preview_html(
-                    business_name=name,
-                    category=category,
-                    city=city,
-                    email=email_val,
-                    assessment=assessment,
-                    snippets=snippets,
-                    recommended_package=_package_for_category(
-                        {"ramen": "ramen", "izakaya": "izakaya"}.get(category, "restaurant"),
-                        city,
-                    )[0],
-                )
-                if result:
-                    preview_html, pitch = result
-                    # Save preview to disk
-                    area = _extract_area(cand.address)
-                    name_slug = slugify(name)
-                    short_hash = sha256_text(f"{name}{website}")[:4]
-                    lead_id = f"wrm-{name_slug}-{area}-{short_hash}"
-                    preview_dir = state_root / "previews" / lead_id
-                    ensure_dir(preview_dir)
-                    (preview_dir / "english-menu.html").write_text(preview_html, encoding="utf-8")
-                    preview_available = True
-            except Exception:
-                pass  # Preview generation failed, lead still valid without it
 
-            # Build and persist lead record
-            record = _build_lead_record(
-                cand=cand,
+            record = create_lead_record(
+                qualification=qualification,
+                preview_html="",
+                pitch_draft={},
                 contacts=normalised,
-                primary_contact=primary_contact,
-                email_val=email_val,
-                assessment=assessment,
-                snippets=snippets,
-                pitch=pitch,
-                preview_available=preview_available,
-                city=city,
+                source_query=f"directory_discovery:{cand.source}",
+                source_search_job={
+                    "mode": "directory_discovery",
+                    "city": city,
+                    "category": qualification.primary_category_v1,
+                    "source": cand.source,
+                    "source_url": cand.source_url,
+                },
+                matched_friction_evidence=[],
+                state_root=state_root,
             )
+            record.update({
+                "city": city,
+                "category": qualification.primary_category_v1,
+                "email_source_url": email_source_url,
+                "email_source": email_source,
+                "source_url": cand.source_url,
+                "source_strength": "official_site",
+                "manual_review_required": True,
+                "inventory_review_status": "review_blocked",
+                "inventory_review_reason": "directory_inventory_requires_manual_review_before_outreach",
+                "candidate_inbox_status": "review_blocked",
+                "pitch_ready": False,
+                "preview_available": preview_available,
+                "pitch_available": False,
+                "pitch_draft": None,
+                "outreach_status": "needs_review",
+                "outreach_classification": "directory_inventory_review_blocked",
+                "outreach_assets_selected": [],
+                "outreach_asset_template_family": "none_contact_form",
+                "status_history": [{"status": "needs_review", "timestamp": utc_now()}],
+            })
 
             try:
                 persist_lead_record(record, state_root=state_root)
                 leads_created += 1
+                by_city_category[city_cat_key]["new_records_persisted"] += 1
+                by_city_category[city_cat_key]["review_blocked_ambiguous_records"] += 1
             except Exception as exc:
                 print(f"  PERSIST ERROR: {exc}")
 
@@ -570,10 +628,13 @@ def main() -> int:
     print(f"{'='*60}")
     print(f"  Candidates discovered:    {candidates_seen}")
     print(f"  Chains skipped:           {chains_skipped}")
+    print(f"  Out of scope skipped:     {out_of_scope}")
+    print(f"  Duplicates skipped:       {duplicates_skipped}")
     print(f"  Websites fetched:         {websites_fetched}")
     print(f"  Fetch failures:           {fetch_failures}")
     print(f"  No email:                 {no_email}")
     print(f"  Leads created:            {leads_created}")
+    print(f"  By city/category:         {by_city_category}")
     print(f"{'='*60}")
 
     return 0

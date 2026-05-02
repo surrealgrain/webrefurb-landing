@@ -160,6 +160,12 @@ TABELOG_SUB_AREAS: dict[str, list[str]] = {
     ],
 }
 
+TABELOG_CATEGORY_PATHS: dict[str, list[str]] = {
+    "all": ["ramen", "izakaya"],
+    "ramen": ["ramen"],
+    "izakaya": ["izakaya"],
+}
+
 # Shared fetcher instance (reuses connection pool and TLS config)
 _fetcher: Fetcher | None = None
 
@@ -348,99 +354,105 @@ def crawl_tabelog_area(
     seen_detail_urls: set[str] = set()
     detail_fetches = 0
 
-    # If no sub-areas mapped, crawl city-wide listing pages
-    area_paths = sub_areas if sub_areas else [None]
+    # City-wide category pages avoid multiplying generic area listings while
+    # still paginating through the target city/category result set.
+    area_paths: list[str | None] = [None]
+    category_paths = TABELOG_CATEGORY_PATHS.get(category, TABELOG_CATEGORY_PATHS["all"])
 
     for area_path in area_paths:
         if detail_fetches >= max_detail_fetches:
             break
 
-        for page in range(1, max_pages + 1):
+        for category_path in category_paths:
             if detail_fetches >= max_detail_fetches:
                 break
 
-            # Build listing URL
-            if area_path:
-                url = f"{TABELOG_BASE}/{city_slug}/{area_path}/rstLst/{page}/"
-            else:
-                url = f"{TABELOG_BASE}/{city_slug}/rstLst/{page}/"
-
-            try:
-                resp = fetcher.get(url)
-                if resp.status != 200:
-                    break
-                html = resp.html_content
-            except Exception:
-                break
-
-            listings = _extract_detail_links(html)
-            if not listings:
-                break  # No more results for this area
-
-            for listing in listings:
+            for page in range(1, max_pages + 1):
                 if detail_fetches >= max_detail_fetches:
                     break
 
-                detail_url = listing["url"]
+                # Build category-specific listing URL.
+                page_suffix = "" if page == 1 else f"{page}/"
+                if area_path:
+                    url = f"{TABELOG_BASE}/{city_slug}/{area_path}/rstLst/{category_path}/{page_suffix}"
+                else:
+                    url = f"{TABELOG_BASE}/{city_slug}/rstLst/{category_path}/{page_suffix}"
 
-                # Skip already-seen detail URLs (same restaurant can appear
-                # on multiple area listing pages)
-                if detail_url in seen_detail_urls:
-                    continue
-                seen_detail_urls.add(detail_url)
-
-                name = listing["name"]
-
-                # Skip known chains — no point emailing them
-                if _is_chain(name):
-                    continue
-
-                # Fetch the /dtlmenu/ subpage for structured data
-                dtlmenu_url = detail_url.rstrip("/") + "/dtlmenu/"
                 try:
-                    detail_resp = fetcher.get(dtlmenu_url)
-                    if detail_resp.status != 200:
-                        # Some pages don't have /dtlmenu/; skip
-                        continue
-                    detail_html = detail_resp.html_content
-                    detail_fetches += 1
+                    resp = fetcher.get(url, timeout=timeout)
+                    if resp.status != 200:
+                        break
+                    html = resp.html_content
                 except Exception:
-                    continue
+                    break
 
-                if delay_seconds > 0:
-                    time.sleep(delay_seconds)
+                listings = _extract_detail_links(html)
+                if not listings:
+                    break  # No more results for this area/category.
 
-                # Genre tagging (all accepted — no filtering)
-                genres = _extract_genres_from_dtlmenu(detail_html)
-                matched_category = _classify_genre(genres, category=category)
+                for listing in listings:
+                    if detail_fetches >= max_detail_fetches:
+                        break
 
-                # Extract official URL
-                official_url = _extract_official_url_from_dtlmenu(detail_html)
-                if not official_url:
-                    continue
+                    detail_url = listing["url"]
 
-                # Dedup by website host
-                website_host = urllib.parse.urlparse(official_url).netloc.lower().removeprefix("www.")
-                if website_host in seen_websites:
-                    continue
-                seen_websites.add(website_host)
+                    # Skip already-seen detail URLs (same restaurant can appear
+                    # on multiple area/category listing pages).
+                    if detail_url in seen_detail_urls:
+                        continue
+                    seen_detail_urls.add(detail_url)
 
-                address = _extract_address_from_dtlmenu(detail_html)
-                phone = _extract_phone_from_dtlmenu(detail_html)
-                rating, review_count = _extract_rating_from_dtlmenu(detail_html)
+                    name = listing["name"]
 
-                candidates.append(DirectoryCandidate(
-                    name=name,
-                    website=official_url,
-                    address=address,
-                    phone=phone,
-                    rating=rating,
-                    review_count=review_count,
-                    source="tabelog",
-                    source_url=detail_url,
-                    category=matched_category,
-                    city=city,
-                ))
+                    # Skip known chains — no point emailing them.
+                    if _is_chain(name):
+                        continue
+
+                    # Fetch the /dtlmenu/ subpage for structured data.
+                    dtlmenu_url = detail_url.rstrip("/") + "/dtlmenu/"
+                    try:
+                        detail_resp = fetcher.get(dtlmenu_url, timeout=timeout)
+                        if detail_resp.status != 200:
+                            # Some pages don't have /dtlmenu/; skip.
+                            continue
+                        detail_html = detail_resp.html_content
+                        detail_fetches += 1
+                    except Exception:
+                        continue
+
+                    if delay_seconds > 0:
+                        time.sleep(delay_seconds)
+
+                    genres = _extract_genres_from_dtlmenu(detail_html)
+                    matched_category = _classify_genre(genres, category=category)
+
+                    # Extract official URL.
+                    official_url = _extract_official_url_from_dtlmenu(detail_html)
+                    if not official_url:
+                        continue
+
+                    # Dedup by website host.
+                    website_host = urllib.parse.urlparse(official_url).netloc.lower().removeprefix("www.")
+                    if website_host in seen_websites:
+                        continue
+                    seen_websites.add(website_host)
+
+                    address = _extract_address_from_dtlmenu(detail_html)
+                    phone = _extract_phone_from_dtlmenu(detail_html)
+                    rating, review_count = _extract_rating_from_dtlmenu(detail_html)
+
+                    candidates.append(DirectoryCandidate(
+                        name=name,
+                        website=official_url,
+                        address=address,
+                        phone=phone,
+                        rating=rating,
+                        review_count=review_count,
+                        source="tabelog",
+                        source_url=detail_url,
+                        category=matched_category,
+                        city=city,
+                    ))
 
     return candidates
 

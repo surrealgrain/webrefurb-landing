@@ -215,12 +215,7 @@ def qualify_candidate(
             lead_signals=lead_signals,
         )
     if not lead_signals:
-        return _reject(
-            business_name=business_name, website=website, category=category,
-            assessment=assessment, rejection_reason="no_english_menu_gap",
-            decision_reason="Rejected: no missing, incomplete, or image-only English menu gap found.",
-            primary_category_v1=primary_category,
-        )
+        lead_signals.append("english_menu_gap_unconfirmed")
 
     # --- English availability ---
     english_availability = _english_availability(
