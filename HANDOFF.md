@@ -20,15 +20,15 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - P3 Dashboard review: 3.1 previews done; 3.2 filters done; 3.3 route/profile filters done; 3.4 lanes done; 3.5 no-send outcome workflow active.
 - P4 Promotion: 4.1 hold/needs-info/reject outcomes only; 4.2 approve/promote-to-pitch_ready not built; 4.3 launch readiness remains blocked.
 - P5 GLM: 5.1 category counts active; 5.2 no-send review briefs generated; 5.3 locked profile asset mapping active.
-- P6 Pitch packs: 6.1 review-batch dimensions active; 6.2 GLM-locked asset routing pending; 6.3 draft generation/review pending.
+- P6 Pitch packs: 6.1 review-batch dimensions active; 6.2 GLM-locked asset routing active; 6.3 draft generation/review pending.
 - P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 final gate not started.
 ## Implementation State
 - Added no-key `duckduckgo-contact` acquisition mode; it searches official contact-page results and persists only no-send manual-review cards.
 - Tabelog subarea scanning and Japanese inquiry/contact route recovery remain available; city-wide Tabelog remains exhausted below target.
 - No-send persistence now forces manual-review/needs-review after lead hardening, and DDG import filters obvious chain/manufacturer hosts such as Ichiran.
 - Live acquisition reached the 400-card target: +73 openable cards this turn, from 328/522 to 401/596.
-- Added `pipeline.cli review-batch`; latest ignored artifact: `state/review_batches/pitch-card-review-401-20260502T142945Z.*` with 120 selected no-send review cards.
-- GLM profile counts: ramen_only 191, izakaya_food_and_drinks 117, yakitori/kushiyaki 44, seafood/sake/oden 24, kushiage 10, tachinomi 7, course 5, plus small specialty profiles.
+- Added `pipeline.cli review-batch`; latest ignored artifact: `state/review_batches/pitch-card-review-401-20260502T143208Z.*` with 120 selected no-send review cards.
+- GLM counts/routing: ramen_only 191, izakaya_food_and_drinks 117, yakitori/kushiyaki 44, seafood/sake/oden 24; selected batch routes 89 izakaya assets and 31 ramen assets, review-only/no-send.
 ## Blockers / Next Work
 - Serper still returns `Not enough credits`; Google Places key is unavailable; provider-backed search is still blocked.
 - Ignored `state/` inventory and review-batch artifacts changed locally; tracked code/handoff changes are the durable commit artifacts.
