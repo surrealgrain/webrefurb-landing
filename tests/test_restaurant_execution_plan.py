@@ -67,8 +67,8 @@ def test_execution_plan_finishes_no_send_artifacts_without_promotion(tmp_path):
     assert plan["promotion_gate_preview"]["candidate_count"] == 13
     assert plan["inline_pitch_pack_plan"]["draft_generation_allowed"] is False
     yakitori = next(item for item in plan["glm_design_requests"] if item["profile_id"] == "izakaya_yakitori_kushiyaki")
-    assert yakitori["request_status"] == "high_priority_request_ready"
-    assert yakitori["request_glm_now"] is True
+    assert yakitori["request_status"] == "locked_asset_available"
+    assert yakitori["request_glm_now"] is False
     assert len(yakitori["representative_examples"]) == 3
     ramen = next(item for item in plan["glm_design_requests"] if item["profile_id"] == "ramen_only")
     assert ramen["request_status"] == "covered_or_monitor"

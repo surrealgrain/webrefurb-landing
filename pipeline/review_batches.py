@@ -90,27 +90,27 @@ PROFILE_ASSET_GUIDANCE = {
     },
     "izakaya_yakitori_kushiyaki": {
         "family": "izakaya",
-        "asset_profile": "izakaya_food_drinks_menu",
+        "asset_profile": "izakaya_yakitori_kushiyaki_menu",
         "brief": "Prioritize skewer cuts, sauce/salt options, set platters, and drink pairing sections.",
     },
     "izakaya_kushiage": {
         "family": "izakaya",
-        "asset_profile": "izakaya_food_drinks_menu",
+        "asset_profile": "izakaya_kushiage_menu",
         "brief": "Prioritize fried skewer categories, dipping rules, set counts, and allergen-friendly labels.",
     },
     "izakaya_seafood_sake_oden": {
         "family": "izakaya",
-        "asset_profile": "izakaya_food_drinks_menu",
+        "asset_profile": "izakaya_seafood_sake_oden_menu",
         "brief": "Prioritize seasonal seafood, sake/shochu pairing, oden items, and freshness notes.",
     },
     "izakaya_tachinomi": {
         "family": "izakaya",
-        "asset_profile": "izakaya_drinks_menu",
+        "asset_profile": "izakaya_tachinomi_menu",
         "brief": "Prioritize fast scanning, small plates, drink rounds, and standing-bar ordering cues.",
     },
     "izakaya_robatayaki": {
         "family": "izakaya",
-        "asset_profile": "izakaya_food_drinks_menu",
+        "asset_profile": "izakaya_robatayaki_menu",
         "brief": "Prioritize grill categories, ingredient display, doneness notes, and shared-plate ordering.",
     },
 }

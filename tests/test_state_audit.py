@@ -217,6 +217,13 @@ def test_expected_dark_assets_maps_profiles():
     assert expected_dark_assets({
         "lead": True,
         "outreach_status": "draft",
+        "primary_category_v1": "izakaya",
+        "establishment_profile": "izakaya_robatayaki",
+        "outreach_classification": "menu_only",
+    }) == [str(PROJECT_ROOT / "assets" / "templates" / "izakaya_robatayaki_menu.html")]
+    assert expected_dark_assets({
+        "lead": True,
+        "outreach_status": "draft",
         "primary_category_v1": "ramen",
         "establishment_profile": "ramen_ticket_machine",
         "outreach_classification": "menu_and_machine",

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .business_name import business_name_is_suspicious
-from .constants import PROJECT_ROOT
+from .constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE, PROJECT_ROOT
 from .lead_dossier import migrate_lead_record, record_explicitly_not_japan
 from .record import authoritative_business_name
 
@@ -72,6 +72,8 @@ def expected_dark_assets(record: dict[str, Any]) -> list[str]:
 
     if classification == "machine_only":
         assets = [TICKET_MACHINE_TEMPLATE]
+    elif profile in OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE:
+        assets = [OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE[profile]]
     elif "izakaya" in profile or category == "izakaya":
         assets = [IZAKAYA_FOOD_DRINKS_TEMPLATE]
     else:

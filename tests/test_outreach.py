@@ -16,6 +16,7 @@ from pipeline.email_templates import SUBJECT, LINE_INPERSON, CONTACT_FORM_BODY
 from pipeline.constants import (
     GENERIC_MACHINE_PDF,
     GENERIC_MENU_PDF,
+    OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE,
     OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
     OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF,
 )
@@ -90,10 +91,15 @@ class TestSelectOutreachAssets:
         assets = select_outreach_assets("menu_only", establishment_profile="izakaya_drink_heavy")
         assert assets == [OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF]
 
+    def test_specific_izakaya_profiles_use_locked_profile_samples(self):
+        for profile, expected in OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.items():
+            assets = select_outreach_assets("menu_only", establishment_profile=profile)
+            assert assets == [expected]
+
     def test_profile_samples_use_dark_template_sources_not_legacy_cream_builds(self):
         assets = [
             *select_outreach_assets("menu_only", establishment_profile="ramen_only"),
-            *select_outreach_assets("menu_only", establishment_profile="izakaya_drink_heavy"),
+            *select_outreach_assets("menu_only", establishment_profile="izakaya_yakitori_kushiyaki"),
         ]
         assert all("assets/templates" in str(path) for path in assets)
         assert all("state/builds" not in str(path) for path in assets)
