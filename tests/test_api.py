@@ -397,6 +397,81 @@ class TestAPIEndpoints:
         assert stored["establishment_profile_override"] == ""
         assert stored["establishment_profile_override_note"] == ""
 
+    def test_review_outcome_endpoint_records_hold_without_promotion(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-review-hold",
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+            launch_readiness_reasons=["manual_review_required"],
+            email_verification_status="needs_review",
+            manual_review_required=True,
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-review-hold/review-outcome",
+            json={"outcome": "hold", "note": "Check owner route later"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["operator_review_outcome"] == "hold"
+        assert data["review_status"] == "held"
+        assert data["operator_review_note"] == "Check owner route later"
+        assert data["launch_readiness_status"] == "manual_review"
+        assert data["outreach_status"] == "needs_review"
+        assert data["pitch_ready"] is False
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-review-hold.json").read_text(encoding="utf-8"))
+        assert stored["operator_review_outcome"] == "hold"
+        assert stored["launch_readiness_status"] == "manual_review"
+        assert stored["outreach_status"] == "needs_review"
+        assert stored["pitch_ready"] is False
+
+    def test_review_outcome_reject_hard_blocks_without_sendability(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-review-reject",
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+            launch_readiness_reasons=["manual_review_required"],
+            email_verification_status="needs_review",
+            manual_review_required=True,
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-review-reject/review-outcome",
+            json={"outcome": "reject", "note": "Out of scope after manual check"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["operator_review_outcome"] == "reject"
+        assert data["review_status"] == "rejected"
+        assert data["pitch_card_status"] == "hard_blocked"
+        assert data["pitch_card_openable"] is False
+        assert data["launch_readiness_status"] == "manual_review"
+        assert data["outreach_status"] == "needs_review"
+        assert data["pitch_ready"] is False
+
+    def test_review_outcome_endpoint_rejects_approval_value(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-review-approve",
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-review-approve/review-outcome",
+            json={"outcome": "approve", "note": "Should not promote"},
+        )
+
+        assert response.status_code == 400
+        stored = json.loads((tmp_path / "leads" / "wrm-test-review-approve.json").read_text(encoding="utf-8"))
+        assert "operator_review_outcome" not in stored
+        assert stored["launch_readiness_status"] == "manual_review"
+
     def test_outreach_preview_marks_non_email_route_as_manual(self, tmp_path):
         self._create_lead(
             tmp_path,
