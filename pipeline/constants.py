@@ -279,6 +279,28 @@ OUTREACH_SAMPLE_RAMEN_DRINKS_PDF = (
 OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF = (
     TEMPLATE_PACKAGE_MENU / "izakaya_food_drinks_menu.html"
 )
+OUTREACH_SAMPLE_IZAKAYA_YAKITORI_KUSHIYAKI_PDF = (
+    TEMPLATE_PACKAGE_MENU / "izakaya_yakitori_kushiyaki_menu.html"
+)
+OUTREACH_SAMPLE_IZAKAYA_KUSHIAGE_PDF = (
+    TEMPLATE_PACKAGE_MENU / "izakaya_kushiage_menu.html"
+)
+OUTREACH_SAMPLE_IZAKAYA_SEAFOOD_SAKE_ODEN_PDF = (
+    TEMPLATE_PACKAGE_MENU / "izakaya_seafood_sake_oden_menu.html"
+)
+OUTREACH_SAMPLE_IZAKAYA_TACHINOMI_PDF = (
+    TEMPLATE_PACKAGE_MENU / "izakaya_tachinomi_menu.html"
+)
+OUTREACH_SAMPLE_IZAKAYA_ROBATAYAKI_PDF = (
+    TEMPLATE_PACKAGE_MENU / "izakaya_robatayaki_menu.html"
+)
+OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE = {
+    "izakaya_yakitori_kushiyaki": OUTREACH_SAMPLE_IZAKAYA_YAKITORI_KUSHIYAKI_PDF,
+    "izakaya_kushiage": OUTREACH_SAMPLE_IZAKAYA_KUSHIAGE_PDF,
+    "izakaya_seafood_sake_oden": OUTREACH_SAMPLE_IZAKAYA_SEAFOOD_SAKE_ODEN_PDF,
+    "izakaya_tachinomi": OUTREACH_SAMPLE_IZAKAYA_TACHINOMI_PDF,
+    "izakaya_robatayaki": OUTREACH_SAMPLE_IZAKAYA_ROBATAYAKI_PDF,
+}
 
 # ---------------------------------------------------------------------------
 # Contact details for email signatures

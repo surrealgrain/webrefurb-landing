@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .constants import (
+    OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE,
     PACKAGE_1_KEY,
     PACKAGE_2_KEY,
     PACKAGE_3_KEY,
@@ -39,6 +40,7 @@ MENU_TYPES = {
     "izakaya_yakitori_kushiyaki",
     "izakaya_kushiage",
     "izakaya_seafood_sake_oden",
+    "izakaya_robatayaki",
     "izakaya_drink_heavy_sake_beer",
     "needs_scope_review",
 }
@@ -50,6 +52,7 @@ MENU_TYPE_LABELS = {
     "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki Izakaya Menu",
     "izakaya_kushiage": "Kushiage Izakaya Menu",
     "izakaya_seafood_sake_oden": "Seafood / Sake / Oden Izakaya Menu",
+    "izakaya_robatayaki": "Robatayaki Izakaya Menu",
     "izakaya_drink_heavy_sake_beer": "Drink-Heavy Izakaya Menu",
     "needs_scope_review": "Scope Review Needed",
 }
@@ -407,7 +410,9 @@ def infer_menu_type(*, raw_type: str, business_name: str = "") -> str:
         return "izakaya_yakitori_kushiyaki"
     if _contains_any(text, ("kushiage", "kushikatsu", "串揚げ", "串カツ", "串かつ", "串丸")):
         return "izakaya_kushiage"
-    if _contains_any(text, ("seafood izakaya", "海鮮居酒屋", "robatayaki", "炉端焼き")):
+    if _contains_any(text, ("robatayaki", "炉端焼き", "炉端")):
+        return "izakaya_robatayaki"
+    if _contains_any(text, ("seafood izakaya", "海鮮居酒屋")):
         return "izakaya_seafood_sake_oden"
     if has_izakaya and _contains_any(text, ("seafood", "海鮮", "鮮魚", "魚", "sake bar", "日本酒", "酒蔵", "oden", "おでん")):
         return "izakaya_seafood_sake_oden"
@@ -752,6 +757,8 @@ def _menu_template_for_menu_type(menu_type: str) -> str:
     templates = PROJECT_ROOT / "assets" / "templates"
     if menu_type.startswith("ramen"):
         return str(templates / "ramen_food_menu.html")
+    if menu_type in OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE:
+        return str(OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE[menu_type])
     if menu_type == "izakaya_drink_heavy_sake_beer":
         return str(templates / "izakaya_drinks_menu.html")
     if menu_type.startswith("izakaya"):
@@ -766,7 +773,9 @@ def _establishment_profile_for_menu_type(menu_type: str) -> str:
         return "ramen_only"
     if menu_type == "izakaya_drink_heavy_sake_beer":
         return "izakaya_drink_heavy"
-    if menu_type in {"izakaya_seafood_sake_oden", "izakaya_general"}:
+    if menu_type in OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE:
+        return menu_type
+    if menu_type == "izakaya_general":
         return "izakaya_food_and_drinks"
     if menu_type.startswith("izakaya"):
         return "izakaya_course_heavy"

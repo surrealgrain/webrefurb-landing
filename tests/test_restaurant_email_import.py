@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from pipeline.constants import OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF, OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+from pipeline.constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE, OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
 from pipeline.outreach import select_outreach_assets
 from pipeline.restaurant_email_import import (
     establishment_profile_for,
@@ -70,7 +70,9 @@ def test_specific_izakaya_profiles_use_locked_izakaya_sample_asset():
         "izakaya_tachinomi",
         "izakaya_robatayaki",
     ]:
-        assert select_outreach_assets("menu_only", establishment_profile=profile) == [OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF]
+        assert select_outreach_assets("menu_only", establishment_profile=profile) == [
+            OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE[profile]
+        ]
     assert select_outreach_assets("menu_only", establishment_profile="ramen_only") == [OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF]
 
 

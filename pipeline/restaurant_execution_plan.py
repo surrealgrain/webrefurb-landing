@@ -4,6 +4,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from .constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE
 from .record import list_leads
 from .review_batches import (
     ALLOWED_REVIEW_OUTCOMES,
@@ -48,7 +49,6 @@ def build_restaurant_execution_plan(
         "finished_until_external_gate": True,
         "external_gates": [
             "operator_review_outcomes_required",
-            "glm_locked_assets_required_for_new_profile_designs",
             "explicit_current_chat_outbound_request_required_before_any_send",
         ],
         "no_send_safety": safety,
@@ -76,7 +76,7 @@ def build_restaurant_execution_plan(
         "inline_pitch_pack_plan": _inline_pitch_pack_plan(wave),
         "next_actions": [
             "Work review-wave batches in order and save only hold, needs_more_info, or reject outcomes.",
-            "Send GLM the request-ready profile briefs; keep Codex changes limited to locked asset routing after GLM returns assets.",
+            "Keep locked asset routing and audit expectations aligned as review artifacts are regenerated.",
             "Regenerate this execution-plan artifact after operator review outcomes are saved.",
             "Do not send, submit forms, promote records, or set pitch_ready without a new explicit outbound instruction.",
         ],
@@ -138,14 +138,14 @@ def _phase_status(wave: dict[str, Any]) -> list[dict[str, Any]]:
             "evidence": "Promotion candidates are previewed only; live pitch_ready mutation is forbidden in this run.",
         },
         {
-            "phase": "P5 GLM Menu Design Requests",
-            "status": "ready_for_glm_review",
-            "evidence": "Profile counts and request-ready representative briefs are included in this artifact.",
+            "phase": "P5 GLM Locked Menu Assets",
+            "status": "complete_for_current_profiles",
+            "evidence": "Dedicated locked templates are available for all current specific izakaya profiles.",
         },
         {
             "phase": "P6 Inline Pitch Packs",
             "status": "planned_no_send_only",
-            "evidence": "Locked asset routing is planned per profile; draft generation remains blocked until review/promotion gates.",
+            "evidence": "Locked asset routing is wired for review planning; draft generation remains blocked until review/promotion gates.",
         },
         {
             "phase": "P7 Outreach Readiness",
@@ -184,8 +184,17 @@ def _glm_design_requests(queue: list[dict[str, Any]], *, representative_count: i
         guidance = PROFILE_ASSET_GUIDANCE.get(profile, {})
         selected_count = len(entries)
         priority_index = GLM_PRIORITY_PROFILES.index(profile) if profile in GLM_PRIORITY_PROFILES else 99
-        request_ready = selected_count >= GLM_INITIAL_THRESHOLD and profile in GLM_PRIORITY_PROFILES
-        high_priority = selected_count >= GLM_HIGH_PRIORITY_THRESHOLD and profile in GLM_PRIORITY_PROFILES
+        locked_asset = OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.get(profile)
+        request_ready = (
+            locked_asset is None
+            and selected_count >= GLM_INITIAL_THRESHOLD
+            and profile in GLM_PRIORITY_PROFILES
+        )
+        high_priority = (
+            locked_asset is None
+            and selected_count >= GLM_HIGH_PRIORITY_THRESHOLD
+            and profile in GLM_PRIORITY_PROFILES
+        )
         requests.append({
             "profile_id": profile,
             "profile_label": PROFILE_LABELS.get(profile, profile.replace("_", " ").title()),
@@ -193,14 +202,22 @@ def _glm_design_requests(queue: list[dict[str, Any]], *, representative_count: i
             "asset_profile": guidance.get("asset_profile", "manual_review"),
             "selected_cards": selected_count,
             "priority_rank": priority_index + 1 if priority_index < 99 else None,
-            "request_status": "high_priority_request_ready" if high_priority else "initial_request_ready" if request_ready else "covered_or_monitor",
+            "request_status": (
+                "locked_asset_available"
+                if locked_asset is not None
+                else "high_priority_request_ready"
+                if high_priority
+                else "initial_request_ready"
+                if request_ready
+                else "covered_or_monitor"
+            ),
             "request_glm_now": request_ready,
             "menu_structure_requirements": guidance.get("brief", "Confirm scope and route quality before assigning locked GLM assets."),
             "existing_design_constraint": "GLM locked templates only; Codex may route returned assets but must not edit locked design content.",
             "required_outputs": [
-                f"locked menu design for `{profile}`",
+                f"locked asset available: `{locked_asset}`" if locked_asset is not None else f"locked menu design for `{profile}`",
                 f"profile mapping for `{profile}`",
-                "seedstyle-compatible source asset",
+                "seedstyle-compatible source asset" if locked_asset is None else "Codex routing and audit expectations stay aligned",
             ],
             "representative_examples": _representative_examples(entries, limit=representative_count),
         })
