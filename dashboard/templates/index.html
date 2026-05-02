@@ -163,6 +163,19 @@ button, input, select, textarea { font: inherit; }
 }
 .lead-stat-value { font-size: 22px; font-weight: 750; line-height: 1; color: var(--text); }
 .lead-stat-label { margin-top: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.review-lanes {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.review-lane {
+  min-height: 76px; text-align: left; border: 1px solid var(--line); background: #fff;
+  border-radius: 8px; padding: 11px 12px; cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.review-lane:hover { border-color: #B9CACF; box-shadow: 0 8px 18px rgba(3,20,29,0.07); transform: translateY(-1px); }
+.review-lane-value { display: block; font-size: 20px; font-weight: 750; line-height: 1; color: var(--text); }
+.review-lane-label { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.review-lane-detail { display: block; margin-top: 3px; font-size: 11px; line-height: 1.35; color: var(--muted); }
 
 .status-badge {
   display: inline-flex; align-items: center; border-radius: 9999px;
@@ -524,6 +537,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   .lead-actions { width: 100%; justify-content: flex-end; }
   .dossier-state-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lead-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
 </head>
@@ -710,6 +724,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       </div>
     </div>
     <div class="lead-stats" id="lead-card-stats" aria-live="polite"></div>
+    <div class="review-lanes" id="lead-review-lanes" aria-label="Review lanes"></div>
     <div class="lead-list" id="lead-list" aria-live="polite">
       <div class="empty-state"><p>Loading leads...</p></div>
     </div>
@@ -1763,6 +1778,69 @@ function renderLeadList(leads) {
   filterLeads();
 }
 
+function reviewablePitchStatus(status) {
+  return ['needs_email_review', 'needs_name_review', 'needs_scope_review'].includes(String(status || ''));
+}
+
+function reviewLaneCounts(leads) {
+  const counts = {
+    email_route: 0,
+    form_route: 0,
+    name_review: 0,
+    scope_review: 0,
+  };
+  (Array.isArray(leads) ? leads : []).forEach(lead => {
+    const pitchStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || '');
+    if (!reviewablePitchStatus(pitchStatus)) return;
+    const contactType = String(lead.primary_contact_type || '').toLowerCase();
+    if (pitchStatus === 'needs_email_review' && contactType === 'contact_form') counts.form_route += 1;
+    else if (pitchStatus === 'needs_email_review') counts.email_route += 1;
+    else if (pitchStatus === 'needs_name_review') counts.name_review += 1;
+    else if (pitchStatus === 'needs_scope_review') counts.scope_review += 1;
+  });
+  return counts;
+}
+
+function setFilterValue(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.value = value;
+}
+
+function applyReviewLane(lane) {
+  resetLeadFilters();
+  if (lane === 'email_route') {
+    setFilterValue('sidebar-pitch-readiness', 'needs_email_review');
+    setFilterValue('sidebar-route', 'email');
+  } else if (lane === 'form_route') {
+    setFilterValue('sidebar-pitch-readiness', 'needs_email_review');
+    setFilterValue('sidebar-route', 'contact_form');
+  } else if (lane === 'name_review') {
+    setFilterValue('sidebar-pitch-readiness', 'needs_name_review');
+  } else if (lane === 'scope_review') {
+    setFilterValue('sidebar-pitch-readiness', 'needs_scope_review');
+  }
+  filterLeads();
+}
+
+function renderLeadReviewLanes(leads) {
+  const container = document.getElementById('lead-review-lanes');
+  if (!container) return;
+  const counts = reviewLaneCounts(leads);
+  const lanes = [
+    ['email_route', 'Email Route Review', counts.email_route, 'Confirm owner e-mail candidates'],
+    ['form_route', 'Contact Form Review', counts.form_route, 'Open supported forms without submitting'],
+    ['name_review', 'Name Review', counts.name_review, 'Check single-source shop names'],
+    ['scope_review', 'Scope Review', counts.scope_review, 'Confirm ramen or izakaya fit'],
+  ];
+  container.innerHTML = lanes.map(([lane, label, value, detail]) =>
+    '<button class="review-lane" type="button" onclick="applyReviewLane(\'' + escapeHtml(lane) + '\')" data-review-lane="' + escapeHtml(lane) + '">' +
+      '<span class="review-lane-value">' + escapeHtml(value) + '</span>' +
+      '<span class="review-lane-label">' + escapeHtml(label) + '</span>' +
+      '<span class="review-lane-detail">' + escapeHtml(detail) + '</span>' +
+    '</button>'
+  ).join('');
+}
+
 function renderLeadCardStats(counts) {
   const stats = document.getElementById('lead-card-stats');
   if (!stats) return;
@@ -1783,6 +1861,7 @@ async function loadDashboardLeads() {
   const initialLeads = readInitialLeads();
   if (initialLeads) {
     renderLeadCardStats(readInitialLeadCardCounts());
+    renderLeadReviewLanes(initialLeads);
     renderLeadList(initialLeads);
     return;
   }
@@ -1798,6 +1877,7 @@ async function loadDashboardLeads() {
     const data = await res.json();
     const leads = Array.isArray(data) ? data : (Array.isArray(data.leads) ? data.leads : []);
     renderLeadCardStats(Array.isArray(data) ? {} : (data.card_counts || {}));
+    renderLeadReviewLanes(leads);
     renderLeadList(leads);
   } catch {
     const list = document.getElementById('lead-list');
