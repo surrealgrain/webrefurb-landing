@@ -16,6 +16,7 @@ Locked menu template assets for Codex routing. GLM-owned; Codex wires code routi
 | `izakaya_kushiage`             | `assets/templates/izakaya_kushiage_menu.html`              | `assets/templates/previews/izakaya_kushiage_menu.png`            | high     | 10     |
 | `izakaya_seafood_sake_oden`    | `assets/templates/izakaya_seafood_sake_oden_menu.html`     | `assets/templates/previews/izakaya_seafood_sake_oden_menu.png`   | high     | 24     |
 | `izakaya_tachinomi`            | `assets/templates/izakaya_tachinomi_menu.html`             | `assets/templates/previews/izakaya_tachinomi_menu.png`           | initial  | 7      |
+| `izakaya_robatayaki`           | `assets/templates/izakaya_robatayaki_menu.html`            | `assets/templates/previews/izakaya_robatayaki_menu.png`          | high     | —      |
 
 ## Existing Templates (unchanged)
 
@@ -42,4 +43,4 @@ Every new template listed above meets these criteria:
 
 ## Preview Renders
 
-All four previews generated via Playwright at 1200px viewport, full-page screenshot. Filenames follow the convention `assets/templates/previews/{profile_id}_menu.png`.
+All five previews generated via Playwright at 1200px viewport, full-page screenshot. Filenames follow the convention `assets/templates/previews/{profile_id}_menu.png`.
