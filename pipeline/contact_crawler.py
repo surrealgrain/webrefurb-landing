@@ -9,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -576,6 +577,45 @@ def contact_candidate_urls(base_url: str, anchors: list[dict[str, str]], *, limi
             continue
         candidates.append(absolute)
     return _ordered_unique(candidates)[:limit]
+
+
+class _AnchorCollector(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.anchors: list[dict[str, str]] = []
+        self._current: dict[str, str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "a":
+            return
+        attrs_dict = {key.lower(): value or "" for key, value in attrs}
+        label = " ".join(
+            value.strip()
+            for value in (attrs_dict.get("aria-label", ""), attrs_dict.get("title", ""))
+            if value.strip()
+        )
+        self._current = {"href": attrs_dict.get("href", ""), "text": label}
+
+    def handle_data(self, data: str) -> None:
+        if self._current is None:
+            return
+        self._current["text"] = " ".join([self._current.get("text", ""), data.strip()]).strip()
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._current is None:
+            return
+        self.anchors.append(self._current)
+        self._current = None
+
+
+def contact_candidate_urls_from_html(base_url: str, html: str, *, limit: int = 5) -> list[str]:
+    """Extract same-site contact candidate URLs from static HTML anchors."""
+    parser = _AnchorCollector()
+    try:
+        parser.feed(html or "")
+    except Exception:
+        return []
+    return contact_candidate_urls(base_url, parser.anchors, limit=limit)
 
 
 def _official_external_url(directory_url: str, href: str) -> str:

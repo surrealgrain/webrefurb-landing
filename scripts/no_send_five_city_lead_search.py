@@ -25,8 +25,17 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from scrapling import Fetcher
 
-from pipeline.contact_crawler import extract_contact_signals, is_usable_business_email
-from pipeline.directory_discovery import DirectoryCandidate, crawl_tabelog_listing_page
+from pipeline.contact_crawler import (
+    contact_candidate_urls_from_html,
+    extract_contact_signals,
+    is_usable_business_email,
+    normalize_website_url,
+)
+from pipeline.directory_discovery import (
+    DirectoryCandidate,
+    crawl_tabelog_listing_page,
+    tabelog_sub_area_paths_for_city,
+)
 from pipeline.evidence import is_chain_business
 from pipeline.models import QualificationResult
 from pipeline.pitch_cards import apply_pitch_card_state, pitch_card_counts
@@ -95,8 +104,25 @@ DIRECTORY_CATEGORIES = ("ramen", "izakaya")
 CONTACT_PROBE_PATHS = (
     "/contact/",
     "/contact",
+    "/contact.html",
+    "/contact/index.html",
+    "/contact-us/",
+    "/contact-us",
     "/inquiry/",
     "/inquiry",
+    "/inquiry.html",
+    "/inquiry/index.html",
+    "/otoiawase/",
+    "/otoiawase",
+    "/otoiawase.html",
+    "/toiawase/",
+    "/toiawase",
+    "/mail/",
+    "/mail",
+    "/mailform/",
+    "/mailform",
+    "/form/",
+    "/form",
     "/reservation/",
     "/reserve/",
     "/access/",
@@ -160,6 +186,7 @@ def _run_directory_mode(
     checkpoint_path: Path,
     summary_path: Path | None,
     target_reviewable_cards: int,
+    directory_scope: str = "city",
 ) -> dict[str, Any]:
     checkpoint = _load_checkpoint(checkpoint_path) if resume else _new_checkpoint()
     dedup = _existing_dedup_keys(state_root)
@@ -174,6 +201,7 @@ def _run_directory_mode(
         "no_send": True,
         "max_candidates": 0,
         "target_reviewable_cards": target_reviewable_cards,
+        "directory_scope": directory_scope,
         "initial_pitch_card_counts": initial_counts,
         "final_pitch_card_counts": {},
         "totals": _directory_bucket(),
@@ -182,9 +210,9 @@ def _run_directory_mode(
         "checkpoint_path": str(checkpoint_path),
     }
 
-    for city in cities:
+    for city, area_path in _directory_scope_units(cities, directory_scope):
         for category in DIRECTORY_CATEGORIES:
-            key = f"{city}:{category}"
+            key = _directory_scope_key(city=city, category=category, area_path=area_path)
             bucket = summary["by_city_category"].setdefault(key, _directory_bucket())
             for page in range(1, max_pages + 1):
                 if _openable_count(state_root) >= target_reviewable_cards:
@@ -199,6 +227,7 @@ def _run_directory_mode(
                     city=city,
                     category=category,
                     page=page,
+                    area_path=area_path or None,
                     timeout=timeout,
                     delay_seconds=delay,
                 )
@@ -240,7 +269,13 @@ def _run_directory_mode(
                 _mark_page_done(checkpoint, key, page)
                 checkpoint["updated_at"] = utc_now()
                 _write_checkpoint(checkpoint_path, checkpoint)
-                print(json.dumps({"city": city, "category": category, "page": page, **bucket}, ensure_ascii=False))
+                print(json.dumps({
+                    "city": city,
+                    "category": category,
+                    "area_path": area_path or "city_wide",
+                    "page": page,
+                    **bucket,
+                }, ensure_ascii=False))
                 sys.stdout.flush()
 
     _save_directory_summary(summary, state_root=state_root, summary_path=summary_path, started_at=started_at)
@@ -492,8 +527,15 @@ def _find_candidate_routes(fetcher: Fetcher, website: str, html: str, *, timeout
     form_signal = _signal_dict(signals) if form_url else {}
     if usable:
         return usable, website, form_url, form_signal
-    for path in CONTACT_PROBE_PATHS:
-        probe_url = website.rstrip("/") + path
+
+    linked_probe_urls = contact_candidate_urls_from_html(website, html, limit=10)
+    path_probe_urls = [
+        normalize_website_url(website.rstrip("/") + path)
+        for path in CONTACT_PROBE_PATHS
+    ]
+    for probe_url in _ordered_unique([*linked_probe_urls, *path_probe_urls]):
+        if not probe_url:
+            continue
         try:
             response = fetcher.get(probe_url, timeout=max(3, min(timeout, 6)))
             if response.status != 200:
@@ -547,6 +589,25 @@ def _directory_bucket() -> dict[str, Any]:
         "fetch_failures": 0,
         "no_supported_route": 0,
     }
+
+
+def _directory_scope_units(cities: list[str], directory_scope: str) -> list[tuple[str, str]]:
+    units: list[tuple[str, str]] = []
+    for city in cities:
+        if directory_scope in {"city", "both"}:
+            units.append((city, ""))
+        if directory_scope in {"subarea", "both"}:
+            subareas = tabelog_sub_area_paths_for_city(city)
+            if subareas:
+                units.extend((city, area_path) for area_path in subareas)
+            elif directory_scope == "subarea":
+                units.append((city, ""))
+    return units
+
+
+def _directory_scope_key(*, city: str, category: str, area_path: str) -> str:
+    scope = area_path or "city"
+    return f"{city}:{category}:{scope}"
 
 
 def _merge_directory_result(bucket: dict[str, Any], result: dict[str, Any]) -> None:
@@ -692,6 +753,12 @@ def main() -> int:
     parser.add_argument("--max-pages", type=int, default=50, help="Directory mode listing pages per city/category")
     parser.add_argument("--workers", type=int, default=6, help="Directory mode concurrent official-site probes")
     parser.add_argument("--timeout", type=int, default=8, help="Directory mode fetch timeout")
+    parser.add_argument(
+        "--directory-scope",
+        choices=["city", "subarea", "both"],
+        default="city",
+        help="Directory mode listing scope; subarea scans configured Tabelog area pages under each city.",
+    )
     parser.add_argument("--resume", action="store_true", help="Resume from the checkpoint path")
     parser.add_argument("--checkpoint-path", default="", help="Directory mode checkpoint JSON path")
     parser.add_argument("--target-reviewable-cards", type=int, default=300, help="Stop directory mode after this many openable pitch cards")
@@ -723,6 +790,7 @@ def main() -> int:
             checkpoint_path=Path(args.checkpoint_path) if args.checkpoint_path else state_root / "lead_imports" / "five_city_directory_checkpoint.json",
             summary_path=Path(args.summary_path) if args.summary_path else None,
             target_reviewable_cards=args.target_reviewable_cards,
+            directory_scope=args.directory_scope,
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0
