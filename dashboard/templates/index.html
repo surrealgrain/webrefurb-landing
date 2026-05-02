@@ -452,6 +452,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .profile-select, .profile-note-input { height: 38px; border-radius: 12px; border: 1px solid var(--input-border); padding: 0 12px; font-size: 13px; background: #fff; font-family: inherit; }
 .profile-select { min-width: 220px; }
 .profile-note-input { min-width: 260px; flex: 1; }
+.review-nav-summary { margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.review-next-button { border-color: #BFE5EA; color: #0E7490; }
 .dossier-panel { margin-bottom: 12px; padding: 12px; background: #FAFAF8; border: 1px solid rgba(92,74,52,0.16); border-radius: 14px; }
 .dossier-panel .profile-panel-title { color: #6F4E1F; }
 .dossier-state-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; }
@@ -914,6 +916,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <div class="profile-panel" id="review-outcome-panel">
       <div class="profile-panel-title">Review outcome</div>
       <div class="profile-panel-summary" id="review-outcome-summary"></div>
+      <div class="review-nav-summary" id="review-nav-summary"></div>
       <div class="profile-override-controls">
         <select class="profile-select" id="review-outcome-select">
           <option value="hold">Hold</option>
@@ -922,6 +925,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         </select>
         <input class="profile-note-input" id="review-outcome-note" type="text" placeholder="Optional review note">
         <button class="btn btn-secondary" id="save-review-outcome-btn" onclick="saveLeadReviewOutcome()">Save Review Outcome</button>
+        <button class="btn btn-secondary review-next-button" id="save-review-next-btn" onclick="saveLeadReviewOutcome({ advance: true })">Save &amp; Next</button>
+        <button class="btn btn-secondary review-next-button" id="next-review-card-btn" onclick="openNextReviewCard()">Next Unreviewed</button>
       </div>
     </div>
     <div class="profile-panel" id="establishment-profile-panel">
@@ -1303,6 +1308,58 @@ function reviewOutcomeClass(outcome) {
   return String(outcome || 'not_reviewed').replace(/_/g, '-');
 }
 
+function visibleReviewCardIds({ unreviewedOnly = true } = {}) {
+  return Array.from(document.querySelectorAll('#lead-list .lead-card'))
+    .filter(card => card.style.display !== 'none')
+    .filter(card => reviewablePitchStatus(card.dataset.pitchReadiness))
+    .filter(card => !unreviewedOnly || card.dataset.reviewOutcome === 'not_reviewed')
+    .map(card => card.dataset.leadId)
+    .filter(Boolean);
+}
+
+function nextReviewLeadId(afterLeadId = currentLeadId) {
+  const ids = visibleReviewCardIds({ unreviewedOnly: true });
+  if (!ids.length) return '';
+  const currentIndex = ids.indexOf(afterLeadId || '');
+  if (currentIndex === -1) return ids[0];
+  return ids[currentIndex + 1] || ids[0];
+}
+
+function nextReviewLeadIdAfterSave(leadId = currentLeadId) {
+  const ids = visibleReviewCardIds({ unreviewedOnly: true });
+  const currentIndex = ids.indexOf(leadId || '');
+  if (currentIndex === -1) return ids[0] || '';
+  return ids[currentIndex + 1] || ids.find(id => id !== leadId) || '';
+}
+
+function renderReviewNavigation(data) {
+  const summary = document.getElementById('review-nav-summary');
+  const nextBtn = document.getElementById('next-review-card-btn');
+  const saveNextBtn = document.getElementById('save-review-next-btn');
+  if (!summary || !nextBtn || !saveNextBtn) return;
+  const ids = visibleReviewCardIds({ unreviewedOnly: true });
+  const position = ids.indexOf(currentLeadId || '');
+  const nextId = nextReviewLeadId(currentLeadId);
+  const remaining = ids.length;
+  const currentPosition = position >= 0 ? position + 1 : 0;
+  const outcomeSaved = reviewOutcomeValue(data) !== 'not_reviewed';
+  summary.textContent = remaining
+    ? 'Visible unreviewed queue: ' + (currentPosition || 1) + ' of ' + remaining + '.'
+    : 'No visible unreviewed cards in the current filters.';
+  nextBtn.disabled = !nextId || (remaining === 1 && !outcomeSaved);
+  saveNextBtn.disabled = remaining === 0;
+}
+
+async function openNextReviewCard() {
+  const nextId = nextReviewLeadId(currentLeadId);
+  if (!nextId || nextId === currentLeadId) {
+    showToast('No other unreviewed card is visible in this lane.', 'info');
+    return;
+  }
+  await closePreviewModal();
+  await openPreview(nextId);
+}
+
 function renderReviewOutcome(data) {
   const summary = document.getElementById('review-outcome-summary');
   const select = document.getElementById('review-outcome-select');
@@ -1316,6 +1373,7 @@ function renderReviewOutcome(data) {
     : 'No saved review outcome. Saving here keeps the lead manual-review blocked.';
   select.value = outcome;
   note.value = data.operator_review_note || '';
+  renderReviewNavigation(data);
 }
 
 function renderEstablishmentProfile(data) {
@@ -1475,16 +1533,25 @@ async function clearEstablishmentProfileOverride() {
   }
 }
 
-async function saveLeadReviewOutcome() {
+async function saveLeadReviewOutcome(options = {}) {
   if (!currentLeadId) return;
+  const advance = Boolean(options.advance);
+  const currentReviewLeadId = currentLeadId;
+  const nextLeadId = advance ? nextReviewLeadIdAfterSave(currentReviewLeadId) : '';
   const outcome = document.getElementById('review-outcome-select').value;
   const note = document.getElementById('review-outcome-note').value.trim();
   const saveBtn = document.getElementById('save-review-outcome-btn');
+  const saveNextBtn = document.getElementById('save-review-next-btn');
+  const nextBtn = document.getElementById('next-review-card-btn');
   const originalText = saveBtn.textContent;
+  const originalNextText = saveNextBtn ? saveNextBtn.textContent : '';
   saveBtn.disabled = true;
+  if (saveNextBtn) saveNextBtn.disabled = true;
+  if (nextBtn) nextBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
+  if (advance && saveNextBtn) saveNextBtn.textContent = 'Saving...';
   try {
-    const res = await fetch('/api/leads/' + encodeURIComponent(currentLeadId) + '/review-outcome', {
+    const res = await fetch('/api/leads/' + encodeURIComponent(currentReviewLeadId) + '/review-outcome', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ outcome, note }),
@@ -1496,11 +1563,22 @@ async function saveLeadReviewOutcome() {
     renderLeadDossier(currentEmail || data);
     await loadDashboardLeads(true);
     showToast('Review outcome saved', 'success');
+    if (advance) {
+      await closePreviewModal();
+      if (nextLeadId) await openPreview(nextLeadId);
+      else showToast('No more visible unreviewed cards in this lane.', 'info');
+    }
   } catch (err) {
     showToast('Review save failed: ' + err.message, 'error');
   } finally {
     saveBtn.disabled = false;
+    if (saveNextBtn) {
+      saveNextBtn.disabled = false;
+      saveNextBtn.textContent = originalNextText;
+    }
+    if (nextBtn) nextBtn.disabled = false;
     saveBtn.textContent = originalText;
+    if (currentEmail) renderReviewNavigation(currentEmail);
   }
 }
 
@@ -1724,6 +1802,7 @@ function filterLeads() {
     cards.forEach(c => c.style.display = '');
     updateLeadsCount();
     updateReviewLaneSelection(currentReviewLaneFromFilters());
+    if (currentLeadId && currentEmail) renderReviewNavigation(currentEmail);
     return;
   }
 
@@ -1753,6 +1832,7 @@ function filterLeads() {
   });
   updateLeadsCount();
   updateReviewLaneSelection(currentReviewLaneFromFilters());
+  if (currentLeadId && currentEmail) renderReviewNavigation(currentEmail);
 }
 
 function resetLeadFilters() {

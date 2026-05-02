@@ -24,7 +24,7 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - P7 Outreach readiness: 7.1 draft review pending; 7.2 send route confirmation pending; 7.3 final gate not started.
 ## Implementation State
 - Dashboard sidebar now restates P0-P7 with substeps; active work is P3.5/P4.1 manual review only.
-- Queue review support now includes outcome filter, unreviewed lane, review progress stats, outcome badges, and a fixed Reviewable filter that covers needs_email/name/scope cards.
+- Queue review support now includes outcome filter, unreviewed lane, review progress stats, outcome badges, fixed Reviewable filtering, and Save & Next/Next Unreviewed controls.
 - Preview modal now receives saved no-send review outcome fields; saving an outcome reloads live API queue state instead of reusing stale embedded data.
 - Review outcome API still enforces `manual_review`, `outreach_status=needs_review`, and `pitch_ready=false`; reject hard-blocks only the pitch card.
 - Directory crawler and generic search remain checkpointed/resumable; all-search-failure jobs are not marked complete.
@@ -32,9 +32,9 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Five-city directory source is exhausted through page 100 below the 400-card target.
 - Serper failed with not-enough-credits; webserper degraded into search failures, so provider-backed organic fallback is unreliable until provider access recovers.
 - `audit-state` currently reports pre-existing launch/smoke asset-profile drift; no no-send safety drift was found in live counters.
-- Next lane: manually review the 326 cards using unreviewed/email/form/name/scope lanes, then consider a narrow no-send organic/contact fallback or second directory source.
+- Next lane: manually review the 326 cards using unreviewed/email/form/name/scope lanes and next-card controls, then consider a narrow no-send organic/contact fallback or second directory source.
 ## Last Verification
-- Tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed.
+- Tests: `tests/test_website.py -q` 12 passed; `tests/test_api.py -q` 117 passed; `tests/test_restaurant_lead_verification.py -q` 40 passed; dashboard script parse passed.
 - Dashboard script parse check passed; live `GET /` returned 200 and `/api/leads` returned 520 records with the expected card counts.
 - Live safety audit: all records manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
 - No outreach happened.
