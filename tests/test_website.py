@@ -205,14 +205,15 @@ def test_dashboard_review_lanes_make_manual_work_queue_visible():
     assert ".review-lane.is-active" in html
 
 
-def test_dashboard_sidebar_restates_no_send_phase_plan():
+def test_dashboard_keeps_internal_plan_and_filters_out_of_primary_sidebar():
     html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
 
-    assert "Phase Plan" in html
-    assert "P0" in html and "Safety guardrails" in html
-    assert "P3" in html and "Dashboard review" in html
-    assert "P4" in html and "approve not built" in html
-    assert "P7" in html and "final gate not started" in html
+    assert "Phase Plan" not in html
+    assert "Queue Filters" not in html
+    assert 'id="advanced-filter-toggle"' in html
+    assert 'id="advanced-filters"' in html
+    assert "function toggleAdvancedFilters()" in html
+    assert 'id="nav-builds"' not in html
 
 
 def test_dashboard_has_no_send_review_outcome_controls():
