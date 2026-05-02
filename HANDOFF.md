@@ -18,7 +18,7 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Overall progress estimate: 40-45% of wider execution plan complete; no-send inventory sub-target is 326/400 reviewable cards, but directory source exhausted.
 - Phase 1 Corpus consolidation: done; imported records live under `state/leads`, summaries under `state/lead_imports`, duplicate/import safety preserved.
 - Phase 2 Verification system: mostly done; verification fields and verifier summaries exist, with uncertain records filterable and sendability blocked.
-- Phase 3 Dashboard review cards: materially done for no-send review; current lane is reviewing 326 cards and improving inventory sources if more cards are needed.
+- Phase 3 Dashboard review cards: materially done; route/profile filters now support reviewing the 326 cards by contact path and GLM/template profile.
 - Phase 4 Promotion workflow: not done; do not promote automatically, and keep `pitch_ready=false` until human review rules are implemented.
 - Phase 5 GLM menu design requests: not started; wait for stable reviewed category counts.
 - Phase 6 Inline pitch packs: not started; depends on promotion workflow and locked GLM assets.
@@ -27,6 +27,7 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 ## Implementation State
 - Pitch-card state is applied on record create/load/list/persist; dashboard/API separates reviewability from launch readiness.
 - Review-only GET previews work for manual-review cards; POST/regenerate/send remains blocked unless launch-ready.
+- Dashboard queue filters include city, menu/category, quality, verification, email/name status, source strength, contact route, profile, and pitch-card state.
 - Directory crawler and generic search are checkpointed/resumable; all-search-failure jobs are not marked complete.
 - Search loosening remains in force: ambiguous English-menu gaps can become review-blocked inventory; hard rejection reasons remain blocked.
 - Codex organic email fallback can persist recoverable ramen/izakaya candidates as manual-review pitch cards; hard rejection reasons still do not persist.
@@ -40,6 +41,7 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 ## Last Verification
 - P100 directory crawl completed with 326 reviewable cards and 0 ready_for_outreach in its final summary.
 - `tests/test_search.py -q`: 52 passed; focused suite (`test_api`, restaurant verification/import, search, pipeline): 321 passed.
+- Latest dashboard filter checks: `tests/test_website.py -q` 9 passed; `tests/test_api.py -q` 113 passed.
 - `verify-restaurant-leads --summary-path state/lead_imports/restaurant_lead_verification_pitch_cards_continued_p100.json`: 0 ready_for_outreach, 0 pitch_ready.
 - Live `list-leads` safety audit: all records manual-review blocked; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
 - No outreach happened.

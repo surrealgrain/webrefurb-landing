@@ -616,6 +616,27 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="directory">Directory</option>
         <option value="weak_source">Weak Source</option>
       </select>
+      <select class="search-select" id="sidebar-route" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Routes</option>
+        <option value="email">Email</option>
+        <option value="contact_form">Contact Form</option>
+      </select>
+      <select class="search-select" id="sidebar-profile" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
+        <option value="all">All Profiles</option>
+        <option value="unknown">Manual Review</option>
+        <option value="ramen_only">Ramen Only</option>
+        <option value="ramen_with_drinks">Ramen With Drinks</option>
+        <option value="ramen_ticket_machine">Ramen With Ticket Machine</option>
+        <option value="ramen_with_sides_add_ons">Ramen With Sides / Add-ons</option>
+        <option value="izakaya_food_and_drinks">Izakaya Food And Drinks</option>
+        <option value="izakaya_drink_heavy">Izakaya Drink Heavy</option>
+        <option value="izakaya_course_heavy">Izakaya Course Heavy</option>
+        <option value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki</option>
+        <option value="izakaya_kushiage">Kushikatsu / Kushiage</option>
+        <option value="izakaya_seafood_sake_oden">Seafood / Sake / Oden</option>
+        <option value="izakaya_tachinomi">Tachinomi</option>
+        <option value="izakaya_robatayaki">Robatayaki</option>
+      </select>
       <select class="search-select" id="sidebar-pitch-readiness" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
         <option value="all">All Pitch States</option>
         <option value="reviewable">Reviewable</option>
@@ -1256,8 +1277,10 @@ function updateLeadCardProfile(data) {
   if (!card) return;
   const summary = card.querySelector('[data-role="profile-summary"]');
   const badge = card.querySelector('[data-role="profile-badge"]');
-  const label = data.establishment_profile_label || establishmentProfileLabel(data.establishment_profile);
+  const effectiveProfile = data.establishment_profile_effective || data.establishment_profile || 'unknown';
+  const label = data.establishment_profile_label || establishmentProfileLabel(effectiveProfile);
   const summaryText = 'Profile: ' + label + (data.establishment_profile_mode === 'operator_override' ? ' · Operator override' : '');
+  card.dataset.establishmentProfile = effectiveProfile;
   if (summary) summary.textContent = summaryText;
   if (badge) badge.textContent = label;
 }
@@ -1530,6 +1553,7 @@ function filterLeads() {
   const nameStatus = document.getElementById('sidebar-name-status') ? document.getElementById('sidebar-name-status').value : 'all';
   const sourceStrength = document.getElementById('sidebar-source-strength') ? document.getElementById('sidebar-source-strength').value : 'all';
   const pitchReadiness = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
+  const profile = document.getElementById('sidebar-profile') ? document.getElementById('sidebar-profile').value : 'all';
   const routeSelect = document.getElementById('sidebar-route');
   const route = routeSelect ? routeSelect.value : 'all';
 
@@ -1537,7 +1561,7 @@ function filterLeads() {
   if (
     category === 'all' && city === 'all' && route === 'all' && quality === 'all' &&
     verification === 'all' && emailStatus === 'all' && nameStatus === 'all' &&
-    sourceStrength === 'all' && pitchReadiness === 'all'
+    sourceStrength === 'all' && pitchReadiness === 'all' && profile === 'all'
   ) {
     cards.forEach(c => c.style.display = '');
     updateLeadsCount();
@@ -1559,9 +1583,10 @@ function filterLeads() {
     const matchName = nameStatus === 'all' || card.dataset.nameStatus === nameStatus;
     const matchSource = sourceStrength === 'all' || card.dataset.sourceStrength === sourceStrength;
     const matchPitch = pitchReadiness === 'all' || card.dataset.pitchReadiness === pitchReadiness;
+    const matchProfile = profile === 'all' || card.dataset.establishmentProfile === profile;
     card.style.display = (
       matchCategory && matchCity && matchRoute && matchQuality && matchVerification &&
-      matchEmail && matchName && matchSource && matchPitch
+      matchEmail && matchName && matchSource && matchPitch && matchProfile
     ) ? '' : 'none';
   });
   updateLeadsCount();
@@ -1576,6 +1601,8 @@ function resetLeadFilters() {
     'sidebar-email-status',
     'sidebar-name-status',
     'sidebar-source-strength',
+    'sidebar-route',
+    'sidebar-profile',
     'sidebar-pitch-readiness',
   ].forEach(id => {
     const el = document.getElementById(id);
@@ -1651,7 +1678,8 @@ function renderLeadCard(lead) {
   const readinessReasons = Array.isArray(lead.launch_readiness_reasons) ? lead.launch_readiness_reasons : [];
   const contactType = String(lead.primary_contact_type || '');
   const profileMode = String(lead.establishment_profile_mode || '');
-  const profileLabel = lead.establishment_profile_label || establishmentProfileLabel(lead.establishment_profile);
+  const effectiveProfile = String(lead.establishment_profile_effective || lead.establishment_profile || 'unknown');
+  const profileLabel = lead.establishment_profile_label || establishmentProfileLabel(effectiveProfile);
   const recommendedPackage = lead.recommended_package_label || 'Review package';
   const packageReason = lead.package_recommendation_reason ? ' · ' + titleCaseValue(lead.package_recommendation_reason) : '';
   const verificationStatus = String(lead.verification_status || 'unchecked');
@@ -1693,6 +1721,7 @@ function renderLeadCard(lead) {
       ' data-email-status="' + escapeHtml(emailStatus) + '"' +
       ' data-name-status="' + escapeHtml(nameStatus) + '"' +
       ' data-source-strength="' + escapeHtml(sourceStrength) + '"' +
+      ' data-establishment-profile="' + escapeHtml(effectiveProfile) + '"' +
       ' data-city="' + escapeHtml(lead.city || '') + '"' +
       ' data-menu-type="' + escapeHtml(lead.menu_type || '') + '"' +
       ' data-primary-category="' + escapeHtml(lead.primary_category_v1 || '') + '"' +
