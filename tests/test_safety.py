@@ -182,6 +182,31 @@ class TestFindExistingLead:
         assert find_existing_lead(place_id="ChIJ_indexed", state_root=tmp_state) is not None
         assert calls == 1
 
+    def test_lead_list_cache_invalidates_when_dossier_logic_changes(self, tmp_state, monkeypatch):
+        _persist(_make_qual(), tmp_state)
+        calls = 0
+        original = record_mod.ensure_lead_dossier
+        logic_signature = (("lead_dossier.py", 1, 1),)
+
+        def counted(record):
+            nonlocal calls
+            calls += 1
+            return original(record)
+
+        def fake_logic_signature():
+            return logic_signature
+
+        monkeypatch.setattr(record_mod, "ensure_lead_dossier", counted)
+        monkeypatch.setattr(record_mod, "_lead_cache_logic_signature", fake_logic_signature)
+
+        assert len(list_leads(state_root=tmp_state)) == 1
+        assert calls == 1
+
+        logic_signature = (("lead_dossier.py", 2, 1),)
+
+        assert len(list_leads(state_root=tmp_state)) == 1
+        assert calls == 2
+
 
 # ---------------------------------------------------------------------------
 # Sent-business exclusion

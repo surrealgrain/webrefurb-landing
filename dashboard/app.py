@@ -126,6 +126,7 @@ def _menu_template_for_profile(establishment_profile: str) -> Path:
     return templates / "ramen_food_menu.html"
 
 
+_DASHBOARD_PREVIEW_CACHE_LIMIT = 12
 _DASHBOARD_STATIC_PREVIEW_CACHE: dict[tuple[str, int, int], str] = {}
 _DASHBOARD_RENDERED_PREVIEW_CACHE: dict[tuple[str, str, str, int, int], str] = {}
 
@@ -153,8 +154,9 @@ def _data_uri_for_preview_image(path: Path) -> str:
     media_type = "image/png" if suffix == ".png" else "image/jpeg"
     encoded = base64.b64encode(path.read_bytes()).decode("ascii")
     data_uri = f"data:{media_type};base64,{encoded}"
-    _DASHBOARD_STATIC_PREVIEW_CACHE.clear()
     _DASHBOARD_STATIC_PREVIEW_CACHE[key] = data_uri
+    while len(_DASHBOARD_STATIC_PREVIEW_CACHE) > _DASHBOARD_PREVIEW_CACHE_LIMIT:
+        _DASHBOARD_STATIC_PREVIEW_CACHE.pop(next(iter(_DASHBOARD_STATIC_PREVIEW_CACHE)))
     return data_uri
 
 
@@ -188,8 +190,9 @@ def _dashboard_inline_rendered_preview_data_uri(template_path: Path, *, business
                 return ""
             encoded = base64.b64encode(Path(jpeg).read_bytes()).decode("ascii")
             data_uri = f"data:image/jpeg;base64,{encoded}"
-            _DASHBOARD_RENDERED_PREVIEW_CACHE.clear()
             _DASHBOARD_RENDERED_PREVIEW_CACHE[key] = data_uri
+            while len(_DASHBOARD_RENDERED_PREVIEW_CACHE) > _DASHBOARD_PREVIEW_CACHE_LIMIT:
+                _DASHBOARD_RENDERED_PREVIEW_CACHE.pop(next(iter(_DASHBOARD_RENDERED_PREVIEW_CACHE)))
             return data_uri
     except Exception:
         return ""
