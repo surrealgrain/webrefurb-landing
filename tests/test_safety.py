@@ -7,6 +7,7 @@ import re
 import pytest
 from pathlib import Path
 
+import pipeline.record as record_mod
 from pipeline.record import (
     create_lead_record,
     persist_lead_record,
@@ -148,6 +149,38 @@ class TestFindExistingLead:
         _persist(_make_qual(website="https://test-ramen.com"), tmp_state)
         result = find_existing_lead(website="https://other-ramen.com", state_root=tmp_state)
         assert result is None
+
+    def test_lead_list_cache_reuses_hydrated_records(self, tmp_state, monkeypatch):
+        _persist(_make_qual(), tmp_state)
+        calls = 0
+        original = record_mod.ensure_lead_dossier
+
+        def counted(record):
+            nonlocal calls
+            calls += 1
+            return original(record)
+
+        monkeypatch.setattr(record_mod, "ensure_lead_dossier", counted)
+
+        assert len(list_leads(state_root=tmp_state)) == 1
+        assert len(list_leads(state_root=tmp_state)) == 1
+        assert calls == 1
+
+    def test_find_existing_lead_reuses_dedup_index(self, tmp_state, monkeypatch):
+        _persist(_make_qual(place_id="ChIJ_indexed"), tmp_state)
+        calls = 0
+        original = record_mod.ensure_lead_dossier
+
+        def counted(record):
+            nonlocal calls
+            calls += 1
+            return original(record)
+
+        monkeypatch.setattr(record_mod, "ensure_lead_dossier", counted)
+
+        assert find_existing_lead(place_id="ChIJ_indexed", state_root=tmp_state) is not None
+        assert find_existing_lead(place_id="ChIJ_indexed", state_root=tmp_state) is not None
+        assert calls == 1
 
 
 # ---------------------------------------------------------------------------

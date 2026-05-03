@@ -1083,26 +1083,11 @@ const ESTABLISHMENT_PROFILE_LABELS = {
   izakaya_tachinomi: 'Tachinomi',
   izakaya_robatayaki: 'Robatayaki',
 };
-const SEARCH_CATEGORY_META = {
-  all: { label: 'supported ramen and izakaya-family shops', canonical: 'all', query: place => 'ordering-friction ramen izakaya yakitori tachinomi oden ' + place },
-  ramen: { label: 'ramen shops', canonical: 'ramen', query: place => '券売機 ラーメン ' + place },
-  tsukemen: { label: 'tsukemen shops', canonical: 'ramen', query: place => 'つけ麺 公式 メール ' + place },
-  abura_soba: { label: 'abura soba shops', canonical: 'ramen', query: place => '油そば 公式 メール ' + place },
-  mazesoba: { label: 'mazesoba shops', canonical: 'ramen', query: place => 'まぜそば 公式 メール ' + place },
-  tantanmen: { label: 'tantanmen shops', canonical: 'ramen', query: place => '担々麺 公式 メール ' + place },
-  chuka_soba: { label: 'chuka soba shops', canonical: 'ramen', query: place => '中華そば 公式 メール ' + place },
-  izakaya: { label: 'izakayas', canonical: 'izakaya', query: place => '飲み放題 コース 居酒屋 ' + place },
-  yakitori: { label: 'yakitori shops', canonical: 'izakaya', query: place => '焼き鳥 公式 メール ' + place },
-  kushiyaki: { label: 'kushiyaki shops', canonical: 'izakaya', query: place => '串焼き 公式 メール ' + place },
-  yakiton: { label: 'yakiton shops', canonical: 'izakaya', query: place => 'やきとん 公式 メール ' + place },
-  tachinomi: { label: 'tachinomi shops', canonical: 'izakaya', query: place => '立ち飲み 公式 メール ' + place },
-  oden: { label: 'oden shops', canonical: 'izakaya', query: place => 'おでん 公式 メール ' + place },
-  kushikatsu: { label: 'kushikatsu shops', canonical: 'izakaya', query: place => '串カツ 公式 メール ' + place },
-  kushiage: { label: 'kushiage shops', canonical: 'izakaya', query: place => '串揚げ 公式 メール ' + place },
-  robatayaki: { label: 'robatayaki shops', canonical: 'izakaya', query: place => '炉端焼き 公式 メール ' + place },
-  seafood_izakaya: { label: 'seafood izakayas', canonical: 'izakaya', query: place => '海鮮居酒屋 公式 メール ' + place },
-  sakaba: { label: 'sakaba', canonical: 'izakaya', query: place => '酒場 公式 メール ' + place },
-};
+const SEARCH_CATEGORY_META = {{ search_category_meta | tojson }};
+
+function searchCategoryQuery(meta, place) {
+  return String((meta && meta.default_query) || '券売機 ラーメン {place}').replace('{place}', place);
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
@@ -1661,7 +1646,7 @@ function buildSearchRequest(category, city) {
   const cityLabel = city === 'all' ? 'Japan' : (city || 'Japan');
   const meta = SEARCH_CATEGORY_META[searchCategory] || SEARCH_CATEGORY_META.ramen;
   const categoryLabel = meta.label;
-  const searchQuery = meta.query(cityLabel);
+  const searchQuery = searchCategoryQuery(meta, cityLabel);
   return {
     query: searchQuery,
     category: searchCategory,

@@ -149,6 +149,27 @@ def search_query_for_scope(*, category: str, city: str) -> str:
     return SEARCH_CATEGORY_SPECS[value]["default_query"].format(place=place)
 
 
+def search_category_metadata() -> dict[str, dict[str, str]]:
+    """Return dashboard-safe category metadata from the Python source of truth."""
+    return {
+        "all": {
+            "canonical": "all",
+            "term": "",
+            "label": search_category_label("all"),
+            "default_query": "ordering-friction ramen izakaya yakitori tachinomi oden {place}",
+        },
+        **{
+            key: {
+                "canonical": spec["canonical"],
+                "term": spec["term"],
+                "label": spec["label"],
+                "default_query": spec["default_query"],
+            }
+            for key, spec in SEARCH_CATEGORY_SPECS.items()
+        },
+    }
+
+
 def _job(
     *,
     job_id: str,

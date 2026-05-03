@@ -1650,6 +1650,40 @@ class TestDraftSaveAndLoad:
         assert "Izakaya Food + Drinks Sample" in rendered_sources[0]
         assert "Drinks Menu" in rendered_sources[0]
 
+    def test_dashboard_menu_template_matches_specific_izakaya_profiles(self):
+        import dashboard.app as dash_app
+        from pipeline.constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE
+
+        for profile, expected in OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.items():
+            assert dash_app._menu_template_for_profile(profile) == expected
+
+    def test_dashboard_preview_uses_prerendered_specific_profile_asset(self, monkeypatch):
+        import dashboard.app as dash_app
+        import pipeline.email_html as email_html
+
+        def fail_render(_html_path):
+            raise AssertionError("specific profile previews should use pre-rendered image assets")
+
+        monkeypatch.setattr(email_html, "_ensure_menu_jpeg", fail_render)
+        html = dash_app._dashboard_email_preview_html(
+            "Body",
+            include_menu_image=True,
+            include_machine_image=False,
+            business_name="串揚げテスト",
+            establishment_profile="izakaya_kushiage",
+        )
+
+        assert "cid:menu-preview" not in html
+        assert "data:image/png;base64," in html
+
+    def test_search_categories_api_uses_python_metadata(self):
+        from pipeline.search_scope import search_category_metadata
+
+        response = self.client.get("/api/search/categories")
+
+        assert response.status_code == 200
+        assert response.json()["categories"] == search_category_metadata()
+
     def test_draft_status_persists_after_save(self):
         self._create_lead()
         # Save a draft
