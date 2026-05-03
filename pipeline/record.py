@@ -17,6 +17,7 @@ from .pitch_cards import apply_pitch_card_state
 
 @dataclass(frozen=True)
 class _LeadFileSignature:
+    logic: tuple[tuple[str, int, int], ...]
     files: tuple[tuple[str, int, int], ...]
 
 
@@ -85,10 +86,26 @@ def _normalise_state_root(state_root: Path | None = None) -> Path:
     return (state_root or _default_state_root()).resolve()
 
 
+def _lead_cache_logic_signature() -> tuple[tuple[str, int, int], ...]:
+    paths = (
+        Path(__file__),
+        Path(__file__).resolve().parent / "lead_dossier.py",
+        Path(__file__).resolve().parent / "pitch_cards.py",
+    )
+    signature: list[tuple[str, int, int]] = []
+    for path in paths:
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            continue
+        signature.append((path.name, stat.st_mtime_ns, stat.st_size))
+    return tuple(signature)
+
+
 def _lead_file_signature(state_root: Path) -> _LeadFileSignature:
     leads_dir = state_root / "leads"
     if not leads_dir.exists():
-        return _LeadFileSignature(files=())
+        return _LeadFileSignature(logic=_lead_cache_logic_signature(), files=())
     files: list[tuple[str, int, int]] = []
     for path in sorted(leads_dir.glob("wrm-*.json")):
         try:
@@ -96,7 +113,7 @@ def _lead_file_signature(state_root: Path) -> _LeadFileSignature:
         except FileNotFoundError:
             continue
         files.append((path.name, stat.st_mtime_ns, stat.st_size))
-    return _LeadFileSignature(files=tuple(files))
+    return _LeadFileSignature(logic=_lead_cache_logic_signature(), files=tuple(files))
 
 
 def _lead_index_key(kind: str, value: str) -> str:

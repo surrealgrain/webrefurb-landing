@@ -1676,6 +1676,21 @@ class TestDraftSaveAndLoad:
         assert "cid:menu-preview" not in html
         assert "data:image/png;base64," in html
 
+    def test_dashboard_static_preview_cache_keeps_multiple_entries(self):
+        import dashboard.app as dash_app
+
+        dash_app._DASHBOARD_STATIC_PREVIEW_CACHE.clear()
+        ramen = dash_app._data_uri_for_preview_image(
+            dash_app.PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu_email_preview.jpg"
+        )
+        kushiage = dash_app._data_uri_for_preview_image(
+            dash_app.PROJECT_ROOT / "assets" / "templates" / "previews" / "izakaya_kushiage_menu.png"
+        )
+
+        assert ramen.startswith("data:image/jpeg;base64,")
+        assert kushiage.startswith("data:image/png;base64,")
+        assert len(dash_app._DASHBOARD_STATIC_PREVIEW_CACHE) == 2
+
     def test_search_categories_api_uses_python_metadata(self):
         from pipeline.search_scope import search_category_metadata
 
