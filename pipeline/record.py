@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+import threading
 from typing import Any
 
 from .business_name import business_name_is_suspicious, normalise_business_name
@@ -11,6 +13,22 @@ from .models import QualificationResult, PreviewMenu, TicketMachineHint
 from .constants import OUTREACH_STATUS_NEW
 from .lead_dossier import ensure_lead_dossier
 from .pitch_cards import apply_pitch_card_state
+
+
+@dataclass(frozen=True)
+class _LeadFileSignature:
+    files: tuple[tuple[str, int, int], ...]
+
+
+@dataclass
+class _LeadCacheEntry:
+    signature: _LeadFileSignature
+    records: list[dict[str, Any]]
+    index: dict[str, dict[str, str]]
+
+
+_LEAD_CACHE: dict[Path, _LeadCacheEntry] = {}
+_LEAD_CACHE_LOCK = threading.RLock()
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +75,103 @@ def _extract_area(address: str) -> str:
     # Normalise: lowercase, collapse whitespace
     area = re.sub(r'\s+', '', area.lower())
     return area
+
+
+def _default_state_root() -> Path:
+    return Path(__file__).resolve().parent.parent / "state"
+
+
+def _normalise_state_root(state_root: Path | None = None) -> Path:
+    return (state_root or _default_state_root()).resolve()
+
+
+def _lead_file_signature(state_root: Path) -> _LeadFileSignature:
+    leads_dir = state_root / "leads"
+    if not leads_dir.exists():
+        return _LeadFileSignature(files=())
+    files: list[tuple[str, int, int]] = []
+    for path in sorted(leads_dir.glob("wrm-*.json")):
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            continue
+        files.append((path.name, stat.st_mtime_ns, stat.st_size))
+    return _LeadFileSignature(files=tuple(files))
+
+
+def _lead_index_key(kind: str, value: str) -> str:
+    return f"{kind}:{value}"
+
+
+def _build_lead_index(records: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
+    index: dict[str, dict[str, str]] = {
+        "place_id": {},
+        "domain": {},
+        "phone": {},
+        "name_area": {},
+    }
+    for record in records:
+        lead_id = str(record.get("lead_id") or "").strip()
+        if not lead_id:
+            continue
+
+        place_id = str(record.get("place_id") or "").strip()
+        if place_id:
+            index["place_id"].setdefault(place_id, lead_id)
+
+        domain = _normalise_domain(str(record.get("website") or ""))
+        if domain:
+            index["domain"].setdefault(domain, lead_id)
+
+        phone = _normalise_phone(str(record.get("phone") or ""))
+        if len(phone) >= 7:
+            index["phone"].setdefault(phone, lead_id)
+
+        name = _normalise_name(str(record.get("business_name") or ""))
+        area = _extract_area(str(record.get("address") or ""))
+        if name and area:
+            index["name_area"].setdefault(_lead_index_key(name, area), lead_id)
+    return index
+
+
+def _copy_lead_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return fresh top-level dicts while keeping cached dossier objects reusable."""
+    return [dict(record) for record in records]
+
+
+def _lead_cache_entry(state_root: Path | None = None) -> _LeadCacheEntry:
+    root = _normalise_state_root(state_root)
+    signature = _lead_file_signature(root)
+    with _LEAD_CACHE_LOCK:
+        cached = _LEAD_CACHE.get(root)
+        if cached and cached.signature == signature:
+            return cached
+
+        leads_dir = root / "leads"
+        records: list[dict[str, Any]] = []
+        if leads_dir.exists():
+            for path_name, _, _ in signature.files:
+                path = leads_dir / path_name
+                record = read_json(path)
+                if record:
+                    ensure_locked_business_name(record)
+                    record = apply_pitch_card_state(ensure_lead_dossier(record))
+                    records.append(record)
+
+        entry = _LeadCacheEntry(
+            signature=signature,
+            records=records,
+            index=_build_lead_index(records),
+        )
+        _LEAD_CACHE[root] = entry
+        return entry
+
+
+def invalidate_lead_cache(state_root: Path | None = None) -> None:
+    """Clear cached hydrated leads after a known state mutation."""
+    root = _normalise_state_root(state_root)
+    with _LEAD_CACHE_LOCK:
+        _LEAD_CACHE.pop(root, None)
 
 
 CONTACT_PRIORITY = {
@@ -339,28 +454,54 @@ def find_existing_lead(
     Matching priority: place_id > website domain > phone > normalised name+area.
     Returns the first matching lead record, or None.
     """
-    leads = list_leads(state_root=state_root)
+    entry = _lead_cache_entry(state_root)
+    records_by_id = {
+        str(record.get("lead_id") or ""): record
+        for record in entry.records
+        if record.get("lead_id")
+    }
 
     norm_domain = _normalise_domain(website) if website else ""
     norm_phone = _normalise_phone(phone) if phone else ""
     norm_name = _normalise_name(business_name)
+    norm_area = _extract_area(address) if address else ""
 
-    for lead in leads:
+    if place_id:
+        lead_id = entry.index["place_id"].get(place_id)
+        if lead_id:
+            return dict(records_by_id[lead_id])
+
+    if norm_domain:
+        lead_id = entry.index["domain"].get(norm_domain)
+        if lead_id:
+            return dict(records_by_id[lead_id])
+
+    if len(norm_phone) >= 7:
+        lead_id = entry.index["phone"].get(norm_phone)
+        if lead_id:
+            return dict(records_by_id[lead_id])
+
+    if norm_name and norm_area:
+        lead_id = entry.index["name_area"].get(_lead_index_key(norm_name, norm_area))
+        if lead_id:
+            return dict(records_by_id[lead_id])
+
+    for lead in entry.records:
         # Place ID (highest confidence)
         if place_id and lead.get("place_id") == place_id:
-            return lead
+            return dict(lead)
 
         # Website domain
         lead_website = lead.get("website", "")
         if norm_domain and lead_website:
             if _normalise_domain(lead_website) == norm_domain:
-                return lead
+                return dict(lead)
 
         # Phone number
         lead_phone = lead.get("phone", "")
         if norm_phone and lead_phone:
             if _normalise_phone(lead_phone) == norm_phone and len(norm_phone) >= 7:
-                return lead
+                return dict(lead)
 
         # Normalised business name + area (never name alone)
         lead_name = lead.get("business_name", "")
@@ -375,7 +516,7 @@ def find_existing_lead(
             if not cand_area or not lead_area or cand_area != lead_area:
                 # Same name, different area — different business
                 continue
-            return lead
+            return dict(lead)
 
     return None
 
@@ -523,8 +664,7 @@ def create_lead_record(
 
 def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) -> Path:
     """Write a lead record to disk. Returns the path."""
-    if state_root is None:
-        state_root = Path(__file__).resolve().parent.parent / "state"
+    state_root = _normalise_state_root(state_root)
 
     leads_dir = state_root / "leads"
     ensure_dir(leads_dir)
@@ -533,12 +673,12 @@ def persist_lead_record(record: dict[str, Any], state_root: Path | None = None) 
     record = apply_pitch_card_state(ensure_lead_dossier(record))
     path = leads_dir / f"{record['lead_id']}.json"
     write_json(path, record)
+    invalidate_lead_cache(state_root)
     return path
 
 
 def load_lead(lead_id: str, state_root: Path | None = None) -> dict[str, Any] | None:
-    if state_root is None:
-        state_root = Path(__file__).resolve().parent.parent / "state"
+    state_root = _normalise_state_root(state_root)
     path = state_root / "leads" / f"{lead_id}.json"
     record = read_json(path)
     if record:
@@ -548,16 +688,4 @@ def load_lead(lead_id: str, state_root: Path | None = None) -> dict[str, Any] | 
 
 
 def list_leads(state_root: Path | None = None) -> list[dict[str, Any]]:
-    if state_root is None:
-        state_root = Path(__file__).resolve().parent.parent / "state"
-    leads_dir = state_root / "leads"
-    if not leads_dir.exists():
-        return []
-    results = []
-    for path in sorted(leads_dir.glob("wrm-*.json")):
-        record = read_json(path)
-        if record:
-            ensure_locked_business_name(record)
-            record = apply_pitch_card_state(ensure_lead_dossier(record))
-            results.append(record)
-    return results
+    return _copy_lead_records(_lead_cache_entry(state_root).records)

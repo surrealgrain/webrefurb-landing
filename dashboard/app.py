@@ -116,14 +116,69 @@ def _dashboard_email_preview_html(
 def _menu_template_for_profile(establishment_profile: str) -> Path:
     templates = PROJECT_ROOT / "assets" / "templates"
     profile = str(establishment_profile or "").lower()
+    from pipeline.constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE
+
+    specific = OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.get(profile)
+    if specific:
+        return specific
     if "izakaya" in profile:
         return templates / "izakaya_food_drinks_menu.html"
     return templates / "ramen_food_menu.html"
 
 
+_DASHBOARD_STATIC_PREVIEW_CACHE: dict[tuple[str, int, int], str] = {}
+_DASHBOARD_RENDERED_PREVIEW_CACHE: dict[tuple[str, str, str, int, int], str] = {}
+
+
+def _dashboard_static_preview_path(template_path: Path) -> Path | None:
+    previews_dir = PROJECT_ROOT / "assets" / "templates" / "previews"
+    candidates = (
+        previews_dir / f"{template_path.stem}.png",
+        template_path.with_name(f"{template_path.stem}_email_preview.jpg"),
+        template_path.with_name(f"{template_path.stem}_email_preview.png"),
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _data_uri_for_preview_image(path: Path) -> str:
+    stat = path.stat()
+    key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+    cached = _DASHBOARD_STATIC_PREVIEW_CACHE.get(key)
+    if cached:
+        return cached
+    suffix = path.suffix.lower()
+    media_type = "image/png" if suffix == ".png" else "image/jpeg"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    data_uri = f"data:{media_type};base64,{encoded}"
+    _DASHBOARD_STATIC_PREVIEW_CACHE.clear()
+    _DASHBOARD_STATIC_PREVIEW_CACHE[key] = data_uri
+    return data_uri
+
+
 def _dashboard_inline_rendered_preview_data_uri(template_path: Path, *, business_name: str, stem: str) -> str:
     """Render the actual dark menu template for dashboard preview images."""
+    static_preview = _dashboard_static_preview_path(template_path)
+    if static_preview:
+        try:
+            return _data_uri_for_preview_image(static_preview)
+        except Exception:
+            pass
+
     try:
+        stat = template_path.stat()
+        key = (
+            str(template_path.resolve()),
+            str(business_name or ""),
+            str(stem or ""),
+            stat.st_mtime_ns,
+            stat.st_size,
+        )
+        cached = _DASHBOARD_RENDERED_PREVIEW_CACHE.get(key)
+        if cached:
+            return cached
         with tempfile.TemporaryDirectory(prefix="wrm-dashboard-preview-") as tmp_dir:
             source = _personalised_email_html(str(template_path), business_name, tmp_dir, stem)
             if not source:
@@ -132,7 +187,10 @@ def _dashboard_inline_rendered_preview_data_uri(template_path: Path, *, business
             if not jpeg or not Path(jpeg).exists():
                 return ""
             encoded = base64.b64encode(Path(jpeg).read_bytes()).decode("ascii")
-            return f"data:image/jpeg;base64,{encoded}"
+            data_uri = f"data:image/jpeg;base64,{encoded}"
+            _DASHBOARD_RENDERED_PREVIEW_CACHE.clear()
+            _DASHBOARD_RENDERED_PREVIEW_CACHE[key] = data_uri
+            return data_uri
     except Exception:
         return ""
 
@@ -225,6 +283,12 @@ def _dashboard_sample_docs_root() -> Path:
     from pipeline.hosted_sample import default_sample_docs_root
 
     return default_sample_docs_root(state_root=STATE_ROOT)
+
+
+def _dashboard_search_category_meta() -> dict[str, dict[str, str]]:
+    from pipeline.search_scope import search_category_metadata
+
+    return search_category_metadata()
 
 # Load .env
 load_project_env(PROJECT_ROOT / ".env")
@@ -532,7 +596,9 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     from pipeline.constants import PACKAGE_REGISTRY
     from pipeline.pitch_cards import apply_pitch_card_state
 
-    lead = apply_pitch_card_state(ensure_lead_dossier(lead))
+    if not lead.get("lead_evidence_dossier") or not lead.get("launch_readiness_status"):
+        lead = ensure_lead_dossier(lead)
+    lead = apply_pitch_card_state(lead)
     prepared = dict(lead)
     contacts = _lead_contacts(lead)
     primary_contact = _lead_primary_contact(lead)
@@ -649,6 +715,7 @@ async def dashboard_main(request: Request):
     return templates.TemplateResponse(request, "index.html", {
         "leads": leads,
         "lead_card_counts": _dashboard_card_counts(leads),
+        "search_category_meta": _dashboard_search_category_meta(),
     })
 
 
@@ -666,6 +733,12 @@ async def api_leads():
         "leads": leads,
         "card_counts": _dashboard_card_counts(leads),
     }
+
+
+@app.get("/api/search/categories")
+async def api_search_categories():
+    """Return dashboard search category metadata from Python source of truth."""
+    return {"categories": _dashboard_search_category_meta()}
 
 
 @app.get("/api/launch-batches")

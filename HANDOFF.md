@@ -14,7 +14,10 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Dashboard server is live at `http://127.0.0.1:8000/` on PID 89260.
 ## Current Work State
 - GLM locked templates exist for all five specific izakaya profiles: yakitori/kushiyaki, kushiage, seafood/sake/oden, tachinomi, robatayaki.
-- Codex routing now maps those profiles to dedicated locked HTML templates in outreach selection, state audit expectations, review guidance, manual import, and execution-plan artifacts.
+- Codex routing now maps those profiles to dedicated locked HTML templates in outreach selection, dashboard preview, state audit expectations, review guidance, manual import, and execution-plan artifacts.
+- Dashboard preview uses pre-rendered locked sample images when available, with Playwright rendering retained only as fallback.
+- `list_leads()` is cached by lead-file signature and search dedup uses an in-memory place/domain/phone/name-area index; unchanged queue reads are ~6 ms after warmup.
+- Dashboard search category metadata is served from Python `search_scope` instead of duplicated JS constants.
 - Generic profiles still use existing assets: ramen food, izakaya food/drinks, izakaya drinks, and ticket-machine guide as applicable.
 - Dashboard primary UI is simplified: no visible phase plan/build nav/queue-filter block; filters are under Advanced Filters; lead cards show route/profile/package, evidence, next action/outcome, and Preview.
 - Latest no-send artifacts after review outcomes: `state/review_batches/pitch-card-review-20260502T162943Z.*`, `pitch-card-review-wave-20260502T162943Z.*`, and `state/execution_plans/restaurant-lead-execution-plan-20260502T162944Z.*`.
@@ -28,5 +31,6 @@ Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw le
 - Regenerate enrichment/review/execution artifacts after enrichment outcomes change.
 - Do not promote records or begin outbound without an explicit current-chat instruction.
 ## Last Verification
-- Tests passed: `tests/test_website.py -q` 12, `tests/test_api.py -q` 117, `tests/test_restaurant_lead_verification.py -q` 40, `tests/test_review_batches.py -q` 4.
+- Tests passed: `.venv/bin/python -m pytest tests/ -q` 808; audit-requested subset 188.
+- `git diff --check` passed.
 - Latest safety/audit check: 596 leads, all `manual_review` + `needs_review`; 0 pitch_ready, 0 ready_for_outreach, 0 `outreach_status:new`; `pipeline.cli audit-state` checked 604 with 0 findings.
