@@ -668,7 +668,7 @@ def create_lead_record(
         "outreach_status": OUTREACH_STATUS_NEW,
         "outreach_classification": outreach_classification,
         "outreach_assets_selected": [str(path) for path in outreach_assets],
-        "outreach_asset_template_family": "dark_v4c" if outreach_assets else "none_contact_form",
+        "outreach_asset_template_family": "dark_v4c" if outreach_assets else "no_first_contact_attachments",
         "outreach_sent_at": None,
         "outreach_draft_body": None,
         "outreach_include_inperson": True,

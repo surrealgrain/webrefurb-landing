@@ -201,8 +201,8 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -248,7 +248,9 @@ body::before {
 .btn-cta {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 20px;
   background: var(--cta-bg);
   color: var(--cta-text);
@@ -284,6 +286,8 @@ body::before {
 .btn-outline {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 10px 20px;
   background: transparent;
   color: var(--text-secondary);
@@ -557,8 +561,8 @@ a:focus-visible {
   }
 
   .theme-toggle {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .main {
@@ -588,12 +592,14 @@ a:focus-visible {
   }
 
   .btn-cta {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
   }
 
   .btn-outline {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
   }
 
@@ -607,17 +613,14 @@ a:focus-visible {
 @media (max-width: 400px) {
   .btn-cta {
     font-size: 10px;
-    padding: 8px 12px;
+    min-height: 44px;
+    padding: 0 12px;
     gap: 5px;
   }
 }
 </style>
 </head>
 <body>
-
-<!-- Ambient blobs -->
-<div class="ambient-blob ambient-blob--1" aria-hidden="true"></div>
-<div class="ambient-blob ambient-blob--2" aria-hidden="true"></div>
 
 <!-- Navigation -->
 <nav class="nav" aria-label="Main navigation">

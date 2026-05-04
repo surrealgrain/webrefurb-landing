@@ -20,7 +20,7 @@ from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -383,11 +383,12 @@ LEAD_QUEUE_CITY_ORDER = {"Tokyo": 0, "Osaka": 1, "Sapporo": 2, "Fukuoka": 3, "Ky
 LEAD_QUEUE_VERIFICATION_ORDER = {"verified": 0, "needs_review": 1, "rejected": 2}
 LEAD_QUEUE_PITCH_ORDER = {
     "pitch_ready": 0,
-    "review_blocked": 1,
-    "needs_name_review": 2,
-    "needs_email_review": 3,
-    "needs_scope_review": 4,
-    "rejected": 5,
+    "pitch_pack_ready_no_send": 1,
+    "review_blocked": 2,
+    "needs_name_review": 3,
+    "needs_email_review": 4,
+    "needs_scope_review": 5,
+    "rejected": 6,
 }
 
 QUALITY_TIER_LABELS = {
@@ -426,6 +427,7 @@ SOURCE_STRENGTH_LABELS = {
 
 PITCH_READINESS_LABELS = {
     "pitch_ready": "Pitch Ready",
+    "pitch_pack_ready_no_send": "Pitch Pack Ready",
     "review_blocked": "Review Blocked",
     "needs_scope_review": "Needs Scope Review",
     "needs_name_review": "Needs Name Review",
@@ -454,12 +456,14 @@ PITCH_CARD_ORDER = {
 LEAD_REVIEW_OUTCOME_LABELS = {
     "hold": "Hold",
     "needs_more_info": "Needs More Info",
+    "pitch_pack_ready": "Pitch Pack Ready",
     "reject": "Reject",
 }
 
 LEAD_REVIEW_STATUS_BY_OUTCOME = {
     "hold": "held",
     "needs_more_info": "needs_more_info",
+    "pitch_pack_ready": "pitch_pack_ready_no_send",
     "reject": "rejected",
 }
 
@@ -599,8 +603,7 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     from pipeline.constants import PACKAGE_REGISTRY
     from pipeline.pitch_cards import apply_pitch_card_state
 
-    if not lead.get("lead_evidence_dossier") or not lead.get("launch_readiness_status"):
-        lead = ensure_lead_dossier(lead)
+    lead = ensure_lead_dossier(lead)
     lead = apply_pitch_card_state(lead)
     prepared = dict(lead)
     contacts = _lead_contacts(lead)
@@ -622,6 +625,9 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["establishment_profile_override_note"] = profile["override_note"]
     prepared["launch_readiness_status"] = lead.get("launch_readiness_status", "manual_review")
     prepared["launch_readiness_reasons"] = list(lead.get("launch_readiness_reasons") or [])
+    prepared["operator_state"] = lead.get("operator_state", "review")
+    prepared["operator_reason"] = lead.get("operator_reason", "Review this record before outreach.")
+    prepared["contact_policy_evidence"] = lead.get("contact_policy_evidence") or {}
     prepared["lead_evidence_dossier"] = lead.get("lead_evidence_dossier") or {}
     prepared["proof_items"] = lead.get("proof_items") or prepared["lead_evidence_dossier"].get("proof_items") or []
     prepared["proof_strength_label"] = _dashboard_state_label(
@@ -643,6 +649,13 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     prepared["pitch_card_openable"] = bool(lead.get("pitch_card_openable"))
     prepared["operator_review_outcome_label"] = _label_from_map(lead.get("operator_review_outcome"), LEAD_REVIEW_OUTCOME_LABELS, default="Not Reviewed")
     prepared["review_status_label"] = _dashboard_state_label(lead.get("review_status"), default="Pending")
+    prepared["send_readiness"] = _send_readiness_for_record(lead)
+    audit_validation = _validate_tailoring_audit(lead)
+    prepared["final_send_check"] = {
+        "status": "passed" if audit_validation["valid"] else str(audit_validation["reason"] or "not_checked"),
+        "checked_at": lead.get("send_ready_checked_at", ""),
+        "tailoring_audit": lead.get("tailoring_audit") or {},
+    }
     package_key = str(lead.get("recommended_primary_package") or "")
     package = PACKAGE_REGISTRY.get(package_key, {})
     prepared["recommended_package_label"] = package.get("label") or ("Custom quote" if package_key == "custom_quote" else package_key)
@@ -651,10 +664,182 @@ def _prepare_lead_for_dashboard(lead: dict[str, Any]) -> dict[str, Any]:
     return prepared
 
 
+def _refresh_operator_lead(record: dict[str, Any]) -> dict[str, Any]:
+    from pipeline.lead_dossier import ensure_lead_dossier
+
+    return ensure_lead_dossier(record)
+
+
+def _build_evidence_audit(classification: dict[str, Any]) -> dict[str, Any]:
+    """Extract audit-safe fields from an evidence classification."""
+    from datetime import datetime, timezone
+
+    return {
+        "evidence_classifier_version": "1.0",
+        "template_renderer_version": "1.0",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "selected_template": classification.get("selected_template", ""),
+        "selected_template_reason": classification.get("selected_template_reason", ""),
+        "allowed_claims": classification.get("allowed_claims", []),
+        "blocked_claims": classification.get("blocked_claims", []),
+        "evidence_notes": {
+            "menu": classification.get("public_menu_evidence_notes", ""),
+            "ticket_machine": classification.get("ticket_machine_evidence_notes", ""),
+            "nomihodai": classification.get("nomihodai_evidence_notes", ""),
+            "course": classification.get("course_evidence_notes", ""),
+        },
+        "public_contact_source": classification.get("public_contact_source", ""),
+        "human_review_required": classification.get("human_review_required", False),
+        "skip_reason": (
+            classification.get("selected_template_reason", "")
+            if classification.get("selected_template") == "skip"
+            else ""
+        ),
+    }
+
+
+def _missing_evidence_value(value: Any) -> bool:
+    return value is None or value == "" or value == []
+
+
+def _seed_evidence_value(payload: dict[str, Any], key: str, value: Any) -> None:
+    if key not in payload or _missing_evidence_value(payload.get(key)):
+        payload[key] = value
+
+
+def _legacy_observed_menu_topics(*, classification: str, profile: str) -> list[str]:
+    topics: list[str] = []
+    if profile.startswith("izakaya"):
+        topics.extend(["food_items", "drink_items"])
+        if profile == "izakaya_drink_heavy":
+            topics.extend(["nomihodai", "last_order", "extra_charges"])
+        elif profile == "izakaya_course_heavy":
+            topics.extend(["course_items", "nomihodai", "last_order", "extra_charges"])
+    else:
+        topics.extend(["ramen_types", "toppings", "set_items"])
+
+    if classification in {"menu_and_machine", "machine_only"} or profile == "ramen_ticket_machine":
+        topics.extend(["ticket_machine_buttons", "purchase_steps"])
+
+    return list(dict.fromkeys(topics))
+
+
+def _evidence_classifier_payload(
+    record: dict[str, Any],
+    *,
+    business_name: str,
+    classification: str,
+    profile: str,
+) -> dict[str, Any]:
+    """Bridge verified legacy dashboard fields into the evidence classifier."""
+    payload = dict(record)
+    _seed_evidence_value(payload, "business_name", business_name)
+
+    primary_category = str(payload.get("primary_category_v1") or "").lower()
+    if primary_category in {"ramen", "izakaya"}:
+        restaurant_type = primary_category
+    elif profile.startswith("izakaya"):
+        restaurant_type = "izakaya"
+    elif profile.startswith("ramen"):
+        restaurant_type = "ramen"
+    else:
+        restaurant_type = "unknown"
+    if restaurant_type != "unknown":
+        _seed_evidence_value(payload, "restaurant_type", restaurant_type)
+        _seed_evidence_value(payload, "restaurant_type_confidence", 0.85)
+
+    if bool(record.get("menu_evidence_found")):
+        _seed_evidence_value(payload, "public_menu_found", True)
+        _seed_evidence_value(payload, "public_menu_source_type", "other")
+        _seed_evidence_value(payload, "menu_readability_confidence", 0.8)
+        _seed_evidence_value(payload, "public_menu_evidence_notes", "Verified menu_evidence_found legacy field")
+
+    if bool(record.get("machine_evidence_found")):
+        _seed_evidence_value(payload, "ticket_machine_confidence", 0.9)
+        _seed_evidence_value(payload, "ticket_machine_evidence_type", "explicit_text")
+        _seed_evidence_value(payload, "ticket_machine_evidence_notes", "Verified machine_evidence_found legacy field")
+
+    if profile == "izakaya_drink_heavy":
+        _seed_evidence_value(payload, "nomihodai_confidence", 0.88)
+        _seed_evidence_value(payload, "nomihodai_evidence_notes", "Verified izakaya_drink_heavy profile")
+    elif profile == "izakaya_course_heavy":
+        _seed_evidence_value(payload, "nomihodai_confidence", 0.88)
+        _seed_evidence_value(payload, "course_confidence", 0.82)
+        _seed_evidence_value(payload, "nomihodai_evidence_notes", "Verified izakaya_course_heavy profile")
+        _seed_evidence_value(payload, "course_evidence_notes", "Verified izakaya_course_heavy profile")
+
+    if _missing_evidence_value(payload.get("observed_menu_topics")):
+        payload["observed_menu_topics"] = _legacy_observed_menu_topics(
+            classification=classification,
+            profile=profile,
+        )
+
+    return payload
+
+
+# Claim keywords that require evidence-gated permission.
+_CLAIM_VALIDATIONS = [
+    ("券売機", "mention_ticket_machine"),
+    ("食券", "mention_ticket_machine"),
+    ("飲み放題", "mention_nomihodai"),
+    ("コース", "mention_course"),
+    ("トッピング", "mention_toppings"),
+    ("セット内容", "mention_set_items"),
+    ("公開されているメニュー情報をもとに", "offer_sample_from_public_menu"),
+]
+
+
+def _validate_email_claims(email_body: str, evidence_audit: dict[str, Any]) -> None:
+    """Scan the rendered Japanese email body for unsupported risky claims."""
+    if not email_body:
+        return
+
+    allowed = set(evidence_audit.get("allowed_claims") or [])
+
+    for keyword, required_claim in _CLAIM_VALIDATIONS:
+        if keyword in email_body and required_claim not in allowed:
+            raise ValueError(
+                f"Send-time claim validation failed: '{keyword}' found in email "
+                f"but '{required_claim}' not in allowed_claims"
+            )
+
+    for forbidden in ("BUSINESS_ADDRESS",):
+        if forbidden in email_body:
+            raise ValueError(
+                f"Send-time claim validation failed: '{forbidden}' placeholder found"
+            )
+
+
 def _dashboard_card_counts(leads: list[dict[str, Any]]) -> dict[str, int]:
     from pipeline.pitch_cards import pitch_card_counts
 
     return pitch_card_counts(leads)
+
+
+def _compute_search_coverage(leads: list[dict[str, Any]]) -> dict[str, Any]:
+    """Count pitch-ready leads by city, category, and city×category cross-tab."""
+    from collections import Counter
+
+    city_counts: Counter = Counter()
+    category_counts: Counter = Counter()
+    cross: dict[str, Counter] = {}
+
+    for lead in leads:
+        if lead.get("launch_readiness_status") != "ready_for_outreach":
+            continue
+        city = str(lead.get("city") or "unknown")
+        cat = str(lead.get("primary_category_v1") or lead.get("category") or "other")
+        city_counts[city] += 1
+        category_counts[cat] += 1
+        cross.setdefault(city, Counter())[cat] += 1
+
+    # Convert Counter objects to plain dicts for JSON serialisation
+    return {
+        "total": sum(city_counts.values()),
+        "city": dict(city_counts),
+        "category": dict(category_counts),
+        "cross": {city: dict(cats) for city, cats in cross.items()},
+    }
 
 
 def _is_test_recipient_email(value: str) -> bool:
@@ -682,6 +867,816 @@ def _is_lead_business_recipient(lead_id: str, to_email: str) -> bool:
     return bool(business_email) and normalised_to == business_email and _valid_email(normalised_to)
 
 
+FORBIDDEN_FINAL_CHECK_TERMS = (
+    " ai ",
+    "artificial intelligence",
+    "automation",
+    "automated",
+    "scraping",
+    "scraped",
+    "internal tool",
+    "llm",
+    "gpt",
+)
+FINAL_CHECK_PRICE_RE = re.compile(r"(?:¥|JPY\s*)(30,?000|45,?000|65,?000)|(?:30,?000|45,?000|65,?000)\s*円", re.I)
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _canonical_json_hash(payload: Any) -> str:
+    from pipeline.utils import sha256_text
+
+    return sha256_text(json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
+
+
+def _normalised_final_check_assets(assets: list[str] | None, record: dict[str, Any], *, classification: str, profile: str) -> list[str]:
+    from pipeline.outreach import select_outreach_assets
+
+    if assets is not None:
+        return [str(asset) for asset in assets]
+    stored = record.get("outreach_assets_selected")
+    if stored:
+        return [str(asset) for asset in stored]
+    return [str(path) for path in select_outreach_assets(classification, establishment_profile=profile)]
+
+
+def _eligible_proof_items(record: dict[str, Any]) -> list[dict[str, str]]:
+    proof_items = record.get("proof_items") or (record.get("lead_evidence_dossier") or {}).get("proof_items") or []
+    selected: list[dict[str, str]] = []
+    for idx, item in enumerate(proof_items):
+        if not isinstance(item, dict) or item.get("customer_preview_eligible") is not True:
+            continue
+        selected.append({
+            "proof_item_id": str(item.get("proof_item_id") or item.get("id") or f"proof-{idx}"),
+            "source_type": str(item.get("source_type") or ""),
+            "url": str(item.get("url") or ""),
+            "snippet": str(item.get("snippet") or ""),
+            "screenshot_path": str(item.get("screenshot_path") or ""),
+        })
+    return selected
+
+
+def _expected_final_check_images(
+    record: dict[str, Any],
+    *,
+    classification: str,
+    profile: str,
+    include_machine_image: bool | None,
+) -> dict[str, bool]:
+    from pipeline.outreach import build_outreach_email
+    from pipeline.record import authoritative_business_name
+
+    default_email = build_outreach_email(
+        business_name=authoritative_business_name(record),
+        classification=classification,
+        establishment_profile=profile,
+        include_inperson_line=record.get("outreach_include_inperson", True),
+        city=record.get("city", ""),
+        lead_dossier=record.get("lead_evidence_dossier") or {},
+    )
+    expected_machine = bool(default_email.get("include_machine_image"))
+    resolved_machine = record.get("outreach_include_machine_image", expected_machine) if include_machine_image is None else bool(include_machine_image)
+    return {
+        "include_menu_image": bool(default_email.get("include_menu_image")),
+        "include_machine_image": bool(resolved_machine),
+    }
+
+
+def _final_check_render_dir(lead_id: str) -> Path:
+    return STATE_ROOT / "final_checks" / Path(lead_id).name
+
+
+def _render_final_check_previews(
+    record: dict[str, Any],
+    *,
+    business_name: str,
+    profile: str,
+    include_menu_image: bool,
+    include_machine_image: bool,
+) -> list[dict[str, str]]:
+    """Materialize the exact lead-specific inline HTML used for the seal check."""
+    lead_id = str(record.get("lead_id") or "lead")
+    output_dir = _final_check_render_dir(lead_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    previews: list[dict[str, str]] = []
+    preview_sources: list[tuple[str, Path]] = []
+    if include_menu_image:
+        preview_sources.append(("menu", _menu_template_for_profile(profile)))
+    if include_machine_image:
+        preview_sources.append(("machine", PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"))
+
+    for kind, source in preview_sources:
+        with tempfile.TemporaryDirectory(prefix=f"wrm-final-check-{kind}-") as tmp_dir:
+            rendered = _personalised_email_html(str(source), business_name, tmp_dir, kind)
+            if not rendered:
+                previews.append({
+                    "kind": kind,
+                    "source_path": str(source),
+                    "path": "",
+                    "sha256": "",
+                    "status": "missing_source",
+                })
+                continue
+            destination = output_dir / f"{kind}.html"
+            rendered_text = Path(rendered).read_text(encoding="utf-8")
+            destination.write_text(rendered_text, encoding="utf-8")
+            previews.append({
+                "kind": kind,
+                "source_path": str(source),
+                "path": str(destination),
+                "sha256": _sha256_file(destination),
+                "status": "rendered",
+            })
+    return previews
+
+
+def _tailoring_audit_inputs(
+    record: dict[str, Any],
+    *,
+    recipient: str = "",
+    subject: str = "",
+    body: str = "",
+    assets: list[str] | None = None,
+    include_machine_image: bool | None = None,
+    rendered_previews: list[dict[str, str]] | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    from pipeline.models import QualificationResult
+    from pipeline.outreach import classify_business
+    from pipeline.record import authoritative_business_name, get_primary_email_contact
+
+    lead_id = str(record.get("lead_id") or "")
+    business_name = authoritative_business_name(record)
+    q = QualificationResult(
+        lead=record.get("lead") is True,
+        rejection_reason=record.get("rejection_reason"),
+        business_name=business_name,
+        menu_evidence_found=record.get("menu_evidence_found", True),
+        machine_evidence_found=record.get("machine_evidence_found", False),
+    )
+    classification = str(record.get("outreach_classification") or classify_business(q))
+    profile = _effective_establishment_profile(record)["effective"]
+    email_contact = get_primary_email_contact(record)
+    resolved_recipient = str(recipient or (email_contact or {}).get("value") or record.get("email") or "").strip().lower()
+    resolved_subject = str(subject or record.get("outreach_draft_subject") or "").strip()
+    resolved_body = str(body or record.get("outreach_draft_body") or "").strip()
+    resolved_assets = _normalised_final_check_assets(assets, record, classification=classification, profile=profile)
+    image_flags = _expected_final_check_images(
+        record,
+        classification=classification,
+        profile=profile,
+        include_machine_image=include_machine_image,
+    )
+    resolved_machine = image_flags["include_machine_image"]
+
+    asset_hashes: list[dict[str, str]] = []
+    issues: list[str] = []
+    for path_text in resolved_assets:
+        path = Path(path_text)
+        if not path.exists():
+            issues.append(f"asset_missing:{path_text}")
+            asset_hashes.append({"path": path_text, "sha256": ""})
+            continue
+        asset_hashes.append({"path": path_text, "sha256": _sha256_file(path)})
+
+    if rendered_previews is None:
+        rendered_previews = list((record.get("tailoring_audit") or {}).get("rendered_previews") or [])
+    preview_hashes: list[dict[str, str]] = []
+    for preview in rendered_previews or []:
+        path_text = str(preview.get("path") or "")
+        path = Path(path_text) if path_text else None
+        if not path or not path.exists():
+            issues.append(f"rendered_preview_missing:{preview.get('kind') or 'unknown'}")
+            preview_hashes.append({
+                "kind": str(preview.get("kind") or ""),
+                "path": path_text,
+                "source_path": str(preview.get("source_path") or ""),
+                "sha256": "",
+            })
+            continue
+        preview_hashes.append({
+            "kind": str(preview.get("kind") or ""),
+            "path": path_text,
+            "source_path": str(preview.get("source_path") or ""),
+            "sha256": _sha256_file(path),
+        })
+
+    expected_preview_kinds: set[str] = set()
+    if image_flags["include_menu_image"]:
+        expected_preview_kinds.add("menu")
+    if resolved_machine:
+        expected_preview_kinds.add("machine")
+    actual_preview_kinds = {item["kind"] for item in preview_hashes if item.get("sha256")}
+    for missing_kind in sorted(expected_preview_kinds - actual_preview_kinds):
+        issues.append(f"rendered_preview_missing:{missing_kind}")
+
+    proof_items = _eligible_proof_items(record)
+    package_key = str(record.get("recommended_primary_package") or "")
+    package_reason = str(record.get("package_recommendation_reason") or "")
+    inputs = {
+        "lead_id": lead_id,
+        "recipient": resolved_recipient,
+        "subject": resolved_subject,
+        "subject_hash": _canonical_json_hash(resolved_subject),
+        "body_hash": _canonical_json_hash(resolved_body),
+        "asset_hashes": asset_hashes,
+        "rendered_preview_hashes": preview_hashes,
+        "locked_business_name": business_name,
+        "selected_proof_items": proof_items,
+        "selected_proof_hash": _canonical_json_hash(proof_items),
+        "package_key": package_key,
+        "package_recommendation_reason": package_reason,
+        "classification": classification,
+        "establishment_profile": profile,
+        "include_machine_image": resolved_machine,
+        "include_menu_image": image_flags["include_menu_image"],
+    }
+    inputs["input_hash"] = _canonical_json_hash(inputs)
+    return inputs, issues
+
+
+def _validate_tailoring_audit(
+    record: dict[str, Any],
+    *,
+    recipient: str = "",
+    subject: str = "",
+    body: str = "",
+    assets: list[str] | None = None,
+    include_machine_image: bool | None = None,
+) -> dict[str, Any]:
+    audit = record.get("tailoring_audit") or {}
+    if record.get("send_ready_checked") is not True or not audit:
+        return {"valid": False, "reason": "final_check_missing", "issues": ["final_check_missing"]}
+    if audit.get("passed") is not True:
+        return {"valid": False, "reason": "final_check_failed", "issues": list(audit.get("failure_reasons") or ["final_check_failed"])}
+
+    inputs, issues = _tailoring_audit_inputs(
+        record,
+        recipient=recipient,
+        subject=subject,
+        body=body,
+        assets=assets,
+        include_machine_image=include_machine_image,
+    )
+    if issues:
+        return {"valid": False, "reason": "final_check_stale", "issues": issues, "current_input_hash": inputs["input_hash"]}
+    if str(audit.get("input_hash") or "") != inputs["input_hash"]:
+        return {
+            "valid": False,
+            "reason": "final_check_stale",
+            "issues": ["final_check_hash_mismatch"],
+            "current_input_hash": inputs["input_hash"],
+            "audit_input_hash": audit.get("input_hash"),
+        }
+    return {"valid": True, "reason": "", "issues": [], "inputs": inputs}
+
+
+def _clear_tailoring_audit(record: dict[str, Any], reason: str) -> None:
+    previous = record.get("tailoring_audit") if isinstance(record.get("tailoring_audit"), dict) else {}
+    record["send_ready_checked"] = False
+    record["send_ready_checked_at"] = ""
+    record["send_ready_checklist"] = []
+    record["tailoring_audit"] = {
+        "passed": False,
+        "invalidated_at": datetime.now(timezone.utc).isoformat(),
+        "invalidation_reason": reason,
+        "previous_input_hash": previous.get("input_hash", ""),
+    }
+
+
+def _send_readiness_for_record(
+    record: dict[str, Any],
+    *,
+    recipient: str = "",
+    subject: str = "",
+    body: str = "",
+    assets: list[str] | None = None,
+    include_machine_image: bool | None = None,
+    final_check: bool = False,
+) -> dict[str, Any]:
+    """Return the minimal send gate used by green dashboard tags and batch send."""
+    from pipeline.lead_dossier import ensure_lead_dossier, READINESS_READY
+    from pipeline.operator_state import OPERATOR_READY
+    from pipeline.record import authoritative_business_name, get_primary_email_contact
+    from pipeline.models import QualificationResult
+    from pipeline.outreach import classify_business, select_outreach_assets, build_outreach_email
+
+    checked = dict(record)
+    if not checked.get("lead_evidence_dossier") or not checked.get("launch_readiness_status"):
+        checked = ensure_lead_dossier(checked)
+    lead_id = str(checked.get("lead_id") or "")
+    business_name = authoritative_business_name(checked)
+    reasons: list[str] = []
+    tags: list[str] = []
+
+    if checked.get("launch_readiness_status") != READINESS_READY:
+        reasons.append("launch_not_ready")
+    if checked.get("operator_state") != OPERATOR_READY:
+        reasons.append("operator_not_ready")
+
+    email_contact = get_primary_email_contact(checked)
+    email = str(recipient or (email_contact or {}).get("value") or checked.get("email") or "").strip().lower()
+    if not email or not _valid_email(email):
+        reasons.append("email_not_verified")
+    elif lead_id and not _is_lead_business_recipient(lead_id, email):
+        reasons.append("email_not_saved_business_route")
+
+    if business_name_is_suspicious(business_name):
+        reasons.append("restaurant_name_not_safe")
+
+    resolved_subject = subject or str(checked.get("outreach_draft_subject") or "").strip()
+    resolved_body = body or str(checked.get("outreach_draft_body") or "").strip()
+    if not resolved_subject or not resolved_body:
+        reasons.append("checked_draft_missing")
+    if final_check:
+        if not resolved_subject or not resolved_body:
+            reasons.append("translations_not_checked")
+    else:
+        audit_validation = _validate_tailoring_audit(
+            checked,
+            recipient=email,
+            subject=resolved_subject,
+            body=resolved_body,
+            assets=assets,
+            include_machine_image=include_machine_image,
+        )
+        if not audit_validation["valid"]:
+            reasons.append(str(audit_validation["reason"] or "final_check_missing"))
+
+    q = QualificationResult(
+        lead=checked.get("lead") is True,
+        rejection_reason=checked.get("rejection_reason"),
+        business_name=business_name,
+        menu_evidence_found=checked.get("menu_evidence_found", True),
+        machine_evidence_found=checked.get("machine_evidence_found", False),
+    )
+    classification = checked.get("outreach_classification") or classify_business(q)
+    profile = _effective_establishment_profile(checked)
+    expected_assets = [
+        str(path) for path in select_outreach_assets(
+            classification,
+            establishment_profile=profile["effective"],
+        )
+    ]
+    resolved_assets = [str(path) for path in (assets if assets is not None else checked.get("outreach_assets_selected") or expected_assets)]
+    missing_assets = [path for path in expected_assets if path not in resolved_assets]
+    missing_files = [path for path in resolved_assets if path and not Path(path).exists()]
+    if missing_assets or missing_files:
+        reasons.append("inline_pitch_asset_missing")
+
+    default_email = build_outreach_email(
+        business_name=business_name,
+        classification=classification,
+        establishment_profile=profile["effective"],
+        include_inperson_line=checked.get("outreach_include_inperson", True),
+        city=checked.get("city", ""),
+    )
+    if default_email.get("include_menu_image"):
+        menu_template = _menu_template_for_profile(profile["effective"])
+        if not menu_template.exists():
+            reasons.append("inline_menu_template_missing")
+    expected_machine = bool(default_email.get("include_machine_image"))
+    resolved_machine = checked.get("outreach_include_machine_image", expected_machine) if include_machine_image is None else include_machine_image
+    if expected_machine and not resolved_machine:
+        reasons.append("machine_inline_missing")
+    if expected_machine and not (PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html").exists():
+        reasons.append("machine_template_missing")
+
+    if checked.get("outreach_status") in BLOCKED_SEND_STATUSES:
+        reasons.append("already_contacted_or_blocked")
+
+    if reasons:
+        reason_set = set(reasons)
+        if "launch_not_ready" in reason_set:
+            tags.append("REVIEW")
+        if "operator_not_ready" in reason_set:
+            tags.append("REVIEW")
+        if "email_not_verified" in reason_set or "email_not_saved_business_route" in reason_set:
+            tags.append("EMAIL")
+        if "translations_not_checked" in reason_set or "checked_draft_missing" in reason_set:
+            tags.append("COPY")
+        if "final_check_missing" in reason_set or "final_check_failed" in reason_set or "final_check_stale" in reason_set:
+            tags.append("CHECK")
+        if any(reason in reason_set for reason in ("inline_pitch_asset_missing", "inline_menu_template_missing", "machine_inline_missing", "machine_template_missing")):
+            tags.append("SAMPLE")
+        if "restaurant_name_not_safe" in reason_set:
+            tags.append("NAME")
+        if "already_contacted_or_blocked" in reason_set:
+            tags.append("BLOCKED")
+    else:
+        tags.append("SEND READY")
+
+    status = "ready_to_send" if not reasons else "not_ready"
+    return {
+        "status": status,
+        "label": "Send Ready" if status == "ready_to_send" else "Check",
+        "tags": tags,
+        "reasons": reasons,
+        "email": email,
+        "business_name": business_name,
+        "classification": classification,
+        "establishment_profile": profile["effective"],
+        "operator_state": checked.get("operator_state", "review"),
+        "operator_reason": checked.get("operator_reason", "Review this record before outreach."),
+    }
+
+
+def _send_batch_dir() -> Path:
+    return STATE_ROOT / "send_batches"
+
+
+def _send_batch_path(batch_id: str) -> Path:
+    return _send_batch_dir() / f"{batch_id}.json"
+
+
+def _load_send_batch(batch_id: str) -> dict[str, Any] | None:
+    from pipeline.utils import read_json
+
+    return read_json(_send_batch_path(batch_id))
+
+
+def _save_send_batch(batch: dict[str, Any]) -> None:
+    from pipeline.utils import write_json
+
+    write_json(_send_batch_path(str(batch.get("batch_id") or "")), batch)
+
+
+def _list_send_batches() -> list[dict[str, Any]]:
+    from pipeline.utils import read_json
+
+    root = _send_batch_dir()
+    if not root.exists():
+        return []
+    batches: list[dict[str, Any]] = []
+    for path in sorted(root.glob("send-batch-*.json"), reverse=True):
+        if path.name.endswith(("-release-manifest.json", "-mock-payloads.json")):
+            continue
+        batch = read_json(path)
+        if not batch or not isinstance(batch.get("leads"), list) or "status" not in batch:
+            continue
+        batches.append(_send_batch_summary(batch))
+    return batches
+
+
+def _send_batch_summary(batch: dict[str, Any]) -> dict[str, Any]:
+    leads = list(batch.get("leads") or [])
+    status_counts: dict[str, int] = {}
+    for entry in leads:
+        status = str(entry.get("status") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    next_entry = next((entry for entry in leads if entry.get("status") in {"scheduled", "sending"}), None)
+    return {
+        **batch,
+        "status_counts": status_counts,
+        "sent_count": status_counts.get("sent", 0),
+        "failed_count": status_counts.get("failed", 0),
+        "scheduled_count": status_counts.get("scheduled", 0),
+        "next_scheduled_at": str((next_entry or {}).get("scheduled_at") or ""),
+        "cancelable": str(batch.get("status") or "") in {"scheduled", "running", "paused"},
+    }
+
+
+def _send_planner_payload() -> dict[str, Any]:
+    from pipeline.record import list_leads
+
+    leads = [_prepare_lead_for_dashboard(lead) for lead in list_leads(state_root=STATE_ROOT)]
+    ready = [
+        lead for lead in leads
+        if _send_readiness_for_record(lead)["status"] == "ready_to_send"
+        and lead.get("send_ready_checked") is True
+        and str(lead.get("primary_contact_type") or "") == "email"
+    ]
+    batches = _list_send_batches()
+    return {
+        "ready_count": len(ready),
+        "selected_limit": 10,
+        "batches": batches,
+        "counts": {
+            "batches": len(batches),
+            "scheduled": sum(1 for batch in batches if batch.get("status") == "scheduled"),
+            "running": sum(1 for batch in batches if batch.get("status") == "running"),
+            "completed": sum(1 for batch in batches if batch.get("status") == "completed"),
+            "failed": sum(1 for batch in batches if batch.get("status") == "failed"),
+            "canceled": sum(1 for batch in batches if str(batch.get("status") or "").endswith("canceled")),
+        },
+    }
+
+
+def _cancel_send_batch(batch_id: str) -> dict[str, Any]:
+    batch = _load_send_batch(batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="send_batch_not_found")
+    status = str(batch.get("status") or "")
+    if status in {"completed", "failed", "canceled", "partially_canceled"}:
+        return _send_batch_summary(batch)
+    canceled_at = datetime.now(timezone.utc).isoformat()
+    sent_count = 0
+    for entry in batch.get("leads") or []:
+        entry_status = str(entry.get("status") or "")
+        if entry_status == "sent":
+            sent_count += 1
+            continue
+        if entry_status in {"scheduled", "sending"}:
+            entry["status"] = "canceled"
+            entry["canceled_at"] = canceled_at
+    batch["status"] = "partially_canceled" if sent_count else "canceled"
+    batch["canceled_at"] = canceled_at
+    _save_send_batch(batch)
+    return _send_batch_summary(batch)
+
+
+def _create_send_batch(*, lead_ids: list[str], delay_seconds: int, notes: str = "") -> dict[str, Any]:
+    from pipeline.record import load_lead
+    from pipeline.launch_freeze import LaunchFreezeError, assert_launch_not_frozen
+
+    if not 1 <= len(lead_ids) <= 10:
+        raise HTTPException(status_code=422, detail="send_batch_size_must_be_1_to_10")
+    if len(set(lead_ids)) != len(lead_ids):
+        raise HTTPException(status_code=422, detail="duplicate_lead_in_send_batch")
+    delay_seconds = max(0, min(delay_seconds, 3600))
+    try:
+        assert_launch_not_frozen(state_root=STATE_ROOT)
+    except LaunchFreezeError as exc:
+        raise HTTPException(status_code=423, detail=f"launch_frozen:{exc}") from exc
+
+    now = datetime.now(timezone.utc)
+    entries: list[dict[str, Any]] = []
+    release_entries: list[dict[str, Any]] = []
+    mock_payloads: list[dict[str, Any]] = []
+    for idx, lead_id in enumerate(lead_ids):
+        record = load_lead(lead_id, state_root=STATE_ROOT)
+        if not record:
+            raise HTTPException(status_code=404, detail=f"lead_not_found:{lead_id}")
+        gate = _send_readiness_for_record(record)
+        if gate["status"] != "ready_to_send":
+            raise HTTPException(status_code=422, detail=f"lead_not_send_ready:{lead_id}:{','.join(gate['reasons'])}")
+        if record.get("send_ready_checked") is not True:
+            raise HTTPException(status_code=422, detail=f"lead_final_check_missing:{lead_id}")
+        audit_validation = _validate_tailoring_audit(record, recipient=gate["email"])
+        if not audit_validation["valid"]:
+            raise HTTPException(status_code=422, detail=f"lead_final_check_invalid:{lead_id}:{audit_validation['reason']}")
+        audit = record.get("tailoring_audit") or {}
+        inputs = audit_validation.get("inputs") or {}
+        entries.append({
+            "lead_id": lead_id,
+            "business_name": gate["business_name"],
+            "email": gate["email"],
+            "scheduled_at": (now + timedelta(seconds=delay_seconds * idx)).isoformat(),
+            "status": "scheduled",
+            "attempted_at": "",
+            "sent_at": "",
+            "error": "",
+        })
+        release_entries.append({
+            "lead_id": lead_id,
+            "business_name": gate["business_name"],
+            "recipient": gate["email"],
+            "subject": str(record.get("outreach_draft_subject") or ""),
+            "package_key": inputs.get("package_key") or record.get("recommended_primary_package") or "",
+            "proof_items": list(audit.get("selected_proof_items") or []),
+            "inline_assets": list(record.get("outreach_assets_selected") or []),
+            "rendered_previews": list(audit.get("rendered_previews") or []),
+            "checklist": list(audit.get("checklist") or record.get("send_ready_checklist") or []),
+            "tailoring_audit_input_hash": audit.get("input_hash", ""),
+        })
+        mock_payloads.append({
+            "lead_id": lead_id,
+            "recipient": gate["email"],
+            "subject": str(record.get("outreach_draft_subject") or ""),
+            "text_body_hash": inputs.get("body_hash") or "",
+            "assets": list(record.get("outreach_assets_selected") or []),
+            "include_menu_image": bool(inputs.get("include_menu_image")),
+            "include_machine_image": bool(inputs.get("include_machine_image")),
+            "classification": gate["classification"],
+            "establishment_profile": gate["establishment_profile"],
+            "tailoring_audit_input_hash": audit.get("input_hash", ""),
+        })
+
+    batch_id = "send-batch-" + uuid.uuid4().hex[:10]
+    from pipeline.utils import write_json
+
+    release_manifest_path = _send_batch_dir() / f"{batch_id}-release-manifest.json"
+    mock_payloads_path = _send_batch_dir() / f"{batch_id}-mock-payloads.json"
+    write_json(mock_payloads_path, {
+        "batch_id": batch_id,
+        "created_at": now.isoformat(),
+        "payloads": mock_payloads,
+    })
+    write_json(release_manifest_path, {
+        "batch_id": batch_id,
+        "created_at": now.isoformat(),
+        "lead_count": len(release_entries),
+        "mock_payloads_path": str(mock_payloads_path),
+        "leads": release_entries,
+    })
+    batch = {
+        "batch_id": batch_id,
+        "created_at": now.isoformat(),
+        "notes": notes,
+        "delay_seconds": delay_seconds,
+        "status": "scheduled",
+        "lead_count": len(entries),
+        "leads": entries,
+        "release_manifest_path": str(release_manifest_path),
+        "mock_payloads_path": str(mock_payloads_path),
+    }
+    _save_send_batch(batch)
+    return batch
+
+
+def _final_checklist_for_record(
+    record: dict[str, Any],
+    *,
+    gate: dict[str, Any],
+    subject: str,
+    body: str,
+    assets: list[str],
+    include_machine_image: bool | None,
+    rendered_previews: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    from pipeline.record import authoritative_business_name
+
+    business_name = authoritative_business_name(record)
+    reasons = set(gate.get("reasons") or [])
+    checklist = [
+        {
+            "key": "launch",
+            "label": "Launch readiness",
+            "status": "fail" if {"launch_not_ready", "operator_not_ready"} & reasons else "pass",
+            "detail": "Ready for outreach" if not {"launch_not_ready", "operator_not_ready"} & reasons else str(gate.get("operator_reason") or "Lead is not ready for outreach"),
+        },
+        {
+            "key": "email",
+            "label": "Restaurant email",
+            "status": "fail" if {"email_not_verified", "email_not_saved_business_route"} & reasons else "pass",
+            "detail": gate.get("email") or "No verified restaurant email",
+        },
+        {
+            "key": "copy",
+            "label": "Checked translation",
+            "status": "fail" if {"translations_not_checked", "checked_draft_missing"} & reasons else "pass",
+            "detail": "Subject/body present and checked" if subject and body else "Subject/body missing",
+        },
+    ]
+
+    if business_name and business_name in subject and business_name in body:
+        name_status = "pass"
+        name_detail = "Restaurant name appears in the checked subject and body"
+    else:
+        name_status = "fail"
+        name_detail = "Restaurant name is missing from the checked subject or body"
+    checklist.append({"key": "name", "label": "Restaurant name", "status": name_status, "detail": name_detail})
+
+    sample_failed = bool({"inline_pitch_asset_missing", "inline_menu_template_missing", "machine_inline_missing", "machine_template_missing"} & reasons)
+    checklist.append({
+        "key": "sample",
+        "label": "Inline pitch sample",
+        "status": "fail" if sample_failed else "pass",
+        "detail": "Expected sample assets and inline templates are available" if not sample_failed else "Expected inline sample or asset is missing",
+    })
+
+    rendered_previews = rendered_previews or []
+    seal_failures: list[str] = []
+    for preview in rendered_previews:
+        path_text = str(preview.get("path") or "")
+        kind = str(preview.get("kind") or "sample")
+        if not path_text or not Path(path_text).exists():
+            seal_failures.append(f"{kind} preview missing")
+            continue
+        rendered_text = Path(path_text).read_text(encoding="utf-8")
+        if business_name and business_name not in rendered_text:
+            seal_failures.append(f"{kind} preview missing restaurant name")
+    if rendered_previews and not seal_failures:
+        seal_status = "pass"
+        seal_detail = "Personalized sample seal renders with the restaurant name"
+    else:
+        seal_status = "fail"
+        seal_detail = "; ".join(seal_failures) or "No rendered inline sample was available for the seal check"
+    checklist.append({"key": "seal", "label": "Name seal", "status": seal_status, "detail": seal_detail})
+
+    machine_expected = include_machine_image is True or record.get("outreach_include_machine_image") is True
+    if machine_expected:
+        machine_path = PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"
+        checklist.append({
+            "key": "machine",
+            "label": "Machine inline",
+            "status": "pass" if machine_path.exists() else "fail",
+            "detail": "Ticket-machine inline template available" if machine_path.exists() else "Ticket-machine inline template missing",
+        })
+
+    proof_items = _eligible_proof_items(record)
+    checklist.append({
+        "key": "proof",
+        "label": "Customer-safe proof",
+        "status": "pass" if proof_items else "fail",
+        "detail": f"{len(proof_items)} customer-safe proof item(s) selected" if proof_items else "No customer-safe proof item tied to this establishment",
+    })
+
+    package_key = str(record.get("recommended_primary_package") or "")
+    package_status = "pass" if package_key.startswith("package_") else "fail"
+    checklist.append({
+        "key": "package",
+        "label": "Package fit",
+        "status": package_status,
+        "detail": package_key or "No fixed package recommendation is saved",
+    })
+
+    profile = gate.get("establishment_profile") or _effective_establishment_profile(record)["effective"]
+    body_text = f"{subject}\n{body}"
+    if str(profile).startswith("ramen"):
+        diagnosis_terms = ("ラーメン", "らーめん", "券売機", "トッピング", "セット", "注文")
+    elif "izakaya" in str(profile):
+        diagnosis_terms = ("居酒屋", "料理", "ドリンク", "コース", "飲み放題", "お品書き", "注文")
+    else:
+        diagnosis_terms = ("メニュー", "注文", "海外")
+    diagnosis_ok = any(term in body_text for term in diagnosis_terms)
+    checklist.append({
+        "key": "diagnosis",
+        "label": "Shop-specific diagnosis",
+        "status": "pass" if diagnosis_ok else "fail",
+        "detail": "Copy contains profile-specific ordering-friction language" if diagnosis_ok else "Copy does not contain profile-specific diagnosis language",
+    })
+
+    padded = f" {body_text.lower()} "
+    forbidden = [term.strip() for term in FORBIDDEN_FINAL_CHECK_TERMS if term in padded]
+    price_claims = {match.group(1) or match.group(2) for match in FINAL_CHECK_PRICE_RE.finditer(body_text)}
+    compliance_failures = []
+    if forbidden:
+        compliance_failures.append("forbidden terms: " + ", ".join(sorted(set(forbidden))))
+    if len({claim.replace(",", "") for claim in price_claims}) >= 3:
+        compliance_failures.append("cold copy includes all three fixed prices")
+    checklist.append({
+        "key": "compliance",
+        "label": "Compliance copy scan",
+        "status": "fail" if compliance_failures else "pass",
+        "detail": "; ".join(compliance_failures) if compliance_failures else "No forbidden terms or all-price cold pitch found",
+    })
+
+    return checklist
+
+
+async def _run_send_batch(batch_id: str) -> None:
+    batch = _load_send_batch(batch_id)
+    if not batch:
+        return
+    if str(batch.get("status") or "") == "canceled":
+        return
+    batch["status"] = "running"
+    _save_send_batch(batch)
+
+    for entry in list(batch.get("leads") or []):
+        batch = _load_send_batch(batch_id) or batch
+        if str(batch.get("status") or "") in {"canceled", "partially_canceled", "paused"}:
+            return
+        if entry.get("status") != "scheduled":
+            continue
+        try:
+            scheduled_at = datetime.fromisoformat(str(entry.get("scheduled_at") or "").replace("Z", "+00:00"))
+        except ValueError:
+            scheduled_at = datetime.now(timezone.utc)
+        wait_seconds = max(0.0, (scheduled_at - datetime.now(timezone.utc)).total_seconds())
+        if wait_seconds:
+            await asyncio.sleep(wait_seconds)
+
+        batch = _load_send_batch(batch_id) or batch
+        if str(batch.get("status") or "") in {"canceled", "partially_canceled", "paused"}:
+            return
+        matching = next((item for item in batch.get("leads") or [] if item.get("lead_id") == entry.get("lead_id")), None)
+        if not matching or matching.get("status") != "scheduled":
+            continue
+        matching["attempted_at"] = datetime.now(timezone.utc).isoformat()
+        matching["status"] = "sending"
+        _save_send_batch(batch)
+
+        try:
+            await _send_lead_email_payload(str(matching.get("lead_id") or ""), require_send_ready=True)
+        except Exception as exc:
+            matching["status"] = "failed"
+            matching["error"] = str(getattr(exc, "detail", "") or exc)
+            _save_send_batch(batch)
+            continue
+
+        matching["status"] = "sent"
+        matching["sent_at"] = datetime.now(timezone.utc).isoformat()
+        _save_send_batch(batch)
+
+    batch = _load_send_batch(batch_id) or batch
+    if str(batch.get("status") or "") in {"canceled", "partially_canceled", "paused"}:
+        return
+    statuses = [str(entry.get("status") or "") for entry in batch.get("leads") or []]
+    batch["status"] = "failed" if any(status == "failed" for status in statuses) else "completed"
+    batch["completed_at"] = datetime.now(timezone.utc).isoformat()
+    _save_send_batch(batch)
+
+
 # ---------------------------------------------------------------------------
 # Routes — Pages
 # ---------------------------------------------------------------------------
@@ -689,6 +1684,7 @@ def _is_lead_business_recipient(lead_id: str, to_email: str) -> bool:
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_main(request: Request):
     """Main dashboard view."""
+    from pipeline.launch_freeze import launch_freeze_status
     from pipeline.record import list_leads
     leads = [
         _prepare_lead_for_dashboard(lead)
@@ -715,10 +1711,13 @@ async def dashboard_main(request: Request):
         )
     ]
     leads = sorted(leads, key=_lead_queue_sort_key)
+    leads = _attach_reply_summaries(leads)
     return templates.TemplateResponse(request, "index.html", {
         "leads": leads,
         "lead_card_counts": _dashboard_card_counts(leads),
         "search_category_meta": _dashboard_search_category_meta(),
+        "search_coverage": _compute_search_coverage(leads),
+        "launch_freeze": launch_freeze_status(state_root=STATE_ROOT),
     })
 
 
@@ -729,12 +1728,15 @@ async def dashboard_main(request: Request):
 @app.get("/api/leads")
 async def api_leads():
     """Return dashboard-ready lead records as JSON."""
+    from pipeline.launch_freeze import launch_freeze_status
     from pipeline.record import list_leads
     leads = [_prepare_lead_for_dashboard(lead) for lead in list_leads(state_root=STATE_ROOT)]
     leads = sorted(leads, key=_lead_queue_sort_key)
+    leads = _attach_reply_summaries(leads)
     return {
         "leads": leads,
         "card_counts": _dashboard_card_counts(leads),
+        "launch_freeze": launch_freeze_status(state_root=STATE_ROOT),
     }
 
 
@@ -742,6 +1744,14 @@ async def api_leads():
 async def api_search_categories():
     """Return dashboard search category metadata from Python source of truth."""
     return {"categories": _dashboard_search_category_meta()}
+
+
+@app.get("/api/search/coverage")
+async def api_search_coverage():
+    """Return pitch-ready lead counts by city and category."""
+    from pipeline.record import list_leads
+    leads = list_leads(state_root=STATE_ROOT)
+    return _compute_search_coverage(leads)
 
 
 @app.get("/api/launch-batches")
@@ -754,6 +1764,7 @@ async def api_launch_batches():
 @app.post("/api/launch-batches")
 async def api_create_launch_batch(request: Request):
     from pipeline.launch import LaunchBatchError, create_launch_batch
+    from pipeline.launch_freeze import LaunchFreezeError
 
     payload = await request.json()
     try:
@@ -762,6 +1773,8 @@ async def api_create_launch_batch(request: Request):
             state_root=STATE_ROOT,
             notes=str(payload.get("notes") or ""),
         )
+    except LaunchFreezeError as exc:
+        raise HTTPException(status_code=423, detail=f"launch_frozen:{exc}") from exc
     except LaunchBatchError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     return batch
@@ -796,6 +1809,35 @@ async def api_record_launch_outcome(batch_id: str, lead_id: str, request: Reques
         return record_launch_outcome(batch_id=batch_id, lead_id=lead_id, state_root=STATE_ROOT, outcome=payload)
     except LaunchBatchError as exc:
         raise HTTPException(status_code=404 if "not_found" in str(exc) or "not_in_batch" in str(exc) else 422, detail=str(exc))
+
+
+@app.post("/api/send-batches")
+async def api_create_send_batch(request: Request, background_tasks: BackgroundTasks):
+    """Schedule up to 10 green send-ready email leads with a delay between sends."""
+    payload = await request.json()
+    lead_ids = [str(lead_id or "").strip() for lead_id in payload.get("lead_ids") or [] if str(lead_id or "").strip()]
+    delay_seconds = int(payload.get("delay_seconds") or 900)
+    start = payload.get("start", True) is not False
+    batch = _create_send_batch(
+        lead_ids=lead_ids,
+        delay_seconds=delay_seconds,
+        notes=str(payload.get("notes") or ""),
+    )
+    if start:
+        background_tasks.add_task(_run_send_batch, batch["batch_id"])
+    return batch
+
+
+@app.get("/api/send-batches")
+async def api_send_batches():
+    """Return delayed send batches for the dashboard send planner."""
+    return _send_planner_payload()
+
+
+@app.post("/api/send-batches/{batch_id}/cancel")
+async def api_cancel_send_batch(batch_id: str):
+    """Cancel unsent leads in a delayed send batch."""
+    return _cancel_send_batch(batch_id)
 
 
 @app.delete("/api/leads/{lead_id}")
@@ -844,6 +1886,8 @@ async def api_update_lead_profile(lead_id: str, request: Request):
         record["establishment_profile_override_at"] = datetime.now(timezone.utc).isoformat()
         action = "establishment_profile_override_saved"
 
+    _clear_tailoring_audit(record, "establishment_profile_changed")
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
     prepared = _prepare_lead_for_dashboard(record)
     _log(action, f"profile={prepared.get('establishment_profile_effective', '')}", lead_id=lead_id)
@@ -882,6 +1926,16 @@ async def api_update_lead_review_outcome(lead_id: str, request: Request):
         reasons.append(reason)
     record["launch_readiness_reasons"] = reasons
     record["pitch_ready"] = False
+    if outcome == "pitch_pack_ready":
+        record["pitch_pack_ready_no_send"] = True
+        record["pitch_pack_ready_at"] = now
+        record["candidate_inbox_status"] = "pitch_pack_ready_no_send"
+        record["pitch_readiness_status"] = "pitch_pack_ready_no_send"
+    else:
+        record["pitch_pack_ready_no_send"] = False
+        if outcome == "reject":
+            record["candidate_inbox_status"] = "rejected"
+            record["pitch_readiness_status"] = "rejected"
     record["outreach_status"] = "needs_review"
     record.setdefault("status_history", []).append({
         "status": f"operator_review_{outcome}",
@@ -889,10 +1943,122 @@ async def api_update_lead_review_outcome(lead_id: str, request: Request):
         "note": note or LEAD_REVIEW_OUTCOME_LABELS[outcome],
     })
 
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
     prepared = _prepare_lead_for_dashboard(record)
     _log("lead_review_outcome_saved", f"outcome={outcome}", lead_id=lead_id)
     return prepared
+
+
+@app.post("/api/leads/{lead_id}/operator-action")
+async def api_lead_operator_action(lead_id: str, request: Request):
+    """Apply a compact operator action from the lead queue."""
+    from pipeline.record import load_lead, persist_lead_record
+
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    body = await request.json()
+    action = str(body.get("action") or "").strip()
+    note = str(body.get("note") or "").strip()
+    now = datetime.now(timezone.utc).isoformat()
+
+    if action == "approve_real_shop":
+        business_name = str(record.get("business_name") or "").strip()
+        if not business_name or business_name_is_suspicious(business_name):
+            raise HTTPException(status_code=422, detail="Fix the restaurant name before approval")
+        verified_by = list(record.get("business_name_verified_by") or [])
+        if "operator" not in {str(item).lower() for item in verified_by}:
+            verified_by.append("operator")
+        record["business_name_locked"] = True
+        record["business_name_lock_reason"] = "operator_approved_real_shop"
+        record["business_name_verified_by"] = verified_by
+        record["name_verification_status"] = "manually_accepted"
+        if str(record.get("verification_status") or "") != "rejected":
+            record["verification_status"] = "verified"
+        record["operator_real_shop_approved_at"] = now
+        history_status = "operator_approved_real_shop"
+        log_detail = "approved_real_shop"
+    elif action == "skip":
+        record["outreach_status"] = "skipped"
+        record["review_status"] = "rejected"
+        record["operator_review_outcome"] = "reject"
+        record["operator_review_note"] = note or "Skipped from operator queue"
+        record["operator_reviewed_at"] = now
+        record["manual_review_required"] = True
+        history_status = "operator_skipped"
+        log_detail = "skipped"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid operator action")
+
+    record.setdefault("status_history", []).append({
+        "status": history_status,
+        "timestamp": now,
+        "note": note or log_detail.replace("_", " "),
+    })
+    record = _refresh_operator_lead(record)
+    persist_lead_record(record, state_root=STATE_ROOT)
+    _log("lead_operator_action", log_detail, lead_id=lead_id)
+    return _prepare_lead_for_dashboard(record)
+
+
+@app.post("/api/leads/{lead_id}/operator-fields")
+async def api_update_lead_operator_fields(lead_id: str, request: Request):
+    """Update operator-editable lead fields used by quick actions."""
+    from pipeline.constants import PACKAGE_REGISTRY
+    from pipeline.record import load_lead, persist_lead_record
+
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    body = await request.json()
+    changed: list[str] = []
+    now = datetime.now(timezone.utc).isoformat()
+
+    if "business_name" in body:
+        business_name = str(body.get("business_name") or "").strip()
+        if not business_name:
+            raise HTTPException(status_code=400, detail="Restaurant name is required")
+        if business_name_is_suspicious(business_name):
+            raise HTTPException(status_code=422, detail="Restaurant name looks unsafe")
+        record["business_name"] = business_name
+        record["business_name_locked"] = True
+        record["business_name_lock_reason"] = "operator_fixed_name"
+        verified_by = list(record.get("business_name_verified_by") or [])
+        if "operator" not in {str(item).lower() for item in verified_by}:
+            verified_by.append("operator")
+        record["business_name_verified_by"] = verified_by
+        record["name_verification_status"] = "manually_accepted"
+        changed.append("name")
+
+    if "recommended_primary_package" in body:
+        package_key = str(body.get("recommended_primary_package") or "").strip()
+        if package_key not in PACKAGE_REGISTRY:
+            raise HTTPException(status_code=400, detail="Invalid package")
+        record["recommended_primary_package"] = package_key
+        record["package_recommendation_reason"] = (
+            str(body.get("package_recommendation_reason") or "").strip()
+            or "Operator selected package after review."
+        )
+        record["operator_package_override"] = True
+        changed.append("package")
+
+    if not changed:
+        raise HTTPException(status_code=400, detail="No supported field update supplied")
+
+    _clear_tailoring_audit(record, "operator_field_update")
+    record["operator_fields_updated_at"] = now
+    record.setdefault("status_history", []).append({
+        "status": "operator_fields_updated",
+        "timestamp": now,
+        "note": ", ".join(changed),
+    })
+    record = _refresh_operator_lead(record)
+    persist_lead_record(record, state_root=STATE_ROOT)
+    _log("lead_operator_fields_updated", ",".join(changed), lead_id=lead_id)
+    return _prepare_lead_for_dashboard(record)
 
 
 @app.post("/api/leads/{lead_id}/contacted")
@@ -927,6 +2093,7 @@ async def api_mark_manual_contacted(lead_id: str, request: Request):
         "note": note or f"Marked contacted after {route_label} outreach",
     })
 
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
     _log("manual_contact_marked", f"route={primary_contact_type}", lead_id=lead_id)
     return {
@@ -1058,6 +2225,15 @@ async def api_search(request: Request):
     if duplicate_count:
         _log("duplicate_skipped", f"count={duplicate_count}")
     _log("search_completed", f"leads={result.get('leads', 0)} total={result.get('total_candidates', 0)}")
+
+    # Add coverage note if searching a well-covered area
+    coverage = _compute_search_coverage(list_leads(state_root=STATE_ROOT))
+    search_city = body.get("city", "").strip() or "Japan"
+    search_cat = body.get("category", "all")
+    city_count = coverage["city"].get(search_city, 0) if search_city != "Japan" else coverage["total"]
+    if city_count >= 50:
+        result["coverage_note"] = f"{search_city} already has {city_count} pitch-ready leads"
+
     return result
 
 
@@ -1073,6 +2249,132 @@ async def api_outreach(lead_id: str):
     return await _build_outreach_payload(lead_id, regenerate=True)
 
 
+@app.post("/api/outreach/{lead_id}/final-check")
+async def api_outreach_final_check(lead_id: str, request: Request):
+    """Run the second-pass checklist for the exact current pitch draft."""
+    from pipeline.record import authoritative_business_name
+    from pipeline.record import load_lead, persist_lead_record
+
+    payload = await request.json()
+    record = load_lead(lead_id, state_root=STATE_ROOT)
+    if not record:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    subject = str(payload.get("subject") or "").strip()
+    body = str(payload.get("body") or "").strip()
+    assets = [str(asset) for asset in payload.get("assets") or []]
+    include_machine_image = payload.get("include_machine_image")
+    if include_machine_image is not None:
+        include_machine_image = bool(include_machine_image)
+
+    gate = _send_readiness_for_record(
+        record,
+        subject=subject,
+        body=body,
+        assets=assets,
+        include_machine_image=include_machine_image,
+        final_check=True,
+    )
+    business_name = authoritative_business_name(record)
+    image_flags = _expected_final_check_images(
+        record,
+        classification=str(gate.get("classification") or record.get("outreach_classification") or ""),
+        profile=str(gate.get("establishment_profile") or _effective_establishment_profile(record)["effective"]),
+        include_machine_image=include_machine_image,
+    )
+    rendered_previews = _render_final_check_previews(
+        record,
+        business_name=business_name,
+        profile=str(gate.get("establishment_profile") or _effective_establishment_profile(record)["effective"]),
+        include_menu_image=image_flags["include_menu_image"],
+        include_machine_image=image_flags["include_machine_image"],
+    )
+    checklist = _final_checklist_for_record(
+        record,
+        gate=gate,
+        subject=subject,
+        body=body,
+        assets=assets,
+        include_machine_image=include_machine_image,
+        rendered_previews=rendered_previews,
+    )
+    candidate_record = dict(record)
+    candidate_record["outreach_draft_subject"] = subject
+    candidate_record["outreach_draft_body"] = body
+    if assets:
+        candidate_record["outreach_assets_selected"] = assets
+    if include_machine_image is not None:
+        candidate_record["outreach_include_machine_image"] = include_machine_image
+    audit_inputs, audit_input_issues = _tailoring_audit_inputs(
+        candidate_record,
+        recipient=str(gate.get("email") or ""),
+        subject=subject,
+        body=body,
+        assets=assets,
+        include_machine_image=include_machine_image,
+        rendered_previews=rendered_previews,
+    )
+    failure_reasons = [
+        f"{item['key']}:{item['detail']}"
+        for item in checklist
+        if item.get("status") != "pass"
+    ]
+    failure_reasons.extend(audit_input_issues)
+    passed = gate["status"] == "ready_to_send" and not failure_reasons
+    checked_at = datetime.now(timezone.utc).isoformat()
+    tailoring_audit = {
+        "passed": passed,
+        "checked_at": checked_at,
+        "checked_by": str(payload.get("checked_by") or "dashboard_operator"),
+        "recipient": audit_inputs["recipient"],
+        "subject": audit_inputs["subject"],
+        "subject_hash": audit_inputs["subject_hash"],
+        "body_hash": audit_inputs["body_hash"],
+        "asset_hashes": audit_inputs["asset_hashes"],
+        "rendered_previews": rendered_previews,
+        "rendered_preview_hashes": audit_inputs["rendered_preview_hashes"],
+        "locked_business_name": audit_inputs["locked_business_name"],
+        "selected_proof_items": audit_inputs["selected_proof_items"],
+        "selected_proof_hash": audit_inputs["selected_proof_hash"],
+        "package_key": audit_inputs["package_key"],
+        "package_recommendation_reason": audit_inputs["package_recommendation_reason"],
+        "classification": audit_inputs["classification"],
+        "establishment_profile": audit_inputs["establishment_profile"],
+        "include_menu_image": audit_inputs["include_menu_image"],
+        "include_machine_image": audit_inputs["include_machine_image"],
+        "checklist": checklist,
+        "failure_reasons": failure_reasons,
+        "input_hash": audit_inputs["input_hash"],
+    }
+    if passed:
+        record["outreach_draft_subject"] = subject
+        record["outreach_draft_body"] = body
+        if assets:
+            record["outreach_assets_selected"] = assets
+        if include_machine_image is not None:
+            record["outreach_include_machine_image"] = include_machine_image
+        record["send_ready_checked"] = True
+        record["send_ready_checked_at"] = checked_at
+        record["send_ready_checklist"] = checklist
+        record["tailoring_audit"] = tailoring_audit
+        record = _refresh_operator_lead(record)
+        persist_lead_record(record, state_root=STATE_ROOT)
+        gate = _send_readiness_for_record(record)
+    else:
+        record["send_ready_checked"] = False
+        record["send_ready_checklist"] = checklist
+        record["tailoring_audit"] = tailoring_audit
+        record = _refresh_operator_lead(record)
+        persist_lead_record(record, state_root=STATE_ROOT)
+
+    return {
+        "passed": passed,
+        "send_readiness": gate,
+        "checklist": checklist,
+        "tailoring_audit": tailoring_audit,
+    }
+
+
 async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str, Any]:
     """Build an outreach payload.
 
@@ -1083,10 +2385,12 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     from pipeline.outreach import (
         build_manual_outreach_message,
         build_outreach_email,
+        build_evidence_gated_email,
         classify_business,
         describe_outreach_assets,
         select_outreach_assets,
     )
+    from pipeline.evidence_classifier import classify_lead
     from pipeline.models import QualificationResult
 
     record = load_lead(lead_id, state_root=STATE_ROOT)
@@ -1099,6 +2403,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         record["outreach_status"] = "needs_review"
         record["outreach_classification"] = None
         from pipeline.record import persist_lead_record
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
         raise HTTPException(
             status_code=422,
@@ -1109,6 +2414,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     if not record.get("business_name_locked") and record.get("business_name_source") and len(verified_by) < 2:
         record["outreach_status"] = "needs_review"
         from pipeline.record import persist_lead_record
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
         raise HTTPException(
             status_code=422,
@@ -1125,18 +2431,22 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         )
 
     from pipeline.lead_dossier import ensure_lead_dossier, READINESS_DISQUALIFIED, READINESS_READY
+    from pipeline.operator_state import OPERATOR_READY
     record = ensure_lead_dossier(record)
     launch_readiness_status = record.get("launch_readiness_status")
-    if regenerate and launch_readiness_status != READINESS_READY:
+    operator_state = record.get("operator_state")
+    operator_reason = str(record.get("operator_reason") or "Review this record before outreach.")
+    if regenerate and operator_state != OPERATOR_READY:
         from pipeline.record import persist_lead_record
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
-        reasons = ", ".join(record.get("launch_readiness_reasons") or ["not_ready"])
         raise HTTPException(
             status_code=422,
-            detail=f"Lead is not launch-ready for outreach: {reasons}",
+            detail=f"Lead is not launch-ready for outreach: {operator_reason}",
         )
     if not regenerate and launch_readiness_status == READINESS_DISQUALIFIED:
         from pipeline.record import persist_lead_record
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
         raise HTTPException(
             status_code=422,
@@ -1182,6 +2492,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             state_root=STATE_ROOT,
             docs_root=_dashboard_sample_docs_root(),
         )
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
         if not sample_result.get("ok"):
             raise HTTPException(
@@ -1203,13 +2514,26 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     )
     include_inperson = record.get("outreach_include_inperson", True)
     if draft_channel == "email":
-        draft = build_outreach_email(
+        # Evidence-gated email builder
+        evidence_payload = _evidence_classifier_payload(
+            record,
             business_name=business_name,
             classification=classification,
-            establishment_profile=profile["effective"],
-            include_inperson_line=include_inperson,
-            lead_dossier=record.get("lead_evidence_dossier") or {},
+            profile=profile["effective"],
         )
+        lead_classification = classify_lead(evidence_payload)
+        draft = build_evidence_gated_email(lead_classification)
+        if draft is None:
+            # Evidence-gated classifier says skip — fall through with skip marker
+            draft = {
+                "subject": "",
+                "body": "",
+                "english_body": "",
+                "include_menu_image": False,
+                "include_machine_image": False,
+            }
+        # Store the evidence audit alongside the draft
+        record["evidence_audit"] = _build_evidence_audit(lead_classification)
     else:
         draft = build_manual_outreach_message(
             business_name=business_name,
@@ -1238,7 +2562,9 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         record["outreach_draft_subject"] = None
         record["outreach_draft_manually_edited"] = False
         record["outreach_draft_edited_at"] = None
+        _clear_tailoring_audit(record, "outreach_regenerated")
 
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
 
     subject = draft["subject"]
@@ -1263,6 +2589,8 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             record["outreach_draft_subject"] = None
             record["outreach_draft_manually_edited"] = False
             record["outreach_draft_edited_at"] = None
+            _clear_tailoring_audit(record, "unsafe_saved_draft_reset")
+            record = _refresh_operator_lead(record)
             persist_lead_record(record, state_root=STATE_ROOT)
     asset_details = describe_outreach_assets(
         assets,
@@ -1318,6 +2646,9 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "send_blocked": bool(test_fixture_label) or record.get("outreach_status") in BLOCKED_SEND_STATUSES,
         "review_only": record.get("launch_readiness_status") != READINESS_READY,
         "outreach_status": record.get("outreach_status"),
+        "operator_state": record.get("operator_state"),
+        "operator_reason": record.get("operator_reason"),
+        "contact_policy_evidence": record.get("contact_policy_evidence") or {},
         "launch_readiness_status": record.get("launch_readiness_status"),
         "launch_readiness_reasons": record.get("launch_readiness_reasons") or [],
         "lead_evidence_dossier": record.get("lead_evidence_dossier") or {},
@@ -1326,6 +2657,15 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "operator_review_outcome_label": _label_from_map(record.get("operator_review_outcome"), LEAD_REVIEW_OUTCOME_LABELS, default="Not Reviewed"),
         "operator_review_note": record.get("operator_review_note", ""),
         "operator_reviewed_at": record.get("operator_reviewed_at", ""),
+        "pitch_pack_ready_no_send": bool(record.get("pitch_pack_ready_no_send")),
+        "pitch_pack_ready_at": record.get("pitch_pack_ready_at", ""),
+        "send_readiness": _send_readiness_for_record(record, subject=subject, body=body, assets=[str(p) for p in assets]),
+        "final_send_check": {
+            "status": "passed" if _validate_tailoring_audit(record, subject=subject, body=body, assets=[str(p) for p in assets])["valid"] else "not_checked",
+            "checked_at": record.get("send_ready_checked_at", ""),
+            "checklist": record.get("send_ready_checklist") or [],
+            "tailoring_audit": record.get("tailoring_audit") or {},
+        },
         "review_status": record.get("review_status", "pending"),
         "review_status_label": _dashboard_state_label(record.get("review_status"), default="Pending"),
         "message_variant": record.get("message_variant", ""),
@@ -1363,7 +2703,9 @@ async def api_save_draft(lead_id: str, request: Request):
         record["outreach_include_inperson"] = body["include_inperson"]
     if "include_machine_image" in body:
         record["outreach_include_machine_image"] = body["include_machine_image"]
+    _clear_tailoring_audit(record, "draft_saved")
 
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
     _log("draft_saved", lead_id=lead_id)
 
@@ -1383,6 +2725,7 @@ async def api_translate_draft(request: Request):
     include_menu_image = bool(body.get("include_menu_image", True))
     include_machine_image = bool(body.get("include_machine_image", False))
     sample_menu_url = str(body.get("sample_menu_url") or "").strip()
+    city = str(body.get("city") or "").strip()
 
     if not english_body:
         raise HTTPException(status_code=400, detail="English body required")
@@ -1415,6 +2758,7 @@ async def api_translate_draft(request: Request):
                 classification=classification,
                 establishment_profile=candidate_profile,
                 include_inperson_line=include_inperson,
+                city=city,
             )
         else:
             candidate_draft = build_manual_outreach_message(
@@ -1480,9 +2824,17 @@ async def api_translate_draft(request: Request):
     }
 
 
-@app.post("/api/send/{lead_id}")
-async def api_send(lead_id: str, request: Request):
-    """Send outreach email via Resend."""
+async def _send_lead_email_payload(
+    lead_id: str,
+    *,
+    email: str = "",
+    subject: str = "",
+    email_body: str = "",
+    asset_paths: list[str] | None = None,
+    include_machine_image: bool | None = None,
+    require_send_ready: bool = False,
+) -> dict[str, Any]:
+    """Send one lead email using either explicit payload fields or saved draft fields."""
     from pipeline.record import authoritative_business_name, load_lead, persist_lead_record
     from pipeline.constants import OUTREACH_STATUS_SENT, MAX_SENDS_PER_DAY
 
@@ -1505,12 +2857,9 @@ async def api_send(lead_id: str, request: Request):
             detail=f"Lead already has status '{record.get('outreach_status')}' — cannot re-send",
         )
 
-    body = await request.json()
-    to_email = body.get("email", "")
-    subject = body.get("subject") if "subject" in body else (record.get("outreach_draft_subject") or "")
-    email_body = body.get("body") if "body" in body else (record.get("outreach_draft_body") or "")
-    asset_paths = body.get("assets")
-    include_machine_image = body.get("include_machine_image")
+    to_email = email or str(record.get("email") or "")
+    subject = subject or str(record.get("outreach_draft_subject") or "")
+    email_body = email_body or str(record.get("outreach_draft_body") or "")
 
     if not to_email:
         raise HTTPException(status_code=400, detail="Email address required")
@@ -1527,16 +2876,46 @@ async def api_send(lead_id: str, request: Request):
     is_business_send = _is_lead_business_recipient(lead_id, normalised_to)
     is_test_send = not is_business_send
     if is_business_send:
+        from pipeline.launch_freeze import LaunchFreezeError, assert_launch_not_frozen
+
+        try:
+            assert_launch_not_frozen(state_root=STATE_ROOT)
+        except LaunchFreezeError as exc:
+            raise HTTPException(status_code=423, detail=f"launch_frozen:{exc}") from exc
+        require_send_ready = True
+    if require_send_ready:
+        if record.get("send_ready_checked") is not True:
+            raise HTTPException(status_code=422, detail="Lead is not send-ready: final_check_missing")
+        gate = _send_readiness_for_record(
+            record,
+            recipient=normalised_to,
+            subject=subject,
+            body=email_body,
+            assets=asset_paths,
+            include_machine_image=include_machine_image,
+        )
+        if gate["status"] != "ready_to_send":
+            raise HTTPException(status_code=422, detail=f"Lead is not send-ready: {', '.join(gate['reasons'])}")
+        if not is_business_send:
+            raise HTTPException(status_code=422, detail="Lead is not send-ready: email_not_saved_business_route")
+    if is_business_send:
         from pipeline.lead_dossier import ensure_lead_dossier, READINESS_READY
+        from pipeline.operator_state import OPERATOR_READY
 
         record = ensure_lead_dossier(record)
+        if record.get("operator_state") != OPERATOR_READY:
+            persist_lead_record(record, state_root=STATE_ROOT)
+            raise HTTPException(
+                status_code=422,
+                detail=f"Lead is not launch-ready for outreach: {record.get('operator_reason') or 'Review this record before outreach.'}",
+            )
         if record.get("launch_readiness_status") != READINESS_READY:
             persist_lead_record(record, state_root=STATE_ROOT)
             reasons = ", ".join(record.get("launch_readiness_reasons") or ["not_ready"])
             raise HTTPException(status_code=422, detail=f"Lead is not launch-ready for outreach: {reasons}")
 
     from pipeline.models import QualificationResult
-    from pipeline.outreach import classify_business, select_outreach_assets, build_outreach_email
+    from pipeline.outreach import classify_business, select_outreach_assets
 
     q = QualificationResult(
         lead=record["lead"],
@@ -1568,14 +2947,63 @@ async def api_send(lead_id: str, request: Request):
         names = ", ".join(Path(p).name for p in missing_files)
         raise HTTPException(status_code=400, detail=f"Attachment file not found: {names}")
 
-    default_email = build_outreach_email(
-        business_name=business_name,
-        classification=classification,
-        establishment_profile=profile["effective"],
-        include_inperson_line=record.get("outreach_include_inperson", True),
+    # --- Evidence-gated send gate -------------------------------------------
+    # No automatic outbound email may be sent without an evidence audit.
+    evidence_audit = record.get("evidence_audit") or {}
+    if not evidence_audit.get("selected_template"):
+        # Pre-existing lead without audit: re-classify now
+        from pipeline.evidence_classifier import classify_lead as _evidence_classify
+        from pipeline.outreach import build_evidence_gated_email as _build_evidence_email
+
+        evidence_payload = _evidence_classifier_payload(
+            record,
+            business_name=business_name,
+            classification=classification,
+            profile=profile["effective"],
+        )
+        classification_obj = _evidence_classify(evidence_payload)
+        evidence_email = _build_evidence_email(classification_obj)
+        evidence_audit = _build_evidence_audit(classification_obj)
+        record["evidence_audit"] = evidence_audit
+        persist_lead_record(record, state_root=STATE_ROOT)
+
+        if evidence_email is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Evidence-gated classifier blocked send: {evidence_audit.get('skip_reason', 'unknown')}",
+            )
+
+        # Use the freshly rendered email
+        subject = subject or evidence_email.get("subject", "")
+        email_body = email_body or evidence_email.get("body", "")
+
+    # Block sends that the evidence audit marks as skip or human-review
+    if evidence_audit.get("selected_template") == "skip":
+        raise HTTPException(
+            status_code=422,
+            detail=f"Evidence audit blocks send (skip): {evidence_audit.get('skip_reason', 'unknown')}",
+        )
+    if evidence_audit.get("human_review_required"):
+        raise HTTPException(
+            status_code=422,
+            detail="Evidence audit requires human review before sending",
+        )
+
+    # Send-time claim validation on the final email body
+    try:
+        _validate_email_claims(email_body, evidence_audit)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Derive image flags from evidence audit
+    tmpl = evidence_audit.get("selected_template", "")
+    include_menu_image = tmpl not in (
+        "ramen_ticket_machine_only", "ramen_needs_ticket_machine_photo",
     )
-    include_menu_image = default_email["include_menu_image"]
-    expected_machine_image = default_email["include_machine_image"]
+    expected_machine_image = tmpl in (
+        "ramen_menu_plus_ticket_machine", "ramen_ticket_machine_only",
+        "ramen_needs_ticket_machine_photo",
+    )
     if include_machine_image is None:
         include_machine_image = record.get("outreach_include_machine_image", expected_machine_image)
     if expected_machine_image and not include_machine_image:
@@ -1627,6 +3055,7 @@ async def api_send(lead_id: str, request: Request):
             "status": OUTREACH_STATUS_SENT,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
 
     # Track sent email
@@ -1642,11 +3071,33 @@ async def api_send(lead_id: str, request: Request):
             include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
         ),
+        tailoring_audit=record.get("tailoring_audit") or {},
     )
 
     _log("send_succeeded", f"sends_today={today_sends + 1} test={is_test_send}", lead_id=lead_id)
 
     return {"status": "test_sent" if is_test_send else "sent", "sends_today": today_sends + 1}
+
+
+@app.post("/api/send/{lead_id}")
+async def api_send(lead_id: str, request: Request):
+    """Send outreach email via Resend."""
+    body = await request.json()
+    if "email" in body and not str(body.get("email") or "").strip():
+        raise HTTPException(status_code=400, detail="Email address required")
+    if "subject" in body and not str(body.get("subject") or "").strip():
+        raise HTTPException(status_code=400, detail="Subject required")
+    if "body" in body and not str(body.get("body") or "").strip():
+        raise HTTPException(status_code=400, detail="Email body required")
+    return await _send_lead_email_payload(
+        lead_id,
+        email=body.get("email", ""),
+        subject=body.get("subject", ""),
+        email_body=body.get("body", ""),
+        asset_paths=body.get("assets"),
+        include_machine_image=body.get("include_machine_image"),
+        require_send_ready=True,
+    )
 
 
 @app.get("/api/sent")
@@ -1656,6 +3107,7 @@ async def api_sent():
     if not sent_dir.exists():
         return []
     results = []
+    reply_summaries = _reply_summaries_by_lead()
     for path in sorted(sent_dir.glob("*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
         if (
@@ -1664,6 +3116,15 @@ async def api_sent():
             or not _is_lead_business_recipient(str(data.get("lead_id") or ""), str(data.get("to") or ""))
         ):
             continue
+        data["reply_summary"] = reply_summaries.get(str(data.get("lead_id") or ""), {
+            "total": 0,
+            "open": 0,
+            "unread": 0,
+            "latest_received_at": "",
+            "latest_subject": "",
+            "latest_workflow_status": "",
+            "latest_action_label": "",
+        })
         results.append(data)
     return results
 
@@ -1709,6 +3170,7 @@ async def api_reply(lead_id: str, request: Request):
     to_email = body.get("email", "")
     reply_body = body.get("body", "")
     in_reply_to = body.get("in_reply_to", "")
+    reply_id = str(body.get("reply_id") or "").strip()
 
     if not to_email or not reply_body:
         raise HTTPException(status_code=400, detail="Email and body required")
@@ -1718,7 +3180,7 @@ async def api_reply(lead_id: str, request: Request):
     _log("reply_sent", f"to={to_email}", lead_id=lead_id)
 
     try:
-        await _send_email_resend(
+        send_result = await _send_email_resend(
             to=to_email,
             subject=f"Re: {body.get('subject', '')}",
             body=reply_body,
@@ -1734,9 +3196,22 @@ async def api_reply(lead_id: str, request: Request):
         "status": OUTREACH_STATUS_REPLIED,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
 
-    return {"status": "replied"}
+    thread_reply_count = 0
+    if reply_id:
+        thread = _append_operator_reply_to_incoming(
+            reply_id,
+            lead_id=lead_id,
+            to_email=to_email,
+            subject=f"Re: {body.get('subject', '')}",
+            body=reply_body,
+            provider_result=send_result if isinstance(send_result, dict) else {},
+        )
+        thread_reply_count = len((thread or {}).get("operator_replies") or [])
+
+    return {"status": "replied", "reply_id": reply_id, "thread_reply_count": thread_reply_count}
 
 
 @app.post("/api/incoming-reply/{lead_id}")
@@ -1761,6 +3236,13 @@ async def api_incoming_reply(lead_id: str, request: Request):
         business_name=record.get("business_name", ""),
         attachments=body.get("attachments") or body.get("files") or body.get("images"),
     )
+    reply_ids = list(record.get("reply_ids") or [])
+    if incoming["reply_id"] not in reply_ids:
+        reply_ids.append(incoming["reply_id"])
+    record["reply_ids"] = reply_ids
+    record["latest_reply_id"] = incoming["reply_id"]
+    record["latest_reply_intent"] = incoming.get("reply_intent", "")
+    record["latest_reply_next_action"] = (incoming.get("next_action") or {}).get("key", "")
 
     # Check for opt-out tokens in the reply
     opted_out = False
@@ -1778,6 +3260,7 @@ async def api_incoming_reply(lead_id: str, request: Request):
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "note": "Opted out — incoming reply contained opt-out language",
         })
+        record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
         _log("opt_out_detected", lead_id=lead_id)
         return {
@@ -1786,6 +3269,9 @@ async def api_incoming_reply(lead_id: str, request: Request):
             "reply_id": incoming["reply_id"],
             "channel": channel,
         }
+
+    record = _refresh_operator_lead(record)
+    persist_lead_record(record, state_root=STATE_ROOT)
 
     return {
         "status": "ok",
@@ -1808,6 +3294,91 @@ async def api_replies(channel: str | None = None):
         "form_total": sum(1 for reply in all_replies if reply.get("channel") == "form"),
     }
     return {"replies": replies, "counts": counts}
+
+
+@app.get("/api/inbox")
+async def api_inbox(channel: str | None = None, status: str | None = None):
+    """Return enriched inbound replies as operator conversations."""
+    selected_channel = _normalise_reply_channel(channel) if channel else ""
+    selected_status = str(status or "").strip()
+    return _inbox_payload(channel=selected_channel, status=selected_status)
+
+
+@app.post("/api/replies/{reply_id}/workflow")
+async def api_update_reply_workflow(reply_id: str, request: Request):
+    """Update one reply's operator workflow state without losing the raw message."""
+    payload = await request.json()
+    workflow_status = str(payload.get("workflow_status") or payload.get("status") or "").strip()
+    note = str(payload.get("note") or "").strip()
+    return _update_incoming_reply_workflow(reply_id, workflow_status=workflow_status, note=note)
+
+
+@app.get("/api/replies/{reply_id}/assets")
+async def api_reply_assets(reply_id: str):
+    """Return the owner asset inbox for a reply."""
+    from pipeline.production_workflow import load_asset_manifest
+
+    reply = _load_incoming_reply(reply_id)
+    if not reply:
+        raise HTTPException(status_code=404, detail="reply_not_found")
+    manifest = load_asset_manifest(reply_id, state_root=STATE_ROOT)
+    return {"reply_id": reply_id, "assets": manifest.get("assets") or []}
+
+
+@app.post("/api/replies/{reply_id}/assets/{asset_id}/review")
+async def api_review_reply_asset(reply_id: str, asset_id: str, request: Request):
+    """Save the operator-facing asset status: usable, needs better photo, or not needed."""
+    from pipeline.production_workflow import update_asset_operator_status
+
+    payload = await request.json()
+    status = str(payload.get("operator_status") or payload.get("status") or "").strip()
+    note = str(payload.get("note") or "").strip()
+    try:
+        manifest = update_asset_operator_status(
+            reply_id=reply_id,
+            asset_id=asset_id,
+            status=status,
+            note=note,
+            state_root=STATE_ROOT,
+        )
+    except ValueError as exc:
+        status_code = 404 if str(exc) == "asset_not_found" else 422
+        raise HTTPException(status_code=status_code, detail=str(exc))
+    reply = _load_incoming_reply(reply_id)
+    enriched = _enrich_reply_for_inbox(reply or {"reply_id": reply_id})
+    return {"status": "ok", "assets": manifest.get("assets") or [], "reply": enriched}
+
+
+@app.get("/api/replies/{reply_id}/workspace")
+async def api_reply_workspace(reply_id: str):
+    """Return the structured production workspace for a reply."""
+    from pipeline.production_workflow import (
+        build_production_workspace,
+        build_ticket_machine_mapping,
+        extract_structured_menu_content,
+        load_asset_manifest,
+        recheck_package_fit,
+    )
+
+    reply = _load_incoming_reply(reply_id)
+    if not reply:
+        raise HTTPException(status_code=404, detail="reply_not_found")
+    manifest = load_asset_manifest(reply_id, state_root=STATE_ROOT)
+    assets = manifest.get("assets") or []
+    extracted = extract_structured_menu_content(raw_text=str(reply.get("body") or ""), assets=assets)
+    ticket_mapping = build_ticket_machine_mapping(assets=assets)
+    package_fit = recheck_package_fit(
+        assets=assets,
+        current_package_key=str(reply.get("package_key") or ""),
+    )
+    workspace = build_production_workspace(
+        reply=reply,
+        assets=assets,
+        extracted_content=extracted,
+        ticket_mapping=ticket_mapping,
+        package_fit=package_fit,
+    )
+    return {"reply_id": reply_id, "workspace": workspace}
 
 
 # ---------------------------------------------------------------------------
@@ -1904,6 +3475,7 @@ def _handle_email_bounce(
         "note": f"Email bounced: {bounce_type}",
         "bounce_details": details,
     })
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
 
 
@@ -1927,6 +3499,7 @@ def _handle_email_complaint(
         "note": "Spam complaint received via Resend webhook",
         "complaint_details": details,
     })
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
 
 
@@ -1951,6 +3524,7 @@ async def api_mark_unreachable(lead_id: str, request: Request):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "note": note or f"Operator marked as {reason}",
     })
+    record = _refresh_operator_lead(record)
     persist_lead_record(record, state_root=STATE_ROOT)
     _log("marked_unreachable", f"reason={reason}", lead_id=lead_id)
     return {"status": status, "lead_id": lead_id}
@@ -2083,7 +3657,11 @@ async def api_create_order(request: Request):
 
 @app.get("/api/orders/{order_id}")
 async def api_get_order(order_id: str):
-    return _load_order_record(order_id)
+    from pipeline.production_workflow import order_stage_status
+
+    order = _load_order_record(order_id)
+    order["workflow_stages"] = order_stage_status(order, has_reply=bool(order.get("reply_ids")))
+    return order
 
 
 @app.post("/api/orders/{order_id}/quote-sent")
@@ -2189,6 +3767,24 @@ async def api_update_order_intake(order_id: str, request: Request):
     return _write_order_record(order)
 
 
+@app.post("/api/orders/{order_id}/production-qa")
+async def api_record_production_qa(order_id: str, request: Request):
+    """Record the pre-owner-preview QA checklist."""
+    from pipeline.production_workflow import evaluate_pre_owner_preview_qa
+
+    order = _load_order_record(order_id)
+    body = await request.json()
+    qa = evaluate_pre_owner_preview_qa(body if isinstance(body, dict) else {})
+    order["production_qa"] = qa
+    if qa["ok"] and order.get("state") == "in_production":
+        order.setdefault("state_history", []).append({
+            "state": "production_qa_passed",
+            "timestamp": qa["checked_at"],
+            "note": "Pre-owner-preview QA passed",
+        })
+    return _write_order_record(order)
+
+
 @app.post("/api/orders/{order_id}/owner-review")
 async def api_mark_owner_review(order_id: str, request: Request):
     order = _load_order_record(order_id)
@@ -2196,7 +3792,12 @@ async def api_mark_owner_review(order_id: str, request: Request):
     from pipeline.quote import can_approve_production, order_from_dict
 
     ok, blockers = can_approve_production(order_from_dict(order))
+    production_qa = order.get("production_qa") or {}
+    if not bool(production_qa.get("ok")):
+        blockers.append("production_qa_not_passed")
     if not ok:
+        raise HTTPException(status_code=409, detail={"blockers": blockers})
+    if blockers:
         raise HTTPException(status_code=409, detail={"blockers": blockers})
 
     now = datetime.now(timezone.utc).isoformat()
@@ -2206,6 +3807,28 @@ async def api_mark_owner_review(order_id: str, request: Request):
         "timestamp": now,
         "note": str(body.get("note") or "Output sent for owner review"),
     })
+    return _write_order_record(order)
+
+
+@app.post("/api/orders/{order_id}/corrections")
+async def api_create_order_correction(order_id: str, request: Request):
+    """Convert owner correction requests into structured tasks."""
+    from pipeline.production_workflow import build_correction_task
+
+    order = _load_order_record(order_id)
+    body = await request.json()
+    task_type = str(body.get("task_type") or "").strip()
+    try:
+        task = build_correction_task(task_type, body if isinstance(body, dict) else {})
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    corrections = list(order.get("correction_tasks") or [])
+    corrections.append(task)
+    order["correction_tasks"] = corrections
+    revisions = dict(order.get("revisions") or {})
+    if task["task_type"] != "approve_as_is":
+        revisions["current_round"] = int(revisions.get("current_round") or 0) + 1
+    order["revisions"] = revisions
     return _write_order_record(order)
 
 
@@ -2262,9 +3885,24 @@ async def api_mark_order_delivered(order_id: str, request: Request):
     order = _load_order_record(order_id)
     body = await request.json()
     from pipeline.quote import can_approve_package, order_from_dict
+    from pipeline.final_export_qa import delivery_export_qa_blockers
+
+    if "export_qa" in body:
+        order["export_qa"] = body.get("export_qa") or {}
+    if "customer_download_url" in body:
+        order["customer_download_url"] = str(body.get("customer_download_url") or "")
+    if "final_customer_message" in body:
+        order["final_customer_message"] = str(body.get("final_customer_message") or "")
+    if "print_handoff_record" in body:
+        order["print_handoff_record"] = body.get("print_handoff_record") or {}
+    if "hosting_support_record" in body:
+        order["hosting_support_record"] = body.get("hosting_support_record") or {}
 
     ok, blockers = can_approve_package(order_from_dict(order))
+    blockers.extend(delivery_export_qa_blockers(order))
     if not ok:
+        raise HTTPException(status_code=409, detail={"blockers": blockers})
+    if blockers:
         raise HTTPException(status_code=409, detail={"blockers": blockers})
 
     now = datetime.now(timezone.utc).isoformat()
@@ -2333,6 +3971,7 @@ async def api_flag_dnc(lead_id: str, request: Request):
     """Flag or unflag a lead as Do Not Contact."""
     from pipeline.record import load_lead, persist_lead_record
     from pipeline.constants import OUTREACH_STATUS_DO_NOT_CONTACT
+    from pipeline.lead_dossier import ensure_lead_dossier
 
     record = load_lead(lead_id, state_root=STATE_ROOT)
     if not record:
@@ -2358,8 +3997,9 @@ async def api_flag_dnc(lead_id: str, request: Request):
         })
         _log("status_changed", "new (unflagged DNC)", lead_id=lead_id)
 
+    record = ensure_lead_dossier(record)
     persist_lead_record(record, state_root=STATE_ROOT)
-    return {"outreach_status": record["outreach_status"]}
+    return _prepare_lead_for_dashboard(record)
 
 
 @app.post("/api/translate-line")
@@ -2542,6 +4182,8 @@ async def api_build_download(job_id: str):
         raise HTTPException(status_code=404, detail="Build job not found")
     if job.get("review_status") != "approved" or job.get("final_export_status") != "ready":
         raise HTTPException(status_code=409, detail="Package export is not approved yet")
+    if job.get("export_qa_status") != "passed":
+        raise HTTPException(status_code=409, detail="Package export QA has not passed")
     export_path = Path(str(job.get("final_export_path") or ""))
     if not export_path.exists() or not export_path.is_file():
         raise HTTPException(status_code=404, detail="Final export file not found")
@@ -2695,6 +4337,8 @@ async def api_qr_download(job_id: str):
         raise HTTPException(status_code=404, detail="QR job not found")
     if job.get("review_status") != "approved" or job.get("final_export_status") != "ready":
         raise HTTPException(status_code=409, detail="QR package export is not approved yet")
+    if job.get("export_qa_status") != "passed":
+        raise HTTPException(status_code=409, detail="QR package export QA has not passed")
     export_path = Path(str(job.get("final_export_path") or ""))
     if not export_path.exists() or not export_path.is_file():
         raise HTTPException(status_code=404, detail="Final export file not found")
@@ -2835,6 +4479,7 @@ async def _send_email_resend(
     business_name: str = "",
 ) -> dict:
     """Send an email via Resend with CID-embedded inline images + PDF attachments."""
+    import asyncio
     import base64
     import resend as _resend
     from pipeline.email_html import (
@@ -2855,11 +4500,15 @@ async def _send_email_resend(
 
     with tempfile.TemporaryDirectory(prefix="wrm-email-") as tmp_dir:
         # Render lead-specific HTML templates to JPEG for CID embedding.
-        # The red seal must match the locked restaurant name for every inline sample.
-        menu_source = _personalised_email_html(menu_html_path, business_name, tmp_dir, "menu") if include_menu_image and menu_html_path else None
-        machine_source = _personalised_email_html(machine_html_path, business_name, tmp_dir, "machine") if include_machine_image and machine_html_path else None
-        menu_jpeg = _ensure_menu_jpeg(menu_source) if menu_source else None
-        machine_jpeg = _ensure_menu_jpeg(machine_source) if machine_source else None
+        # Uses asyncio.to_thread because Playwright's sync API cannot run
+        # inside an async event loop (it raises an error otherwise).
+        menu_jpeg, machine_jpeg = await asyncio.to_thread(
+            _render_inline_jpegs_sync,
+            menu_html_path=menu_html_path if include_menu_image and menu_html_path else None,
+            machine_html_path=machine_html_path if include_machine_image and machine_html_path else None,
+            business_name=business_name,
+            tmp_dir=tmp_dir,
+        )
 
         # Build HTML email body — all images via cid: references
         html_body = build_pitch_email_html(
@@ -2916,6 +4565,23 @@ def _personalised_email_html(source_path: str | None, business_name: str, tmp_di
     output = Path(tmp_dir) / f"{stem}.html"
     output.write_text(html_text, encoding="utf-8")
     return str(output)
+
+
+def _render_inline_jpegs_sync(
+    *,
+    menu_html_path: str | None,
+    machine_html_path: str | None,
+    business_name: str,
+    tmp_dir: str,
+) -> tuple[str | None, str | None]:
+    """Render personalised HTML templates to JPEG (runs in a thread for async safety)."""
+    from pipeline.email_html import _ensure_menu_jpeg
+
+    menu_source = _personalised_email_html(menu_html_path, business_name, tmp_dir, "menu") if menu_html_path else None
+    machine_source = _personalised_email_html(machine_html_path, business_name, tmp_dir, "machine") if machine_html_path else None
+    menu_jpeg = _ensure_menu_jpeg(menu_source) if menu_source else None
+    machine_jpeg = _ensure_menu_jpeg(machine_source) if machine_source else None
+    return menu_jpeg, machine_jpeg
 
 
 # ---------------------------------------------------------------------------
@@ -3019,6 +4685,7 @@ def _save_sent_email(
     classification: str = "",
     test_send: bool = False,
     attachment_metadata: dict[str, Any] | None = None,
+    tailoring_audit: dict[str, Any] | None = None,
 ) -> None:
     """Persist a sent email record."""
     sent_dir = STATE_ROOT / "sent"
@@ -3050,11 +4717,50 @@ def _save_sent_email(
         "inline_attachments": list(attachment_metadata.get("inline_attachments") or []),
         "file_attachments": list(attachment_metadata.get("file_attachments") or []),
         "requested_attachment_paths": list(attachment_metadata.get("requested_assets") or []),
+        "tailoring_audit": tailoring_audit or {},
     }
 
     path = sent_dir / f"{lead_id}_{ts}.json"
     from pipeline.utils import write_json
     write_json(path, record)
+
+
+def _append_operator_reply_to_incoming(
+    reply_id: str,
+    *,
+    lead_id: str,
+    to_email: str,
+    subject: str,
+    body: str,
+    provider_result: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Track dashboard follow-ups on the inbound reply thread."""
+    path = _reply_record_path(reply_id)
+    if not path or not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+    sent_at = datetime.now(timezone.utc).isoformat()
+    operator_replies = list(data.get("operator_replies") or [])
+    operator_replies.append({
+        "lead_id": lead_id,
+        "to": to_email,
+        "subject": subject,
+        "body": body,
+        "sent_at": sent_at,
+        "provider_id": str((provider_result or {}).get("id") or ""),
+    })
+    data["operator_replies"] = operator_replies
+    data["latest_operator_reply_at"] = sent_at
+    if not data.get("read_at"):
+        data["read_at"] = sent_at
+
+    from pipeline.utils import write_json
+    write_json(path, data)
+    return data
 
 
 def _normalise_reply_channel(value: Any) -> str:
@@ -3155,6 +4861,33 @@ def _reply_has_photo_evidence(body: str, attachments: list[dict[str, str]]) -> b
     return (has_photo_word and has_sent_intent) or (has_image_reference and (has_photo_word or "メニュー" in text))
 
 
+def _reply_context_from_lead(lead: dict[str, Any] | None) -> dict[str, str]:
+    if not lead:
+        return {}
+    return {
+        "package_key": str(lead.get("recommended_primary_package") or lead.get("package_key") or ""),
+        "establishment_profile": str(
+            lead.get("establishment_profile_effective")
+            or lead.get("establishment_profile")
+            or ""
+        ),
+        "primary_category_v1": str(lead.get("primary_category_v1") or lead.get("category") or ""),
+    }
+
+
+def _apply_reply_context_from_lead(reply: dict[str, Any], lead: dict[str, Any] | None = None) -> dict[str, Any]:
+    if not lead:
+        lead_id = str(reply.get("lead_id") or "")
+        if lead_id:
+            from pipeline.record import load_lead
+
+            lead = load_lead(lead_id, state_root=STATE_ROOT)
+    for key, value in _reply_context_from_lead(lead).items():
+        if value and not reply.get(key):
+            reply[key] = value
+    return reply
+
+
 def _stored_reply_photo_paths(reply_id: str) -> list[str]:
     if not reply_id:
         return []
@@ -3174,6 +4907,64 @@ def _stored_reply_photo_paths(reply_id: str) -> list[str]:
     return paths
 
 
+def _find_order_for_lead(lead_id: str) -> dict[str, Any] | None:
+    orders_dir = STATE_ROOT / "orders"
+    if not lead_id or not orders_dir.exists():
+        return None
+    matches: list[dict[str, Any]] = []
+    for path in orders_dir.glob("ord-*.json"):
+        try:
+            order = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if str(order.get("lead_id") or "") == lead_id:
+            order["_path"] = str(path)
+            matches.append(order)
+    if not matches:
+        return None
+    matches.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
+    return matches[0]
+
+
+def _attach_reply_to_order(order: dict[str, Any], reply_id: str) -> None:
+    path = Path(str(order.get("_path") or ""))
+    if not path.exists():
+        return
+    reply_ids = list(order.get("reply_ids") or [])
+    if reply_id not in reply_ids:
+        reply_ids.append(reply_id)
+    order["reply_ids"] = reply_ids
+    order["latest_reply_id"] = reply_id
+    order.pop("_path", None)
+    from pipeline.utils import write_json
+    write_json(path, order)
+
+
+def _write_positive_reply_order_intake(reply: dict[str, Any], lead: dict[str, Any] | None, order: dict[str, Any] | None) -> dict[str, Any] | None:
+    from pipeline.constants import PACKAGE_1_KEY
+    from pipeline.production_workflow import build_order_intake_record
+    from pipeline.utils import write_json
+
+    if not bool(reply.get("reply_positive")):
+        return None
+    package_key = str(
+        reply.get("package_key")
+        or (lead or {}).get("recommended_primary_package")
+        or (lead or {}).get("package_key")
+        or PACKAGE_1_KEY
+    )
+    intake = build_order_intake_record(
+        reply=reply,
+        lead=lead,
+        package_key=package_key,
+        order_id=str((order or {}).get("order_id") or ""),
+    )
+    intake["next_action"] = reply.get("next_action") or intake.get("next_action")
+    path = STATE_ROOT / "order_intake" / f"{intake['order_intake_id']}.json"
+    write_json(path, intake)
+    return intake
+
+
 def _save_incoming_reply(
     *,
     lead_id: str,
@@ -3184,9 +4975,13 @@ def _save_incoming_reply(
     business_name: str = "",
     attachments: Any = None,
 ) -> dict[str, Any]:
+    from pipeline.production_workflow import classify_reply_intent, ingest_owner_assets, next_action_for_reply
+    from pipeline.record import load_lead
+
     replies_dir = STATE_ROOT / "replies"
     replies_dir.mkdir(parents=True, exist_ok=True)
 
+    lead = load_lead(lead_id, state_root=STATE_ROOT) if lead_id else None
     created_at = datetime.now(timezone.utc).isoformat()
     reply_id = f"reply-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"
     attachment_meta = _normalise_reply_attachments(attachments, reply_id=reply_id)
@@ -3212,6 +5007,24 @@ def _save_incoming_reply(
         "received_at": created_at,
         "read_at": None,
     }
+    record.update(_reply_context_from_lead(lead))
+    intent = classify_reply_intent(str(body or ""), attachment_meta)
+    record["reply_intent"] = intent["intent"]
+    record["reply_intent_signals"] = intent["signals"]
+    record["reply_positive"] = intent["positive"]
+    asset_manifest = ingest_owner_assets(record, state_root=STATE_ROOT)
+    record["owner_assets"] = {
+        "manifest_path": str(STATE_ROOT / "owner-assets" / reply_id / "manifest.json"),
+        "assets": asset_manifest.get("assets") or [],
+    }
+    record["next_action"] = next_action_for_reply(record, assets=asset_manifest.get("assets") or [])
+    order = _find_order_for_lead(lead_id)
+    if order:
+        record["order_id"] = str(order.get("order_id") or "")
+        _attach_reply_to_order(order, reply_id)
+    intake = _write_positive_reply_order_intake(record, lead, order)
+    if intake:
+        record["order_intake_id"] = intake["order_intake_id"]
 
     from pipeline.utils import write_json
     write_json(replies_dir / f"{reply_id}.json", record)
@@ -3244,6 +5057,23 @@ def _list_incoming_replies(*, channel: str = "") -> list[dict[str, Any]]:
             data["attachments"],
         )
         data["business_name"] = str(data.get("business_name") or "")
+        _apply_reply_context_from_lead(data)
+        try:
+            from pipeline.production_workflow import classify_reply_intent, load_asset_manifest, next_action_for_reply
+            if not data.get("reply_intent"):
+                intent = classify_reply_intent(str(data.get("body") or ""), data["attachments"])
+                data["reply_intent"] = intent["intent"]
+                data["reply_intent_signals"] = intent["signals"]
+                data["reply_positive"] = intent["positive"]
+            manifest = load_asset_manifest(str(data.get("reply_id") or ""), state_root=STATE_ROOT)
+            if manifest.get("assets"):
+                data["owner_assets"] = {
+                    "manifest_path": str(STATE_ROOT / "owner-assets" / str(data.get("reply_id") or "") / "manifest.json"),
+                    "assets": manifest.get("assets") or [],
+                }
+            data["next_action"] = next_action_for_reply(data, assets=(data.get("owner_assets") or {}).get("assets") or [])
+        except Exception:
+            pass
         try:
             from pipeline.qr import assess_reply_qr_readiness
             data.update(assess_reply_qr_readiness(data))
@@ -3281,9 +5111,299 @@ def _load_incoming_reply(reply_id: str) -> dict[str, Any] | None:
     )
     data["photo_count"] = int(data.get("photo_count") or 0)
     data["has_photos"] = bool(data.get("has_photos")) or _reply_has_photo_evidence(str(data.get("body") or ""), data["attachments"])
+    _apply_reply_context_from_lead(data)
+    try:
+        from pipeline.production_workflow import classify_reply_intent, load_asset_manifest, next_action_for_reply
+        if not data.get("reply_intent"):
+            intent = classify_reply_intent(str(data.get("body") or ""), data["attachments"])
+            data["reply_intent"] = intent["intent"]
+            data["reply_intent_signals"] = intent["signals"]
+            data["reply_positive"] = intent["positive"]
+        manifest = load_asset_manifest(str(data.get("reply_id") or ""), state_root=STATE_ROOT)
+        if manifest.get("assets"):
+            data["owner_assets"] = {
+                "manifest_path": str(STATE_ROOT / "owner-assets" / str(data.get("reply_id") or "") / "manifest.json"),
+                "assets": manifest.get("assets") or [],
+            }
+        data["next_action"] = next_action_for_reply(data, assets=(data.get("owner_assets") or {}).get("assets") or [])
+    except Exception:
+        pass
     from pipeline.qr import assess_reply_qr_readiness
     data.update(assess_reply_qr_readiness(data))
     return data
+
+
+REPLY_WORKFLOW_STATUSES = {
+    "new",
+    "needs_reply",
+    "waiting_on_owner",
+    "ready_to_build",
+    "qr_requested",
+    "quote_requested",
+    "objection",
+    "done",
+    "archived",
+}
+
+
+def _reply_record_path(reply_id: str) -> Path | None:
+    safe_id = Path(str(reply_id or "")).name
+    if not safe_id.startswith("reply-"):
+        return None
+    return STATE_ROOT / "replies" / f"{safe_id}.json"
+
+
+def _latest_sent_for_lead(lead_id: str) -> dict[str, Any] | None:
+    sent_dir = STATE_ROOT / "sent"
+    if not lead_id or not sent_dir.exists():
+        return None
+    matches: list[dict[str, Any]] = []
+    for path in sent_dir.glob(f"{lead_id}_*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if data.get("test_send"):
+            continue
+        data["sent_record_id"] = path.stem
+        matches.append(data)
+    if not matches:
+        return None
+    matches.sort(key=lambda item: str(item.get("sent_at") or ""), reverse=True)
+    sent = matches[0]
+    body = str(sent.get("body") or "")
+    return {
+        "sent_record_id": sent.get("sent_record_id", ""),
+        "to": sent.get("to", ""),
+        "subject": sent.get("subject", ""),
+        "sent_at": sent.get("sent_at", ""),
+        "status": sent.get("status", ""),
+        "classification": sent.get("classification", ""),
+        "body_excerpt": body[:420],
+        "requested_attachment_paths": list(sent.get("requested_attachment_paths") or []),
+    }
+
+
+def _reply_next_action(reply: dict[str, Any], lead: dict[str, Any] | None) -> dict[str, str]:
+    try:
+        from pipeline.production_workflow import load_asset_manifest, next_action_for_reply
+
+        assets = (reply.get("owner_assets") or {}).get("assets") or []
+        if not assets and reply.get("reply_id"):
+            assets = load_asset_manifest(str(reply.get("reply_id") or ""), state_root=STATE_ROOT).get("assets") or []
+        order = _find_order_for_lead(str(reply.get("lead_id") or "")) if reply.get("lead_id") else None
+        return next_action_for_reply(reply, assets=assets, order=order)
+    except Exception:
+        pass
+
+    status = str(reply.get("workflow_status") or "").strip()
+    if status in {"done", "archived"}:
+        return {"key": status, "label": "Closed", "detail": "No open operator action."}
+    if lead and str(lead.get("outreach_status") or "") == "do_not_contact":
+        return {"key": "do_not_contact", "label": "Do Not Contact", "detail": "Reply or lead is marked do-not-contact."}
+    if reply.get("qr_ready") is True:
+        return {"key": "create_qr", "label": "Create QR", "detail": "Owner reply has menu photos and QR intent."}
+    if int(reply.get("stored_photo_count") or 0) > 0:
+        return {"key": "create_menu", "label": "Create Menu", "detail": "Stored owner photos are ready for package production."}
+    if reply.get("has_photos") is True:
+        return {"key": "collect_photos", "label": "Collect Photos", "detail": "Photos were mentioned but no stored image is available yet."}
+    if reply.get("qr_requested") is True:
+        return {"key": "request_qr_details", "label": "Request QR Details", "detail": "QR interest is present, but required menu details are missing."}
+    return {"key": "needs_reply", "label": "Reply Needed", "detail": "Open the pitch context and respond from the conversation."}
+
+
+def _reply_workflow_status(reply: dict[str, Any], next_action: dict[str, str]) -> str:
+    stored = str(reply.get("workflow_status") or "").strip()
+    if stored in REPLY_WORKFLOW_STATUSES:
+        return stored
+    key = next_action.get("key", "needs_reply")
+    if key in {"create_menu", "build_sample"}:
+        return "ready_to_build"
+    if key == "review_uploaded_photos":
+        return "ready_to_build"
+    if key == "ask_for_photos":
+        return "waiting_on_owner"
+    if key in {"answer_question", "send_quote"}:
+        return "needs_reply"
+    if key == "close":
+        return "done"
+    if key in {"create_qr", "request_qr_details"}:
+        return "qr_requested"
+    if key == "do_not_contact":
+        return "done"
+    return "needs_reply"
+
+
+def _enrich_reply_for_inbox(reply: dict[str, Any]) -> dict[str, Any]:
+    from pipeline.record import load_lead
+
+    lead_id = str(reply.get("lead_id") or "")
+    raw_lead = load_lead(lead_id, state_root=STATE_ROOT) if lead_id else None
+    lead = _prepare_lead_for_dashboard(raw_lead) if raw_lead else None
+    reply = _apply_reply_context_from_lead(dict(reply), lead)
+    latest_sent = _latest_sent_for_lead(lead_id)
+    next_action = _reply_next_action(reply, lead)
+    workflow_status = _reply_workflow_status(reply, next_action)
+    business_name = str(
+        reply.get("business_name")
+        or (lead or {}).get("business_name")
+        or lead_id
+        or "Unknown restaurant"
+    )
+    _, reply_address = parseaddr(str(reply.get("from") or ""))
+    if not _valid_email(reply_address):
+        reply_address = ""
+    operator_replies = list(reply.get("operator_replies") or [])
+    latest_operator_reply = operator_replies[-1] if operator_replies else {}
+    lead_summary = {
+        "lead_id": lead_id,
+        "business_name": business_name,
+        "city": str((lead or {}).get("city") or ""),
+        "category": str((lead or {}).get("primary_category_v1") or ""),
+        "menu_type_label": str((lead or {}).get("menu_type_label") or ""),
+        "profile_label": str((lead or {}).get("establishment_profile_label") or ""),
+        "establishment_profile": str((lead or {}).get("establishment_profile_effective") or (lead or {}).get("establishment_profile") or ""),
+        "package_key": str((lead or {}).get("recommended_primary_package") or (lead or {}).get("package_key") or ""),
+        "package_label": str((lead or {}).get("recommended_package_label") or ""),
+        "pitch_card_status": str((lead or {}).get("pitch_card_status") or ""),
+        "pitch_card_label": str((lead or {}).get("pitch_card_label") or ""),
+        "review_outcome": str((lead or {}).get("operator_review_outcome") or ""),
+        "outreach_status": str((lead or {}).get("outreach_status") or ""),
+        "launch_readiness_status": str((lead or {}).get("launch_readiness_status") or ""),
+        "primary_contact_label": str((lead or {}).get("primary_contact_label") or ""),
+    }
+    return {
+        **reply,
+        "conversation_id": f"lead:{lead_id}" if lead_id else f"reply:{reply.get('reply_id', '')}",
+        "business_name": business_name,
+        "workflow_status": workflow_status,
+        "next_action": next_action,
+        "lead": lead_summary,
+        "original_pitch": latest_sent or {},
+        "has_original_pitch": bool(latest_sent),
+        "reply_to_email": reply_address,
+        "reply_age_label": _reply_age_label(str(reply.get("received_at") or "")),
+        "operator_reply_count": len(operator_replies),
+        "latest_operator_reply": latest_operator_reply,
+    }
+
+
+def _reply_age_label(received_at: str) -> str:
+    if not received_at:
+        return ""
+    try:
+        received = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    delta = datetime.now(timezone.utc) - received.astimezone(timezone.utc)
+    if delta.days > 0:
+        return f"{delta.days}d old"
+    hours = int(delta.total_seconds() // 3600)
+    if hours > 0:
+        return f"{hours}h old"
+    minutes = max(0, int(delta.total_seconds() // 60))
+    return f"{minutes}m old"
+
+
+def _inbox_payload(*, channel: str = "", status: str = "") -> dict[str, Any]:
+    replies = [_enrich_reply_for_inbox(reply) for reply in _list_incoming_replies(channel=channel)]
+    if status and status != "all":
+        replies = [reply for reply in replies if str(reply.get("workflow_status") or "") == status]
+    all_replies = [_enrich_reply_for_inbox(reply) for reply in _list_incoming_replies()]
+    open_statuses = {"new", "needs_reply", "waiting_on_owner", "ready_to_build", "qr_requested", "quote_requested", "objection"}
+    counts = {
+        "total": len(all_replies),
+        "unread": sum(1 for reply in all_replies if not reply.get("read_at")),
+        "open": sum(1 for reply in all_replies if reply.get("workflow_status") in open_statuses),
+        "needs_reply": sum(1 for reply in all_replies if reply.get("workflow_status") == "needs_reply"),
+        "waiting_on_owner": sum(1 for reply in all_replies if reply.get("workflow_status") == "waiting_on_owner"),
+        "ready_to_build": sum(1 for reply in all_replies if reply.get("workflow_status") == "ready_to_build"),
+        "qr_requested": sum(1 for reply in all_replies if reply.get("workflow_status") == "qr_requested"),
+        "done": sum(1 for reply in all_replies if reply.get("workflow_status") in {"done", "archived"}),
+        "email_total": sum(1 for reply in all_replies if reply.get("channel") == "email"),
+        "form_total": sum(1 for reply in all_replies if reply.get("channel") == "form"),
+    }
+    return {"replies": replies, "counts": counts}
+
+
+def _reply_summaries_by_lead() -> dict[str, dict[str, Any]]:
+    summaries: dict[str, dict[str, Any]] = {}
+    latest_sort_keys: dict[str, datetime] = {}
+    for reply in _list_incoming_replies():
+        lead_id = str(reply.get("lead_id") or "").strip()
+        if not lead_id:
+            continue
+        next_action = _reply_next_action(reply, None)
+        workflow_status = _reply_workflow_status(reply, next_action)
+        summary = summaries.setdefault(lead_id, {
+            "total": 0,
+            "open": 0,
+            "unread": 0,
+            "latest_received_at": "",
+            "latest_subject": "",
+            "latest_workflow_status": "",
+            "latest_action_label": "",
+        })
+        summary["total"] += 1
+        if workflow_status not in {"done", "archived"}:
+            summary["open"] += 1
+        if not reply.get("read_at"):
+            summary["unread"] += 1
+        received_at = str(reply.get("received_at") or "")
+        try:
+            received_key = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+        except ValueError:
+            received_key = datetime.min.replace(tzinfo=timezone.utc)
+        if received_key >= latest_sort_keys.get(lead_id, datetime.min.replace(tzinfo=timezone.utc)):
+            latest_sort_keys[lead_id] = received_key
+            summary["latest_received_at"] = received_at
+            summary["latest_subject"] = str(reply.get("subject") or "")
+            summary["latest_workflow_status"] = workflow_status
+            summary["latest_action_label"] = str(next_action.get("label") or "")
+    return summaries
+
+
+def _attach_reply_summaries(leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    summaries = _reply_summaries_by_lead()
+    empty = {
+        "total": 0,
+        "open": 0,
+        "unread": 0,
+        "latest_received_at": "",
+        "latest_subject": "",
+        "latest_workflow_status": "",
+        "latest_action_label": "",
+    }
+    for lead in leads:
+        lead_id = str(lead.get("lead_id") or "")
+        lead["reply_summary"] = summaries.get(lead_id, dict(empty))
+    return leads
+
+
+def _update_incoming_reply_workflow(reply_id: str, *, workflow_status: str, note: str = "") -> dict[str, Any]:
+    path = _reply_record_path(reply_id)
+    if not path or not path.exists():
+        raise HTTPException(status_code=404, detail="reply_not_found")
+    if workflow_status not in REPLY_WORKFLOW_STATUSES:
+        raise HTTPException(status_code=422, detail="invalid_reply_workflow_status")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="reply_record_invalid")
+
+    now = datetime.now(timezone.utc).isoformat()
+    data["workflow_status"] = workflow_status
+    data["workflow_updated_at"] = now
+    if note:
+        data["operator_note"] = note
+    if not data.get("read_at"):
+        data["read_at"] = now
+    if workflow_status in {"done", "archived"}:
+        data["handled_at"] = now
+    from pipeline.utils import write_json
+    write_json(path, data)
+    enriched = _enrich_reply_for_inbox(_load_incoming_reply(str(data.get("reply_id") or reply_id)) or data)
+    return {"status": "ok", "reply": enriched, "counts": _inbox_payload()["counts"]}
 
 
 def _mark_replies_read(channel: str) -> int:

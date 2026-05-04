@@ -6,7 +6,7 @@
   <!--
     TEMPLATE: qr-code-sign v4c
     STYLE: izakaya — dark warm surface, light text, red vermillion accent
-    SIZE: A6 portrait (105mm × 148mm) — half of ticket machine guide
+    SIZE: A4 portrait for counter or table QR sign
     USE: Table or counter sign for Package 3 (QR menu system)
     AUDIENCE: English-reading tourists only — no kanji
   -->
@@ -191,21 +191,29 @@
       letter-spacing: 0.5px;
     }
 
+    @media (max-width: 760px) {
+      body { padding: 18px 12px; align-items: flex-start; }
+      .sign-wrapper { max-width: 100%; }
+      .sign-panel { padding: 20px; }
+      .qr-area { width: min(72vw, 220px); height: min(72vw, 220px); }
+      .sign-headline { overflow-wrap: anywhere; }
+    }
+
     @media print {
-      @page { size: 105mm 148mm; margin: 0; }
+      @page { size: A4; margin: 0; }
       body { padding: 0; min-height: auto; background: none; }
       .sign-wrapper { max-width: none; width: 100%; height: 100vh; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
-<body>
+<body data-profile="qr_code_sign">
 
 <div class="sign-wrapper">
   <div class="sign-panel">
 
     <div class="seal-mark" aria-hidden="true">
-      <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">博多らーめん亭</span></span>
+      <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">Sample</span></span>
     </div>
 
     <div class="sign-headline" data-slot="sign-headline">Scan for English Menu</div>
@@ -258,6 +266,8 @@
       </svg>
       <span class="scan-hint-text">Point your camera at the code</span>
     </div>
+
+    <p style="margin:16px 0 0;color:#a8a29e;font-size:11px;line-height:1.45;text-align:center;">Illustrative sample only. Final production uses owner-confirmed menu content and owner-provided photos.</p>
 
   </div>
 </div>

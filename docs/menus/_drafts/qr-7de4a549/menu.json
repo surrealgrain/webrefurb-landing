@@ -1,0 +1,79 @@
+{
+  "content_requirements": {
+    "descriptions_required": true,
+    "ingredient_allergen_required": true
+  },
+  "draft": true,
+  "items": [
+    {
+      "allergens": [
+        "soy"
+      ],
+      "approval_status": "owner_approved",
+      "description": "Assorted grilled chicken skewers with tare sauce.",
+      "description_confirmation": {
+        "confirmed_at": "2026-05-03T20:48:12+00:00",
+        "confirmed_by": "Run 8 Operator",
+        "kind": "description",
+        "notes": "",
+        "source": "run8_owner_material",
+        "status": "confirmed_by_owner"
+      },
+      "ingredient_allergen_confirmation": {
+        "confirmed_at": "2026-05-03T20:48:12+00:00",
+        "confirmed_by": "Run 8 Operator",
+        "kind": "ingredient_allergen",
+        "notes": "",
+        "source": "run8_owner_material",
+        "status": "confirmed_by_owner"
+      },
+      "ingredients": [
+        "chicken",
+        "soy"
+      ],
+      "japanese_name": "Yakitori Set",
+      "name": "Grilled Skewers",
+      "photo": "",
+      "price": "JPY 1200",
+      "section": "Skewers",
+      "source_provenance": "run8_owner_material",
+      "source_text": "Yakitori Set"
+    },
+    {
+      "allergens": [],
+      "approval_status": "owner_approved",
+      "description": "Two-hour drink course with last order thirty minutes before closing.",
+      "description_confirmation": {
+        "confirmed_at": "2026-05-03T20:48:12+00:00",
+        "confirmed_by": "Run 8 Operator",
+        "kind": "description",
+        "notes": "",
+        "source": "run8_owner_material",
+        "status": "confirmed_by_owner"
+      },
+      "ingredient_allergen_confirmation": {
+        "confirmed_at": "2026-05-03T20:48:12+00:00",
+        "confirmed_by": "Run 8 Operator",
+        "kind": "ingredient_allergen",
+        "notes": "",
+        "source": "run8_owner_material",
+        "status": "confirmed_by_owner"
+      },
+      "ingredients": [
+        "alcohol"
+      ],
+      "japanese_name": "Nomihodai Course",
+      "name": "Nomihodai Course",
+      "photo": "",
+      "price": "JPY 3500",
+      "section": "Courses",
+      "source_provenance": "run8_owner_material",
+      "source_text": "Nomihodai Course"
+    }
+  ],
+  "menu_id": "run8-qr",
+  "public_url": "https://webrefurb.com/menus/_drafts/qr-7de4a549/",
+  "restaurant_name": "Run 8 Izakaya QR",
+  "ticket_machine": null,
+  "version_id": "draft-20260503204812-bab78b"
+}

@@ -68,6 +68,61 @@ _CHAIN_TOKENS = (
     "multi-location",
     "operator",
 )
+_OPPORTUNISTIC_BAD_EMAIL_TOKENS = (
+    "xxx",
+    "example",
+    "domain.com",
+    "sample.com",
+    "000000",
+    "firebase-adminsdk",
+    "sentry",
+    "wixpress",
+    "gamil.com",
+    "itsari.aleise",
+    "oostende.cultuurstad",
+)
+_OPPORTUNISTIC_DIRECTORY_TITLE_TOKENS = (
+    "おすすめ",
+    "ランキング",
+    "まとめ",
+    "店舗紹介",
+    "一覧",
+    "20選",
+    "ベスト",
+    "特集",
+    "完全ガイド",
+    "県民が選んだ",
+    "食べログ",
+    "ぐるなび",
+    "ホットペッパー",
+)
+_OPPORTUNISTIC_DIRECTORY_HOST_TOKENS = (
+    "timeout.jp",
+    "crossroadfukuoka.jp",
+    "hamoni.jp",
+    "macaro-ni.jp",
+    "retty.me",
+    "youtube.com",
+    "youtu.be",
+    "prtimes.jp",
+    "value-press.com",
+    "ameblo.jp",
+    "news.infoseek.co.jp",
+)
+_OPPORTUNISTIC_WRONG_CATEGORY_NAME_TOKENS = (
+    "551",
+    "蓬莱",
+    "寿司",
+    "寿し",
+    "鮨",
+    "焼肉",
+    "ホルモン",
+    "牛タン",
+    "ビストロ",
+    "ラウンジ",
+    "肉屋",
+    "天然牧草牛",
+)
 
 
 def apply_pitch_card_state(record: dict[str, Any]) -> dict[str, Any]:
@@ -77,6 +132,7 @@ def apply_pitch_card_state(record: dict[str, Any]) -> dict[str, Any]:
     record["pitch_card_reasons"] = reasons
     record["pitch_card_openable"] = status in OPENABLE_PITCH_CARD_STATUSES
     record["pitch_card_label"] = PITCH_CARD_STATUS_LABELS.get(status, status.replace("_", " ").title())
+    record["opportunistic_pitch_candidate"] = is_opportunistic_pitch_candidate(record)
     return record
 
 
@@ -132,6 +188,7 @@ def pitch_card_counts(records: list[dict[str, Any]]) -> dict[str, int]:
     openable = sum(counts[status] for status in OPENABLE_PITCH_CARD_STATUSES)
     return {
         "reviewable_pitch_cards": openable,
+        "opportunistic_pitch_candidates": sum(1 for record in records if is_opportunistic_pitch_candidate(record)),
         "needs_review": counts[PITCH_CARD_NEEDS_EMAIL_REVIEW] + counts[PITCH_CARD_NEEDS_NAME_REVIEW] + counts[PITCH_CARD_NEEDS_SCOPE_REVIEW],
         "hard_blocked": counts[PITCH_CARD_HARD_BLOCKED],
         "unsupported_route": counts[PITCH_CARD_UNSUPPORTED_ROUTE],
@@ -143,6 +200,35 @@ def pitch_card_counts(records: list[dict[str, Any]]) -> dict[str, int]:
 def is_pitch_card_openable(record: dict[str, Any]) -> bool:
     status = str(record.get("pitch_card_status") or assess_pitch_card_state(record)[0])
     return status in OPENABLE_PITCH_CARD_STATUSES
+
+
+def is_opportunistic_pitch_candidate(record: dict[str, Any]) -> bool:
+    """Lower-friction volume lane for no-send pitch prep.
+
+    This deliberately ignores unknown English-menu status, weak source coverage,
+    and missing proof snippets. It only removes records that are bad targets or
+    unsafe to contact.
+    """
+    if record.get("lead") is not True:
+        return False
+    if str(record.get("outreach_status") or "").strip() in _TERMINAL_UNSENDABLE_STATUSES:
+        return False
+    if _hard_block_reasons(record):
+        return False
+    category = str(record.get("primary_category_v1") or record.get("category") or record.get("type_of_restaurant") or "").strip()
+    if category not in {"ramen", "izakaya"}:
+        return False
+    if not _has_supported_route(record):
+        return False
+    if _has_bad_opportunistic_email(record):
+        return False
+    if _looks_like_directory_title(record):
+        return False
+    if _looks_like_wrong_category_name(record):
+        return False
+    if _looks_like_chain_or_unsafe_name(record):
+        return False
+    return True
 
 
 def _hard_block_reasons(record: dict[str, Any]) -> list[str]:
@@ -247,6 +333,49 @@ def _has_email_route(record: dict[str, Any]) -> bool:
         if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
             return True
     return False
+
+
+def _has_bad_opportunistic_email(record: dict[str, Any]) -> bool:
+    emails: list[str] = []
+    if record.get("email"):
+        emails.append(str(record.get("email") or "").strip().lower())
+    for contact in record.get("contacts") or []:
+        if not isinstance(contact, dict) or str(contact.get("type") or "") != "email":
+            continue
+        emails.append(str(contact.get("value") or "").strip().lower())
+    if not emails:
+        return False
+    return all(any(token in email for token in _OPPORTUNISTIC_BAD_EMAIL_TOKENS) for email in emails)
+
+
+def _looks_like_directory_title(record: dict[str, Any]) -> bool:
+    name = str(record.get("business_name") or "")
+    website = str(record.get("website") or "").lower()
+    return (
+        any(token in name for token in _OPPORTUNISTIC_DIRECTORY_TITLE_TOKENS)
+        or any(token in website for token in _OPPORTUNISTIC_DIRECTORY_HOST_TOKENS)
+    )
+
+
+def _looks_like_chain_or_unsafe_name(record: dict[str, Any]) -> bool:
+    name = str(record.get("business_name") or "")
+    try:
+        from .business_name import business_name_is_suspicious
+        from .evidence import has_chain_or_franchise_infrastructure, is_chain_business
+    except Exception:
+        return False
+    if business_name_is_suspicious(name) or is_chain_business(name):
+        return True
+    return has_chain_or_franchise_infrastructure(" ".join([
+        name,
+        str(record.get("website") or ""),
+        " ".join(str(item or "") for item in record.get("evidence_snippets") or []),
+    ]))
+
+
+def _looks_like_wrong_category_name(record: dict[str, Any]) -> bool:
+    name = str(record.get("business_name") or "")
+    return any(token in name for token in _OPPORTUNISTIC_WRONG_CATEGORY_NAME_TOKENS)
 
 
 def _contains_any(text: str, tokens: tuple[str, ...]) -> bool:

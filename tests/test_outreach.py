@@ -12,13 +12,15 @@ from pipeline.outreach import (
     build_outreach_email,
     build_contact_form_pitch,
 )
-from pipeline.email_templates import SUBJECT, LINE_INPERSON, CONTACT_FORM_BODY
-from pipeline.constants import (
-    GENERIC_MACHINE_PDF,
-    GENERIC_MENU_PDF,
-    OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE,
-    OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF,
-    OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF,
+from pipeline.email_templates import (
+    SUBJECT_MENU,
+    SUBJECT_MACHINE,
+    SUBJECT_NOMIHODAI,
+    CONTACT_FORM_BODY,
+    OPT_OUT_JA,
+    OPT_OUT_EN,
+    SIGNATURE_FULL,
+    SENDER_NAME,
 )
 
 
@@ -63,46 +65,22 @@ class TestClassifyBusiness:
 # ---------------------------------------------------------------------------
 
 class TestSelectOutreachAssets:
-    def test_menu_only(self):
-        assets = select_outreach_assets("menu_only")
-        assert assets == [GENERIC_MENU_PDF]
+    """First-contact emails no longer attach PDFs — always returns empty."""
 
-    def test_menu_and_machine(self):
-        assets = select_outreach_assets("menu_and_machine")
-        assert assets == [GENERIC_MENU_PDF, GENERIC_MACHINE_PDF]
+    def test_menu_only_returns_empty(self):
+        assert select_outreach_assets("menu_only") == []
 
-    def test_menu_machine_unconfirmed(self):
-        assets = select_outreach_assets("menu_machine_unconfirmed")
-        assert assets == [GENERIC_MENU_PDF]
+    def test_menu_and_machine_returns_empty(self):
+        assert select_outreach_assets("menu_and_machine") == []
 
-    def test_machine_only_returns_machine_pdf(self):
-        assets = select_outreach_assets("machine_only")
-        assert assets == [GENERIC_MACHINE_PDF]
+    def test_machine_only_returns_empty(self):
+        assert select_outreach_assets("machine_only") == []
 
-    def test_contact_form_returns_no_attachments(self):
-        assets = select_outreach_assets("menu_only", contact_type="contact_form")
-        assert assets == []
+    def test_contact_form_returns_empty(self):
+        assert select_outreach_assets("menu_only", contact_type="contact_form") == []
 
-    def test_ramen_only_profile_uses_one_page_sample(self):
-        assets = select_outreach_assets("menu_only", establishment_profile="ramen_only")
-        assert assets == [OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF]
-
-    def test_izakaya_profile_uses_food_and_drinks_sample(self):
-        assets = select_outreach_assets("menu_only", establishment_profile="izakaya_drink_heavy")
-        assert assets == [OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF]
-
-    def test_specific_izakaya_profiles_use_locked_profile_samples(self):
-        for profile, expected in OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.items():
-            assets = select_outreach_assets("menu_only", establishment_profile=profile)
-            assert assets == [expected]
-
-    def test_profile_samples_use_dark_template_sources_not_legacy_cream_builds(self):
-        assets = [
-            *select_outreach_assets("menu_only", establishment_profile="ramen_only"),
-            *select_outreach_assets("menu_only", establishment_profile="izakaya_yakitori_kushiyaki"),
-        ]
-        assert all("assets/templates" in str(path) for path in assets)
-        assert all("state/builds" not in str(path) for path in assets)
+    def test_with_profile_returns_empty(self):
+        assert select_outreach_assets("menu_only", establishment_profile="ramen_only") == []
 
 
 # ---------------------------------------------------------------------------
@@ -110,20 +88,39 @@ class TestSelectOutreachAssets:
 # ---------------------------------------------------------------------------
 
 class TestBuildOutreachEmail:
-    def test_subject(self):
+    # -- Subject lines -----------------------------------------------------
+
+    def test_ramen_menu_subject(self):
         email = build_outreach_email(
             business_name="テストらーめん",
             classification="menu_only",
+            establishment_profile="ramen_only",
         )
-        assert email["subject"] == "英語注文ガイド制作のご提案（テストらーめん様）"
+        assert email["subject"] == SUBJECT_MENU
 
-    def test_subject_same_for_all_menu_classifications(self):
-        for classification in ("menu_only", "menu_and_machine", "menu_machine_unconfirmed"):
-            email = build_outreach_email(
-                business_name="テスト",
-                classification=classification,
-            )
-            assert email["subject"] == "英語注文ガイド制作のご提案（テスト様）"
+    def test_menu_and_machine_subject(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_and_machine",
+        )
+        assert email["subject"] == SUBJECT_MACHINE
+
+    def test_machine_only_subject(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="machine_only",
+        )
+        assert email["subject"] == SUBJECT_MACHINE
+
+    def test_izakaya_nomihodai_subject(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="izakaya_drink_heavy",
+        )
+        assert email["subject"] == SUBJECT_NOMIHODAI
+
+    # -- Shared structure --------------------------------------------------
 
     def test_business_name_substituted(self):
         email = build_outreach_email(
@@ -133,23 +130,56 @@ class TestBuildOutreachEmail:
         assert "ラーメン二郎" in email["body"]
         assert "ラーメン二郎 ご担当者様" in email["body"]
 
-    def test_inperson_line_present_by_default(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-        )
-        assert LINE_INPERSON in email["body"]
+    def test_body_starts_with_hajimete_gorenraku(self):
+        """All situations use 「初めてご連絡いたします」 (not 突然のご連絡)."""
+        for classification in ("menu_only", "menu_and_machine", "machine_only"):
+            for profile in ("ramen_only", "izakaya_food_and_drinks", "unknown"):
+                email = build_outreach_email(
+                    business_name="テスト",
+                    classification=classification,
+                    establishment_profile=profile,
+                )
+                assert "初めてご連絡いたします。" in email["body"], (
+                    f"Missing standard greeting for classification='{classification}' profile='{profile}'"
+                )
+                assert "突然のご連絡" not in email["body"]
 
-    def test_inperson_line_removed_when_disabled(self):
+    def test_body_contains_sender_name(self):
         email = build_outreach_email(
             business_name="テスト",
             classification="menu_only",
-            include_inperson_line=False,
         )
-        assert LINE_INPERSON not in email["body"]
+        assert "Chris（クリス）" in email["body"]
+
+    def test_body_contains_opt_out(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+        )
+        assert OPT_OUT_JA in email["body"]
+        assert "不要" in email["body"]
+
+    def test_english_body_contains_opt_out(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+        )
+        assert "I will not contact you again" in email["english_body"]
+
+    def test_body_contains_full_signature(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+        )
+        assert SIGNATURE_FULL in email["body"]
 
     def test_body_never_mentions_ai(self):
-        for classification in ("menu_only", "menu_and_machine", "menu_machine_unconfirmed"):
+        import re
+        forbidden = (
+            r"\bai\b", "artificial intelligence", "automation", "automated",
+            "software", "machine learning", "llm", "gpt",
+        )
+        for classification in ("menu_only", "menu_and_machine", "machine_only"):
             for profile in ("ramen_only", "izakaya_food_and_drinks", "unknown"):
                 email = build_outreach_email(
                     business_name="テスト",
@@ -157,102 +187,11 @@ class TestBuildOutreachEmail:
                     establishment_profile=profile,
                 )
                 body_lower = email["body"].lower()
-                for token in ("ai", "artificial intelligence", "automation", "automated", "software", "machine learning", "llm", "gpt"):
-                    assert token not in body_lower, f"Found '{token}' in body for classification='{classification}' profile='{profile}'"
-
-    def test_body_contains_shared_locked_text(self):
-        """All situations share the same greeting, intro core, and closing."""
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-        )
-        assert "突然のご連絡にて失礼いたします。" in email["body"]
-        assert "Chris（クリス）と申します。" in email["body"]
-        assert "仕上がりのイメージをご覧いただくためのものです。" in email["body"]
-        assert "不要" in email["body"]
-
-    def test_email_includes_sender_contact_and_opt_out(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-            establishment_profile="ramen_only",
-        )
-
-        assert "送信者：Chris（クリス） / WebRefurb" in email["body"]
-        assert "連絡先：chris@webrefurb.com / https://webrefurb.com/ja" in email["body"]
-        assert "不要" in email["body"]
-        assert "Sender: Chris / WebRefurb" in email["english_body"]
-        assert "Contact: chris@webrefurb.com / https://webrefurb.com/ja" in email["english_body"]
-        assert "I will not contact you again" in email["english_body"]
-
-    def test_subject_contains_placeholder(self):
-        assert "{店名}" in SUBJECT
-
-    def test_contact_form_pitch_uses_locked_body(self):
-        pitch = build_contact_form_pitch()
-        assert pitch["channel"] == "form"
-        assert pitch["body"] == CONTACT_FORM_BODY
-        assert "突然のご連絡にて失礼いたします。" in pitch["body"]
-        assert "https://webrefurb.com/ja" in pitch["body"]
-        assert "[chris@webrefurb.com](mailto:chris@webrefurb.com)" in pitch["body"]
-        assert "不要" in pitch["body"]
-
-    # -- Situation-specific copy tests -------------------------------------
-
-    def test_ramen_menu_has_ramen_specific_focus(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-            establishment_profile="ramen_only",
-        )
-        assert "注文時に迷いやすい箇所" in email["body"]
-        assert "メニュー内容や注文方法" in email["body"]
-        assert "券売機の有無は公開情報だけでは断定せず" in email["body"]
-        assert email["include_menu_image"] is True
-        assert email["include_machine_image"] is False
-
-    def test_ramen_menu_and_machine_mentions_both(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_and_machine",
-        )
-        assert "ラーメンの種類、トッピング、セット" in email["body"]
-        assert "券売機" in email["body"]
-        assert "ボタン対応" in email["body"]
-        assert email["include_menu_image"] is True
-        assert email["include_machine_image"] is True
-
-    def test_izakaya_menu_has_izakaya_specific_focus(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-            establishment_profile="izakaya_food_and_drinks",
-        )
-        assert "料理、ドリンク、コース内容" in email["body"]
-        assert "卓上で判断" in email["body"]
-        assert "券売機" not in email["body"]
-
-    def test_machine_only_uses_machine_specific_copy(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="machine_only",
-        )
-        assert email["subject"] == "英語注文ガイド制作のご提案（テスト様）"
-        assert "券売機" in email["body"]
-        assert "注文ガイド" in email["body"]
-        assert "メニューのお写真" not in email["body"]
-        assert email["include_menu_image"] is False
-        assert email["include_machine_image"] is True
-
-    def test_unknown_uses_generic_copy(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-            establishment_profile="unknown",
-        )
-        assert "メニュー内容や注文方法" in email["body"]
-        assert "ラーメン" not in email["body"]
-        assert "お料理やドリンク" not in email["body"]
+                for token in forbidden:
+                    if token.startswith(r"\b"):
+                        assert not re.search(token, body_lower), f"Found '{token}' in body for classification='{classification}' profile='{profile}'"
+                    else:
+                        assert token not in body_lower, f"Found '{token}' in body for classification='{classification}' profile='{profile}'"
 
     def test_cold_outreach_does_not_lead_with_all_prices(self):
         email = build_outreach_email(
@@ -269,55 +208,186 @@ class TestBuildOutreachEmail:
         assert "Counter-Ready Ordering Kit" not in combined
         assert "Live QR English Menu" not in combined
 
-    def test_email_starts_with_shop_specific_diagnosis_elements(self):
-        email = build_outreach_email(
-            business_name="テスト",
-            classification="menu_only",
-            establishment_profile="izakaya_drink_heavy",
-            lead_dossier={"english_menu_state": "missing", "izakaya_rules_state": "nomihodai_found"},
-        )
-
-        assert "公開メニューや店舗情報を拝見" in email["body"]
-        assert "飲み放題やコースのルール" in email["body"]
-        assert "確認用サンプル" in email["body"]
-        assert "現在お使いのメニューのお写真" in email["body"]
-
-    def test_unknown_ticket_machine_state_uses_check_phrasing(self):
+    def test_cold_outreach_does_not_mention_lamination_or_delivery(self):
         email = build_outreach_email(
             business_name="テスト",
             classification="menu_only",
             establishment_profile="ramen_only",
-            lead_dossier={"ticket_machine_state": "unknown", "english_menu_state": "missing"},
+        )
+        combined = email["body"] + "\n" + email["english_body"]
+        assert "ラミネート" not in combined
+        assert "lamination" not in combined.lower()
+        assert "配送" not in combined
+        assert "delivery" not in combined.lower()
+
+    def test_cold_outreach_does_not_attach_pdfs(self):
+        """First-contact emails should not reference PDF attachments."""
+        for classification in ("menu_only", "menu_and_machine", "machine_only"):
+            email = build_outreach_email(
+                business_name="テスト",
+                classification=classification,
+            )
+            assert "PDF" not in email["body"]
+            assert "添付" not in email["body"]
+
+    def test_cta_uses_simple_reply_kibou(self):
+        """CTA should be one-word: reply 「希望」."""
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+        )
+        assert "「希望」" in email["body"]
+        assert "「希望」とだけご返信" in email["body"]
+
+    def test_cold_outreach_includes_shop_specific_safe_observation(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+            lead_dossier={
+                "proof_items": [
+                    {
+                        "customer_preview_eligible": True,
+                        "snippet": "醤油ラーメン 味玉 トッピング メニュー",
+                    }
+                ]
+            },
         )
 
-        assert "券売機の有無は公開情報だけでは断定せず" in email["body"]
-        assert "check whether a menu guide, ticket-machine guide, or both are useful" in email["english_body"]
+        assert "醤油ラーメン 味玉 トッピング メニュー" in email["body"]
+        assert "public menu or ordering details" in email["english_body"]
 
-    def test_unknown_english_menu_state_uses_check_phrasing(self):
+    # -- Situation-specific copy -------------------------------------------
+
+    def test_ramen_menu_has_ramen_specific_focus(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+        )
+        assert "ラーメン店向け" in email["body"]
+        assert "ラーメンの種類・トッピング・セット内容" in email["body"]
+        assert "英語表記がメニュー内容や注文方法に対応していると" in email["body"]
+        assert email["include_menu_image"] is True
+        assert email["include_machine_image"] is False
+
+    def test_ramen_menu_and_machine_mentions_both(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_and_machine",
+        )
+        assert "ラーメンの種類、トッピング、セット内容、券売機ボタン" in email["body"]
+        assert "券売機" in email["body"]
+        assert "最新のメニューや券売機のお写真" in email["body"]
+        assert email["include_menu_image"] is True
+        assert email["include_machine_image"] is True
+
+    def test_izakaya_menu_has_izakaya_specific_focus(self):
         email = build_outreach_email(
             business_name="テスト",
             classification="menu_only",
             establishment_profile="izakaya_food_and_drinks",
-            lead_dossier={"english_menu_state": "unknown", "izakaya_rules_state": "drinks_found"},
         )
+        assert "居酒屋向け" in email["body"]
+        assert "料理・ドリンク・コース内容" in email["body"]
+        assert "卓上で判断" in email["body"]
+        assert "券売機" not in email["body"]
+        assert email["include_menu_image"] is True
+        assert email["include_machine_image"] is False
 
-        assert "英語メニューの有無は念のため確認" in email["body"]
-        assert "first check whether you already have complete English ordering support" in email["english_body"]
+    def test_izakaya_nomihodai_has_nomihodai_specific_focus(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="izakaya_drink_heavy",
+        )
+        assert "飲み放題のルール、ラストオーダー" in email["body"]
+        assert "飲み放題・コース内容" in email["body"]
+        assert "個別のご質問を減らすことにもつながります" in email["body"]
+        assert email["subject"] == SUBJECT_NOMIHODAI
+        assert email["include_menu_image"] is True
+        assert email["include_machine_image"] is False
 
-    def test_menu_and_machine_attaches_both_pdfs(self):
-        assets = select_outreach_assets("menu_and_machine")
-        assert GENERIC_MENU_PDF in assets
-        assert GENERIC_MACHINE_PDF in assets
+    def test_izakaya_course_heavy_also_uses_nomihodai(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="izakaya_course_heavy",
+        )
+        assert email["subject"] == SUBJECT_NOMIHODAI
+        assert "飲み放題" in email["body"]
+
+    def test_machine_only_uses_machine_specific_copy(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="machine_only",
+        )
+        assert email["subject"] == SUBJECT_MACHINE
+        assert "券売機" in email["body"]
+        assert "注文ガイド" in email["body"]
+        assert "最新の券売機写真やメニュー写真" in email["body"]
+        assert email["include_menu_image"] is False
+        assert email["include_machine_image"] is True
+
+    def test_unknown_defaults_to_ramen(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="unknown",
+        )
+        assert email["subject"] == SUBJECT_MENU
+        assert "ラーメン店向け" in email["body"]
+
+    def test_ramen_menu_has_graceful_exit(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_only",
+            establishment_profile="ramen_only",
+        )
+        assert "すでに十分な英語メニューをご用意済みでしたら、ご放念ください。" in email["body"]
+
+    def test_machine_only_has_no_graceful_exit(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="machine_only",
+        )
+        assert "ご放念ください" not in email["body"]
+
+    def test_ramen_menu_and_machine_has_no_graceful_exit(self):
+        email = build_outreach_email(
+            business_name="テスト",
+            classification="menu_and_machine",
+        )
+        assert "ご放念ください" not in email["body"]
+
+    # -- Contact form pitch ------------------------------------------------
+
+    def test_contact_form_pitch_uses_locked_body(self):
+        pitch = build_contact_form_pitch()
+        assert pitch["channel"] == "form"
+        assert pitch["body"] == CONTACT_FORM_BODY
+        assert "Chris（クリス）" in pitch["body"]
+
+    def test_contact_form_pitch_with_url_uses_custom_body(self):
+        pitch = build_contact_form_pitch(sample_menu_url="https://example.com/sample")
+        assert pitch["channel"] == "form"
+        assert "https://example.com/sample" in pitch["body"]
+        assert "ご確認いただけます" in pitch["body"]
+        assert "突然のご連絡" not in pitch["body"]
+        assert "添付ではなく" in pitch["body"]
+        assert "chris@webrefurb.com" in pitch["body"]
+        assert "希望" in pitch["body"]
 
 
 class TestBuildManualOutreachMessage:
     @pytest.mark.parametrize(
-        ("channel", "expected_label", "expected_phrase"),
+        ("channel", "expected_label"),
         [
-            ("contact_form", "Contact Form Message", "https://webrefurb.com/ja"),
+            ("contact_form", "Contact Form Message"),
         ],
     )
-    def test_manual_channels_return_route_specific_copy(self, channel, expected_label, expected_phrase):
+    def test_manual_channels_return_route_specific_copy(self, channel, expected_label):
         draft = build_manual_outreach_message(
             business_name="テスト",
             classification="menu_only",
@@ -326,7 +396,6 @@ class TestBuildManualOutreachMessage:
         assert draft["subject"] == ""
         assert draft["channel"] == channel
         assert draft["channel_label"] == expected_label
-        assert expected_phrase in draft["body"]
 
     @pytest.mark.parametrize("channel", ["line", "instagram", "phone", "walk_in"])
     def test_unsupported_manual_channels_raise(self, channel):

@@ -76,7 +76,7 @@ def test_needs_more_info_enrichment_groups_reviewed_cards_without_promotion(tmp_
         "name_source_enrichment": 1,
         "scope_evidence_enrichment": 1,
     }
-    assert plan["allowed_enrichment_outcomes"] == ["hold", "needs_more_info", "reject"]
+    assert plan["allowed_enrichment_outcomes"] == ["hold", "needs_more_info", "pitch_pack_ready", "reject"]
     assert "send_email" in plan["forbidden_actions"]
     assert plan["required_state"] == {
         "launch_readiness_status": "manual_review",
@@ -85,7 +85,7 @@ def test_needs_more_info_enrichment_groups_reviewed_cards_without_promotion(tmp_
     }
     all_entries = [entry for batch in plan["batches"] for entry in batch["queue"]]
     assert {entry["lead_id"] for entry in all_entries} == {"wrm-email", "wrm-name", "wrm-scope", "wrm-form"}
-    assert all(entry["allowed_outcomes"] == ["hold", "needs_more_info", "reject"] for entry in all_entries)
+    assert all(entry["allowed_outcomes"] == ["hold", "needs_more_info", "pitch_pack_ready", "reject"] for entry in all_entries)
 
 
 def test_needs_more_info_enrichment_writer_creates_json_and_markdown(tmp_path):

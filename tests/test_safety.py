@@ -312,8 +312,10 @@ class TestSendSafetyGuards:
             classification="machine_only",
         )
         body_lower = email["body"].lower()
+        # Strip URLs, emails, and "e-mail:" label to avoid false positives
+        scrubbed = re.sub(r"https?://\S+|mailto:\S+|\S+@\S+|e-mail", " ", body_lower)
         for token in ("ai", "automation", "llm", "gpt"):
-            assert token not in body_lower
+            assert token not in scrubbed
 
         for channel in ("contact_form",):
             draft = build_manual_outreach_message(
@@ -342,8 +344,8 @@ class TestSendSafetyGuards:
         """
         import inspect
         pytest.importorskip("fastapi")
-        from dashboard.app import api_send
-        source = inspect.getsource(api_send)
+        from dashboard.app import _send_lead_email_payload
+        source = inspect.getsource(_send_lead_email_payload)
         # The send call is inside a try block; status update comes after
         try_pos = source.index("try:")
         send_pos = source.index("_send_email_resend", try_pos)

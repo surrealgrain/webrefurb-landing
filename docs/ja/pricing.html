@@ -201,8 +201,8 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -241,6 +241,8 @@ body::before {
 .btn-outline {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 10px 20px;
   background: transparent;
   color: var(--text-secondary);
@@ -514,8 +516,8 @@ a:focus-visible {
   }
 
   .theme-toggle {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .main {
@@ -545,7 +547,8 @@ a:focus-visible {
   }
 
   .btn-outline {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
   }
 
@@ -558,10 +561,6 @@ a:focus-visible {
 </style>
 </head>
 <body>
-
-<!-- Ambient blobs -->
-<div class="ambient-blob ambient-blob--1" aria-hidden="true"></div>
-<div class="ambient-blob ambient-blob--2" aria-hidden="true"></div>
 
 <!-- Navigation -->
 <nav class="nav" aria-label="メインナビゲーション">
@@ -590,7 +589,7 @@ a:focus-visible {
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
-    <a class="btn-outline" href="/ja/pricing.html">料金</a>
+    <a class="btn-outline" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">無料サンプル</a>
   </div>
 </nav>
 
@@ -627,6 +626,7 @@ a:focus-visible {
       </div>
     </div>
     <p class="pricing-section__note">納品前の店舗確認と修正1回を含みます。メニューのページ数が多い場合、追加部数、複数プランの組み合わせなどは別途お見積もりいたします。価格・アレルギー表記は店舗確認後のみ掲載します。</p>
+    <p class="pricing-section__note"><a class="footer__link" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">無料サンプルをご希望の場合はこちらからご連絡ください。</a></p>
   </section>
 
   <!-- Footer -->

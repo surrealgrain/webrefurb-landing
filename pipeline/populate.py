@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-import re
-from html import escape as html_esc
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -141,87 +139,16 @@ def populate_menu_html(
     output_path: Path,
     business_name: str | None = None,
 ) -> Path:
-    from .render import replace_seal_text, _replace_section, _replace_panel_title
+    from .render import render_template_html
 
-    html = template_path.read_text(encoding="utf-8")
-
-    # Replace panel title
-    for panel_key in ("food", "drinks"):
-        panel_id = f"{panel_key}-panel"
-        panel_data = data.get(panel_key)
-        if panel_data:
-            html = _replace_panel_title(html, panel_id, panel_data.get("title", ""))
-
-    # Replace section content (headings + items) — handles v1/v2/v3 templates
-    show_prices = bool(data.get("show_prices"))
-    for panel_key in ("food", "drinks"):
-        panel_data = data.get(panel_key)
-        if not panel_data:
-            continue
-        for section in panel_data.get("sections", []):
-            html = _replace_section(
-                html,
-                section.get("data_section", ""),
-                section.get("heading", "") or section.get("title", ""),
-                section.get("items", []),
-                sub=section.get("sub", ""),
-                show_prices=show_prices,
-            )
-
-    # Also handle flat top-level sections (when data has sections but not food/drinks)
-    if not data.get("food") and not data.get("drinks"):
-        for section in data.get("sections", []):
-            html = _replace_section(
-                html,
-                section.get("data_section", ""),
-                section.get("heading", "") or section.get("title", ""),
-                section.get("items", []),
-                sub=section.get("sub", ""),
-                show_prices=show_prices,
-            )
-
-    # Collect all data_section keys that were provided (for matched-section removal)
-    provided_sections: set[str] = set()
-    for panel_key in ("food", "drinks"):
-        panel_data = data.get(panel_key)
-        if panel_data:
-            for section in panel_data.get("sections", []):
-                ds = section.get("data_section", "")
-                if ds:
-                    provided_sections.add(ds)
-    if not data.get("food") and not data.get("drinks"):
-        for section in data.get("sections", []):
-            ds = section.get("data_section", "")
-            if ds:
-                provided_sections.add(ds)
-
-    # Remove section divs whose data-section was NOT provided
-    all_section_divs = re.findall(
-        r'<div\s+class="section"\s+data-section="([^"]+)"',
-        html,
+    render_data = deepcopy(data)
+    render_data.setdefault("footer_note", "")
+    html = render_template_html(
+        template_path.read_text(encoding="utf-8"),
+        render_data,
+        business_name=business_name,
+        remove_unprovided=True,
     )
-    for ds in all_section_divs:
-        if ds not in provided_sections:
-            html = re.sub(
-                rf'<div\s+class="section"\s+data-section="{re.escape(ds)}">.*?</div>\s*</div>',
-                "",
-                html,
-                count=1,
-                flags=re.DOTALL,
-            )
-
-    # Remove unused drinks-panel if no drinks data
-    if not (data.get("drinks") or {}).get("sections"):
-        html = re.sub(
-            r'<div\s+class="menu-panel"\s+id="drinks-panel">.*?</div>\s*</div>',
-            "",
-            html,
-            count=1,
-            flags=re.DOTALL,
-        )
-
-    if business_name:
-        html = replace_seal_text(html, business_name)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
@@ -313,15 +240,6 @@ def _populate_svg_footer_note(root: ET.Element, data: dict[str, Any]) -> None:
         if "footer-note" in (elem.get("id") or ""):
             elem.text = footer
             break
-
-
-def _replace_html_panel_title(html: str, panel_id: str, title: str) -> str:
-    pattern = re.compile(
-        rf'(<div\s+class="menu-panel"\s+id="{re.escape(panel_id)}">.*?'
-        rf'<h1\s+class="menu-title"\s+data-slot="panel-title">)(.*?)(</h1>)',
-        re.DOTALL,
-    )
-    return pattern.sub(rf"\g<1>{html_esc(title)}\3", html, count=1)
 
 
 def _customer_visible_english(item: dict[str, Any], *, show_prices: bool = False) -> str:

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Izakaya Ordering Preview | WebRefurb Menu</title>
+<style>
+:root {
+  --ink: #182026;
+  --muted: #65727a;
+  --line: #dce3df;
+  --paper: #fafbfa;
+  --panel: #ffffff;
+  --accent: #0f766e;
+  --mark: #9f3a23;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+main { width: min(1160px, calc(100vw - 32px)); margin: 0 auto; padding: 30px 0 42px; }
+.mast {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, .34fr);
+  gap: 22px;
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+}
+.brand { font-size: 12px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 8px 0 0; font-size: clamp(34px, 6vw, 72px); line-height: .95; letter-spacing: 0; max-width: 760px; }
+.note { color: var(--muted); line-height: 1.5; font-size: 14px; }
+.preview-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 18px; margin-top: 22px; align-items: start; }
+figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #101820; }
+figure img { width: 100%; display: block; }
+figcaption { padding: 10px 12px; color: #e2e8e5; font-size: 12px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.checklist { display: grid; gap: 10px; }
+.check {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 13px;
+}
+.num { color: var(--accent); font-weight: 950; font-variant-numeric: tabular-nums; }
+.check strong { display: block; font-size: 14px; margin-bottom: 4px; }
+.check span { color: var(--muted); line-height: 1.45; font-size: 13px; }
+.bar {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--panel);
+}
+.price { font-size: 22px; font-weight: 950; color: var(--mark); }
+.bar span { color: var(--muted); font-size: 13px; }
+@media (max-width: 820px) {
+  main { width: min(100vw - 24px, 680px); padding-top: 18px; }
+  .mast, .preview-grid { grid-template-columns: 1fr; }
+  .bar { display: grid; grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="mast">
+    <div>
+      <div class="brand">WebRefurb Menu</div>
+      <h1>Izakaya Ordering Preview</h1>
+    </div>
+    <p class="note">Illustrative preview for food, drink, course, and nomihodai-heavy menus. Production output is based on owner-provided source material.</p>
+  </header>
+  <section class="preview-grid" aria-label="Izakaya preview">
+    <div>
+      <figure>
+        <img src="../assets/previews/izakaya-food-drinks.png" alt="Izakaya food and drinks English menu preview">
+        <figcaption>Food And Drinks</figcaption>
+      </figure>
+      <div class="bar">
+        <span>Live QR English Menu starts at</span>
+        <div class="price">¥65,000</div>
+      </div>
+    </div>
+    <div class="checklist">
+      <div class="check"><div class="num">01</div><div><strong>Rules stay visible</strong><span>Course timing, drink limits, last order notes, and cover-charge details stay in the review checklist.</span></div></div>
+      <div class="check"><div class="num">02</div><div><strong>Print or QR fit</strong><span>Stable menus can ship as print files; frequently changing drink/course menus fit the hosted QR package.</span></div></div>
+      <div class="check"><div class="num">03</div><div><strong>Owner-controlled source</strong><span>Descriptions, prices, ingredients, and allergen notes wait for owner confirmation before final export.</span></div></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

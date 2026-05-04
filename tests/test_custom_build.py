@@ -29,6 +29,14 @@ from pipeline.populate import build_menu_data, build_ticket_data, layout_item_ca
 from pipeline.models import CustomBuildInput, ExtractedItem, TranslatedItem
 
 
+def _pdf_bytes(width_pt: float = 594.96, height_pt: float = 841.92) -> bytes:
+    return (
+        "%PDF-1.4\n"
+        f"1 0 obj\n<< /Type /Page /MediaBox [0 0 {width_pt:.2f} {height_pt:.2f}] >>\nendobj\n"
+        "%%EOF\n"
+    ).encode("ascii")
+
+
 # ---------------------------------------------------------------------------
 # extract_from_text
 # ---------------------------------------------------------------------------
@@ -394,7 +402,7 @@ class TestCustomerExport:
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+            (output_dir / name).write_bytes(_pdf_bytes())
         (output_dir / "food_menu.html").write_text(
             '<html><body><div class="menu-wrapper"><div class="menu-panel">'
             '<div class="sections-stack"><div class="section" data-section="menu">'
@@ -494,7 +502,10 @@ class TestCustomerExport:
 
     def test_package2_approval_creates_print_pack_zip(self, tmp_path, monkeypatch):
         def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
-            pdf_path.write_bytes(b"%PDF-1.4\n% print pack\n")
+            if getattr(print_profile, "paper_size", "") == "B4":
+                pdf_path.write_bytes(_pdf_bytes(width_pt=708.96, height_pt=1001.04))
+            else:
+                pdf_path.write_bytes(_pdf_bytes())
             return pdf_path
 
         monkeypatch.setattr("pipeline.package_export.html_to_pdf_sync", fake_html_to_pdf_sync)
@@ -609,18 +620,27 @@ class TestCustomerExport:
             build_custom_package(
                 output_dir=tmp_path / "build",
                 menu_data=menu_data,
+                ticket_data=build_ticket_data(
+                    title="TICKET MACHINE GUIDE",
+                    steps=["Insert money", "Choose ramen", "Take ticket", "Give ticket to staff"],
+                    rows=[
+                        {"buttons": [{"en": "Shoyu Ramen", "jp": "醤油ラーメン"}]},
+                    ],
+                ),
                 restaurant_name="Hinode Ramen",
             )
         )
 
         html_outputs = [
             output_dir / "food_menu.html",
+            output_dir / "ticket_machine_guide.html",
         ]
         for html_path in html_outputs:
             assert html_path.exists()
             content = html_path.read_text(encoding="utf-8")
             assert "watermark-overlay" not in content
             assert "SAMPLE" not in content
+            assert "Sample preview only" not in content
 
     def test_package1_review_blocks_non_pdf_export(self, tmp_path):
         output_dir = tmp_path / "build"
@@ -646,7 +666,7 @@ class TestCustomerExport:
         """Write v4c HTML files and menu data for validation tests."""
         output_dir.mkdir(parents=True, exist_ok=True)
         for name in ("food_menu_print_ready.pdf", "drinks_menu_print_ready.pdf"):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+            (output_dir / name).write_bytes(_pdf_bytes())
         (output_dir / "food_menu.html").write_text(food_html, encoding="utf-8")
         (output_dir / "drinks_menu.html").write_text(drinks_html, encoding="utf-8")
         (output_dir / "menu_data.json").write_text(json.dumps(menu_json), encoding="utf-8")
@@ -1029,7 +1049,7 @@ class TestCustomerExport:
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+            (output_dir / name).write_bytes(_pdf_bytes())
         (output_dir / "food_menu.html").write_text(
             '<html><body><div class="menu-wrapper"><div class="menu-panel">'
             '<div class="sections-stack"><div class="section" data-section="ramen">'

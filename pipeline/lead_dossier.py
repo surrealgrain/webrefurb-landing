@@ -21,6 +21,7 @@ from .contact_policy import (
     normalise_contact_actionability,
 )
 from .evidence import has_chain_or_franchise_infrastructure, is_chain_business
+from .operator_state import apply_operator_state, build_contact_policy_evidence
 from .utils import read_json, write_json
 
 
@@ -132,7 +133,15 @@ _MENU_LIKE_TOKENS = (
     "生ビール",
     "ハイボール",
     "日本酒",
+    "焼鳥",
     "焼き鳥",
+    "お造り",
+    "海鮮",
+    "魚介",
+    "もつ鍋",
+    "とりかわ",
+    "地鶏",
+    "鶏料理",
     "刺身",
     "唐揚げ",
     "お品書き",
@@ -240,6 +249,12 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
     proof_items = list(record.get("proof_items") or dossier.get("proof_items") or [])
     reasons: list[str] = []
     category = _record_category(record)
+    persisted_review_reasons = [
+        str(reason)
+        for reason in record.get("launch_readiness_reasons") or []
+        if str(reason).startswith(("entity_quality:", "stale_copy:", "placeholder_email:", "package_rescore:"))
+        or str(reason) == "production_readiness_regeneration_required"
+    ]
 
     if record.get("lead") is not True:
         reasons.append("not_a_binary_true_lead")
@@ -288,9 +303,10 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
             reasons.append("restaurant_email_verification_needs_review")
     if record.get("manual_review_required") is True:
         reasons.append("manual_review_required")
+    reasons.extend(persisted_review_reasons)
 
     if reasons:
-        return READINESS_MANUAL, reasons
+        return READINESS_MANUAL, sorted(set(reasons), key=reasons.index)
     return READINESS_READY, ["qualified_with_safe_proof_and_contact_route"]
 
 
@@ -380,7 +396,8 @@ def _has_japan_location_evidence(text: str) -> bool:
 def ensure_lead_dossier(record: dict[str, Any]) -> dict[str, Any]:
     updated = deepcopy(record)
     _migrate_package_fields(updated)
-    _normalise_contact_actionability(updated)
+    contact_policy_contacts = _normalise_contact_actionability(updated)
+    updated["contact_policy_evidence"] = build_contact_policy_evidence({**updated, "contacts": contact_policy_contacts})
     category = _record_category(updated)
     if category in {"ramen", "izakaya"} and not updated.get("primary_category_v1"):
         updated["primary_category_v1"] = category
@@ -403,7 +420,7 @@ def ensure_lead_dossier(record: dict[str, Any]) -> dict[str, Any]:
         updated["outreach_status"] = OUTREACH_STATUS_DO_NOT_CONTACT
         updated["disqualified_at_hardening"] = True
 
-    return updated
+    return apply_operator_state(updated)
 
 
 def migrate_lead_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
@@ -427,6 +444,9 @@ def migrate_lead_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "contacts",
         "primary_contact",
         "has_supported_contact_route",
+        "contact_policy_evidence",
+        "operator_state",
+        "operator_reason",
     ):
         if before.get(key) != after.get(key):
             changes.append(key)
@@ -603,17 +623,19 @@ def _primary_supported_contact_type(record: dict[str, Any]) -> str:
     return "email" if record.get("email") else ""
 
 
-def _normalise_contact_actionability(record: dict[str, Any]) -> None:
+def _normalise_contact_actionability(record: dict[str, Any]) -> list[dict[str, Any]]:
     contacts = record.get("contacts")
     if not isinstance(contacts, list):
-        return
+        return []
 
     first_supported: dict[str, Any] | None = None
+    policy_contacts: list[dict[str, Any]] = []
     filtered_contacts: list[dict[str, Any]] = []
     for index, contact in enumerate(contacts):
         if not isinstance(contact, dict):
             continue
         contact = normalise_contact_actionability(contact)
+        policy_contacts.append(deepcopy(contact))
         if contact_should_be_omitted_from_routes(contact):
             continue
         filtered_contacts.append(contact)
@@ -628,13 +650,14 @@ def _normalise_contact_actionability(record: dict[str, Any]) -> None:
         primary = normalise_contact_actionability(primary)
         if contact_should_be_omitted_from_routes(primary):
             record["primary_contact"] = deepcopy(first_supported) if first_supported is not None else None
-            return
+            return policy_contacts
         record["primary_contact"] = primary
         if not primary.get("actionable"):
             if first_supported is not None:
                 record["primary_contact"] = deepcopy(first_supported)
     elif first_supported is not None:
         record["primary_contact"] = deepcopy(first_supported)
+    return policy_contacts
 
 
 def _has_multilingual_solution(record: dict[str, Any]) -> bool:

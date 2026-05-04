@@ -86,10 +86,10 @@ def test_review_batch_groups_openable_cards_without_promoting(tmp_path):
     assert queue["wrm-review-form"]["review_lane"] == "contact_form_review"
     assert queue["wrm-review-scope"]["review_lane"] == "scope_review"
     assert queue["wrm-review-email"]["pitch_pack_plan"]["attachment_policy"] == "email_assets_review_only_no_send"
-    assert queue["wrm-review-email"]["pitch_pack_plan"]["route_assets"]
+    assert queue["wrm-review-email"]["pitch_pack_plan"]["route_assets"] == []  # no PDFs on first contact
     assert queue["wrm-review-form"]["pitch_pack_plan"]["attachment_policy"] == "contact_form_no_attachment_no_submit"
     assert queue["wrm-review-form"]["pitch_pack_plan"]["route_assets"] == []
-    assert queue["wrm-review-form"]["pitch_pack_plan"]["glm_reference_assets"]
+    assert queue["wrm-review-form"]["pitch_pack_plan"]["glm_reference_assets"] == []  # no PDFs on first contact
     assert "wrm-reference-phone" not in queue
     assert "wrm-review-reviewed" not in queue
     assert batch["counts"]["review_outcome_counts"]["hold"] == 1
@@ -104,9 +104,9 @@ def test_review_batch_groups_openable_cards_without_promoting(tmp_path):
     assert batch["pitch_pack_plan"]["real_outbound_allowed"] is False
     assert batch["pitch_pack_plan"]["stage"] == "planning_only_no_send"
     assert batch["pitch_pack_plan"]["operator_review_required"] is True
-    assert batch["pitch_pack_plan"]["glm_reference_asset_counts"]
-    assert batch["counts"]["pitch_pack_asset_counts"]
-    assert batch["review_throughput"]["allowed_operator_outcomes"] == ["hold", "needs_more_info", "reject"]
+    assert batch["pitch_pack_plan"]["glm_reference_asset_counts"] == {}  # no PDFs on first contact
+    assert batch["counts"]["pitch_pack_asset_counts"] == {}
+    assert batch["review_throughput"]["allowed_operator_outcomes"] == ["hold", "needs_more_info", "pitch_pack_ready", "reject"]
     assert "set_pitch_ready" in batch["review_throughput"]["forbidden_actions"]
     assert batch["review_throughput"]["required_state"] == {
         "launch_readiness_status": "manual_review",
@@ -119,7 +119,7 @@ def test_review_batch_groups_openable_cards_without_promoting(tmp_path):
         if pack["review_lane"] == "contact_form_review"
     ]
     assert contact_form_packs[0]["route_asset_counts"] == {}
-    assert contact_form_packs[0]["glm_reference_asset_counts"]
+    assert contact_form_packs[0]["glm_reference_asset_counts"] == {}  # no PDFs on first contact
     assert "submit_contact_form" in contact_form_packs[0]["forbidden_actions"]
 
 

@@ -1,7 +1,13 @@
 # WebRefurbMenu
 
 English menu translation pipeline for Japanese ramen and izakaya shops.
-Japan only. Ramen + izakaya only. Three fixed-price packages.
+Scope: Japan only; ramen + izakaya only; packages are ¥30,000 online delivery, ¥45,000 printed + delivered, and ¥65,000 QR menu system.
+
+## Startup Context
+
+- After this file, read `HANDOFF.md` only.
+- Open `PLAN.md`, `PRODUCTION_SIMULATION_TEST_PLAN.md`, raw lead files, or generated reports only when the current task needs that specific detail.
+- Keep handoffs compact: target 40 lines or fewer; replace stale facts; do not append logs, raw data, command output, search counts, or plan text.
 
 ## Quick Commands
 
@@ -9,12 +15,6 @@ Japan only. Ramen + izakaya only. Three fixed-price packages.
 - `.venv/bin/python -m pipeline.cli audit-state` — fail on stale lead assets, poisoned names, or launch-state drift
 - `.venv/bin/python -m pipeline.cli audit-state --repair` — normalize deterministic lead-state drift, then audit again
 - `.venv/bin/python -m pipeline.cli <command>` — CLI entry point
-
-## Scope
-
-- **Market**: Japan only
-- **Categories**: Ramen and izakaya only (v1)
-- **Packages**: ¥30,000 online delivery / ¥45,000 printed + delivered / ¥65,000 QR menu system
 
 ## Rules
 

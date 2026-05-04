@@ -214,8 +214,8 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -258,7 +258,9 @@ body::before {
 .btn-cta {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 20px;
   background: var(--cta-bg);
   color: var(--cta-text);
@@ -300,6 +302,8 @@ body::before {
 .btn-outline {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 10px 20px;
   background: transparent;
   color: var(--text-secondary);
@@ -449,6 +453,130 @@ body::before {
   max-width: 44ch;
   opacity: 0;
   animation: slideUp 0.7s var(--ease-out) 0.6s forwards;
+}
+
+/* Product proof */
+.proof-showcase {
+  width: 100%;
+  max-width: 1200px;
+  margin: 24px auto 0;
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 18px;
+  align-items: stretch;
+  opacity: 0;
+  animation: slideUp 0.8s var(--ease-out) 0.68s forwards;
+}
+
+.proof-copy {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.proof-kicker {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+}
+
+.proof-title {
+  font-family: 'Noto Sans JP', 'Outfit', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.18;
+  color: var(--text);
+}
+
+.proof-copy p:not(.proof-kicker) {
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--text-secondary);
+}
+
+.proof-checks {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin-top: 4px;
+}
+
+.proof-checks li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-tertiary);
+  padding-left: 14px;
+  position: relative;
+}
+
+.proof-checks li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.78em;
+  width: 5px;
+  height: 5px;
+  background: var(--accent-green);
+  border-radius: 50%;
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr 0.7fr;
+  grid-template-rows: 210px 150px;
+  gap: 10px;
+}
+
+.proof-shot {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: #0f0d0b;
+}
+
+.proof-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.proof-shot--ramen {
+  grid-row: span 2;
+}
+
+.proof-shot--ticket img {
+  object-position: center 36%;
+}
+
+.proof-shot--qr-mobile img {
+  object-position: center top;
+}
+
+.proof-shot figcaption {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  right: 10px;
+  display: inline-flex;
+  width: fit-content;
+  max-width: calc(100% - 20px);
+  padding: 6px 8px;
+  background: rgba(12, 12, 11, 0.76);
+  color: #F9F8F5;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 /* ── Divider ── */
@@ -1209,6 +1337,20 @@ a:focus-visible {
     grid-template-columns: repeat(2, 1fr);
     gap: 14px;
   }
+
+  .proof-showcase {
+    grid-template-columns: 1fr;
+  }
+
+  .proof-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 220px 160px 160px;
+  }
+
+  .proof-shot--ramen {
+    grid-column: span 2;
+    grid-row: auto;
+  }
 }
 
 /* ── Mobile ─ */
@@ -1237,8 +1379,8 @@ a:focus-visible {
   }
 
   .theme-toggle {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .main {
@@ -1278,14 +1420,33 @@ a:focus-visible {
     line-height: 1.4;
   }
 
+  .proof-copy {
+    padding: 20px;
+  }
+
+  .proof-title {
+    font-size: 23px;
+  }
+
+  .proof-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, 190px);
+  }
+
+  .proof-shot--ramen {
+    grid-column: auto;
+  }
+
   .btn-cta {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
     max-width: none;
   }
 
   .btn-outline {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
   }
 
@@ -1402,17 +1563,14 @@ a:focus-visible {
   .btn-cta {
     font-size: 10px;
     max-width: 160px;
-    padding: 8px 12px;
+    min-height: 44px;
+    padding: 0 12px;
     gap: 5px;
   }
 }
 </style>
 </head>
 <body>
-
-<!-- Ambient blobs -->
-<div class="ambient-blob ambient-blob--1" aria-hidden="true"></div>
-<div class="ambient-blob ambient-blob--2" aria-hidden="true"></div>
 
 <!-- Navigation -->
 <nav class="nav" aria-label="メインナビゲーション">
@@ -1441,6 +1599,12 @@ a:focus-visible {
       </svg>
     </button>
     <div class="cta-stack">
+      <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">
+        無料サンプル
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
       <a class="btn-pricing-modal" id="pricingModalBtn" href="/ja/pricing.html">
         料金
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1474,6 +1638,41 @@ a:focus-visible {
   <div class="divider" aria-hidden="true">
     <div class="divider__line"></div>
   </div>
+
+  <section class="proof-showcase" aria-label="制作物プレビュー">
+    <div class="proof-copy">
+      <p class="proof-kicker">制作物プレビュー</p>
+      <h2 class="proof-title">お店の注文方法に合わせた英語注文システムを制作します。</h2>
+      <p>ラーメン店の券売機ガイド、居酒屋の料理・ドリンクレイアウト、QR案内サイン、スマホ用英語メニューなど、実際に使いやすい形で制作します。</p>
+      <ul class="proof-checks">
+        <li>納品前の店舗確認と修正1回を含みます。</li>
+        <li>価格・原材料・アレルギー表記は店舗確認後のみ掲載します。</li>
+        <li>本番制作では、現在のメニュー内容と店舗から提供された写真を使用します。</li>
+      </ul>
+    </div>
+    <div class="proof-grid" aria-label="制作物サンプル">
+      <figure class="proof-shot proof-shot--ramen">
+        <img src="../assets/previews/simple-ramen-menu.png" alt="ラーメン英語メニューの制作サンプル">
+        <figcaption>ラーメンメニュー</figcaption>
+      </figure>
+      <figure class="proof-shot proof-shot--ticket">
+        <img src="../assets/previews/ramen-ticket-machine.png" alt="券売機ガイドの制作サンプル">
+        <figcaption>券売機ガイド</figcaption>
+      </figure>
+      <figure class="proof-shot">
+        <img src="../assets/previews/izakaya-food-drinks.png" alt="居酒屋の料理とドリンクレイアウトの制作サンプル">
+        <figcaption>居酒屋 料理・ドリンク</figcaption>
+      </figure>
+      <figure class="proof-shot">
+        <img src="../assets/previews/qr-sign.png" alt="QR英語メニュー案内サインの制作サンプル">
+        <figcaption>QR案内サイン</figcaption>
+      </figure>
+      <figure class="proof-shot proof-shot--qr-mobile">
+        <img src="../assets/previews/qr-mobile-menu.png" alt="スマホ用QR英語メニューの制作サンプル">
+        <figcaption>スマホQRメニュー</figcaption>
+      </figure>
+    </div>
+  </section>
 
   <!-- Bento Grid -->
   <section class="bento-section" aria-label="飲食店向けに、英語の注文資料を分かりやすく制作します。海外からのお客様へのご説明の手間を減らし、お客様ご自身で注文内容をご確認いただけるようにします。">
@@ -1563,6 +1762,12 @@ a:focus-visible {
     <p class="about-section__insight"><span class="about-section__insight--em">注文時のお悩みは、料理や接客に原因があるわけではありません。</span>メニューや注文方法が海外のお客様にとって分かりにくいことから生まれるものです。</p>
     <p class="about-section__insight">WebRefurbでは、お客様の目線に立って、分かりやすく実用的な英語の注文資料や注文ガイドを制作します。テーブル、カウンター、券売機、QRページなど、お店の注文スタイルに合わせて、海外のお客様がすぐに理解できる形に整えます。</p>
     <p class="about-section__insight"><span class="about-section__insight--em">単なるメニュー制作ではありません。</span>実際のメニュー内容やお店の注文方法に合わせて、飲食店でそのまま使いやすい形に仕上げます。</p>
+    <a class="about-section__cta" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">
+      無料サンプルを依頼
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
   </section>
 
   <!-- Footer -->

@@ -40,6 +40,12 @@ class PrintProfile:
         return self.orientation == "landscape"
 
 
+CUSTOM_PAPER_SIZES_MM = {
+    "B4": (250, 353),
+    "B5": (176, 250),
+}
+
+
 def is_valid_pdf(path: Path) -> bool:
     """Return True when path exists and has a PDF file signature."""
     return path.exists() and path.is_file() and path.read_bytes()[:4] == b"%PDF"
@@ -115,14 +121,25 @@ async def html_to_pdf(html_path: Path, pdf_path: Path, *, print_profile: PrintPr
                 )
                 await page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
                 await page.emulate_media(media="print")
-                await page.pdf(
-                    path=str(pdf_path),
-                    format=profile.paper_size,
-                    landscape=profile.landscape,
-                    print_background=True,
-                    prefer_css_page_size=True,
-                    margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
-                )
+                pdf_options = {
+                    "path": str(pdf_path),
+                    "print_background": True,
+                    "prefer_css_page_size": True,
+                    "margin": {"top": "0", "bottom": "0", "left": "0", "right": "0"},
+                }
+                custom_size = CUSTOM_PAPER_SIZES_MM.get(str(profile.paper_size or "").upper())
+                if custom_size:
+                    width_mm, height_mm = custom_size
+                    if profile.landscape:
+                        width_mm, height_mm = height_mm, width_mm
+                    pdf_options.update({
+                        "width": f"{width_mm}mm",
+                        "height": f"{height_mm}mm",
+                        "prefer_css_page_size": False,
+                    })
+                else:
+                    pdf_options.update({"format": profile.paper_size, "landscape": profile.landscape})
+                await page.pdf(**pdf_options)
             finally:
                 await browser.close()
     except Exception as exc:
@@ -237,9 +254,24 @@ async def build_custom_package(
         ticket_pdf_path = output_dir / "ticket_machine_guide_print_ready.pdf"
 
         if machine_src.exists():
-            shutil.copy2(machine_src, ticket_html_out)
-            # Populate ticket machine guide with button data
-            _populate_ticket_machine_html(ticket_html_out, ticket_data, restaurant_name)
+            from .render import render_template_html
+
+            ticket_render_data = dict(ticket_data)
+            ticket_render_data.setdefault("profile", "ticket_machine_guide")
+            ticket_render_data.setdefault("footer_note", "")
+            ticket_render_data["ticket_machine_mapping"] = {
+                "steps": ticket_data.get("steps") or [],
+                "rows": ticket_data.get("rows") or [],
+            }
+            ticket_html_out.write_text(
+                render_template_html(
+                    machine_src.read_text(encoding="utf-8"),
+                    ticket_render_data,
+                    business_name=restaurant_name or None,
+                    remove_unprovided=True,
+                ),
+                encoding="utf-8",
+            )
             await html_to_pdf(
                 ticket_html_out, ticket_pdf_path,
                 print_profile=PrintProfile(paper_size="A5"),
@@ -250,79 +282,3 @@ async def build_custom_package(
     write_json(menu_json_out, menu_data)
 
     return output_dir
-
-
-def _populate_ticket_machine_html(
-    html_path: Path, data: dict[str, Any], restaurant_name: str | None,
-) -> None:
-    """Populate the v4c ticket machine guide HTML with button data."""
-    import re
-    from html import escape as esc
-
-    html = html_path.read_text(encoding="utf-8")
-
-    # Replace seal text
-    if restaurant_name:
-        from .render import replace_seal_text
-        html = replace_seal_text(html, restaurant_name)
-
-    # Replace guide title
-    title = str(data.get("title") or "").strip()
-    if title:
-        html = re.sub(
-            r'(<h1\s+class="guide-title"[^>]*>)(.*?)(</h1>)',
-            rf'\g<1>{esc(title)}\3',
-            html,
-            count=1,
-        )
-
-    # Replace step labels
-    steps = data.get("steps") or []
-    if steps:
-        step_pattern = re.compile(
-            r'(<li\s+class="step">\s*<span\s+class="step-num">.*?</span>)'
-            r'(<span\s+class="step-label">)(.*?)(</span>)',
-        )
-        step_matches = list(step_pattern.finditer(html))
-        for idx, match in enumerate(step_matches):
-            if idx < len(steps):
-                replacement = rf'\g<1>\g<2>{esc(steps[idx])}\4'
-                html = html[:match.start()] + step_pattern.sub(
-                    replacement, html[match.start():], count=1,
-                )
-
-    # Replace button labels — find all machine-btn elements and update text
-    # Flatten buttons from rows
-    all_buttons: list[dict[str, str]] = []
-    for row in data.get("rows") or []:
-        for btn in row.get("buttons") or []:
-            if isinstance(btn, dict):
-                all_buttons.append(btn)
-            else:
-                all_buttons.append({"en": str(btn), "jp": ""})
-
-    if all_buttons:
-        # Find existing button slots
-        btn_pattern = re.compile(
-            r'(<div\s+class="machine-btn"[^>]*>\s*)'
-            r'(?:<span\s+class="best-tag"[^>]*>[^<]*</span>\s*)?'
-            r'<span\s+class="btn-en">)([^<]*)(</span>\s*'
-            r'<span\s+class="btn-jp">)([^<]*)(</span>)',
-        )
-        existing = list(btn_pattern.finditer(html))
-        for idx, match in enumerate(existing):
-            if idx < len(all_buttons):
-                btn = all_buttons[idx]
-                en = btn.get("en", btn.get("english_name", ""))
-                jp = btn.get("jp", btn.get("japanese_name", ""))
-                # Keep best-tag if present
-                best_tag = '<span class="best-tag">Popular</span>\n          ' if idx == 0 else ""
-                replacement = (
-                    rf'\g<1>{best_tag}<span class="btn-en">{esc(en)}</span>\g<3>'
-                    rf'{esc(jp)}\g<5>'
-                )
-                html = html[:match.start()] + btn_pattern.sub(
-                    replacement, html[match.start():], count=1,
-                )
-
-    html_path.write_text(html, encoding="utf-8")

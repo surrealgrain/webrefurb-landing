@@ -671,7 +671,8 @@ def _playwright_dashboard_flow(
 
 def _open_preview(page: Any, record: dict[str, Any]) -> None:
     lead_id = str(record["lead_id"])
-    card = page.locator(f'[data-lead-id="{lead_id}"]')
+    _switch_dashboard_mode_for_record(page, record)
+    card = page.locator(f'.lead-card[data-lead-id="{lead_id}"]')
     card.locator("button.btn-secondary").first.click()
     page.locator("#preview-modal[open]").wait_for(timeout=20000)
     page.locator("#jp-preview").wait_for(timeout=20000)
@@ -687,7 +688,8 @@ def _card_screenshot(
     expected: str,
 ) -> None:
     lead_id = str(record["lead_id"])
-    locator = page.locator(f'[data-lead-id="{lead_id}"]')
+    _switch_dashboard_mode_for_record(page, record)
+    locator = page.locator(f'.lead-card[data-lead-id="{lead_id}"]')
     path = screenshot_dir / filename
     locator.screenshot(path=str(path))
     manifest.append({
@@ -697,6 +699,15 @@ def _card_screenshot(
         "expected_assertion": expected,
         "actual_assertion": "card captured",
     })
+
+
+def _switch_dashboard_mode_for_record(page: Any, record: dict[str, Any]) -> None:
+    readiness = str(record.get("launch_readiness_status") or "")
+    mode = "review"
+    if readiness == "disqualified":
+        mode = "skip"
+    page.evaluate("mode => window.setLeadQueueMode(mode)", mode)
+    page.locator("#lead-list").wait_for(timeout=10000)
 
 
 def _screenshot(
@@ -772,7 +783,7 @@ def _dashboard_records_by_actual(records: list[dict[str, Any]], readiness: str) 
 
 def _first_with_asset(records: list[dict[str, Any]], asset_key: str) -> dict[str, Any] | None:
     for record in records:
-        if any(asset_key in str(path) for path in record.get("outreach_assets_selected") or []):
+        if asset_key in _logical_inline_asset_names_for_record(record):
             return record
     return None
 
@@ -922,17 +933,18 @@ def _verify_smoke_acceptance(
                 fix_hint="Generate and review no-send outreach drafts before including the lead in smoke or launch selection.",
             ))
         selected_assets = [Path(str(path)) for path in lead.get("outreach_assets_selected") or []]
+        actual_inline_assets = _logical_inline_asset_names_for_record(lead)
         contact_type = str(((lead.get("primary_contact") or {}).get("type")) or "")
-        if contact_type != "contact_form" and not selected_assets:
+        if contact_type != "contact_form" and not actual_inline_assets:
             proof_assets_ok = False
             findings.append(_recommendation_finding(
                 priority="P1",
                 code="SMOKE-PROOF-ASSET-MISSING",
                 lead_id=lead_id,
                 business_name=str(lead.get("business_name") or ""),
-                expected="non-contact-form smoke lead has selected proof/sample assets",
+                expected="non-contact-form smoke lead has inline proof/sample previews",
                 actual=[],
-                fix_hint="Tune outreach asset selection or route contact-form leads through no-attachment copy.",
+                fix_hint="Tune outreach preview image selection before launch selection.",
             ))
         for asset in selected_assets:
             if not asset.exists():
@@ -949,8 +961,7 @@ def _verify_smoke_acceptance(
         label = labels.get(str(lead.get("production_sim_candidate_id") or lead_id))
         if label:
             expected_assets = sorted(label.get("inline_assets_expected") or [])
-            actual_assets = _logical_asset_names([str(path) for path in selected_assets])
-            if expected_assets != actual_assets:
+            if expected_assets != actual_inline_assets:
                 inline_assets_ok = False
                 findings.append(_recommendation_finding(
                     priority="P1",
@@ -958,8 +969,8 @@ def _verify_smoke_acceptance(
                     lead_id=lead_id,
                     business_name=str(lead.get("business_name") or ""),
                     expected=expected_assets,
-                    actual=actual_assets,
-                    fix_hint="Align outreach asset selection with the reviewed label profile before controlled launch selection.",
+                    actual=actual_inline_assets,
+                    fix_hint="Align outreach inline preview selection with the reviewed label profile before controlled launch selection.",
                 ))
         urls = _source_urls_for_smoke_lead(lead)
         if check_live_urls and not urls:
@@ -1081,6 +1092,25 @@ def _logical_asset_names(paths: list[str]) -> list[str]:
         elif name:
             result.append(name)
     return sorted(set(result))
+
+
+def _logical_inline_asset_names_for_record(record: dict[str, Any]) -> list[str]:
+    primary = get_primary_contact(record) or {}
+    if str(primary.get("type") or "") == "contact_form":
+        return []
+    classification = str(record.get("outreach_classification") or "")
+    profile = str(record.get("establishment_profile") or "")
+    category = str(record.get("primary_category_v1") or record.get("category") or "")
+    names: list[str] = []
+    if classification != "machine_only":
+        names.append("izakaya_food_drinks" if profile.startswith("izakaya") or category == "izakaya" else "ramen_food_menu")
+    if (
+        classification in {"menu_and_machine", "machine_only"}
+        or profile == "ramen_ticket_machine"
+        or record.get("machine_evidence_found") is True
+    ):
+        names.append("ticket_machine_guide")
+    return sorted(set(names))
 
 
 def _launch_batch_count(state_root: Path) -> int:

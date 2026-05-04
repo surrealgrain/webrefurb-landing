@@ -1,7 +1,10 @@
 """Mode A: Cold outreach pipeline.
 
-Five situation-based templates keyed on the physical ordering problem:
-  ramen_menu, ramen_menu_and_machine, izakaya_menu, machine_only, unknown.
+Situation-based templates keyed on what evidence we found at each shop:
+  ramen_menu, ramen_menu_and_machine, izakaya_menu, izakaya_nomihodai, machine_only.
+
+Design: lead with their actual menu evidence, one-word CTA (「希望」),
+no PDF attachments on first contact, full business signature.
 """
 
 from __future__ import annotations
@@ -10,10 +13,22 @@ from pathlib import Path
 from typing import Any
 
 from .email_templates import (
-    SUBJECT,
-    MACHINE_ONLY_SUBJECT,
-    LINE_INPERSON,
+    SUBJECT_MENU,
+    SUBJECT_MACHINE,
+    SUBJECT_NOMIHODAI,
     CONTACT_FORM_BODY,
+    OPT_OUT_JA,
+    OPT_OUT_EN,
+    SIGNATURE_FULL,
+    SENDER_NAME,
+    SENDER_EMAIL,
+    SITE_URL,
+    SUBJECT_BY_TEMPLATE,
+    build_menu_topic_phrase,
+    build_evidence_line_ja,
+    build_benefit_line_ja,
+    build_cta_ja,
+    build_graceful_exit_ja,
 )
 from .constants import (
     GENERIC_MACHINE_PDF,
@@ -43,11 +58,14 @@ def _determine_situation(classification: str, establishment_profile: str) -> str
         return "machine_only"
     if classification == "menu_and_machine":
         return "ramen_menu_and_machine"
+    if establishment_profile in {"izakaya_drink_heavy", "izakaya_course_heavy"}:
+        return "izakaya_nomihodai"
     if establishment_profile.startswith("izakaya"):
         return "izakaya_menu"
     if establishment_profile.startswith("ramen"):
         return "ramen_menu"
-    return "unknown"
+    # Unknown establishment — default to ramen (primary business)
+    return "ramen_menu"
 
 
 # ---------------------------------------------------------------------------
@@ -56,108 +74,69 @@ def _determine_situation(classification: str, establishment_profile: str) -> str
 
 _SITUATIONS = {
     "ramen_menu": {
-        "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
-        "intro_en": "My name is Chris, and I create English menus for restaurants.",
-        "focus_ja": (
-            "海外からのお客様にも、ラーメンの種類・トッピング・セットメニューが伝わる英語メニューをお作りしております。\n"
-            "英語メニューがあれば、混雑時でもお客様ご自身で内容をご確認・ご注文いただけるため、スタッフのご負担も減ります。"
-        ),
-        "focus_en": (
-            "I create English menus that clearly convey ramen types, toppings, and set menus to overseas customers.\n"
-            "With an English menu, customers can check the menu and order on their own even during busy hours, reducing the burden on your staff."
-        ),
-        "sample_ja": (
-            "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
-            "実際は貴店のメニューに合わせて制作いたします。"
-        ),
-        "sample_en": (
-            "The attached sample is intended to show the design and finished style.\n"
-            "When creating the actual version, I would prepare it to match your restaurant's menu content."
-        ),
-        "photo_ja": "現在お使いのメニューのお写真をお送りいただけましたら、ご確認用のサンプルをお作りいたします。",
-        "photo_en": "If you are interested, please send photos of your current menu. I will create a sample for your review.",
+        "subject": SUBJECT_MENU,
+        "genre_intro_ja": "ラーメン店向けに英語メニュー制作を行っております、WebRefurbのChris（クリス）と申します。",
+        "genre_intro_en": "My name is Chris from WebRefurb. I create English menus for ramen restaurants.",
+        "evidence_ja": "公開されている貴店メニューを拝見し、ラーメンの種類・トッピング・セット内容などについて、海外のお客様にも内容が伝わりやすい英語表記をご提案できればと思い、ご連絡いたしました。",
+        "evidence_en": "After reviewing your public menu, I believe I can prepare English display labels that help overseas guests easily understand the ramen types, toppings, and set contents.",
+        "benefit_ja": "英語表記がメニュー内容や注文方法に対応していると、お客様が注文前に判断しやすくなり、スタッフの方へのご質問を減らすことにもつながります。",
+        "benefit_en": "When English labels connect to the actual menu items and ordering steps, customers can decide before ordering, reducing the need to ask staff questions.",
+        "cta_ja": "ご希望でしたら、公開されているメニュー情報をもとに、1ページ分の確認用サンプルを無料でお作りします。\nこのメールに「希望」とだけご返信いただければ結構です。",
+        "cta_en": "If you are interested, I can prepare a one-page review sample based on your public menu, free of charge.\nSimply reply to this email with 「希望」 (interested).",
+        "graceful_exit_ja": "すでに十分な英語メニューをご用意済みでしたら、ご放念ください。",
+        "graceful_exit_en": "If you already have a sufficient English menu, please disregard this message.",
     },
     "ramen_menu_and_machine": {
-        "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
-        "intro_en": "My name is Chris, and I create English menus for restaurants.",
-        "focus_ja": (
-            "海外からのお客様にも、ラーメンの種類・トッピング・セットメニューが伝わる英語メニューと、券売機の操作ガイドをお作りしております。\n"
-            "メニューと券売機ガイドが揃えば、混雑時でもお客様が迷わずご注文いただけるようになります。"
-        ),
-        "focus_en": (
-            "I create English menus that clearly convey ramen types, toppings, and set menus, plus English ticket machine guides.\n"
-            "With both a menu and machine guide, customers can order without hesitation even during peak hours."
-        ),
-        "sample_ja": (
-            "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
-            "実際は貴店のメニューと券売機に合わせて制作いたします。"
-        ),
-        "sample_en": (
-            "The attached sample is intended to show the design and finished style.\n"
-            "When creating the actual version, I would prepare it to match your restaurant's menu and ticket machine."
-        ),
-        "photo_ja": "現在お使いのメニューや券売機のお写真をお送りいただけましたら、ご確認用のサンプルをお作りいたします。",
-        "photo_en": "If you are interested, please send photos of your current menu and ticket machine. I will create a sample for your review.",
+        "subject": SUBJECT_MACHINE,
+        "genre_intro_ja": "ラーメン店向けに英語メニュー・英語注文ガイド制作を行っております、WebRefurbのChris（クリス）と申します。",
+        "genre_intro_en": "My name is Chris from WebRefurb. I create English menus and ordering guides for ramen restaurants.",
+        "evidence_ja": "公開されている貴店のメニューと券売機の表示を拝見し、海外のお客様が注文前に確認しやすい英語表記をご提案できればと思い、ご連絡いたしました。",
+        "evidence_en": "After reviewing your public menu and ticket machine display, I believe I can prepare English labels that help overseas guests order with confidence.",
+        "benefit_ja": "ラーメンの種類、トッピング、セット内容、券売機ボタンの表記が英語で対応していると、初めて来店される海外のお客様でも券売機前で迷いにくくなります。",
+        "benefit_en": "When ramen types, toppings, set contents, and ticket machine buttons are clearly labeled in English, first-time overseas visitors can order from the machine with confidence.",
+        "cta_ja": "ご希望でしたら、公開されているメニュー情報をもとに、1ページ分の確認用サンプルを無料でお作りします。\nこのメールに「希望」とだけご返信いただければ結構です。\n\n実際に制作する際は、最新のメニューや券売機のお写真を確認してから進めます。",
+        "cta_en": "If you are interested, I can prepare a one-page review sample based on your public menu.\nSimply reply with 「希望」 (interested).\n\nWhen proceeding with the actual order, I would confirm using your latest menu and machine photos.",
+        "graceful_exit_ja": "",
+        "graceful_exit_en": "",
     },
     "izakaya_menu": {
-        "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
-        "intro_en": "My name is Chris, and I create English menus for restaurants.",
-        "focus_ja": (
-            "海外からのお客様にも、料理やドリンクの内容、コースや飲み放題のルールが伝わる英語メニューをお作りしております。\n"
-            "食材の英語表記もありますので、アレルギーや苦手な食材の確認もお客様ご自身でできます。スタッフの方が個別にご説明する手間も省けます。"
-        ),
-        "focus_en": (
-            "I create English menus that clearly convey food and drink details, course options, and nomihodai rules to overseas customers.\n"
-            "Ingredient labels in English help customers check for allergies and preferences on their own, reducing the time staff spend explaining individually."
-        ),
-        "sample_ja": (
-            "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
-            "実際は貴店のメニューに合わせて制作いたします。"
-        ),
-        "sample_en": (
-            "The attached sample is intended to show the design and finished style.\n"
-            "When creating the actual version, I would prepare it to match your restaurant's menu content."
-        ),
-        "photo_ja": "現在お使いのメニューのお写真をお送りいただけましたら、ご確認用のサンプルをお作りいたします。",
-        "photo_en": "If you are interested, please send photos of your current menu. I will create a sample for your review.",
+        "subject": SUBJECT_MENU,
+        "genre_intro_ja": "居酒屋向けに英語メニュー制作を行っております、WebRefurbのChris（クリス）と申します。",
+        "genre_intro_en": "My name is Chris from WebRefurb. I create English menus for izakaya restaurants.",
+        "evidence_ja": "公開されている貴店メニューを拝見し、料理・ドリンク・コース内容などについて、海外のお客様にも内容が伝わりやすい英語表記をご提案できればと思い、ご連絡いたしました。",
+        "evidence_en": "After reviewing your public menu, I believe I can prepare English display labels that help overseas guests easily understand the food, drinks, and course options.",
+        "benefit_ja": "料理、ドリンク、コース内容が英語で整理されていると、海外のお客様が卓上で判断しやすくなり、スタッフの方へのご質問も減らしやすくなります。",
+        "benefit_en": "When food, drinks, and course details are organized in English, overseas guests can decide at the table, reducing the need to ask staff questions.",
+        "cta_ja": "ご希望でしたら、公開されているメニュー情報をもとに、1ページ分の確認用サンプルを無料でお作りします。\nこのメールに「希望」とだけご返信いただければ結構です。",
+        "cta_en": "If you are interested, I can prepare a one-page review sample based on your public menu, free of charge.\nSimply reply with 「希望」 (interested).",
+        "graceful_exit_ja": "すでに十分な英語メニューをご用意済みでしたら、ご放念ください。",
+        "graceful_exit_en": "If you already have a sufficient English menu, please disregard this message.",
+    },
+    "izakaya_nomihodai": {
+        "subject": SUBJECT_NOMIHODAI,
+        "genre_intro_ja": "居酒屋向けに英語メニュー制作を行っております、WebRefurbのChris（クリス）と申します。",
+        "genre_intro_en": "My name is Chris from WebRefurb. I create English menus for izakaya restaurants.",
+        "evidence_ja": "公開されている貴店メニューを拝見し、料理・ドリンク・飲み放題・コース内容などについて、海外のお客様にも内容が伝わりやすい英語表記をご提案できればと思い、ご連絡いたしました。",
+        "evidence_en": "After reviewing your public menu — including food, drinks, nomihodai, and course content — I believe I can prepare English display labels that help overseas guests understand the full offering.",
+        "benefit_ja": "飲み放題のルール、ラストオーダー、コース内容、追加料金などが英語で整理されていると、海外のお客様が卓上で判断しやすくなり、スタッフの方への個別のご質問を減らすことにもつながります。",
+        "benefit_en": "When nomihodai rules, last order times, course contents, and additional charges are clearly organized in English, overseas guests can decide at the table, and staff spend less time answering individual questions.",
+        "cta_ja": "ご希望でしたら、公開されているメニュー情報をもとに、1ページ分の確認用サンプルを無料でお作りします。\nこのメールに「希望」とだけご返信いただければ結構です。",
+        "cta_en": "If you are interested, I can prepare a one-page review sample based on your public menu, free of charge.\nSimply reply with 「希望」 (interested).",
+        "graceful_exit_ja": "すでに十分な英語メニューをご用意済みでしたら、ご放念ください。",
+        "graceful_exit_en": "If you already have a sufficient English menu, please disregard this message.",
     },
     "machine_only": {
-        "intro_ja": "飲食店向けの英語メニューや注文ガイド制作を行っております、Chris（クリス）と申します。",
-        "intro_en": "My name is Chris, and I create English menus and ordering guides for restaurants.",
-        "focus_ja": (
-            "海外からのお客様にもラーメン屋さんの券売機操作が分かるよう、英語の注文ガイドをお作りしております。\n"
-            "注文ガイドがあれば、混雑時でもお客様ご自身で券売機からご注文いただけるようになります。"
-        ),
-        "focus_en": (
-            "I create English ordering guides that help overseas customers understand ramen shop ticket machine operations.\n"
-            "With an ordering guide, customers can order from the ticket machine themselves, even during busy hours."
-        ),
-        "sample_ja": (
-            "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
-            "実際は貴店の券売機に合わせて制作いたします。"
-        ),
-        "sample_en": (
-            "The attached sample is intended to show the finished style for an ordering guide.\n"
-            "When creating the actual version, I would prepare it to match your restaurant's ticket machine."
-        ),
-        "photo_ja": "現在お使いの券売機のお写真をお送りいただけましたら、ご確認用のサンプルをお作りいたします。",
-        "photo_en": "If you are interested, please send photos of your current ticket machine. I will create a sample for your review.",
-    },
-    "unknown": {
-        "intro_ja": "飲食店向けの英語メニュー制作を行っております、Chris（クリス）と申します。",
-        "intro_en": "My name is Chris, and I create English menus for restaurants.",
-        "focus_ja": "海外からのお客様へのご案内が少しでもスムーズになるよう、英語メニュー制作をお手伝いしております。",
-        "focus_en": "I help make guidance for overseas customers smoother with English menu support.",
-        "sample_ja": (
-            "添付のサンプルは仕上がりのイメージをご覧いただくためのものです。\n"
-            "実際は貴店のメニューに合わせて制作いたします。"
-        ),
-        "sample_en": (
-            "The attached sample is intended to show the design and finished style.\n"
-            "When creating the actual version, I would prepare it to match your restaurant's menu content."
-        ),
-        "photo_ja": "現在お使いのメニューのお写真をお送りいただけましたら、ご確認用のサンプルをお作りいたします。",
-        "photo_en": "If you are interested, please send photos of your current menu. I will create a sample for your review.",
+        "subject": SUBJECT_MACHINE,
+        "genre_intro_ja": "ラーメン店向けに英語メニュー・英語注文ガイド制作を行っております、WebRefurbのChris（クリス）と申します。",
+        "genre_intro_en": "My name is Chris from WebRefurb. I create English menus and ordering guides for ramen restaurants.",
+        "evidence_ja": "公開されている貴店の券売機の表示を拝見し、海外のお客様が注文前に確認しやすい英語注文ガイドをご提案できればと思い、ご連絡いたしました。",
+        "evidence_en": "After reviewing your public ticket machine display, I believe I can prepare an English ordering guide that helps overseas guests order with confidence.",
+        "benefit_ja": "券売機のボタン内容や購入手順が英語で分かると、混雑時でもお客様が自分で注文しやすくなります。",
+        "benefit_en": "When ticket machine buttons and purchase steps are labeled in English, customers can order on their own even during busy periods.",
+        "cta_ja": "ご希望でしたら、券売機横に置ける1ページ分の確認用サンプルを無料でお作りします。\nこのメールに「希望」とだけご返信いただければ結構です。\n\n実際に制作する際は、最新の券売機写真やメニュー写真を確認してから進めます。",
+        "cta_en": "If you are interested, I can prepare a one-page sample that can be placed next to the ticket machine.\nSimply reply with 「希望」 (interested).\n\nWhen proceeding with the actual order, I would confirm using your latest machine and menu photos.",
+        "graceful_exit_ja": "",
+        "graceful_exit_en": "",
     },
 }
 
@@ -181,8 +160,6 @@ def classify_business(qualification: QualificationResult) -> str:
         return "menu_machine_unconfirmed"
     if not has_menu and has_machine:
         return "machine_only"
-    # Default: no specific evidence but still a qualified lead.
-    # Treat as menu-only outreach since menus are almost universal.
     return "menu_only"
 
 
@@ -195,18 +172,13 @@ def select_outreach_assets(
     contact_type: str = "email",
     establishment_profile: str = "unknown",
 ) -> list[Path]:
-    """Return the PDF samples for the given classification and profile."""
-    if contact_type == "contact_form":
-        return []
+    """Return PDF samples for the given classification and profile.
 
-    assets: list[Path] = []
-    menu_sample = _menu_sample_for_profile(establishment_profile, classification)
-    if menu_sample is not None:
-        assets.append(menu_sample)
-
-    if classification in {"menu_and_machine", "machine_only"}:
-        assets.append(GENERIC_MACHINE_PDF)
-    return assets
+    First-contact emails no longer attach PDFs — only inline preview images.
+    This function returns an empty list.  It remains for backward compatibility
+    and can be re-enabled for post-reply follow-ups.
+    """
+    return []
 
 
 def describe_outreach_assets(
@@ -263,10 +235,11 @@ def build_outreach_email(
     business_name: str,
     classification: str,
     establishment_profile: str = "unknown",
-    include_inperson_line: bool = True,
+    include_inperson_line: bool = False,
+    city: str = "",
     lead_dossier: dict[str, Any] | None = None,
 ) -> dict[str, str | bool]:
-    """Build a diagnosis-led cold outreach email from locked templates.
+    """Build a cold outreach email from locked situation templates.
 
     Returns {"subject": str, "body": str, "english_body": str,
     "include_menu_image": bool, "include_machine_image": bool}.
@@ -274,45 +247,38 @@ def build_outreach_email(
     """
     situation = _determine_situation(classification, establishment_profile)
     tmpl = _SITUATIONS[situation]
-    diagnosis_ja, diagnosis_en = _diagnosis_blocks(
-        situation=situation,
-        establishment_profile=establishment_profile,
-        lead_dossier=lead_dossier or {},
-    )
 
-    subject = (
-        MACHINE_ONLY_SUBJECT if situation == "machine_only" else SUBJECT
-    ).replace("{店名}", business_name)
+    subject = tmpl["subject"]
+    observation = _shop_observation(lead_dossier or {})
 
+    # -- Japanese body -------------------------------------------------------
     body = _join_paragraphs([
         f"{business_name} ご担当者様",
-        "突然のご連絡にて失礼いたします。",
-        tmpl["intro_ja"],
-        diagnosis_ja,
-        tmpl["sample_ja"],
-        tmpl["photo_ja"],
-        LINE_INPERSON if include_inperson_line else "",
-        "送信者：Chris（クリス） / WebRefurb",
-        "連絡先：chris@webrefurb.com / https://webrefurb.com/ja",
-        "今後このようなご連絡が不要でしたら、お手数ですが「不要」とご返信ください。",
-        "ご検討いただけますと幸いです。",
+        "初めてご連絡いたします。",
+        tmpl["genre_intro_ja"],
+        tmpl["evidence_ja"],
+        observation["ja"],
+        tmpl["benefit_ja"],
+        tmpl["cta_ja"],
+        tmpl.get("graceful_exit_ja") or "",
+        OPT_OUT_JA,
         "どうぞよろしくお願いいたします。",
-        "Chris（クリス）",
+        SIGNATURE_FULL,
     ])
 
+    # -- English body --------------------------------------------------------
     english_body = _join_paragraphs([
         f"Dear {business_name} team,",
-        "I hope you do not mind my sudden message.",
-        tmpl["intro_en"],
-        diagnosis_en,
-        tmpl["sample_en"],
-        tmpl["photo_en"],
-        "Lamination and direct delivery to your restaurant are also available."
-        if include_inperson_line else "",
-        "Sender: Chris / WebRefurb. Contact: chris@webrefurb.com / https://webrefurb.com/ja. If this is not relevant, please reply and I will not contact you again.",
+        "I hope you do not mind my reaching out.",
+        tmpl["genre_intro_en"],
+        tmpl["evidence_en"],
+        observation["en"],
+        tmpl["benefit_en"],
+        tmpl["cta_en"],
+        tmpl.get("graceful_exit_en") or "",
+        OPT_OUT_EN,
         "Thank you for your consideration.",
-        "I look forward to hearing from you.",
-        "Chris",
+        SENDER_NAME,
     ])
 
     return {
@@ -322,6 +288,162 @@ def build_outreach_email(
         "include_menu_image": situation != "machine_only",
         "include_machine_image": situation
             in ("ramen_menu_and_machine", "machine_only"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Evidence-gated email builder
+# ---------------------------------------------------------------------------
+
+def build_evidence_gated_email(
+    classification: dict[str, Any],
+) -> dict[str, str | bool] | None:
+    """Build an outreach email from an evidence-gated classification.
+
+    Uses the classification object from ``evidence_classifier.classify_lead``
+    to dynamically assemble email content.  Every claim is backed by evidence.
+
+    Returns None if selected_template is "skip".
+    """
+    template = classification["selected_template"]
+    if template == "skip":
+        return None
+
+    allowed = classification["allowed_claims"]
+    business_name = classification["business_name"] or "テスト"
+    restaurant_type = classification["restaurant_type"]
+    topics = classification["observed_menu_topics"]
+
+    # -- Subject ------------------------------------------------------------
+    subject = SUBJECT_BY_TEMPLATE.get(template, SUBJECT_MENU)
+
+    # -- Genre intro --------------------------------------------------------
+    if restaurant_type == "ramen":
+        if template in (
+            "ramen_menu_plus_ticket_machine",
+            "ramen_ticket_machine_only",
+            "ramen_needs_ticket_machine_photo",
+        ):
+            genre_intro = (
+                "ラーメン店向けに英語メニュー・英語注文ガイド制作を行っております、"
+                "WebRefurbのChris（クリス）と申します。"
+            )
+        else:
+            genre_intro = (
+                "ラーメン店向けに英語メニュー制作を行っております、"
+                "WebRefurbのChris（クリス）と申します。"
+            )
+    else:
+        genre_intro = (
+            "居酒屋向けに英語メニュー制作を行っております、"
+            "WebRefurbのChris（クリス）と申します。"
+        )
+
+    # -- Evidence line (dynamic) --------------------------------------------
+    if "mention_public_menu" in allowed:
+        topic_phrase = build_menu_topic_phrase(topics, restaurant_type)
+        evidence_line = build_evidence_line_ja(
+            public_menu_found=True,
+            menu_topic_phrase=topic_phrase,
+            restaurant_type=restaurant_type,
+        )
+    else:
+        evidence_line = ""
+
+    # -- Benefit line (dynamic) ---------------------------------------------
+    benefit_line = build_benefit_line_ja(
+        restaurant_type=restaurant_type,
+        observed_topics=topics,
+        allowed_claims=allowed,
+        template=template,
+    )
+
+    # -- CTA (dynamic) ------------------------------------------------------
+    needs_photo = template.endswith("_needs_menu_photo") or template.endswith("_needs_ticket_machine_photo")
+    cta = build_cta_ja(
+        public_menu_usable=classification["public_menu_usable_for_sample"],
+        ticket_machine_content_usable=classification["ticket_machine_content_usable"],
+        needs_photo=needs_photo,
+        has_ticket_machine="mention_ticket_machine" in allowed,
+        template=template,
+    )
+
+    # -- Graceful exit ------------------------------------------------------
+    graceful = build_graceful_exit_ja(
+        classification["existing_english_menu_quality"]
+    )
+
+    # -- Assemble body ------------------------------------------------------
+    parts = [
+        f"{business_name} ご担当者様",
+        "初めてご連絡いたします。",
+        genre_intro,
+    ]
+    if evidence_line:
+        parts.append(evidence_line)
+    if benefit_line:
+        parts.append(benefit_line)
+    parts.append(cta)
+    if graceful:
+        parts.append(graceful)
+    parts.extend([
+        OPT_OUT_JA,
+        "どうぞよろしくお願いいたします。",
+        SENDER_NAME,
+    ])
+
+    body = _join_paragraphs([p for p in parts if p])
+
+    # -- English body (simplified mirror) -----------------------------------
+    en_parts = [
+        f"Dear {business_name} team,",
+        "I hope you do not mind my reaching out.",
+        f"My name is Chris from WebRefurb. I create English menus for {'ramen shops' if restaurant_type == 'ramen' else 'izakaya'}.",
+    ]
+    if evidence_line:
+        en_parts.append(
+            "After reviewing your public menu, I believe I can prepare "
+            "English display labels that help overseas guests easily "
+            "understand the offerings."
+        )
+    if benefit_line:
+        en_parts.append(
+            "Clear English labels help customers decide before ordering, "
+            "reducing the need to ask staff questions."
+        )
+    en_parts.append(
+        "Simply reply with 「希望」 (interested) and I will prepare "
+        "a one-page sample for your review."
+    )
+    if graceful:
+        en_parts.append(
+            "If you already have a sufficient English menu, "
+            "please disregard this message."
+        )
+    en_parts.extend([
+        OPT_OUT_EN,
+        "Thank you for your consideration.",
+        SENDER_NAME,
+    ])
+
+    english_body = _join_paragraphs([p for p in en_parts if p])
+
+    # -- Image flags --------------------------------------------------------
+    include_menu = template not in (
+        "ramen_ticket_machine_only", "ramen_needs_ticket_machine_photo",
+    )
+    include_machine = template in (
+        "ramen_menu_plus_ticket_machine", "ramen_ticket_machine_only",
+        "ramen_needs_ticket_machine_photo",
+    )
+
+    return {
+        "subject": subject,
+        "body": body,
+        "english_body": english_body,
+        "include_menu_image": include_menu and classification["public_menu_usable_for_sample"],
+        "include_machine_image": include_machine,
+        "classification": classification,
     }
 
 
@@ -347,39 +469,25 @@ def build_manual_outreach_message(
     classification: str,
     channel: str,
     establishment_profile: str = "unknown",
-    include_inperson_line: bool = True,
+    include_inperson_line: bool = False,
     lead_dossier: dict[str, Any] | None = None,
     sample_menu_url: str = "",
     sender_name: str = "Chris（クリス）",
+    city: str = "",
 ) -> dict[str, str | bool]:
     """Build a route-specific manual outreach draft for non-email channels."""
     if channel not in SUPPORTED_MANUAL_CHANNELS:
         raise ValueError(f"Unsupported manual outreach channel: {channel}")
 
-    situation = _determine_situation(classification, establishment_profile)
-    tmpl = _SITUATIONS[situation]
-    diagnosis_ja, diagnosis_en = _diagnosis_blocks(
-        situation=situation,
-        establishment_profile=establishment_profile,
-        lead_dossier=lead_dossier or {},
-    )
-
-    support_line_jp = LINE_INPERSON if include_inperson_line else ""
-    support_line_en = (
-        "I can also handle lamination and delivery to your restaurant."
-        if include_inperson_line else ""
-    )
-    include_menu_image = situation != "machine_only"
-    include_machine_image = situation in ("ramen_menu_and_machine", "machine_only")
+    include_menu_image = False
+    include_machine_image = False
 
     if channel == "contact_form":
-        include_menu_image = False
-        include_machine_image = False
         body = _contact_form_body(sample_menu_url=sample_menu_url, sender_name=sender_name)
         english_body = _join_paragraphs([
             "Hello,",
             f"This is {sender_name} from WebRefurb.",
-            "I reviewed your public menu information and made a one-page sample showing how the English menu could be clearer for overseas guests.",
+            "I reviewed your public menu information and would like to share an English menu sample.",
             f"You can view it here: {sample_menu_url}" if sample_menu_url else "",
             "If you are interested, please reply through this contact form.",
             "No reply is needed if this is not relevant.",
@@ -403,61 +511,46 @@ def build_manual_outreach_message(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _diagnosis_blocks(
-    *,
-    situation: str,
-    establishment_profile: str,
-    lead_dossier: dict[str, Any],
-) -> tuple[str, str]:
-    ticket_state = str(lead_dossier.get("ticket_machine_state") or "unknown")
-    english_state = str(lead_dossier.get("english_menu_state") or "unknown")
-    izakaya_state = str(lead_dossier.get("izakaya_rules_state") or "unknown")
-
-    why_ja = "貴店の公開メニューや店舗情報を拝見し、海外からのお客様が注文時に迷いやすい箇所があるかもしれないと思いご連絡しました。"
-    why_en = "I reviewed your public menu and shop information and noticed there may be ordering points that are difficult for overseas guests."
-
-    if situation == "machine_only":
-        friction_ja = "特に券売機のボタン内容や購入手順が英語で分かると、混雑時でもお客様が自分で注文しやすくなります。"
-        friction_en = "In particular, English guidance for ticket machine buttons and the purchase flow can help guests order on their own during busy periods."
-    elif situation == "ramen_menu_and_machine":
-        friction_ja = "ラーメンの種類、トッピング、セット、券売機のボタン対応が英語でつながると、注文前の確認がかなりスムーズになります。"
-        friction_en = "Connecting ramen types, toppings, sets, and ticket-machine buttons in English makes the pre-order decision much smoother."
-    elif situation == "izakaya_menu":
-        if izakaya_state == "nomihodai_found" or establishment_profile in {"izakaya_drink_heavy", "izakaya_course_heavy"}:
-            friction_ja = "料理・ドリンクだけでなく、飲み放題やコースのルールが英語で分かると、スタッフの個別説明を減らせます。"
-            friction_en = "When drinks, food, nomihodai, and course rules are clear in English, staff spend less time explaining them one by one."
-        else:
-            friction_ja = "料理、ドリンク、コース内容が英語で整理されていると、海外のお客様が卓上で判断しやすくなります。"
-            friction_en = "Clear English structure for food, drinks, and course details helps overseas guests decide at the table."
-    else:
-        friction_ja = "メニュー内容や注文方法が英語で整理されていると、お客様がスタッフに聞く前に自分で判断しやすくなります。"
-        friction_en = "When menu content and ordering steps are organized in English, guests can decide before asking staff for help."
-
-    if ticket_state == "unknown" and establishment_profile.startswith("ramen"):
-        check_ja = "券売機の有無は公開情報だけでは断定せず、必要であればメニュー用と券売機用のどちらが合うか確認して進めます。"
-        check_en = "I would not assume whether you use a ticket machine from public information alone; I would first check whether a menu guide, ticket-machine guide, or both are useful."
-    elif english_state == "unknown":
-        check_ja = "英語メニューの有無は念のため確認し、すでに十分な英語案内がある場合は制作をおすすめしません。"
-        check_en = "I would first check whether you already have complete English ordering support; if you do, I would not recommend extra work."
-    else:
-        check_ja = "小さな確認用サンプルから始め、実際の制作では貴店からいただく最新のメニュー写真に合わせます。"
-        check_en = "I would start with a small review sample and base the actual work on current menu photos from your shop."
-
-    return _join_paragraphs([why_ja, friction_ja, check_ja]), _join_paragraphs([why_en, friction_en, check_en])
-
-
 def _contact_form_body(*, sample_menu_url: str = "", sender_name: str = "Chris（クリス）") -> str:
     if not sample_menu_url:
         return CONTACT_FORM_BODY
 
     return _join_paragraphs([
-        f"突然のご連絡失礼いたします。WebRefurbの{sender_name}です。",
-        "貴店のメニューを拝見し、海外のお客様にも伝わりやすい英語メニューのサンプルを1枚作成しました。",
+        "お問い合わせフォームより失礼いたします。",
+        f"WebRefurbの{sender_name}です。ラーメン店・居酒屋向けに英語メニュー制作を行っております。",
+        "公開されているメニュー情報を拝見し、海外のお客様にも内容が伝わりやすい英語メニュー表記の確認用サンプルを1ページ作成しました。",
         f"添付ではなく、こちらのページからご確認いただけます：\n{sample_menu_url}",
-        "もしご興味がありましたら、このお問い合わせフォームへのご返信でご連絡いただけますと幸いです。\n不要でしたらご返信不要です。",
+        "ご興味がございましたら、chris@webrefurb.com まで「希望」とご連絡いただけますと幸いです。\n不要でしたらご返信不要です。",
         "どうぞよろしくお願いいたします。",
         sender_name,
     ])
+
+
+def _shop_observation(lead_dossier: dict[str, Any]) -> dict[str, str]:
+    proof_items = lead_dossier.get("proof_items") if isinstance(lead_dossier, dict) else []
+    if not isinstance(proof_items, list):
+        proof_items = []
+    for item in proof_items:
+        if not isinstance(item, dict) or item.get("customer_preview_eligible") is not True:
+            continue
+        snippet = _safe_observation_snippet(str(item.get("snippet") or ""))
+        if snippet:
+            return {
+                "ja": f"公開情報では「{snippet}」などのメニュー・注文情報を確認しました。",
+                "en": f"I saw public menu or ordering details such as \"{snippet}\".",
+            }
+    return {"ja": "", "en": ""}
+
+
+def _safe_observation_snippet(value: str) -> str:
+    cleaned = " ".join(str(value or "").split())
+    if not cleaned:
+        return ""
+    blocked = ("求人", "採用", "予約", "ログイン", "javascript", "cookie", "電話番号", "copyright")
+    lowered = cleaned.lower()
+    if any(token.lower() in lowered for token in blocked):
+        return ""
+    return cleaned[:80]
 
 
 def _menu_sample_for_profile(establishment_profile: str, classification: str) -> Path | None:
@@ -495,14 +588,14 @@ def _profile_asset_plan(situation: str) -> dict[str, str]:
             "strategy_note": "Selected a food-and-drinks sample because this lead looks like an izakaya where both sections matter in the customer experience.",
             "menu_label": "Izakaya Food + Drinks Sample",
         },
+        "izakaya_nomihodai": {
+            "strategy_label": "Izakaya nomihodai sample set",
+            "strategy_note": "Selected a nomihodai/course sample because this izakaya has drink-heavy or course-heavy evidence.",
+            "menu_label": "Izakaya Nomihodai Sample",
+        },
         "machine_only": {
             "strategy_label": "Ticket machine sample set",
             "strategy_note": "Selected because this lead only has ticket-machine ordering evidence, so the outreach stays focused on ordering guidance.",
-            "menu_label": "English Menu Sample",
-        },
-        "unknown": {
-            "strategy_label": "General sample set",
-            "strategy_note": "Selected the general menu sample because the establishment profile still needs manual review.",
             "menu_label": "English Menu Sample",
         },
     }

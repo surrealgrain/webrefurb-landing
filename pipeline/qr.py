@@ -19,6 +19,7 @@ from typing import Any
 
 from .constants import PACKAGE_3_KEY, PACKAGE_3_LABEL, PACKAGE_3_PRICE_YEN
 from .export import PrintProfile, html_to_pdf_sync, is_valid_pdf
+from .final_export_qa import artifact_entry, package_manifest, write_export_qa_report
 from .utils import ensure_dir, slugify, write_json, write_text
 
 
@@ -337,11 +338,35 @@ def approve_qr_package(
     if not is_valid_pdf(sign_pdf):
         raise QRMenuError("QR package approval blocked: qr_sign_pdf_invalid")
 
-    manifest = _qr_package_manifest(job=job, health=health, sign_pdf=sign_pdf)
-    manifest_path = export_dir / "PACKAGE_MANIFEST.json"
-    write_json(manifest_path, manifest)
     health_path = export_dir / "QR_HEALTH_REPORT.json"
     write_json(health_path, health)
+    support_path = export_dir / "QR_SUPPORT_RECORD.md"
+    write_text(
+        support_path,
+        "# QR Support Record\n\n"
+        f"- Restaurant: {job.get('restaurant_name', '')}\n"
+        f"- Live URL: {job.get('live_url', '')}\n"
+        "- Hosting term: 12 months from publish date\n"
+        "- Support: QR link issues, page-loading failures, and minor approved text fixes during the hosting term\n",
+    )
+
+    state_source = state_root / "qr_menus" / menu_id / "versions" / version_id / "source.json"
+    artifacts: list[dict[str, Any]] = []
+    for filename in ("index.html", "menu.json", "qr.svg", "qr_sign.html", "qr_sign.svg"):
+        path = version_dir / filename
+        if path.exists():
+            role = "qr_image" if filename == "qr.svg" else "hosted_menu_backup"
+            artifacts.append(artifact_entry(path, arcname=filename, role=role))
+    if state_source.exists():
+        artifacts.append(artifact_entry(state_source, arcname="source.json", role="source_input"))
+    artifacts.extend([
+        artifact_entry(sign_pdf, arcname=sign_pdf.name, role="qr_sign_pdf"),
+        artifact_entry(health_path, arcname=health_path.name, role="qr_health_check"),
+        artifact_entry(support_path, arcname=support_path.name, role="hosting_support_record"),
+    ])
+    manifest = _qr_package_manifest(job=job, health=health, artifacts=artifacts)
+    manifest_path = export_dir / "PACKAGE_MANIFEST.json"
+    write_json(manifest_path, manifest)
 
     zip_path = export_dir / f"{job_id}-{PACKAGE_3_KEY}.zip"
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -349,14 +374,30 @@ def approve_qr_package(
             path = version_dir / filename
             if path.exists():
                 archive.write(path, arcname=filename)
-        state_source = state_root / "qr_menus" / menu_id / "versions" / version_id / "source.json"
         if state_source.exists():
             archive.write(state_source, arcname="source.json")
         archive.write(sign_pdf, arcname=sign_pdf.name)
         archive.write(health_path, arcname=health_path.name)
+        archive.write(support_path, arcname=support_path.name)
         archive.write(manifest_path, arcname=manifest_path.name)
 
     now = datetime.now(timezone.utc).isoformat()
+    export_qa = write_export_qa_report(
+        state_root=state_root,
+        job_id=job_id,
+        package_key=PACKAGE_3_KEY,
+        zip_path=zip_path,
+        manifest=manifest,
+        pdf_paths=[sign_pdf],
+        html_paths=[version_dir / "index.html", version_dir / "qr_sign.html"],
+        qr_url=str(job.get("live_url") or ""),
+        qr_path=version_dir / "qr.svg",
+        qr_sign_path=version_dir / "qr_sign.html",
+        print_profile={"paper_size": "A4", "orientation": "portrait"},
+    )
+    if not export_qa["ok"]:
+        raise QRMenuError("QR package approval blocked: export_qa_failed")
+
     job["package_key"] = PACKAGE_3_KEY
     job["package_label"] = PACKAGE_3_LABEL
     job["price_yen"] = PACKAGE_3_PRICE_YEN
@@ -367,12 +408,15 @@ def approve_qr_package(
     job["final_export_path"] = str(zip_path)
     job["final_export_created_at"] = now
     job["qr_sign_print_ready_pdf"] = str(sign_pdf)
+    job["export_qa_status"] = "passed"
+    job["export_qa_report_path"] = export_qa["report_path"]
     _write_qr_job(state_root, job)
     _append_audit(state_root, menu_id, "package_3_approved", {"job_id": job_id, "version_id": version_id})
     return {
         **job,
         "download_url": f"/api/qr/{job_id}/download",
         "health": health,
+        "export_qa": export_qa,
         "package_promise": _QR_PACKAGE_PROMISE,
     }
 
@@ -1077,30 +1121,29 @@ def _render_qr_svg(url: str) -> str:
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size_px} {size_px}" role="img" aria-label="QR code for {html.escape(url)}"><rect width="100%" height="100%" fill="#fff"/><g fill="#111">{"".join(rects)}</g></svg>\n'
 
 
-def _qr_package_manifest(*, job: dict[str, Any], health: dict[str, Any], sign_pdf: Path) -> dict[str, Any]:
-    return {
-        "package_key": PACKAGE_3_KEY,
-        "package_label": PACKAGE_3_LABEL,
-        "price_yen": PACKAGE_3_PRICE_YEN,
-        "package_promise": _QR_PACKAGE_PROMISE,
-        "job_id": job.get("job_id", ""),
-        "menu_id": job.get("menu_id", ""),
-        "restaurant_name": job.get("restaurant_name", ""),
-        "published_version_id": job.get("published_version_id", ""),
-        "live_url": job.get("live_url", ""),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "files": [
-            "index.html",
-            "menu.json",
-            "qr.svg",
-            "qr_sign.html",
-            "qr_sign.svg",
-            sign_pdf.name,
-            "QR_HEALTH_REPORT.json",
-        ],
-        "health": health,
-        "package_promise": _QR_PACKAGE_PROMISE,
-    }
+def _qr_package_manifest(*, job: dict[str, Any], health: dict[str, Any], artifacts: list[dict[str, Any]]) -> dict[str, Any]:
+    manifest = package_manifest(
+        package_key=PACKAGE_3_KEY,
+        package_label=PACKAGE_3_LABEL,
+        restaurant_name=str(job.get("restaurant_name") or ""),
+        job_id=str(job.get("job_id") or ""),
+        approval_timestamp=str(job.get("reviewed_at") or datetime.now(timezone.utc).isoformat()),
+        artifacts=artifacts,
+        source_input_references={
+            "reply_id": job.get("reply_id", ""),
+            "menu_id": job.get("menu_id", ""),
+            "published_version_id": job.get("published_version_id", ""),
+            "live_url": job.get("live_url", ""),
+        },
+        package_promise=_QR_PACKAGE_PROMISE,
+        validation={"health": health},
+    )
+    manifest["menu_id"] = job.get("menu_id", "")
+    manifest["published_version_id"] = job.get("published_version_id", "")
+    manifest["live_url"] = job.get("live_url", "")
+    manifest["health"] = health
+    manifest["price_yen"] = PACKAGE_3_PRICE_YEN
+    return manifest
 
 
 def _manifest_for_public_dir(public_dir: Path) -> dict[str, str]:

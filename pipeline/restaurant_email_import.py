@@ -12,12 +12,12 @@ from .constants import (
     LEAD_CATEGORY_IZAKAYA_DRINK_COURSE_GUIDE,
     LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
-    PACKAGE_1_KEY,
 )
 from .evidence import chain_or_franchise_signal_reason, is_chain_business
 from .outreach import select_outreach_assets
 from .record import list_leads, normalise_lead_contacts, persist_lead_record
 from .restaurant_lead_verification import verify_restaurant_lead_record
+from .scoring import recommend_package_details_for_record
 from .utils import ensure_dir, sha256_text, slugify, utc_now, write_json
 
 
@@ -447,8 +447,8 @@ def queue_record_from_email_lead(email_lead: dict[str, Any]) -> dict[str, Any]:
         "izakaya_rules_state": "unknown" if top_level_category == "izakaya" else "none_found",
         "tourist_exposure_score": 0.0,
         "lead_score_v1": 80 if quality_tier == "high" else 55 if quality_tier == "medium" else 40,
-        "recommended_primary_package": PACKAGE_1_KEY,
-        "package_recommendation_reason": "Imported public email lead; start with remote English ordering files until menu scope is reviewed.",
+        "recommended_primary_package": "",
+        "package_recommendation_reason": "",
         "custom_quote_reason": "",
         "evidence_classes": ["public_email_import", f"{top_level_category}_category_match"],
         "evidence_urls": evidence_urls,
@@ -492,6 +492,10 @@ def queue_record_from_email_lead(email_lead: dict[str, Any]) -> dict[str, Any]:
         "status_history": [{"status": "needs_review", "timestamp": now}],
         **assignment,
     }
+    package_details = recommend_package_details_for_record(record)
+    record["recommended_primary_package"] = package_details["package_key"]
+    record["package_recommendation_reason"] = package_details["recommendation_reason"]
+    record["custom_quote_reason"] = package_details["custom_quote_reason"]
     return verify_restaurant_lead_record(record, checked_at=now)
 
 

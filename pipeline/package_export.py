@@ -22,6 +22,7 @@ from .constants import (
     TEMPLATE_PACKAGE_MENU,
 )
 from .export import PrintProfile, html_to_pdf_sync, is_valid_pdf
+from .final_export_qa import artifact_entry, package_manifest, sha256_file, write_export_qa_report
 from .utils import ensure_dir, write_json, write_text
 
 
@@ -254,16 +255,25 @@ def approve_package_export(
     ensure_dir(export_dir)
     package = PACKAGE_REGISTRY[selected_key]
     generated_files: list[Path] = []
+    generated_files.extend(_write_owner_content_pack(output_dir=output_dir, export_dir=export_dir, job=job))
     if selected_key == PACKAGE_2_KEY:
-        generated_files = _write_package2_print_pack(
+        generated_files.extend(_write_package2_print_pack(
             output_dir=output_dir,
             export_dir=export_dir,
             job=job,
             validation=validation,
             delivery_details=delivery_details or {},
-        )
+        ))
 
-    manifest = _final_manifest(job=job, output_dir=output_dir, package_key=selected_key, validation=validation)
+    now = datetime.now(timezone.utc).isoformat()
+    manifest = _final_manifest(
+        job=job,
+        output_dir=output_dir,
+        package_key=selected_key,
+        validation=validation,
+        generated_files=generated_files,
+        approval_timestamp=now,
+    )
     manifest_path = export_dir / "PACKAGE_MANIFEST.json"
     write_json(manifest_path, manifest)
 
@@ -275,7 +285,30 @@ def approve_package_export(
             archive.write(path, arcname=path.name)
         archive.write(manifest_path, arcname="PACKAGE_MANIFEST.json")
 
-    now = datetime.now(timezone.utc).isoformat()
+    pdf_paths = [output_dir / name for name in _package_files(output_dir, package_key=selected_key) if name.endswith(".pdf")]
+    pdf_paths.extend(path for path in generated_files if path.suffix.lower() == ".pdf")
+    html_paths = [output_dir / name for name in _package_files(output_dir, package_key=selected_key) if name.endswith(".html")]
+    default_pdf_profile = {"paper_size": "A4", "orientation": "portrait"}
+    pdf_print_profiles: dict[str, dict[str, Any]] = {str(path): default_pdf_profile for path in pdf_paths}
+    if selected_key == PACKAGE_2_KEY:
+        package2_print_profile = validation.get("print_profile") or default_pdf_profile
+        for path in generated_files:
+            if path.suffix.lower() == ".pdf":
+                pdf_print_profiles[str(path)] = package2_print_profile
+    export_qa = write_export_qa_report(
+        state_root=state_root,
+        job_id=job_id,
+        package_key=selected_key,
+        zip_path=zip_path,
+        manifest=manifest,
+        pdf_paths=pdf_paths,
+        html_paths=html_paths,
+        print_profile=default_pdf_profile,
+        pdf_print_profiles=pdf_print_profiles,
+    )
+    if not export_qa["ok"]:
+        raise PackageExportError("Export QA blocked: " + ", ".join(_export_qa_errors(export_qa)))
+
     job["status"] = "completed"
     job["package_key"] = selected_key
     job["review_status"] = REVIEW_STATUS_APPROVED
@@ -284,6 +317,8 @@ def approve_package_export(
     job["final_export_status"] = FINAL_EXPORT_READY
     job["final_export_path"] = str(zip_path)
     job["final_export_created_at"] = now
+    job["export_qa_status"] = "passed"
+    job["export_qa_report_path"] = export_qa["report_path"]
     job["package_validation"] = validation
     job["paid_operations"] = paid_operations
     if selected_key == PACKAGE_2_KEY:
@@ -304,7 +339,42 @@ def approve_package_export(
         "download_url": f"/api/build/{job_id}/download",
         "validation": validation,
         "paid_operations": paid_operations,
+        "export_qa": export_qa,
     }
+
+
+def _export_qa_errors(export_qa: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    errors.extend(export_qa.get("zip_validation", {}).get("errors") or [])
+    for report in export_qa.get("pdf_validation") or []:
+        if report.get("ok"):
+            continue
+        failed = [
+            key for key, passed in (report.get("checks") or {}).items()
+            if passed is False
+        ]
+        errors.append(f"pdf_failed:{Path(str(report.get('path') or '')).name}:{'|'.join(failed) or 'unknown'}")
+    for report in export_qa.get("raster_validation") or []:
+        if report.get("ok"):
+            continue
+        failed = [
+            key for key, passed in (report.get("checks") or {}).items()
+            if passed is False
+        ]
+        errors.append(f"raster_failed:{Path(str(report.get('path') or '')).name}:{'|'.join(failed) or 'unknown'}")
+    qr_report = export_qa.get("qr_validation") or {}
+    if qr_report and not qr_report.get("ok", True):
+        failed = [
+            key for key, passed in (qr_report.get("checks") or {}).items()
+            if passed is False
+        ]
+        errors.append(f"qr_failed:{'|'.join(failed) or 'unknown'}")
+    visual_report = export_qa.get("visual_validation") or {}
+    for report in visual_report.get("artifacts") or []:
+        if report.get("ok"):
+            continue
+        errors.extend(report.get("errors") or [f"visual_failed:{Path(str(report.get('path') or '')).name}"])
+    return errors or ["unknown_export_qa_failure"]
 
 
 def package_paid_operations_status(*, state_root: Path, job: dict[str, Any]) -> dict[str, Any]:
@@ -613,6 +683,33 @@ def _write_package2_print_pack(
     return generated
 
 
+def _write_owner_content_pack(*, output_dir: Path, export_dir: Path, job: dict[str, Any]) -> list[Path]:
+    menu_data_path = output_dir / "menu_data.json"
+    menu_data: dict[str, Any] = {}
+    if menu_data_path.exists():
+        try:
+            menu_data = json.loads(menu_data_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            menu_data = {}
+    content_path = export_dir / "OWNER_APPROVED_CONTENT.json"
+    write_json(content_path, {
+        "job_id": job.get("job_id", ""),
+        "restaurant_name": job.get("restaurant_name", ""),
+        "owner_approved": True,
+        "source_output_dir": str(output_dir),
+        "menu_data_checksum": sha256_file(menu_data_path) if menu_data_path.exists() else "",
+        "sections": menu_data.get("sections") or [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    note_path = export_dir / "PRINT_YOURSELF_NOTE.md"
+    write_text(
+        note_path,
+        "# Print-Yourself Note\n\n"
+        "Use the included print-ready PDF files. Confirm the current menu content, prices, and layout before printing additional copies.\n",
+    )
+    return [content_path, note_path]
+
+
 def _print_checklist(print_order: dict[str, Any]) -> str:
     profile = print_order["print_profile"]
     return (
@@ -872,19 +969,34 @@ def _final_manifest(
     output_dir: Path,
     package_key: str,
     validation: dict[str, Any],
+    generated_files: list[Path] | None = None,
+    approval_timestamp: str = "",
 ) -> dict[str, Any]:
     package = PACKAGE_REGISTRY[package_key]
-    return {
-        "package_key": package_key,
-        "package_label": package["label"],
-        "price_yen": package["price_yen"],
-        "job_id": job.get("job_id", ""),
-        "restaurant_name": job.get("restaurant_name", ""),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "source_output_dir": str(output_dir),
-        "files": _package_files(output_dir, package_key=package_key),
-        "validation": validation,
-    }
+    artifacts: list[dict[str, Any]] = []
+    for name in _package_files(output_dir, package_key=package_key):
+        role = "print_pdf" if name.endswith(".pdf") else "source_html" if name.endswith(".html") else "source_data"
+        artifacts.append(artifact_entry(output_dir / name, arcname=name, role=role))
+    for path in generated_files or []:
+        role = "print_handoff" if path.name.startswith(("PRINT", "DELIVERY")) else "owner_approved_content"
+        artifacts.append(artifact_entry(path, arcname=path.name, role=role))
+    return package_manifest(
+        package_key=package_key,
+        package_label=package["label"],
+        restaurant_name=str(job.get("restaurant_name") or ""),
+        job_id=str(job.get("job_id") or ""),
+        approval_timestamp=approval_timestamp or datetime.now(timezone.utc).isoformat(),
+        artifacts=artifacts,
+        source_input_references={
+            "lead_id": job.get("lead_id", ""),
+            "reply_id": job.get("reply_id", ""),
+            "order_id": job.get("order_id", ""),
+            "output_dir": str(output_dir),
+            "photo_paths": list(job.get("photo_paths") or []),
+            "ticket_path": job.get("ticket_path", ""),
+        },
+        validation=validation,
+    )
 
 
 def _append_history(job: dict[str, Any], status: str, timestamp: str, reviewer: str) -> None:

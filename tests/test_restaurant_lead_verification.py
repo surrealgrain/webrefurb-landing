@@ -76,9 +76,24 @@ def test_verification_demotes_imported_high_records_until_explicit_promotion():
     assert verified["candidate_inbox_status"] == "needs_name_review"
     assert verified["pitch_card_status"] == "needs_name_review"
     assert verified["pitch_card_openable"] is True
+    assert verified["opportunistic_pitch_candidate"] is True
     assert verified["pitch_ready"] is False
     assert verified["outreach_status"] == "needs_review"
     assert "restaurant_email_verification_not_promoted" in verified["launch_readiness_reasons"]
+
+
+def test_unknown_english_menu_does_not_block_opportunistic_pitch_candidate():
+    verified = verify_restaurant_lead_record(
+        _record(
+            english_menu_issue=False,
+            english_menu_state="unknown",
+            lead_evidence_dossier={"english_menu_state": "unknown"},
+        ),
+        checked_at="2026-05-01T01:00:00+00:00",
+    )
+
+    assert verified["english_menu_check_status"] == "needs_review"
+    assert verified["opportunistic_pitch_candidate"] is True
 
 
 def test_two_source_manual_review_can_verify_but_keeps_import_blocked():

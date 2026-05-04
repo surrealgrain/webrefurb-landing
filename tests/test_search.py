@@ -756,11 +756,8 @@ def test_search_persists_email_reachable_lead(tmp_path, monkeypatch):
     assert lead["source_search_job"]["job_id"] == "ramen_ticket_machine"
     assert "ticket_machine_evidence" in lead["matched_friction_evidence"]
     assert "search_job:ticket_machine" in lead["matched_friction_evidence"]
-    assert lead["outreach_asset_template_family"] == "dark_v4c"
-    assert lead["outreach_assets_selected"] == [
-        str(Path.cwd() / "assets" / "templates" / "ramen_food_menu.html"),
-        str(Path.cwd() / "assets" / "templates" / "ticket_machine_guide.html"),
-    ]
+    assert lead["outreach_asset_template_family"] == "no_first_contact_attachments"
+    assert lead["outreach_assets_selected"] == []
     assert lead["package_recommendation_reason"] == "ramen_ticket_machine_needs_counter_ready_mapping"
     assert lead["custom_quote_reason"] == ""
     assert result["decisions"][0]["source_search_job"]["job_id"] == "ramen_ticket_machine"

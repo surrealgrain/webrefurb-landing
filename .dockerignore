@@ -1,0 +1,15 @@
+.git
+.pytest_cache
+.ruff_cache
+.venv
+__pycache__
+*.py[cod]
+*.egg-info
+.DS_Store
+.env
+node_modules
+state
+dist
+build
+coverage
+htmlcov

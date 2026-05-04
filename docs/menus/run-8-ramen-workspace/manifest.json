@@ -1,0 +1,16 @@
+{
+  "checksums": {
+    "index.html": "09fac5843cd0af74295a7ccadb152f2634176c99faacf170541a80eaaa57d9c2",
+    "menu.json": "53b30c781f30d455dd69be77561e4d523b16e14f3cf560835392b96839d569b0",
+    "qr.svg": "d3be3ba52ea027ab985b925bc593ce3ab527de5b24cc859b6be52df0b669abbc",
+    "qr_sign.html": "5d33c00ea2f57484f7f62ed6d5cb7ce4e85a3ca112b0a2b637538ddb6f7e4326",
+    "qr_sign.svg": "31ad0bad7e1f8e1718da4615fa42c1e825e39dae67117fe13e585ac8c2613b16"
+  },
+  "current_version": "v-20260503204646-a23692",
+  "menu_id": "run-8-ramen-workspace",
+  "status": "published",
+  "updated_at": "2026-05-03T20:46:46.303646+00:00",
+  "versions": [
+    "v-20260503204646-a23692"
+  ]
+}

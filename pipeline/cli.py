@@ -128,6 +128,12 @@ def main() -> None:
     execution_plan_cmd.add_argument("--batch-size", type=int, default=120, help="Number of unreviewed cards per review-wave batch")
     execution_plan_cmd.add_argument("--representative-count", type=int, default=5, help="Representative examples per GLM profile")
 
+    run8_cmd = sub.add_parser("run8-readiness", help="Run no-send Run 8 browser/export/rehearsal verification")
+    run8_cmd.add_argument("--state-root", default=None, help="Override state root")
+    run8_cmd.add_argument("--docs-root", default=None, help="Override static docs root")
+    run8_cmd.add_argument("--run-id", default=None, help="Stable run ID")
+    run8_cmd.add_argument("--skip-screenshots", action="store_true", help="Skip browser screenshot capture")
+
     sim_cmd = sub.add_parser("production-sim", help="Run no-send production simulation replay")
     sim_sub = sim_cmd.add_subparsers(dest="production_sim_command")
     sim_collect = sim_sub.add_parser("collect", help="Collect a no-send pilot/broad search replay corpus")
@@ -678,6 +684,33 @@ def main() -> None:
             "artifact_paths": result["artifact_paths"],
         }, indent=2, ensure_ascii=False))
 
+    elif args.command == "run8-readiness":
+        from pathlib import Path as _P
+
+        from .constants import PROJECT_ROOT
+        from .run8_readiness import run_run8_readiness
+
+        result = run_run8_readiness(
+            state_root=_P(args.state_root) if args.state_root else PROJECT_ROOT / "state",
+            docs_root=_P(args.docs_root) if args.docs_root else PROJECT_ROOT / "docs",
+            capture_screenshots=not bool(args.skip_screenshots),
+            run_id=args.run_id,
+        )
+        print(json.dumps({
+            "run_id": result["run_id"],
+            "ok_until_send_gate": result["ok_until_send_gate"],
+            "controlled_launch_selection_allowed": result["controlled_launch_selection_allowed"],
+            "blockers": result["blockers"],
+            "report_path": result["report_path"],
+            "screenshot_dir": result["screenshots"].get("screenshot_dir", ""),
+            "export_qa_reports": {
+                key: value.get("export_qa_report_path", "")
+                for key, value in result["artifacts"]["exports"].items()
+            },
+            "external_send_performed": result["external_send_performed"],
+            "real_launch_batch_created": result["real_launch_batch_created"],
+        }, indent=2, ensure_ascii=False))
+
     elif args.command == "production-sim":
         from pathlib import Path as _P
 
@@ -1016,7 +1049,7 @@ def main() -> None:
             if primary_contact_type == "contact_form":
                 updated["outreach_classification"] = classification
                 updated["outreach_assets_selected"] = []
-                updated["outreach_asset_template_family"] = "none_contact_form"
+                updated["outreach_asset_template_family"] = "no_first_contact_attachments"
                 updated["message_variant"] = f"contact_form:{classification}:{profile}"
                 updated["outreach_draft_subject"] = ""
                 updated["outreach_draft_body"] = draft["body"]

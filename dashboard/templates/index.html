@@ -11,6 +11,7 @@
   --page-bg: #f7f7f5;
   --text-primary: #1a1a1a;
   --text-secondary: #4F5B61;
+  --text-tertiary: #728188;
   --panel-dark: #03141D;
   --panel-dark-alt: #0A2736;
   --accent: #0E7490;
@@ -81,7 +82,7 @@ button, input, select, textarea { font: inherit; }
 .search-activity-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
 .search-activity-dot { width: 8px; height: 8px; border-radius: 9999px; background: #74A8B7; flex-shrink: 0; }
 .search-activity-clear {
-  margin-left: auto; height: 24px; padding: 0 9px; border-radius: 9999px;
+  margin-left: auto; min-height: 44px; min-width: 44px; padding: 0 12px; border-radius: 9999px;
   border: 1px solid rgba(141,227,240,0.24); background: rgba(255,255,255,0.06);
   color: #BEEAF0; font-size: 11px; font-weight: 700; cursor: pointer;
 }
@@ -112,23 +113,15 @@ button, input, select, textarea { font: inherit; }
 .search-section { margin-bottom: 24px; }
 .search-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
 .search-input, .search-select {
-  height: 44px; border-radius: 16px; border: 1px solid var(--input-border);
+  height: 44px; min-height: 44px; border-radius: 16px; border: 1px solid var(--input-border);
   background: var(--input-bg); padding: 0 16px; font-size: 14px; color: var(--text-primary);
   outline: none; font-family: inherit;
 }
 .search-input:focus, .search-select:focus { border-color: #0891B2; box-shadow: 0 0 0 3px rgba(8,145,178,0.1); }
 .search-input { flex: 1; min-width: 200px; }
 .search-select { min-width: 140px; appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23888' fill='none' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
-.advanced-filter-toggle {
-  width: 100%; height: 34px; margin-top: 8px; border-radius: 9999px;
-  border: 1px solid rgba(141,227,240,0.24); background: rgba(255,255,255,0.06);
-  color: #BEEAF0; font-size: 12px; font-weight: 700; cursor: pointer;
-}
-.advanced-filter-toggle:hover { border-color: rgba(141,227,240,0.48); background: rgba(255,255,255,0.1); color: #fff; }
-.advanced-filters { display: none; padding-top: 8px; }
-.advanced-filters.is-open { display: block; }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 20px; height: 44px; border-radius: 9999px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: transform 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s; font-family: inherit; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 20px; min-height: 44px; border-radius: 9999px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: transform 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s; font-family: inherit; white-space: nowrap; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: #155E75; box-shadow: 0 8px 18px rgba(14,116,144,0.18); transform: translateY(-1px); }
 .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text-primary); }
@@ -157,35 +150,37 @@ button, input, select, textarea { font: inherit; }
 .lead-info { flex: 1; }
 .lead-name { font-size: 16px; font-weight: 600; letter-spacing: var(--headline-tracking); }
 .lead-meta { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
-.lead-contact { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-.lead-profile { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
-.lead-proof { font-size: 12px; color: #245B78; margin-top: 4px; line-height: 1.45; overflow-wrap: anywhere; }
-.lead-next { font-size: 12px; color: var(--text-primary); margin-top: 6px; line-height: 1.45; font-weight: 650; }
 .lead-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
-.lead-stats {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px; margin-bottom: 14px;
+.send-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.send-tag {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
+  border-radius: 4px; border: 1px solid #D7E4E7; background: #F7FBFC;
+  color: #455A62; font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
 }
-.lead-stat {
+.send-tag-ready { background: #EAF7EF; border-color: #9BD8B0; color: #166534; }
+.send-select { display: flex; align-items: center; justify-content: center; width: 26px; }
+.send-select input { width: 16px; height: 16px; accent-color: #15803D; }
+.send-select input:disabled { cursor: not-allowed; opacity: 0.35; }
+.send-batch-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
   border: 1px solid var(--line); background: #fff; border-radius: 8px;
-  padding: 10px 12px;
+  padding: 10px 12px; margin-bottom: 14px;
 }
-.lead-stat-value { font-size: 22px; font-weight: 750; line-height: 1; color: var(--text); }
-.lead-stat-label { margin-top: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.review-lanes {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+.send-batch-title { font-size: 12px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.06em; }
+.send-batch-note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.send-batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.send-delay-input { width: 82px; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; font: inherit; font-size: 12px; }
+.confirmed-summary {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px; margin-bottom: 14px;
 }
-.review-lane {
-  min-height: 76px; text-align: left; border: 1px solid var(--line); background: #fff;
-  border-radius: 8px; padding: 11px 12px; cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+.confirmed-step {
+  border: 1px solid var(--line); background: #fff; border-radius: 8px;
+  padding: 12px;
 }
-.review-lane:hover { border-color: #B9CACF; box-shadow: 0 8px 18px rgba(3,20,29,0.07); transform: translateY(-1px); }
-.review-lane.is-active { border-color: #0E7490; box-shadow: 0 0 0 2px rgba(14,116,144,0.12); }
-.review-lane-value { display: block; font-size: 20px; font-weight: 750; line-height: 1; color: var(--text); }
-.review-lane-label { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text-primary); }
-.review-lane-detail { display: block; margin-top: 3px; font-size: 11px; line-height: 1.35; color: var(--muted); }
+.confirmed-step-value { font-size: 22px; font-weight: 800; letter-spacing: var(--headline-tracking); color: var(--text-primary); }
+.confirmed-step-label { margin-top: 3px; font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+.confirmed-step-note { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
 
 .status-badge {
   display: inline-flex; align-items: center; border-radius: 9999px;
@@ -213,37 +208,35 @@ button, input, select, textarea { font: inherit; }
   padding: 3px 10px; font-size: 10px; font-weight: 600;
   background: #F7FBFC; border: 1px solid var(--input-border); color: #666;
 }
-.verification-pill {
+.operator-state-badge {
   display: inline-flex; align-items: center; border-radius: 9999px;
-  padding: 3px 10px; font-size: 10px; font-weight: 700;
-  background: #F7FBFC; border: 1px solid var(--input-border); color: #455A62;
+  padding: 4px 10px; font-size: 10px; font-weight: 850; letter-spacing: .08em;
+  text-transform: uppercase; border: 1px solid transparent;
 }
-.verification-verified, .pitch-pitch-ready, .pitch-reviewable { background: #EEF8F2; border-color: #BDE7CA; color: #166534; }
-.verification-needs-review, .pitch-review-blocked, .pitch-needs-scope-review, .pitch-needs-name-review, .pitch-needs-email-review {
-  background: #FFF7ED; border-color: #FDBA74; color: #9A3412;
+.operator-state-ready { background: #EAF7EF; border-color: #9BD8B0; color: #166534; }
+.operator-state-review { background: #FFF7ED; border-color: #FDBA74; color: #9A3412; }
+.operator-state-skip { background: #F3F4F6; border-color: #D1D5DB; color: #4B5563; }
+.operator-state-done { background: #ECFEFF; border-color: #BFE5EA; color: #0E7490; }
+.lead-proof-line, .lead-review-line, .lead-package-line {
+  margin-top: 6px; font-size: 12px; color: var(--text-secondary); line-height: 1.45;
 }
-.verification-rejected, .pitch-rejected, .pitch-hard-blocked { background: #FFF8F6; border-color: #E5A39B; color: #A52F24; }
-.pitch-unsupported-route { background: #F3F4F6; border-color: #D1D5DB; color: #4B5563; }
-.outcome-not-reviewed { background: #F7FBFC; border-color: #D7E4E7; color: #455A62; }
-.outcome-hold { background: #FFF7ED; border-color: #FDBA74; color: #9A3412; }
-.outcome-needs-more-info { background: #FEF3C7; border-color: #FCD34D; color: #92400E; }
-.outcome-reject { background: #FFF8F6; border-color: #E5A39B; color: #A52F24; }
-.source-official-site { background: #ECFEFF; border-color: #BFE5EA; color: #0E7490; }
-.source-restaurant-owned-page { background: #EEF2FF; border-color: #C7D2FE; color: #3730A3; }
-.source-directory { background: #F7FBFC; border-color: #D7E4E7; color: #455A62; }
-.source-weak-source { background: #F3F4F6; border-color: #D1D5DB; color: #4B5563; }
+.lead-review-line { color: #8A4B0F; font-weight: 650; }
+.lead-card.is-skipped { opacity: 0.72; }
+.lead-card.is-done { border-color: #BFE5EA; }
+.lead-group-heading {
+  border-bottom: 1px solid var(--line); padding: 12px 0 6px;
+  color: var(--text-secondary); font-size: 11px; font-weight: 900;
+  letter-spacing: .1em; text-transform: uppercase;
+}
 
-.evidence-pill {
-  display: inline-flex; align-items: center; border-radius: 9999px;
-  padding: 3px 9px; font-size: 10px; font-weight: 700;
-  border: 1px solid transparent; letter-spacing: 0.02em;
+.lead-actions {
+  display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+  flex-wrap: wrap; max-width: 360px;
 }
-.evidence-pill-menu { background: #EEF8F2; border-color: #BDE7CA; color: #166534; }
-.evidence-pill-vending { background: #FFF7ED; border-color: #FDBA74; color: #9A3412; }
-
-.lead-actions { display: flex; gap: 8px; align-items: center; }
+.lead-actions .btn { min-height: 44px; padding: 0 12px; font-size: 12px; }
+.lead-actions .btn-icon { width: 44px; height: 44px; }
 .btn-icon {
-  width: 36px; height: 36px; padding: 0; border-radius: 9999px;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border-radius: 9999px;
   border: 1px solid var(--line); background: #fff; color: var(--muted);
 }
 .btn-icon svg { width: 16px; height: 16px; }
@@ -288,6 +281,15 @@ button, input, select, textarea { font: inherit; }
 }
 .reply-entry-actions { margin-top: 12px; justify-content: flex-end; }
 .reply-entry.unread { border-color: #9EDAE5; box-shadow: inset 4px 0 0 #0E7490; }
+.asset-review-strip { margin-top: 10px; display: grid; gap: 8px; }
+.asset-review-item { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #FBFCFC; }
+.asset-review-name { font-size: 12px; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+.asset-review-actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.asset-review-actions button {
+  min-height: 44px; min-width: 44px; padding: 0 12px; border-radius: 9999px; border: 1px solid var(--input-border);
+  background: #fff; font-size: 11px; cursor: pointer;
+}
+.asset-review-actions button.active { border-color: #0E7490; color: #0E7490; background: #ECFEFF; }
 
 /* Modal */
 dialog {
@@ -411,9 +413,9 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 }
 .control-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .control-spacer { margin-left: auto; }
-.toggle-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; min-height: 36px; padding: 0 10px; border-radius: 9999px; background: #F7FBFC; border: 1px solid var(--input-border); }
+.toggle-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; min-height: 44px; padding: 0 12px; border-radius: 9999px; background: #F7FBFC; border: 1px solid var(--input-border); }
 .toggle-label input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
-.recipient-input { height: 36px; border-radius: 9999px; border: 1px solid var(--input-border); padding: 0 14px; font-size: 13px; outline: none; min-width: 240px; font-family: inherit; }
+.recipient-input { min-height: 44px; border-radius: 9999px; border: 1px solid var(--input-border); padding: 0 14px; font-size: 13px; outline: none; min-width: 240px; font-family: inherit; }
 .recipient-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,116,144,0.12); }
 
 /* Rate limit counter */
@@ -446,6 +448,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .review-next-button { border-color: #BFE5EA; color: #0E7490; }
 .dossier-panel { margin-bottom: 12px; padding: 12px; background: #FAFAF8; border: 1px solid rgba(92,74,52,0.16); border-radius: 14px; }
 .dossier-panel .profile-panel-title { color: #6F4E1F; }
+.dossier-panel summary { cursor: pointer; list-style-position: inside; }
 .dossier-state-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; }
 .dossier-state { min-width: 0; padding: 9px 10px; border: 1px solid rgba(92,74,52,0.14); border-radius: 10px; background: #fff; }
 .dossier-state-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
@@ -461,11 +464,125 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .reply-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .reply-compose { display: none; margin-top: 8px; }
 .reply-compose.open { display: block; }
-.reply-textarea { width: 100%; border-radius: 8px; border: 1px solid var(--input-border); padding: 8px 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; outline: none; }
+.reply-compose-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.reply-field-label {
+  display: block; margin-bottom: 5px; font-size: 10px; font-weight: 850;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary);
+}
+.reply-textarea { width: 100%; border-radius: 8px; border: 1px solid var(--input-border); padding: 8px 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 112px; outline: none; line-height: 1.5; }
 .reply-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,116,144,0.1); }
-.reply-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; align-items: center; }
+.reply-template-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.reply-template-chip {
+  min-height: 34px; border: 1px solid var(--input-border); border-radius: 9999px; background: #fff;
+  padding: 0 10px; color: var(--text-secondary); font-size: 11px; font-weight: 800; cursor: pointer;
+}
+.reply-template-chip:hover { border-color: #B9CACF; color: var(--text-primary); }
+.reply-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 .reply-translate-hint { font-size: 11px; color: var(--text-tertiary); margin-right: auto; display: none; }
 .reply-translate-hint.visible { display: block; }
+.reply-workflow-controls {
+  border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 7px;
+}
+.reply-status-select {
+  width: 100%; min-height: 44px; border-radius: 10px; border: 1px solid var(--input-border);
+  background: #fff; color: var(--text-primary); padding: 0 10px; font-size: 12px; font-weight: 700;
+}
+.operator-reply-context {
+  border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 4px;
+  font-size: 12px; color: var(--text-secondary); line-height: 1.45;
+}
+
+/* Operator cockpit */
+.operator-strip {
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+  gap: 14px; margin-bottom: 16px; align-items: stretch;
+}
+.operator-brief {
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  padding: 14px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.operator-brief-title { font-size: 18px; font-weight: 750; letter-spacing: var(--headline-tracking); }
+.operator-brief-copy { margin-top: 3px; font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+.mode-tabs, .inbox-filter-bar {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.mode-tab {
+  min-height: 44px; min-width: 44px; border: 1px solid var(--line); border-radius: 9999px; background: #fff;
+  padding: 0 12px; color: var(--text-secondary); font-size: 12px; font-weight: 750; cursor: pointer;
+}
+.mode-tab:hover { border-color: #B9CACF; color: var(--text-primary); }
+.mode-tab.active { background: #0A2736; border-color: #0A2736; color: #fff; }
+.queue-limit-row { margin-top: 12px; display: flex; justify-content: center; }
+.operator-summary-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px; margin-bottom: 14px;
+}
+.operator-summary-card {
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.operator-summary-value { font-family: "Fira Code", monospace; font-size: 24px; font-weight: 850; }
+.operator-summary-label { margin-top: 3px; font-size: 11px; font-weight: 850; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; }
+.launch-freeze-banner {
+  display: none; margin-bottom: 14px; border: 1px solid #F59E0B; background: #FFFBEB;
+  color: #7C2D12; border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 750;
+}
+.inbox-focus-banner {
+  margin-top: 12px; display: none; align-items: center; justify-content: space-between; gap: 10px;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 10px 0;
+  color: var(--text-secondary); font-size: 12px; font-weight: 700;
+}
+.inbox-board { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+.inbox-rail {
+  position: sticky; top: 18px; border-top: 1px solid var(--line); padding-top: 10px;
+  display: grid; gap: 10px;
+}
+.rail-metric {
+  display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: baseline;
+  border-bottom: 1px solid var(--line); padding: 8px 0 11px;
+}
+.rail-metric-value { font-family: "Fira Code", monospace; font-size: 22px; font-weight: 800; color: var(--text-primary); }
+.rail-metric-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.conversation-list { display: grid; gap: 10px; }
+.conversation-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .42fr); gap: 16px;
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+}
+.conversation-row.unread { border-left: 4px solid var(--accent); padding-left: 12px; }
+.conversation-kicker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.conversation-name { font-size: 16px; font-weight: 800; letter-spacing: var(--headline-tracking); }
+.conversation-subject { margin-top: 6px; font-size: 13px; font-weight: 750; color: var(--text-primary); }
+.conversation-meta { margin-top: 5px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+.conversation-body { margin-top: 10px; color: var(--text-primary); font-size: 13px; line-height: 1.55; white-space: pre-wrap; max-height: 96px; overflow: auto; }
+.conversation-side { border-left: 1px solid var(--line); padding-left: 14px; display: grid; gap: 9px; align-content: start; }
+.next-action-label { font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.next-action-title { font-size: 14px; font-weight: 850; color: var(--text-primary); }
+.next-action-detail, .pitch-context { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.pitch-context {
+  border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 4px;
+}
+.conversation-actions { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.planner-board { display: grid; grid-template-columns: minmax(0, .72fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.planner-panel {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+}
+.planner-title { font-size: 12px; font-weight: 900; letter-spacing: .1em; color: var(--text-secondary); text-transform: uppercase; }
+.planner-value { margin-top: 6px; font-family: "Fira Code", monospace; font-size: 32px; font-weight: 850; }
+.batch-list { display: grid; gap: 10px; }
+.batch-row {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 13px 15px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center;
+}
+.batch-id { font-family: "Fira Code", monospace; font-size: 12px; font-weight: 800; color: var(--text-primary); }
+.batch-meta { margin-top: 5px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.batch-status-line { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.mini-pill {
+  display: inline-flex; align-items: center; border-radius: 9999px; padding: 3px 8px;
+  font-size: 10px; font-weight: 800; background: #F7FBFC; border: 1px solid var(--input-border); color: #455A62;
+}
+.lead-reply-link {
+  border-color: #BFE5EA; background: #ECFEFF; color: #0E7490; cursor: pointer;
+}
 
 /* Build modal */
 .build-form { display: flex; flex-direction: column; gap: 16px; }
@@ -500,6 +617,27 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .qr-check-list li.is-error { color: var(--error); }
 .qr-check-list li.is-warning { color: #9A3412; }
 .qr-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+.production-workspace-grid { display: grid; grid-template-columns: minmax(260px, .86fr) minmax(0, 1.14fr) minmax(260px, .78fr); gap: 14px; min-height: 0; }
+.production-workspace-panel { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; min-width: 0; overflow: auto; }
+.production-workspace-panel h3 { margin: 0 0 10px; font-size: 12px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.workspace-section { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; display: grid; gap: 8px; }
+.workspace-asset-row, .workspace-item-row, .workspace-control-row {
+  border: 1px solid var(--line); border-radius: 9px; padding: 9px; background: #FBFCFC; display: grid; gap: 5px;
+}
+.workspace-row-title { font-size: 13px; font-weight: 800; color: var(--text-primary); overflow-wrap: anywhere; }
+.workspace-row-meta { font-size: 12px; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
+.ticket-grid { display: grid; gap: 8px; }
+.ticket-grid-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ticket-button-cell {
+  min-width: 104px; min-height: 54px; border-radius: 8px; border: 1px solid #BFE5EA;
+  background: #ECFEFF; color: #0E7490; padding: 8px; display: grid; align-content: center;
+  font-size: 12px; font-weight: 800; line-height: 1.25;
+}
+.workspace-preview-box {
+  min-height: 220px; border-radius: 10px; border: 1px solid var(--line);
+  background: linear-gradient(180deg, #fff, #F7F8F6); display: grid; align-content: center;
+  padding: 18px; gap: 8px;
+}
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
 .form-input, .form-textarea, .form-file {
@@ -533,7 +671,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 @keyframes toast-out { from { opacity: 1; } to { opacity: 0; } }
 
 @media (max-width: 980px) {
-  .sidebar { position: static; width: auto; min-height: auto; }
+  .sidebar { position: sticky; top: 0; width: auto; min-height: auto; max-height: 38vh; overflow: auto; }
+  .sidebar-logo { padding: 16px 18px 10px; }
+  .sidebar-section { padding: 8px 12px; }
+  .search-activity { display: none; }
   .main { margin-left: 0; padding: 18px; }
   .modal-body { overflow-y: auto; }
   #preview-modal .modal-body { overflow: hidden; }
@@ -544,6 +685,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   .preview-column { min-height: 220px; }
   .preview-column:first-child { min-height: 280px; }
   .build-review-layout, .build-review-summary { grid-template-columns: 1fr; }
+  .production-workspace-grid { grid-template-columns: 1fr; }
   .build-review-frame { height: 420px; }
   dialog { width: 96vw; height: 94vh; }
   .controls-bar { align-items: stretch; }
@@ -552,14 +694,20 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   .lead-card { align-items: flex-start; flex-wrap: wrap; }
   .lead-actions { width: 100%; justify-content: flex-end; }
   .dossier-state-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lead-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .review-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operator-strip, .inbox-board, .planner-board, .conversation-row { grid-template-columns: 1fr; }
+  .operator-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operator-brief { align-items: flex-start; flex-direction: column; }
+  .inbox-rail { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .conversation-side { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 10px; }
+  .reply-compose-grid { grid-template-columns: 1fr; }
+  .batch-row { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
 <script id="initial-leads-data" type="application/json">{{ leads|tojson }}</script>
 <script id="initial-lead-card-counts" type="application/json">{{ lead_card_counts|tojson }}</script>
+<script id="initial-launch-freeze" type="application/json">{{ launch_freeze|tojson }}</script>
 
 <!-- Sidebar -->
 <aside class="sidebar">
@@ -612,79 +760,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Nagoya">Nagoya</option>
       </select>
       <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search Leads</button>
-      <button class="advanced-filter-toggle" type="button" id="advanced-filter-toggle" aria-expanded="false" aria-controls="advanced-filters" onclick="toggleAdvancedFilters()">Advanced Filters</button>
-      <div class="advanced-filters" id="advanced-filters">
-        <select class="search-select" id="sidebar-quality" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Quality</option>
-          <option value="v1_clean">V1 Clean</option>
-          <option value="high">High</option>
-          <option value="medium">Medium Review</option>
-          <option value="low">Low Review</option>
-        </select>
-        <select class="search-select" id="sidebar-verification" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Verification</option>
-          <option value="verified">Verified</option>
-          <option value="needs_review">Needs Review</option>
-          <option value="rejected">Rejected</option>
-        </select>
-        <select class="search-select" id="sidebar-email-status" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Email</option>
-          <option value="verified">Email Verified</option>
-          <option value="needs_review">Email Review</option>
-          <option value="rejected">Email Rejected</option>
-        </select>
-        <select class="search-select" id="sidebar-name-status" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Name</option>
-          <option value="two_source_verified">Name 2x Verified</option>
-          <option value="single_source">Name Single Source</option>
-          <option value="needs_review">Name Review</option>
-          <option value="rejected">Name Rejected</option>
-        </select>
-        <select class="search-select" id="sidebar-source-strength" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Sources</option>
-          <option value="official_site">Official Site</option>
-          <option value="restaurant_owned_page">Restaurant-Owned Page</option>
-          <option value="directory">Directory</option>
-          <option value="weak_source">Weak Source</option>
-        </select>
-        <select class="search-select" id="sidebar-route" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Routes</option>
-          <option value="email">Email</option>
-          <option value="contact_form">Contact Form</option>
-        </select>
-        <select class="search-select" id="sidebar-profile" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-          <option value="all">All Profiles</option>
-          <option value="unknown">Manual Review</option>
-          <option value="ramen_only">Ramen Only</option>
-          <option value="ramen_with_drinks">Ramen With Drinks</option>
-          <option value="ramen_ticket_machine">Ramen With Ticket Machine</option>
-          <option value="ramen_with_sides_add_ons">Ramen With Sides / Add-ons</option>
-          <option value="izakaya_food_and_drinks">Izakaya Food And Drinks</option>
-          <option value="izakaya_drink_heavy">Izakaya Drink Heavy</option>
-          <option value="izakaya_course_heavy">Izakaya Course Heavy</option>
-          <option value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki</option>
-          <option value="izakaya_kushiage">Kushikatsu / Kushiage</option>
-          <option value="izakaya_seafood_sake_oden">Seafood / Sake / Oden</option>
-          <option value="izakaya_tachinomi">Tachinomi</option>
-          <option value="izakaya_robatayaki">Robatayaki</option>
-        </select>
-        <select class="search-select" id="sidebar-pitch-readiness" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
-          <option value="all">All Pitch States</option>
-          <option value="reviewable">Reviewable</option>
-          <option value="needs_email_review">Needs Email Review</option>
-          <option value="needs_name_review">Needs Name Review</option>
-          <option value="needs_scope_review">Needs Scope Review</option>
-          <option value="hard_blocked">Hard Blocked</option>
-          <option value="unsupported_route">Unsupported Route</option>
-        </select>
-        <select class="search-select" id="sidebar-review-outcome" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
-          <option value="all">All Review Outcomes</option>
-          <option value="not_reviewed">Not Reviewed</option>
-          <option value="hold">Hold</option>
-          <option value="needs_more_info">Needs More Info</option>
-          <option value="reject">Rejected</option>
-        </select>
-        <button class="btn btn-secondary" type="button" style="width:100%;height:34px;font-size:12px;" onclick="resetLeadFilters()">Reset Filters</button>
+      <div id="search-coverage-summary" style="margin-top:6px;padding:6px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;color:#475569;display:none;">
+        <div id="coverage-total" style="font-weight:600;margin-bottom:2px;"></div>
+        <div id="coverage-breakdown"></div>
+        <div id="coverage-suggestion" style="margin-top:4px;color:#16a34a;font-weight:500;"></div>
       </div>
     </div>
   </div>
@@ -694,12 +773,27 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <nav class="sidebar-nav">
       <a class="nav-item active" onclick="switchTab('leads')" id="nav-leads">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Leads
+        Lead queue
         <span class="badge badge-green" id="leads-count">0</span>
+      </a>
+      <a class="nav-item" onclick="switchTab('confirmed')" id="nav-confirmed">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/><path d="M3 20h18"/></svg>
+        Ready
+        <span class="badge badge-cyan" id="confirmed-count">0</span>
+      </a>
+      <a class="nav-item" onclick="switchTab('send-planner')" id="nav-send-planner">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+        Send planner
+        <span class="badge badge-quiet" id="send-planner-count">0</span>
+      </a>
+      <a class="nav-item" onclick="switchTab('opportunistic')" id="nav-opportunistic">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/></svg>
+        Opportunistic
+        <span class="badge badge-green" id="opportunistic-count">0</span>
       </a>
       <a class="nav-item" onclick="switchTab('sent')" id="nav-sent">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Sent
+        Done
         <span class="badge badge-quiet" id="sent-count">0</span>
       </a>
       <a class="nav-item" onclick="switchTab('qr-menus')" id="nav-qr-menus">
@@ -709,15 +803,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </nav>
     <div class="sidebar-section-title" style="margin-top:18px;">Replies</div>
     <nav class="sidebar-nav">
-      <a class="nav-item" onclick="switchTab('reply-email')" id="nav-reply-email">
+      <a class="nav-item" onclick="switchTab('inbox')" id="nav-inbox">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-        E-mail
-        <span class="badge badge-quiet" id="reply-email-count">0</span>
-      </a>
-      <a class="nav-item" onclick="switchTab('reply-forms')" id="nav-reply-forms">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
-        Forms
-        <span class="badge badge-quiet" id="reply-form-count">0</span>
+        Inbox
+        <span class="badge badge-quiet" id="reply-inbox-count">0</span>
       </a>
     </nav>
     <div class="search-activity" id="search-activity" aria-live="polite">
@@ -738,16 +827,93 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <div class="main">
   <!-- Leads tab -->
   <div class="tab-content active" id="tab-leads">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Leads</h1>
-        <p class="page-kicker">Restaurant pitch cards ready for manual review across e-mail and contact-form routes.</p>
+    <div class="launch-freeze-banner" id="launch-freeze-banner"></div>
+    <div class="operator-summary-grid" id="operator-summary-grid" aria-live="polite"></div>
+    <div class="operator-strip">
+      <div class="operator-brief">
+        <div>
+          <h1 class="operator-brief-title">Lead queue</h1>
+          <p class="operator-brief-copy" id="lead-queue-summary">Operator work modes only: review, ready, skipped, done.</p>
+        </div>
+        <div class="mode-tabs" aria-label="Lead queue modes">
+          <button class="mode-tab active" type="button" data-lead-mode="review" onclick="setLeadQueueMode('review')">Review</button>
+          <button class="mode-tab" type="button" data-lead-mode="ready" onclick="setLeadQueueMode('ready')">Ready</button>
+          <button class="mode-tab" type="button" data-lead-mode="skip" onclick="setLeadQueueMode('skip')">Skipped</button>
+          <button class="mode-tab" type="button" data-lead-mode="done" onclick="setLeadQueueMode('done')">Done</button>
+        </div>
+      </div>
+      <div class="operator-brief">
+        <div>
+          <div class="operator-brief-title" id="lead-visible-count">0 visible</div>
+          <p class="operator-brief-copy">Use the sidebar for city/category. The Ready mode also requires an approved send check.</p>
+        </div>
       </div>
     </div>
-    <div class="lead-stats" id="lead-card-stats" aria-live="polite"></div>
-    <div class="review-lanes" id="lead-review-lanes" aria-label="Review lanes"></div>
     <div class="lead-list" id="lead-list" aria-live="polite">
       <div class="empty-state"><p>Loading leads...</p></div>
+    </div>
+    <div class="queue-limit-row" id="lead-load-more-row" style="display:none;">
+      <button class="btn btn-secondary" type="button" onclick="showMoreLeadCards()">Show more</button>
+    </div>
+  </div>
+
+  <!-- Ready tab -->
+  <div class="tab-content" id="tab-confirmed">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Ready</h1>
+        <p class="page-kicker">Only operator-ready email leads with an approved send check can be scheduled.</p>
+      </div>
+    </div>
+    <div class="confirmed-summary" id="confirmed-summary" aria-live="polite"></div>
+    <div class="send-batch-bar" aria-live="polite">
+      <div>
+        <div class="send-batch-title">Send Batch</div>
+        <div class="send-batch-note" id="send-batch-note">Select approved operator-ready email leads. Maximum 10.</div>
+      </div>
+      <div class="send-batch-actions">
+        <button class="btn btn-secondary" type="button" style="height:34px;font-size:12px;" onclick="selectFirstSendReady(10)">Select 10</button>
+        <button class="btn btn-secondary" type="button" style="height:34px;font-size:12px;" onclick="clearSendSelection()">Clear</button>
+        <label style="font-size:12px;color:var(--muted);">Delay sec <input class="send-delay-input" id="send-delay-seconds" type="number" min="0" max="3600" value="900"></label>
+        <button class="btn btn-success" id="schedule-send-batch-btn" type="button" style="height:34px;font-size:12px;" onclick="scheduleSelectedSendBatch()">Schedule Send</button>
+      </div>
+    </div>
+    <div class="lead-list" id="confirmed-list" aria-live="polite">
+      <div class="empty-state"><p>No ready leads yet.</p></div>
+    </div>
+  </div>
+
+  <!-- Send planner tab -->
+  <div class="tab-content" id="tab-send-planner">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Send Planner</h1>
+        <p class="page-kicker">Batch scheduling, running sends, failures, and the handoff into replies.</p>
+      </div>
+      <button class="btn btn-secondary" onclick="loadSendPlanner()">Refresh</button>
+    </div>
+    <div class="planner-board">
+      <div class="planner-panel" id="send-planner-summary">
+        <div class="planner-title">Planner</div>
+        <div class="planner-value">--</div>
+      </div>
+      <div class="batch-list" id="send-batch-list">
+        <div class="empty-state"><p>No send batches yet.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Opportunistic tab -->
+  <div class="tab-content" id="tab-opportunistic">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Opportunistic</h1>
+        <p class="page-kicker">High-volume pitch candidates. This lane allows unknown English-menu status, weak source coverage, and missing proof snippets.</p>
+      </div>
+    </div>
+    <div class="confirmed-summary" id="opportunistic-summary" aria-live="polite"></div>
+    <div class="lead-list" id="opportunistic-list" aria-live="polite">
+      <div class="empty-state"><p>No opportunistic pitch candidates yet.</p></div>
     </div>
   </div>
 
@@ -781,33 +947,38 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
   </div>
 
-  <!-- Reply email tab -->
-  <div class="tab-content" id="tab-reply-email">
+  <!-- Inbox tab -->
+  <div class="tab-content" id="tab-inbox">
     <div class="page-header">
       <div>
-        <h1 class="page-title">E-mail Replies</h1>
-        <p class="page-kicker">Inbound responses from restaurants contacted by e-mail.</p>
+        <h1 class="page-title">Inbox</h1>
+        <p class="page-kicker">Restaurant replies linked back to pitch cards, original outreach, and production actions.</p>
       </div>
+      <button class="btn btn-secondary" onclick="loadInbox()">Refresh</button>
     </div>
-    <div class="sent-list" id="reply-email-list">
-      <div class="empty-state">
-        <p>No e-mail replies yet.</p>
-      </div>
+    <div class="inbox-filter-bar" aria-label="Inbox filters">
+      <button class="mode-tab active" type="button" data-inbox-filter="open" onclick="setInboxFilter('open')">Open</button>
+      <button class="mode-tab" type="button" data-inbox-filter="needs_reply" onclick="setInboxFilter('needs_reply')">Needs reply</button>
+      <button class="mode-tab" type="button" data-inbox-filter="waiting_on_owner" onclick="setInboxFilter('waiting_on_owner')">Waiting</button>
+      <button class="mode-tab" type="button" data-inbox-filter="ready_to_build" onclick="setInboxFilter('ready_to_build')">Ready to build</button>
+      <button class="mode-tab" type="button" data-inbox-filter="qr_requested" onclick="setInboxFilter('qr_requested')">QR</button>
+      <button class="mode-tab" type="button" data-inbox-filter="done" onclick="setInboxFilter('done')">Done</button>
+      <button class="mode-tab" type="button" data-inbox-filter="all" onclick="setInboxFilter('all')">All</button>
     </div>
-  </div>
-
-  <!-- Reply forms tab -->
-  <div class="tab-content" id="tab-reply-forms">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Form Replies</h1>
-        <p class="page-kicker">Responses that came back from contact-form outreach.</p>
-      </div>
+    <div class="inbox-focus-banner" id="inbox-focus-banner">
+      <span id="inbox-focus-label">Focused conversation</span>
+      <button class="btn btn-secondary" style="height:30px;font-size:12px;padding:0 12px;" type="button" onclick="clearInboxFocus()">Show all</button>
     </div>
-    <div class="sent-list" id="reply-form-list">
-      <div class="empty-state">
-        <p>No form replies yet.</p>
+    <div class="inbox-board" style="margin-top:14px;">
+      <div class="conversation-list" id="inbox-list">
+        <div class="empty-state">
+          <p>No replies yet.</p>
+        </div>
       </div>
+      <aside class="inbox-rail" id="inbox-summary" aria-live="polite">
+        <div class="rail-metric"><div class="rail-metric-value">0</div><div><div class="rail-metric-label">Open</div></div></div>
+        <div class="rail-metric"><div class="rail-metric-value">0</div><div><div class="rail-metric-label">Unread</div></div></div>
+      </aside>
     </div>
   </div>
 
@@ -871,6 +1042,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <select class="profile-select" id="review-outcome-select">
           <option value="hold">Hold</option>
           <option value="needs_more_info">Needs More Info</option>
+          <option value="pitch_pack_ready">Pitch Pack Ready</option>
           <option value="reject">Reject</option>
         </select>
         <input class="profile-note-input" id="review-outcome-note" type="text" placeholder="Optional review note">
@@ -905,11 +1077,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <button class="btn btn-secondary" id="clear-profile-btn" onclick="clearEstablishmentProfileOverride()">Clear Override</button>
       </div>
     </div>
-    <div class="dossier-panel" id="lead-dossier-panel">
-      <div class="profile-panel-title">Lead evidence dossier</div>
+    <details class="dossier-panel" id="lead-dossier-panel">
+      <summary class="profile-panel-title">Debug Evidence</summary>
       <div class="dossier-state-grid" id="lead-dossier-states"></div>
       <div class="dossier-proof-list" id="lead-dossier-proof"></div>
-    </div>
+    </details>
       </aside>
       <section class="outreach-editor">
     <div class="preview-columns">
@@ -933,6 +1105,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       </label>
       <button class="btn btn-secondary" id="reset-btn" onclick="resetToTemplate()">Reset to Template</button>
       <button class="btn btn-primary" id="save-draft-btn" onclick="saveDraftNow()">Save Draft</button>
+      <button class="btn btn-secondary" id="final-check-btn" onclick="runFinalCheck()">Approve Send</button>
+      <span class="rate-limit" id="final-check-status"></span>
     </div>
     <div class="control-group control-spacer">
       <span class="rate-limit" id="rate-limit"></span>
@@ -964,6 +1138,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <select class="form-input" id="build-package">
           <option value="package_1_remote_30k">English Ordering Files — ¥30,000</option>
           <option value="package_2_printed_delivered_45k">Counter-Ready Ordering Kit — ¥45,000</option>
+          <option value="package_3_qr_menu_65k">Live QR English Menu — ¥65,000</option>
         </select>
       </div>
       <div class="form-group">
@@ -1023,6 +1198,22 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   </div>
 </dialog>
 
+<!-- Production Workspace Modal -->
+<dialog id="production-workspace-modal">
+  <div class="modal-header">
+    <div class="modal-heading">
+      <h2 id="production-workspace-title">Production Workspace</h2>
+      <div class="modal-subtitle">Reply-scoped build review before owner preview.</div>
+    </div>
+    <button class="modal-close" onclick="closeProductionWorkspace()" aria-label="Close production workspace">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="production-workspace-grid" id="production-workspace-content">
+      <div class="empty-state"><p>No production workspace loaded.</p></div>
+    </div>
+  </div>
+</dialog>
+
 <!-- Confirmation Dialog -->
 <dialog id="confirm-dialog" class="compact-dialog">
   <div style="padding:24px;">
@@ -1067,6 +1258,12 @@ let lastReplyUnreadTotal = 0;
 let currentContactAction = 'send_email';
 let dashboardLeadState = null;
 let dashboardCardCountsState = {};
+let launchFreezeState = {};
+let selectedSendLeadIds = new Set();
+let leadQueueMode = 'review';
+let leadQueueLimit = 60;
+let inboxFilter = 'open';
+let inboxFocusLeadId = '';
 const DISMISSED_LEADS_STORAGE_KEY = 'webrefurbmenu.dismissedLeadIds';
 const ESTABLISHMENT_PROFILE_LABELS = {
   unknown: 'Manual Review',
@@ -1084,9 +1281,79 @@ const ESTABLISHMENT_PROFILE_LABELS = {
   izakaya_robatayaki: 'Robatayaki',
 };
 const SEARCH_CATEGORY_META = {{ search_category_meta | tojson }};
+const SEARCH_COVERAGE = {{ search_coverage | tojson }};
 
 function searchCategoryQuery(meta, place) {
   return String((meta && meta.default_query) || '券売機 ラーメン {place}').replace('{place}', place);
+}
+
+function coverageLabel(count) {
+  if (count >= 50) return ' <span style="color:#888;font-size:10px;">(' + count + ' covered)</span>';
+  if (count >= 1) return ' <span style="color:#6b8e23;font-size:10px;">(' + count + ')</span>';
+  return ' <span style="color:#22c55e;font-size:10px;">(new)</span>';
+}
+
+function applyCoverageToDropdowns() {
+  var cov = SEARCH_COVERAGE;
+  var citySel = document.getElementById('sidebar-city');
+  var catSel = document.getElementById('sidebar-category');
+  if (!citySel || !catSel) return;
+
+  for (var i = 0; i < citySel.options.length; i++) {
+    var opt = citySel.options[i];
+    var val = opt.value;
+    var count = val === 'all' ? cov.total : (cov.city[val] || 0);
+    var label = val === 'all' ? 'All Japan' : val;
+    opt.innerHTML = label + coverageLabel(count);
+  }
+
+  for (var j = 0; j < catSel.options.length; j++) {
+    var catOpt = catSel.options[j];
+    var catVal = catOpt.value;
+    var meta = SEARCH_CATEGORY_META[catVal] || {};
+    var canonical = meta.canonical || catVal;
+    var catCount = catVal === 'all' ? cov.total : (cov.category[canonical] || 0);
+    var catLabel = catOpt.innerHTML.split('(')[0].trim();
+    catOpt.innerHTML = catLabel + coverageLabel(catCount);
+  }
+}
+
+function renderCoverageSummary() {
+  var cov = SEARCH_COVERAGE;
+  if (!cov || !cov.total) return;
+  var box = document.getElementById('search-coverage-summary');
+  if (!box) return;
+  box.style.display = 'block';
+
+  var ramen = cov.category.ramen || 0;
+  var izakaya = cov.category.izakaya || 0;
+  document.getElementById('coverage-total').textContent = cov.total + ' pitch-ready';
+
+  var parts = [];
+  if (ramen) parts.push(ramen + ' ramen');
+  if (izakaya) parts.push(izakaya + ' izakaya');
+  document.getElementById('coverage-breakdown').textContent = parts.join(' / ');
+
+  // Find best search opportunity: city with fewest leads from sidebar list
+  var citySel = document.getElementById('sidebar-city');
+  var best = null;
+  var bestCount = Infinity;
+  if (citySel) {
+    for (var i = 0; i < citySel.options.length; i++) {
+      var val = citySel.options[i].value;
+      if (val === 'all') continue;
+      var c = cov.city[val] || 0;
+      if (c < bestCount) { bestCount = c; best = val; }
+    }
+  }
+  var sugEl = document.getElementById('coverage-suggestion');
+  if (sugEl && best) {
+    if (bestCount === 0) {
+      sugEl.textContent = 'Try searching ' + best + ' (no leads yet)';
+    } else if (bestCount <= 5) {
+      sugEl.textContent = 'Try ' + best + ' (only ' + bestCount + ' leads)';
+    }
+  }
 }
 
 function escapeHtml(value) {
@@ -1230,7 +1497,7 @@ function renderContactRoutes(data) {
 }
 
 function reviewOutcomeLabel(outcome) {
-  const labels = { hold: 'Hold', needs_more_info: 'Needs More Info', reject: 'Reject' };
+  const labels = { hold: 'Hold', needs_more_info: 'Needs More Info', pitch_pack_ready: 'Pitch Pack Ready', reject: 'Reject' };
   return labels[outcome] || 'Not Reviewed';
 }
 
@@ -1326,14 +1593,14 @@ function renderEstablishmentProfile(data) {
   const sourceUrls = Array.isArray(data.establishment_profile_source_urls) ? data.establishment_profile_source_urls : [];
   const effectiveProfile = data.establishment_profile_override || data.establishment_profile || 'unknown';
 
-  const readiness = (data.launch_readiness_status || 'manual_review').replace(/_/g, ' ');
-  const readinessReasons = Array.isArray(data.launch_readiness_reasons) ? data.launch_readiness_reasons : [];
-  summary.textContent = label + ' · ' + mode + ' · ' + confidence.replace(/_/g, ' ') + ' confidence · ' + readiness;
+  const operatorState = operatorStateLabel(data.operator_state || 'review');
+  const operatorReason = data.operator_reason || '';
+  summary.textContent = label + ' · ' + mode + ' · ' + confidence.replace(/_/g, ' ') + ' confidence · ' + operatorState;
   evidence.innerHTML = evidenceItems.length
     ? evidenceItems.map(item => '<span class="profile-chip">' + escapeHtml(item) + '</span>').join('')
     : '<span class="profile-chip">No saved evidence yet</span>';
-  if (readinessReasons.length) {
-    evidence.innerHTML += readinessReasons.map(item => '<span class="profile-chip">' + escapeHtml(item.replace(/_/g, ' ')) + '</span>').join('');
+  if (operatorReason) {
+    evidence.innerHTML += '<span class="profile-chip">' + escapeHtml(operatorReason) + '</span>';
   }
   sources.innerHTML = sourceUrls.length
     ? sourceUrls.map(url => '<a class="profile-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Source</a>').join('')
@@ -1559,6 +1826,10 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
     };
   }
 
+  if (data.coverage_note) {
+    steps.push({ text: data.coverage_note + '. Consider searching an under-covered city.', state: 'info' });
+  }
+
   steps.push({ text: 'No new lead was added to the current outreach queue.', state: 'done' });
   return {
     state: 'warning',
@@ -1631,13 +1902,21 @@ document.addEventListener('keydown', function(e) {
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.getElementById('nav-' + tab).classList.add('active');
+  const panel = document.getElementById('tab-' + tab);
+  if (!panel) return;
+  panel.classList.add('active');
+  const nav = document.getElementById('nav-' + tab);
+  if (nav) nav.classList.add('active');
   if (tab === 'sent') loadSentEmails();
+  if (tab === 'confirmed') {
+    renderConfirmedList(dashboardLeadState || []);
+    updateSendBatchBar();
+  }
+  if (tab === 'send-planner') loadSendPlanner();
+  if (tab === 'opportunistic') renderOpportunisticList(dashboardLeadState || []);
   if (tab === 'builds') loadBuilds();
   if (tab === 'qr-menus') loadQrMenus();
-  if (tab === 'reply-email') loadReplies('email', true);
-  if (tab === 'reply-forms') loadReplies('form', true);
+  if (tab === 'inbox') loadInbox();
 }
 
 // --- Search ---
@@ -1718,26 +1997,11 @@ async function runSearch() {
 function filterLeads() {
   const category = document.getElementById('sidebar-category').value;
   const city = document.getElementById('sidebar-city').value;
-  const quality = document.getElementById('sidebar-quality') ? document.getElementById('sidebar-quality').value : 'all';
-  const verification = document.getElementById('sidebar-verification') ? document.getElementById('sidebar-verification').value : 'all';
-  const emailStatus = document.getElementById('sidebar-email-status') ? document.getElementById('sidebar-email-status').value : 'all';
-  const nameStatus = document.getElementById('sidebar-name-status') ? document.getElementById('sidebar-name-status').value : 'all';
-  const sourceStrength = document.getElementById('sidebar-source-strength') ? document.getElementById('sidebar-source-strength').value : 'all';
-  const pitchReadiness = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
-  const reviewOutcome = document.getElementById('sidebar-review-outcome') ? document.getElementById('sidebar-review-outcome').value : 'all';
-  const profile = document.getElementById('sidebar-profile') ? document.getElementById('sidebar-profile').value : 'all';
-  const routeSelect = document.getElementById('sidebar-route');
-  const route = routeSelect ? routeSelect.value : 'all';
 
-  const cards = document.querySelectorAll('.lead-card');
-  if (
-    category === 'all' && city === 'all' && route === 'all' && quality === 'all' &&
-    verification === 'all' && emailStatus === 'all' && nameStatus === 'all' &&
-    sourceStrength === 'all' && pitchReadiness === 'all' && reviewOutcome === 'all' && profile === 'all'
-  ) {
+  const cards = document.querySelectorAll('#lead-list .lead-card');
+  if (category === 'all' && city === 'all') {
     cards.forEach(c => c.style.display = '');
     updateLeadsCount();
-    updateReviewLaneSelection(currentReviewLaneFromFilters());
     if (currentLeadId && currentEmail) renderReviewNavigation(currentEmail);
     return;
   }
@@ -1745,61 +2009,25 @@ function filterLeads() {
   cards.forEach(card => {
     const meta = SEARCH_CATEGORY_META[category] || SEARCH_CATEGORY_META.ramen;
     const canonicalCategory = meta.canonical;
-    const cardMenuType = card.dataset.menuType || '';
     const cardPrimaryCategory = card.dataset.primaryCategory || '';
-    const matchCategory = category === 'all' || cardMenuType === category || (canonicalCategory !== 'all' && cardPrimaryCategory === canonicalCategory);
+    const matchCategory = category === 'all' || cardPrimaryCategory === canonicalCategory;
     const matchCity = city === 'all' || card.dataset.city === city;
-    const cardRoute = (card.dataset.contactType || '').toLowerCase();
-    const matchRoute = route === 'all' || cardRoute === route;
-    const matchQuality = quality === 'all' || card.dataset.qualityTier === quality;
-    const matchVerification = verification === 'all' || card.dataset.verificationStatus === verification;
-    const matchEmail = emailStatus === 'all' || card.dataset.emailStatus === emailStatus;
-    const matchName = nameStatus === 'all' || card.dataset.nameStatus === nameStatus;
-    const matchSource = sourceStrength === 'all' || card.dataset.sourceStrength === sourceStrength;
-    const matchPitch = pitchReadiness === 'all'
-      || card.dataset.pitchReadiness === pitchReadiness
-      || (pitchReadiness === 'reviewable' && reviewablePitchStatus(card.dataset.pitchReadiness));
-    const matchReviewOutcome = reviewOutcome === 'all' || card.dataset.reviewOutcome === reviewOutcome;
-    const matchProfile = profile === 'all' || card.dataset.establishmentProfile === profile;
-    card.style.display = (
-      matchCategory && matchCity && matchRoute && matchQuality && matchVerification &&
-      matchEmail && matchName && matchSource && matchPitch && matchReviewOutcome && matchProfile
-    ) ? '' : 'none';
+    card.style.display = (matchCategory && matchCity) ? '' : 'none';
   });
   updateLeadsCount();
-  updateReviewLaneSelection(currentReviewLaneFromFilters());
+  updateSendBatchBar();
   if (currentLeadId && currentEmail) renderReviewNavigation(currentEmail);
 }
 
 function resetLeadFilters() {
-  [
-    'sidebar-category',
-    'sidebar-city',
-    'sidebar-quality',
-    'sidebar-verification',
-    'sidebar-email-status',
-    'sidebar-name-status',
-    'sidebar-source-strength',
-    'sidebar-route',
-    'sidebar-profile',
-    'sidebar-pitch-readiness',
-    'sidebar-review-outcome',
-  ].forEach(id => {
+  ['sidebar-category', 'sidebar-city'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = 'all';
   });
   filterLeads();
 }
 
-function toggleAdvancedFilters() {
-  const panel = document.getElementById('advanced-filters');
-  const toggle = document.getElementById('advanced-filter-toggle');
-  if (!panel || !toggle) return;
-  const open = !panel.classList.contains('is-open');
-  panel.classList.toggle('is-open', open);
-  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  toggle.textContent = open ? 'Hide Filters' : 'Advanced Filters';
-}
+
 
 function renderEmptyLeadsState() {
   return '<div class="empty-state">' +
@@ -1841,6 +2069,19 @@ function readInitialLeadCardCounts() {
   }
 }
 
+function readInitialLaunchFreeze() {
+  const node = document.getElementById('initial-launch-freeze');
+  if (!node) return {};
+  const raw = node.textContent.trim();
+  if (!raw || raw.includes('{' + '{') || raw.includes('{' + '%')) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function titleCaseValue(value) {
   return String(value || '')
     .replace(/_/g, ' ')
@@ -1849,6 +2090,81 @@ function titleCaseValue(value) {
 
 function leadStatusClass(status) {
   return String(status || 'new').replace(/_/g, '-');
+}
+
+function operatorStateLabel(state) {
+  const labels = { ready: 'Ready', review: 'Review', skip: 'Skipped', done: 'Done' };
+  return labels[String(state || 'review')] || 'Review';
+}
+
+function operatorStateClass(state) {
+  const key = String(state || 'review');
+  return ['ready', 'review', 'skip', 'done'].includes(key) ? key : 'review';
+}
+
+function proofLineForLead(lead) {
+  const proofs = Array.isArray(lead.proof_items) ? lead.proof_items : [];
+  const proof = proofs.find(item => item && item.customer_preview_eligible === true) || proofs.find(Boolean);
+  if (proof && proof.snippet) return String(proof.snippet).replace(/\s+/g, ' ').slice(0, 140);
+  const dossier = lead.lead_evidence_dossier || {};
+  if (dossier.proof_strength) return 'Proof strength: ' + dossierValueLabel(dossier.proof_strength);
+  if (lead.menu_evidence_found) return 'Menu or ordering evidence found.';
+  return 'Proof needs review.';
+}
+
+function proofUrlForLead(lead) {
+  const proofs = Array.isArray(lead.proof_items) ? lead.proof_items : [];
+  const proof = proofs.find(item => item && item.url) || null;
+  return proof ? String(proof.url || '') : '';
+}
+
+function operatorSummaryCounts(leads) {
+  const counts = { review: 0, ready: 0, skip: 0, done: 0 };
+  (Array.isArray(leads) ? leads : []).forEach(lead => {
+    const state = operatorStateClass(lead.operator_state);
+    counts[state] = (counts[state] || 0) + 1;
+  });
+  return counts;
+}
+
+function operatorReasonBreakdown(leads, state) {
+  const counts = {};
+  (Array.isArray(leads) ? leads : []).forEach(lead => {
+    if (operatorStateClass(lead.operator_state) !== state) return;
+    const reason = String(lead.operator_reason || 'No reason saved').trim();
+    counts[reason] = (counts[reason] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+function operatorOutcomeBreakdown(leads, state) {
+  const counts = {};
+  (Array.isArray(leads) ? leads : []).forEach(lead => {
+    if (operatorStateClass(lead.operator_state) !== state) return;
+    const outcome = state === 'done'
+      ? titleCaseValue(lead.outreach_status || 'done')
+      : String(lead.operator_reason || 'No reason saved').trim();
+    counts[outcome] = (counts[outcome] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+function formatBreakdown(items, emptyLabel) {
+  if (!items || !items.length) return emptyLabel;
+  return items.slice(0, 3).map(([label, count]) => count + ' · ' + label).join(' / ');
+}
+
+function reviewGroupForLead(lead) {
+  if (operatorStateClass((lead || {}).operator_state) === 'ready' && !isFinalCheckedSendReadyLead(lead)) {
+    return 'Is the draft/sample current and safe?';
+  }
+  const reason = String((lead || {}).operator_reason || '').toLowerCase();
+  if (reason.includes('restaurant name') || reason.includes('identity') || reason.includes('physical location')) return 'Is this a real restaurant?';
+  if (reason.includes('ramen') || reason.includes('izakaya') || reason.includes('category')) return 'Is this ramen or izakaya?';
+  if (reason.includes('email') || reason.includes('contact form') || reason.includes('contact route')) return 'Is the contact route acceptable?';
+  if (reason.includes('package') || reason.includes('quote') || reason.includes('scope')) return 'Is the package fit correct?';
+  if (reason.includes('pitch') || reason.includes('copy') || reason.includes('sample')) return 'Is the draft/sample current and safe?';
+  return 'Needs operator decision';
 }
 
 function statusSlug(value) {
@@ -1861,71 +2177,208 @@ function leadReadinessClass(status) {
   return 'manual';
 }
 
-function renderLeadCard(lead) {
+function isFinalCheckedSendReadyLead(lead) {
+  const readiness = lead && lead.send_readiness ? String(lead.send_readiness.status || '') : '';
+  const finalStatus = lead && lead.final_send_check ? String(lead.final_send_check.status || '') : '';
+  return readiness === 'ready_to_send' && finalStatus === 'passed';
+}
+
+function isConfirmedLeadCandidate(lead) {
+  return operatorStateClass((lead || {}).operator_state) === 'ready';
+}
+
+function isOpportunisticPitchCandidate(lead) {
+  if (!lead || isConfirmedLeadCandidate(lead)) return false;
+  if (lead.opportunistic_pitch_candidate !== true) return false;
+  const status = String(lead.outreach_status || '');
+  return !['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
+}
+
+function leadMatchesQueueMode(lead) {
+  const state = operatorStateClass((lead || {}).operator_state);
+  if (leadQueueMode === 'review') {
+    return state === 'review' || (state === 'ready' && !isFinalCheckedSendReadyLead(lead));
+  }
+  if (leadQueueMode === 'ready') {
+    return state === 'ready' && isFinalCheckedSendReadyLead(lead);
+  }
+  return state === leadQueueMode;
+}
+
+function setLeadQueueMode(mode) {
+  leadQueueMode = mode || 'all';
+  leadQueueLimit = 60;
+  document.querySelectorAll('[data-lead-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.leadMode === leadQueueMode);
+  });
+  renderLeadList(dashboardLeadState || []);
+}
+
+function showMoreLeadCards() {
+  leadQueueLimit += 60;
+  renderLeadList(dashboardLeadState || []);
+}
+
+function renderLeadQueueSummary(total, shown) {
+  const summary = document.getElementById('lead-queue-summary');
+  const visible = document.getElementById('lead-visible-count');
+  const modeLabel = {
+    review: 'records needing a decision',
+    ready: 'records approved for scheduling',
+    skip: 'records removed from outreach',
+    done: 'records with a terminal outcome',
+  }[leadQueueMode] || 'records';
+  if (summary) summary.textContent = total + ' ' + modeLabel + '. Showing ' + Math.min(shown, total) + ' to keep the queue scannable.';
+  if (visible) visible.textContent = Math.min(shown, total) + ' shown';
+}
+
+function renderOperatorSummary(leads) {
+  const root = document.getElementById('operator-summary-grid');
+  if (!root) return;
+  const counts = operatorSummaryCounts(leads);
+  const reviewBreakdown = operatorReasonBreakdown(leads, 'review');
+  const skipBreakdown = operatorReasonBreakdown(leads, 'skip');
+  const doneBreakdown = operatorOutcomeBreakdown(leads, 'done');
+  const approvedReady = (Array.isArray(leads) ? leads : []).filter(lead => operatorStateClass(lead.operator_state) === 'ready' && isFinalCheckedSendReadyLead(lead)).length;
+  const pendingReady = Math.max(0, counts.ready - approvedReady);
+  const gateLabel = launchFreezeState && launchFreezeState.active ? 'Locked' : 'Open';
+  const gateNote = pendingReady
+    ? pendingReady + ' ready records still need copy/sample approval'
+    : (launchFreezeState && launchFreezeState.active ? 'Real outreach remains frozen' : 'No blocked ready records');
+  const items = [
+    ['Review', counts.review + pendingReady, formatBreakdown(reviewBreakdown, 'No review blockers')],
+    ['Ready', approvedReady, counts.ready ? approvedReady + ' approved / ' + pendingReady + ' pending approval' : 'No approved ready records'],
+    ['Skipped', counts.skip, formatBreakdown(skipBreakdown, 'No skipped records')],
+    ['Done', counts.done, formatBreakdown(doneBreakdown, 'No completed records')],
+    ['Gate', gateLabel, gateNote],
+  ];
+  root.innerHTML = items.map(([label, value, note]) => (
+    '<div class="operator-summary-card">'
+      + '<div class="operator-summary-value">' + escapeHtml(value) + '</div>'
+      + '<div class="operator-summary-label">' + escapeHtml(label) + '</div>'
+      + '<div class="confirmed-step-note">' + escapeHtml(note) + '</div>'
+    + '</div>'
+  )).join('');
+}
+
+function renderLaunchFreezeBanner() {
+  const banner = document.getElementById('launch-freeze-banner');
+  if (!banner) return;
+  if (launchFreezeState && launchFreezeState.active) {
+    banner.style.display = 'block';
+    banner.textContent = launchFreezeState.detail || 'Real outreach is frozen until production-readiness gates are complete.';
+  } else {
+    banner.style.display = 'none';
+    banner.textContent = '';
+  }
+}
+
+function renderLeadCard(lead, options = {}) {
+  const showSendSelect = options.showSendSelect === true;
   const leadId = String(lead.lead_id || '');
   const status = String(lead.outreach_status || 'new');
   const readiness = String(lead.launch_readiness_status || 'manual_review');
-  const readinessReasons = Array.isArray(lead.launch_readiness_reasons) ? lead.launch_readiness_reasons : [];
   const contactType = String(lead.primary_contact_type || '');
-  const profileMode = String(lead.establishment_profile_mode || '');
   const effectiveProfile = String(lead.establishment_profile_effective || lead.establishment_profile || 'unknown');
   const profileLabel = lead.establishment_profile_label || establishmentProfileLabel(effectiveProfile);
   const recommendedPackage = lead.recommended_package_label || 'Review package';
-  const verificationStatus = String(lead.verification_status || 'unchecked');
-  const emailStatus = String(lead.email_verification_status || 'unchecked');
-  const nameStatus = String(lead.name_verification_status || 'unchecked');
-  const sourceStrength = String(lead.source_strength || 'unchecked');
+  const recommendedPackageKey = String(lead.recommended_primary_package || '');
+  const packageReason = String(lead.package_recommendation_reason || lead.custom_quote_reason || '').trim();
   const pitchCardStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || (readiness === 'ready_for_outreach' ? 'reviewable' : 'needs_scope_review'));
   const reviewOutcome = reviewOutcomeValue(lead);
-  const reviewOutcomeText = lead.operator_review_outcome_label || reviewOutcomeLabel(reviewOutcome);
-  const nextCheckText = lead.pitch_card_label || titleCaseValue(pitchCardStatus);
-  const evidenceParts = [
-    lead.source_strength_label || titleCaseValue(sourceStrength),
-    'Score ' + String(lead.evidence_strength_score ?? 0),
-    lead.menu_evidence_found ? 'Menu found' : '',
-    lead.machine_evidence_found ? 'Ticket machine seen' : '',
-    lead.english_menu_state_label ? 'English: ' + lead.english_menu_state_label : '',
-  ].filter(Boolean);
+  const sendReadiness = lead.send_readiness || {};
+  const sendStatus = String(sendReadiness.status || 'not_ready');
+  const sendReady = sendStatus === 'ready_to_send';
+  const finalChecked = ((lead.final_send_check || {}).status || '') === 'passed';
+  const operatorState = operatorStateClass(lead.operator_state);
+  const operatorReason = String(lead.operator_reason || 'Review this record before outreach.').trim();
+  const proofLine = proofLineForLead(lead);
+  const proofUrl = proofUrlForLead(lead);
   const blockedSend = ['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
   const canReviewPitch = !blockedSend && lead.pitch_card_openable === true && ['email', 'contact_form'].includes(contactType);
   const reviewBlocked = !blockedSend && (readiness !== 'ready_for_outreach' || pitchCardStatus !== 'reviewable');
   const canOpenPitch = blockedSend || !reviewBlocked || canReviewPitch;
-  const actionLabel = blockedSend ? 'View' : 'Preview';
+  const actionLabel = operatorState === 'review' ? 'Review' : operatorState === 'ready' ? 'Open' : 'View';
   const actionAttrs = canOpenPitch
     ? 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"'
-    : 'disabled title="Verification and explicit promotion are required before pitch preview."';
-  const cardStatusClass = ['sent', 'replied', 'converted'].includes(status) ? ' status-' + leadStatusClass(status) : '';
+    : 'disabled title="' + escapeHtml(operatorReason) + '"';
+  const cardStatusClass = (['sent', 'replied', 'converted'].includes(status) ? ' status-' + leadStatusClass(status) : '')
+    + ' is-' + operatorState;
   const badges = [
     lead.outreach_draft_manually_edited ? '<span class="draft-badge">Edited draft</span>' : '',
   ].join('');
+  const replySummary = lead.reply_summary || {};
+  const replyTotal = Number(replySummary.total || 0);
+  const replyOpen = Number(replySummary.open || 0);
+  const replyLabel = replyOpen
+    ? replyOpen + ' open ' + plural(replyOpen, 'reply')
+    : replyTotal
+      ? replyTotal + ' closed ' + plural(replyTotal, 'reply')
+      : '';
+  const replyPillHtml = replyTotal
+    ? '<button type="button" class="mini-pill lead-reply-link" data-lead-id="' + escapeHtml(leadId) + '" data-business-name="' + escapeHtml(lead.business_name || 'Lead') + '" onclick="openLeadInbox(this.dataset.leadId, this.dataset.businessName)">' + escapeHtml(replyLabel) + '</button>'
+    : '';
+  const cityLabel = (lead.city || '').trim();
+  const categoryLabel = titleCaseValue(lead.primary_category_v1 || '');
+  const routeLabel = contactTypeLabel(contactType);
+  const sendSelectHtml = showSendSelect ? '<label class="send-select" title="' + (finalChecked ? 'Select for delayed batch send' : 'Approval required before batch send') + '">' +
+    '<input type="checkbox" class="send-ready-select" data-send-lead-id="' + escapeHtml(leadId) + '" ' +
+    (sendReady && finalChecked ? '' : 'disabled ') +
+    (selectedSendLeadIds.has(leadId) ? 'checked ' : '') +
+    'onchange="toggleSendSelection(this)">' +
+  '</label>' : '';
+  const proofButton = proofUrl
+    ? '<a class="btn btn-secondary" href="' + escapeHtml(proofUrl) + '" target="_blank" rel="noopener noreferrer">Proof</a>'
+    : '';
+  const acceptButton = operatorState === 'review'
+    ? '<button class="btn btn-secondary" type="button" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'approve_real_shop\')">Accept Shop</button>'
+    : '';
+  const skipButton = ['review', 'ready'].includes(operatorState)
+    ? '<button class="btn btn-secondary" type="button" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'skip\')">Skip</button>'
+    : '';
+  const nameButton = operatorState !== 'done'
+    ? '<button class="btn btn-secondary" type="button" data-lead-id="' + escapeHtml(leadId) + '" data-business-name="' + escapeHtml(lead.business_name || '') + '" onclick="fixLeadNameFromButton(this)">Name</button>'
+    : '';
+  const packageButton = operatorState !== 'done'
+    ? '<button class="btn btn-secondary" type="button" data-lead-id="' + escapeHtml(leadId) + '" data-package-key="' + escapeHtml(recommendedPackageKey) + '" onclick="fixLeadPackageFromButton(this)">Package</button>'
+    : '';
+  const regenerateButton = ['review', 'ready'].includes(operatorState)
+    ? '<button class="btn btn-secondary" type="button" onclick="regenerateLeadPitch(\'' + escapeHtml(leadId) + '\')">Regenerate</button>'
+    : '';
+  const dncButton = ['review', 'ready'].includes(operatorState)
+    ? '<button class="btn btn-secondary" type="button" onclick="markLeadDnc(\'' + escapeHtml(leadId) + '\')">DNC</button>'
+    : '';
 
   return '<div class="lead-card' + cardStatusClass + '" data-lead-id="' + escapeHtml(leadId) + '"' +
       ' data-outreach-status="' + escapeHtml(status) + '"' +
       ' data-contact-type="' + escapeHtml(contactType || 'none') + '"' +
-      ' data-quality-tier="' + escapeHtml(lead.quality_tier || 'unknown') + '"' +
-      ' data-verification-status="' + escapeHtml(verificationStatus) + '"' +
-      ' data-email-status="' + escapeHtml(emailStatus) + '"' +
-      ' data-name-status="' + escapeHtml(nameStatus) + '"' +
-      ' data-source-strength="' + escapeHtml(sourceStrength) + '"' +
-      ' data-establishment-profile="' + escapeHtml(effectiveProfile) + '"' +
-      ' data-city="' + escapeHtml(lead.city || '') + '"' +
-      ' data-menu-type="' + escapeHtml(lead.menu_type || '') + '"' +
+      ' data-city="' + escapeHtml(cityLabel) + '"' +
       ' data-primary-category="' + escapeHtml(lead.primary_category_v1 || '') + '"' +
+      ' data-operator-state="' + escapeHtml(operatorState) + '"' +
+      ' data-send-readiness="' + escapeHtml(sendStatus) + '"' +
+      ' data-final-check="' + escapeHtml(finalChecked ? 'passed' : 'not_checked') + '"' +
+      ' data-recommended-package="' + escapeHtml(recommendedPackageKey) + '"' +
       ' data-pitch-readiness="' + escapeHtml(pitchCardStatus) + '"' +
-      ' data-review-outcome="' + escapeHtml(reviewOutcome) + '"' +
-      ' data-recommended-package="' + escapeHtml(recommendedPackage) + '">' +
-    '<div class="score-pill">' + escapeHtml(lead.lead_score_v1 || 0) + '</div>' +
+      ' data-review-outcome="' + escapeHtml(reviewOutcome) + '">' +
+    sendSelectHtml +
     '<div class="lead-info">' +
+      '<div class="lead-badges"><span class="operator-state-badge operator-state-' + escapeHtml(operatorState) + '">' + escapeHtml(operatorStateLabel(operatorState)) + '</span></div>' +
       '<div class="lead-name">' + escapeHtml(lead.business_name || 'Unnamed lead') + '</div>' +
-      '<div class="lead-meta">' + escapeHtml(titleCaseValue(lead.primary_category_v1 || 'unknown')) + ' &middot; ' + escapeHtml(lead.address || 'Unknown') + '</div>' +
-      '<div class="lead-contact">Route: ' + escapeHtml(lead.primary_contact_label || 'No contact route') + '</div>' +
-      '<div class="lead-profile" data-role="profile-summary">Profile: ' + escapeHtml(profileLabel) + (profileMode === 'operator_override' ? ' · Operator override' : '') + ' · Package: ' + escapeHtml(recommendedPackage) + '</div>' +
-      '<div class="lead-proof">Evidence: ' + escapeHtml(evidenceParts.join(' · ') || 'Needs review') + '</div>' +
-      '<div class="lead-next">Next: ' + escapeHtml(nextCheckText) + ' · Outcome: ' + escapeHtml(reviewOutcomeText) + '</div>' +
-      (badges ? '<div class="lead-badges">' + badges + '</div>' : '') +
+      '<div class="lead-meta">' + escapeHtml([cityLabel, categoryLabel, profileLabel, routeLabel].filter(Boolean).join(' · ')) + '</div>' +
+      '<div class="lead-package-line">' + escapeHtml(recommendedPackage + (packageReason ? ' · ' + packageReason : '')) + '</div>' +
+      '<div class="lead-proof-line">' + escapeHtml(proofLine) + '</div>' +
+      (operatorState === 'review' || operatorState === 'skip' ? '<div class="lead-review-line">' + escapeHtml(operatorReason) + '</div>' : '') +
+      (badges || replyPillHtml ? '<div class="lead-badges">' + badges + replyPillHtml + '</div>' : '') +
     '</div>' +
     '<div class="lead-actions">' +
+      proofButton +
       '<button class="btn btn-secondary" ' + actionAttrs + '>' + escapeHtml(actionLabel) + '</button>' +
+      acceptButton +
+      skipButton +
+      nameButton +
+      packageButton +
+      regenerateButton +
+      dncButton +
       '<button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete ' + escapeHtml(lead.business_name || 'lead') + '" onclick="openDeleteLead(\'' + escapeHtml(leadId) + '\', this)">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>' +
       '</button>' +
@@ -1936,39 +2389,287 @@ function renderLeadCard(lead) {
 function renderLeadList(leads) {
   const list = document.getElementById('lead-list');
   if (!list) return;
-  if (!Array.isArray(leads) || leads.length === 0) {
+  renderOperatorSummary(leads);
+  renderLaunchFreezeBanner();
+  const filtered = (Array.isArray(leads) ? leads : []).filter(leadMatchesQueueMode);
+  const visibleLeads = filtered.slice(0, leadQueueLimit);
+  renderLeadQueueSummary(filtered.length, visibleLeads.length);
+  const moreRow = document.getElementById('lead-load-more-row');
+  if (moreRow) moreRow.style.display = filtered.length > visibleLeads.length ? '' : 'none';
+  if (!filtered.length) {
     list.innerHTML = renderEmptyLeadsState();
     updateLeadsCount();
+    updateSendBatchBar();
     return;
   }
-  list.innerHTML = leads.map(renderLeadCard).join('');
+  if (leadQueueMode === 'review') {
+    const groups = [];
+    visibleLeads.forEach(lead => {
+      const label = reviewGroupForLead(lead);
+      let group = groups.find(item => item.label === label);
+      if (!group) {
+        group = { label, leads: [] };
+        groups.push(group);
+      }
+      group.leads.push(lead);
+    });
+    list.innerHTML = groups.map(group =>
+      '<div class="lead-group-heading">' + escapeHtml(group.label) + '</div>' +
+      group.leads.map(lead => renderLeadCard(lead, { showSendSelect: false })).join('')
+    ).join('');
+  } else {
+    list.innerHTML = visibleLeads.map(lead => renderLeadCard(lead, { showSendSelect: false })).join('');
+  }
   applyDismissedLeadCards();
   filterLeads();
+  updateSendBatchBar();
+}
+
+function renderConfirmedSummary(leads) {
+  const summary = document.getElementById('confirmed-summary');
+  if (!summary) return;
+  const confirmed = (Array.isArray(leads) ? leads : []).filter(isConfirmedLeadCandidate);
+  const green = confirmed.filter(isFinalCheckedSendReadyLead);
+  const pending = confirmed.length - green.length;
+  const emailReady = green.filter(lead => String(lead.primary_contact_type || '').toLowerCase() === 'email');
+  const items = [
+    [confirmed.length, 'Ready', 'Operator-cleared records.'],
+    [green.length, 'Approved', 'Eligible for batch scheduling.'],
+    [pending, 'Needs approval', 'Open the pitch, inspect the exact copy/sample, then approve send.'],
+    [emailReady.length, 'Email route', 'Only these can be selected for delayed batch send.'],
+  ];
+  summary.innerHTML = items.map(([value, label, note]) =>
+    '<div class="confirmed-step">' +
+      '<div class="confirmed-step-value">' + escapeHtml(value) + '</div>' +
+      '<div class="confirmed-step-label">' + escapeHtml(label) + '</div>' +
+      '<div class="confirmed-step-note">' + escapeHtml(note) + '</div>' +
+    '</div>'
+  ).join('');
+  const badge = document.getElementById('confirmed-count');
+  if (badge) badge.textContent = String(green.length);
+}
+
+function renderConfirmedList(leads) {
+  const list = document.getElementById('confirmed-list');
+  if (!list) return;
+  const confirmed = (Array.isArray(leads) ? leads : []).filter(isConfirmedLeadCandidate);
+  const approved = confirmed.filter(isFinalCheckedSendReadyLead);
+  renderConfirmedSummary(leads);
+  if (!approved.length) {
+    list.innerHTML = '<div class="empty-state">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/><path d="M3 20h18"/></svg>' +
+      '<p>No approved ready leads yet. Complete review decisions and approve exact copy before scheduling.</p>' +
+      '</div>';
+    updateSendBatchBar();
+    return;
+  }
+  list.innerHTML = approved.map(lead => renderLeadCard(lead, { showSendSelect: true })).join('');
+  updateSendBatchBar();
+}
+
+function renderOpportunisticSummary(leads) {
+  const summary = document.getElementById('opportunistic-summary');
+  if (!summary) return;
+  const candidates = (Array.isArray(leads) ? leads : []).filter(isOpportunisticPitchCandidate);
+  const email = candidates.filter(lead => String(lead.primary_contact_type || '').toLowerCase() === 'email');
+  const reviewNeeded = candidates.filter(lead => String(lead.pitch_card_status || '').startsWith('needs_'));
+  const items = [
+    [candidates.length, 'Volume candidates', 'Allowed: unknown English status, weak source coverage, missing proof snippet.'],
+    [email.length, 'E-mail routes', 'Usable saved e-mail route is present.'],
+    [reviewNeeded.length, 'Needs quick skim', 'Open the pitch and keep only obvious fit/copy sanity checks.'],
+  ];
+  summary.innerHTML = items.map(([value, label, note]) =>
+    '<div class="confirmed-step">' +
+      '<div class="confirmed-step-value">' + escapeHtml(value) + '</div>' +
+      '<div class="confirmed-step-label">' + escapeHtml(label) + '</div>' +
+      '<div class="confirmed-step-note">' + escapeHtml(note) + '</div>' +
+    '</div>'
+  ).join('');
+  const badge = document.getElementById('opportunistic-count');
+  if (badge) badge.textContent = String(candidates.length);
+}
+
+function renderOpportunisticList(leads) {
+  const list = document.getElementById('opportunistic-list');
+  if (!list) return;
+  const candidates = (Array.isArray(leads) ? leads : []).filter(isOpportunisticPitchCandidate);
+  renderOpportunisticSummary(leads);
+  if (!candidates.length) {
+    list.innerHTML = '<div class="empty-state">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/></svg>' +
+      '<p>No high-volume candidates after hard blockers are removed.</p>' +
+      '</div>';
+    return;
+  }
+  list.innerHTML = candidates.map(lead => renderLeadCard(lead, { showSendSelect: false })).join('');
+}
+
+function toggleSendSelection(input) {
+  const leadId = input.dataset.sendLeadId;
+  if (!leadId) return;
+  if (input.checked) {
+    if (selectedSendLeadIds.size >= 10) {
+      input.checked = false;
+      showToast('Send batches are capped at 10 leads.', 'error');
+      return;
+    }
+    selectedSendLeadIds.add(leadId);
+  } else {
+    selectedSendLeadIds.delete(leadId);
+  }
+  updateSendBatchBar();
+}
+
+function visibleSendReadyCards() {
+  return Array.from(document.querySelectorAll('#confirmed-list .lead-card'))
+    .filter(card => card.style.display !== 'none')
+    .filter(card => card.dataset.sendReadiness === 'ready_to_send')
+    .filter(card => card.dataset.finalCheck === 'passed');
+}
+
+function selectFirstSendReady(limit = 10) {
+  selectedSendLeadIds.clear();
+  visibleSendReadyCards().slice(0, limit).forEach(card => selectedSendLeadIds.add(card.dataset.leadId));
+  document.querySelectorAll('.send-ready-select').forEach(input => {
+    input.checked = selectedSendLeadIds.has(input.dataset.sendLeadId);
+  });
+  updateSendBatchBar();
+}
+
+function clearSendSelection() {
+  selectedSendLeadIds.clear();
+  document.querySelectorAll('.send-ready-select').forEach(input => { input.checked = false; });
+  updateSendBatchBar();
+}
+
+function updateSendBatchBar() {
+  const note = document.getElementById('send-batch-note');
+  const btn = document.getElementById('schedule-send-batch-btn');
+  const readyCount = visibleSendReadyCards().length;
+  const selectedCount = selectedSendLeadIds.size;
+  if (note) note.textContent = readyCount + ' approved ready email leads visible. ' + selectedCount + ' selected. Maximum 10.';
+  if (btn) btn.disabled = selectedCount < 1 || selectedCount > 10;
+}
+
+async function scheduleSelectedSendBatch() {
+  const leadIds = Array.from(selectedSendLeadIds);
+  if (!leadIds.length || leadIds.length > 10) {
+    showToast('Select 1-10 approved ready leads.', 'error');
+    return;
+  }
+  const delayInput = document.getElementById('send-delay-seconds');
+  const delaySeconds = Math.max(0, Math.min(Number(delayInput ? delayInput.value : 900) || 900, 3600));
+  const btn = document.getElementById('schedule-send-batch-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Scheduling...';
+  try {
+    const res = await fetch('/api/send-batches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lead_ids: leadIds, delay_seconds: delaySeconds, start: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Batch scheduling failed');
+    clearSendSelection();
+    showToast('Send batch scheduled: ' + data.lead_count + ' leads', 'success');
+    setTimeout(() => location.reload(), 1200);
+  } catch (err) {
+    showToast('Batch send blocked: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function loadSendPlanner() {
+  const summary = document.getElementById('send-planner-summary');
+  const list = document.getElementById('send-batch-list');
+  if (!summary || !list) return;
+  list.innerHTML = '<div class="empty-state"><p>Loading send batches...</p></div>';
+  try {
+    const res = await fetch('/api/send-batches');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Planner unavailable');
+    renderSendPlanner(data);
+  } catch (err) {
+    list.innerHTML = '<div class="empty-state"><p>Could not load send planner.</p></div>';
+    showToast('Send planner failed: ' + err.message, 'error');
+  }
+}
+
+function renderSendPlanner(data) {
+  const summary = document.getElementById('send-planner-summary');
+  const list = document.getElementById('send-batch-list');
+  const badge = document.getElementById('send-planner-count');
+  const counts = data.counts || {};
+  const batches = data.batches || [];
+  if (badge) {
+    const active = Number(counts.scheduled || 0) + Number(counts.running || 0);
+    badge.textContent = String(active);
+    badge.className = 'badge ' + (active ? 'badge-cyan' : 'badge-quiet');
+  }
+  if (summary) {
+    summary.innerHTML = `
+      <div class="planner-title">Send capacity</div>
+      <div class="planner-value">${escapeHtml(data.ready_count || 0)}</div>
+      <div class="confirmed-step-note">Approved e-mail leads ready for batches of up to ${escapeHtml(data.selected_limit || 10)}.</div>
+      <div class="batch-status-line">
+        <span class="mini-pill">${escapeHtml(counts.scheduled || 0)} scheduled</span>
+        <span class="mini-pill">${escapeHtml(counts.running || 0)} running</span>
+        <span class="mini-pill">${escapeHtml(counts.completed || 0)} completed</span>
+        <span class="mini-pill">${escapeHtml(counts.failed || 0)} failed</span>
+      </div>`;
+  }
+  if (!batches.length) {
+    list.innerHTML = '<div class="empty-state"><p>No send batches yet. Select approved ready leads from Ready, then schedule them here.</p></div>';
+    return;
+  }
+  list.innerHTML = batches.map(batch => renderSendBatchRow(batch)).join('');
+}
+
+function renderSendBatchRow(batch) {
+  const counts = batch.status_counts || {};
+  const leads = batch.leads || [];
+  const leadPreview = leads.slice(0, 4).map(item => escapeHtml(item.business_name || item.lead_id || '')).join(' · ');
+  const statusPills = Object.keys(counts).sort().map(key =>
+    '<span class="mini-pill">' + escapeHtml(counts[key]) + ' ' + escapeHtml(key.replace(/_/g, ' ')) + '</span>'
+  ).join('');
+  const safeBatchId = escapeHtml(batch.batch_id || '');
+  const cancelButton = batch.cancelable
+    ? `<button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-batch-id="${safeBatchId}" onclick="cancelSendBatch(this.dataset.batchId, this)">Cancel unsent</button>`
+    : '';
+  return `
+    <div class="batch-row">
+      <div>
+        <div class="batch-id">${escapeHtml(batch.batch_id || '')}</div>
+        <div class="batch-meta">Status: ${escapeHtml(batch.status || '')} · Leads: ${escapeHtml(batch.lead_count || leads.length || 0)} · Delay: ${escapeHtml(batch.delay_seconds || 0)} sec</div>
+        <div class="batch-meta">${leadPreview || 'No lead details stored.'}</div>
+        <div class="batch-status-line">${statusPills}</div>
+      </div>
+      <div class="conversation-actions">${cancelButton}</div>
+    </div>`;
+}
+
+async function cancelSendBatch(batchId, btn) {
+  if (!batchId || (btn && btn.disabled)) return;
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Canceling...'; }
+  try {
+    const res = await fetch('/api/send-batches/' + encodeURIComponent(batchId) + '/cancel', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Cancel failed');
+    showToast('Unsent batch entries canceled', 'success');
+    loadSendPlanner();
+  } catch (err) {
+    showToast('Cancel failed: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
 }
 
 function reviewablePitchStatus(status) {
   return ['needs_email_review', 'needs_name_review', 'needs_scope_review'].includes(String(status || ''));
-}
-
-function reviewLaneCounts(leads) {
-  const counts = {
-    unreviewed: 0,
-    email_route: 0,
-    form_route: 0,
-    name_review: 0,
-    scope_review: 0,
-  };
-  (Array.isArray(leads) ? leads : []).forEach(lead => {
-    const pitchStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || '');
-    if (!reviewablePitchStatus(pitchStatus)) return;
-    if (reviewOutcomeValue(lead) === 'not_reviewed') counts.unreviewed += 1;
-    const contactType = String(lead.primary_contact_type || '').toLowerCase();
-    if (pitchStatus === 'needs_email_review' && contactType === 'contact_form') counts.form_route += 1;
-    else if (pitchStatus === 'needs_email_review') counts.email_route += 1;
-    else if (pitchStatus === 'needs_name_review') counts.name_review += 1;
-    else if (pitchStatus === 'needs_scope_review') counts.scope_review += 1;
-  });
-  return counts;
 }
 
 function setFilterValue(id, value) {
@@ -1976,105 +2677,13 @@ function setFilterValue(id, value) {
   if (element) element.value = value;
 }
 
-function applyReviewLane(lane) {
-  resetLeadFilters();
-  if (lane === 'unreviewed') {
-    setFilterValue('sidebar-pitch-readiness', 'reviewable');
-    setFilterValue('sidebar-review-outcome', 'not_reviewed');
-  } else if (lane === 'email_route') {
-    setFilterValue('sidebar-pitch-readiness', 'needs_email_review');
-    setFilterValue('sidebar-route', 'email');
-  } else if (lane === 'form_route') {
-    setFilterValue('sidebar-pitch-readiness', 'needs_email_review');
-    setFilterValue('sidebar-route', 'contact_form');
-  } else if (lane === 'name_review') {
-    setFilterValue('sidebar-pitch-readiness', 'needs_name_review');
-  } else if (lane === 'scope_review') {
-    setFilterValue('sidebar-pitch-readiness', 'needs_scope_review');
-  }
-  filterLeads();
-}
-
-function currentReviewLaneFromFilters() {
-  const pitch = document.getElementById('sidebar-pitch-readiness') ? document.getElementById('sidebar-pitch-readiness').value : 'all';
-  const route = document.getElementById('sidebar-route') ? document.getElementById('sidebar-route').value : 'all';
-  const outcome = document.getElementById('sidebar-review-outcome') ? document.getElementById('sidebar-review-outcome').value : 'all';
-  if (pitch === 'reviewable' && outcome === 'not_reviewed') return 'unreviewed';
-  if (pitch === 'needs_email_review' && route === 'email') return 'email_route';
-  if (pitch === 'needs_email_review' && route === 'contact_form') return 'form_route';
-  if (pitch === 'needs_name_review' && route === 'all') return 'name_review';
-  if (pitch === 'needs_scope_review' && route === 'all') return 'scope_review';
-  return '';
-}
-
-function updateReviewLaneSelection(activeLane) {
-  document.querySelectorAll('[data-review-lane]').forEach(button => {
-    const active = button.dataset.reviewLane === activeLane;
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', active ? 'true' : 'false');
-  });
-}
-
-function renderLeadReviewLanes(leads) {
-  const container = document.getElementById('lead-review-lanes');
-  if (!container) return;
-  const counts = reviewLaneCounts(leads);
-  const lanes = [
-    ['unreviewed', 'Unreviewed Cards', counts.unreviewed, 'Reviewable cards without an outcome'],
-    ['email_route', 'Email Route Review', counts.email_route, 'Confirm owner e-mail candidates'],
-    ['form_route', 'Contact Form Review', counts.form_route, 'Open supported forms without submitting'],
-    ['name_review', 'Name Review', counts.name_review, 'Check single-source shop names'],
-    ['scope_review', 'Scope Review', counts.scope_review, 'Confirm ramen or izakaya fit'],
-  ];
-  container.innerHTML = lanes.map(([lane, label, value, detail]) =>
-    '<button class="review-lane" type="button" aria-pressed="false" onclick="applyReviewLane(\'' + escapeHtml(lane) + '\')" data-review-lane="' + escapeHtml(lane) + '">' +
-      '<span class="review-lane-value">' + escapeHtml(value) + '</span>' +
-      '<span class="review-lane-label">' + escapeHtml(label) + '</span>' +
-      '<span class="review-lane-detail">' + escapeHtml(detail) + '</span>' +
-    '</button>'
-  ).join('');
-}
-
-function manualReviewOutcomeCounts(leads) {
-  const counts = { not_reviewed: 0, reviewed: 0, needs_more_info: 0 };
-  (Array.isArray(leads) ? leads : []).forEach(lead => {
-    const pitchStatus = String(lead.pitch_card_status || lead.pitch_readiness_status || '');
-    if (!reviewablePitchStatus(pitchStatus)) return;
-    const outcome = reviewOutcomeValue(lead);
-    if (outcome === 'not_reviewed') {
-      counts.not_reviewed += 1;
-    } else {
-      counts.reviewed += 1;
-      if (outcome === 'needs_more_info') counts.needs_more_info += 1;
-    }
-  });
-  return counts;
-}
-
-function renderLeadCardStats(counts, leads) {
-  const stats = document.getElementById('lead-card-stats');
-  if (!stats) return;
-  const values = counts || {};
-  const reviewCounts = manualReviewOutcomeCounts(leads);
-  const items = [
-    ['Reviewable pitch cards', values.reviewable_pitch_cards || 0],
-    ['Needs info', reviewCounts.needs_more_info || 0],
-    ['Not reviewed', reviewCounts.not_reviewed || 0],
-    ['Reviewed outcomes', reviewCounts.reviewed || 0],
-    ['Hard blocked', values.hard_blocked || 0],
-  ];
-  stats.innerHTML = items.map(([label, value]) =>
-    '<div class="lead-stat"><div class="lead-stat-value">' + escapeHtml(value) +
-    '</div><div class="lead-stat-label">' + escapeHtml(label) + '</div></div>'
-  ).join('');
-}
-
-function renderDashboardQueue(leads, counts) {
+function renderDashboardQueue(leads, counts, launchFreeze) {
   dashboardLeadState = Array.isArray(leads) ? leads : [];
   dashboardCardCountsState = counts || {};
-  renderLeadCardStats(dashboardCardCountsState, dashboardLeadState);
-  renderLeadReviewLanes(dashboardLeadState);
+  launchFreezeState = launchFreeze || launchFreezeState || {};
   renderLeadList(dashboardLeadState);
+  renderConfirmedList(dashboardLeadState);
+  renderOpportunisticList(dashboardLeadState);
 }
 
 async function loadDashboardLeads(forceApi = false) {
@@ -2084,7 +2693,7 @@ async function loadDashboardLeads(forceApi = false) {
   }
   const initialLeads = forceApi ? null : readInitialLeads();
   if (initialLeads) {
-    renderDashboardQueue(initialLeads, readInitialLeadCardCounts());
+    renderDashboardQueue(initialLeads, readInitialLeadCardCounts(), readInitialLaunchFreeze());
     return;
   }
   if (window.location.protocol === 'file:') {
@@ -2098,7 +2707,7 @@ async function loadDashboardLeads(forceApi = false) {
     if (!res.ok) throw new Error('Lead API unavailable');
     const data = await res.json();
     const leads = Array.isArray(data) ? data : (Array.isArray(data.leads) ? data.leads : []);
-    renderDashboardQueue(leads, Array.isArray(data) ? {} : (data.card_counts || {}));
+    renderDashboardQueue(leads, Array.isArray(data) ? {} : (data.card_counts || {}), Array.isArray(data) ? {} : (data.launch_freeze || {}));
   } catch {
     const list = document.getElementById('lead-list');
     if (list) list.innerHTML = renderEmptyLeadsState();
@@ -2135,7 +2744,7 @@ function clearLeadCard(card) {
 function applyDismissedLeadCards() {
   const dismissed = new Set(loadDismissedLeadIds());
   if (dismissed.size === 0) return;
-  document.querySelectorAll('#lead-list .lead-card').forEach(card => {
+  document.querySelectorAll('#lead-list .lead-card, #confirmed-list .lead-card, #opportunistic-list .lead-card').forEach(card => {
     const leadId = card.dataset.leadId || '';
     if (dismissed.has(leadId)) {
       clearLeadCard(card);
@@ -2164,6 +2773,129 @@ function openDeleteLead(leadId, btn) {
   document.getElementById('delete-lead-confirm-btn').disabled = false;
   document.getElementById('delete-lead-confirm-btn').textContent = 'Clear';
   document.getElementById('delete-lead-dialog').showModal();
+}
+
+async function markLeadDnc(leadId) {
+  if (!leadId) return;
+  try {
+    const res = await fetch('/api/flag-dnc/' + encodeURIComponent(leadId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flag: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not mark DNC');
+    showToast('Lead marked do not contact', 'success');
+    await loadDashboardLeads(true);
+  } catch (err) {
+    showToast('DNC failed: ' + err.message, 'error');
+  }
+}
+
+async function quickLeadAction(leadId, action) {
+  if (!leadId || !action) return;
+  const labels = {
+    approve_real_shop: 'Shop accepted',
+    skip: 'Lead skipped',
+  };
+  try {
+    const res = await fetch('/api/leads/' + encodeURIComponent(leadId) + '/operator-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Action failed');
+    showToast(labels[action] || 'Lead updated', 'success');
+    await loadDashboardLeads(true);
+  } catch (err) {
+    showToast('Action failed: ' + err.message, 'error');
+  }
+}
+
+function fixLeadNameFromButton(btn) {
+  fixLeadName(btn.dataset.leadId || '', btn.dataset.businessName || '');
+}
+
+async function fixLeadName(leadId, currentName) {
+  if (!leadId) return;
+  const nextName = window.prompt('Restaurant name', currentName || '');
+  if (nextName === null) return;
+  const businessName = nextName.trim();
+  if (!businessName) {
+    showToast('Name cannot be empty', 'error');
+    return;
+  }
+  try {
+    const res = await fetch('/api/leads/' + encodeURIComponent(leadId) + '/operator-fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ business_name: businessName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Name update failed');
+    showToast('Restaurant name saved', 'success');
+    await loadDashboardLeads(true);
+  } catch (err) {
+    showToast('Name update failed: ' + err.message, 'error');
+  }
+}
+
+function fixLeadPackageFromButton(btn) {
+  fixLeadPackage(btn.dataset.leadId || '', btn.dataset.packageKey || '');
+}
+
+function packageKeyFromInput(value, currentKey) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw === '1' || raw.includes('30') || raw.includes('remote') || raw.includes('files')) return 'package_1_remote_30k';
+  if (raw === '2' || raw.includes('45') || raw.includes('printed') || raw.includes('counter')) return 'package_2_printed_delivered_45k';
+  if (raw === '3' || raw.includes('65') || raw.includes('qr')) return 'package_3_qr_menu_65k';
+  if (raw.startsWith('package_')) return raw;
+  return currentKey || '';
+}
+
+async function fixLeadPackage(leadId, currentKey) {
+  if (!leadId) return;
+  const rawPackage = window.prompt('Package: 1, 2, or 3', currentKey || '1');
+  if (rawPackage === null) return;
+  const packageKey = packageKeyFromInput(rawPackage, currentKey);
+  if (!packageKey) {
+    showToast('Package was not changed', 'info');
+    return;
+  }
+  const reason = window.prompt('Package reason', 'Operator selected package after review.');
+  if (reason === null) return;
+  try {
+    const res = await fetch('/api/leads/' + encodeURIComponent(leadId) + '/operator-fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recommended_primary_package: packageKey,
+        package_recommendation_reason: reason.trim() || 'Operator selected package after review.',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Package update failed');
+    showToast('Package saved', 'success');
+    await loadDashboardLeads(true);
+  } catch (err) {
+    showToast('Package update failed: ' + err.message, 'error');
+  }
+}
+
+async function regenerateLeadPitch(leadId) {
+  if (!leadId) return;
+  try {
+    const res = await fetch('/api/outreach/' + encodeURIComponent(leadId), { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Regeneration failed');
+    showToast('Pitch regenerated', 'success');
+    await loadDashboardLeads(true);
+    await openPreview(leadId);
+  } catch (err) {
+    showToast('Regeneration failed: ' + err.message, 'error');
+  }
 }
 
 function closeDeleteLeadDialog() {
@@ -2325,6 +3057,7 @@ async function openPreview(leadId) {
   document.getElementById('asset-panel-note').style.display = 'none';
   document.getElementById('asset-panel-note-title').textContent = 'Sample strategy';
   document.getElementById('asset-panel-note-summary').textContent = '';
+  document.getElementById('final-check-status').textContent = '';
   setSaveState('Loading draft...', '');
 
   // Disable send button while loading
@@ -2373,6 +3106,7 @@ async function openPreview(leadId) {
     renderReviewOutcome(data);
     renderEstablishmentProfile(data);
     renderLeadDossier(data);
+    renderFinalCheckStatus(data);
 
     // Pre-fill recipient email
     if (data.email) {
@@ -2612,6 +3346,59 @@ function confirmSend() {
   dialog.showModal();
 }
 
+function renderFinalCheckStatus(data) {
+  const status = document.getElementById('final-check-status');
+  if (!status) return;
+  const finalCheck = (data || {}).final_send_check || {};
+  const readiness = (data || {}).send_readiness || {};
+  if (finalCheck.status === 'passed') {
+    status.textContent = 'Send approval passed';
+  } else if (readiness.status === 'ready_to_send') {
+    status.textContent = 'Queue check passed; send approval pending';
+  } else {
+    status.textContent = 'Send approval blocked until queue check passes';
+  }
+}
+
+async function runFinalCheck() {
+  if (!currentLeadId || !currentEmail) return;
+  const btn = document.getElementById('final-check-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+  try {
+    await syncDraftForManualAction();
+    const assetChecks = document.querySelectorAll('#asset-items input[type=checkbox]');
+    const checkedAssets = [];
+    assetChecks.forEach((cb, i) => { if (cb.checked && selectedAssets[i]) checkedAssets.push(selectedAssets[i]); });
+    const res = await fetch('/api/outreach/' + encodeURIComponent(currentLeadId) + '/final-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: currentEmail.subject,
+        body: currentEmail.body,
+        assets: checkedAssets,
+        include_machine_image: currentEmail.include_machine_image || false,
+      }),
+    });
+    const data = await res.json();
+    currentEmail.send_readiness = data.send_readiness;
+    currentEmail.final_send_check = { status: data.passed ? 'passed' : 'not_checked', checklist: data.checklist || [] };
+    renderFinalCheckStatus(currentEmail);
+    if (data.passed) {
+      showToast('Send approval passed. This pitch can be sent.', 'success');
+    } else {
+      const blockers = (data.checklist || []).filter(item => item.status !== 'pass').map(item => item.label).join(', ');
+      showToast('Send approval blocked: ' + (blockers || (data.send_readiness.reasons || []).join(', ')), 'error');
+    }
+  } catch (err) {
+    showToast('Send approval failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
 async function syncDraftForManualAction() {
   if (!draftDirty) return;
   clearTimeout(draftTranslateTimer);
@@ -2784,6 +3571,7 @@ function openBuildFromReply(btn) {
   const businessName = btn.dataset.businessName || '';
   const subject = btn.dataset.subject || '';
   const channel = btn.dataset.channel || 'reply';
+  const packageKey = btn.dataset.packageKey || (btn.closest('.conversation-row') ? btn.closest('.conversation-row').dataset.packageKey : '');
   const photoCount = Number(btn.dataset.photoCount || 0);
   const storedPhotoCount = Number(btn.dataset.storedPhotoCount || 0);
   currentLeadId = leadId;
@@ -2793,6 +3581,10 @@ function openBuildFromReply(btn) {
   document.getElementById('build-source').value = channel + '_reply';
   document.getElementById('build-photos-label').textContent = 'Additional Menu Photos (optional)';
   document.getElementById('build-name').value = businessName || leadId;
+  const packageSelect = document.getElementById('build-package');
+  if (packageKey && Array.from(packageSelect.options).some(option => option.value === packageKey)) {
+    packageSelect.value = packageKey;
+  }
   document.getElementById('build-notes').value = [
     'Source reply: ' + (replyId || 'unknown'),
     subject ? 'Subject: ' + subject : '',
@@ -3523,6 +4315,12 @@ async function loadSentEmails() {
       const safeTo = (s.to || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
       const safeLeadId = (s.lead_id || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
       const safeName = (s.business_name || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+      const replySummary = s.reply_summary || {};
+      const replyTotal = Number(replySummary.total || 0);
+      const replyOpen = Number(replySummary.open || 0);
+      const replyAction = replyTotal
+        ? `<button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-lead-id="${safeLeadId}" data-business-name="${safeName || safeSubject}" onclick="openLeadInbox(this.dataset.leadId, this.dataset.businessName)">${replyOpen || replyTotal} ${replyOpen ? 'Open' : 'Closed'} ${plural(replyOpen || replyTotal, 'Reply')}</button>`
+        : '';
       return `
       <div class="sent-entry" data-to="${safeTo}" data-subject="${safeSubject}" data-lead-id="${safeLeadId}" data-business-name="${safeName}">
         <div class="sent-entry-header">
@@ -3531,15 +4329,9 @@ async function loadSentEmails() {
         </div>
         <div style="margin-top:8px;font-size:13px;color:#666;">To: ${safeTo} &middot; Status: ${s.status}</div>
         <div class="reply-section">
+          ${replyAction}
           <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Reply</button>
-          <div class="reply-compose">
-            <textarea class="reply-textarea" placeholder="Type your reply in English, then click Translate..."></textarea>
-            <div class="reply-actions">
-              <span class="reply-translate-hint">Translated from English — edit before sending</span>
-              <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="translateReply(this)">Translate to Japanese</button>
-              <button class="btn btn-primary" style="height:32px;font-size:12px;padding:0 14px;" onclick="sendReply(this)">Send Reply</button>
-            </div>
-          </div>
+          ${renderReplyComposer({}, {})}
         </div>
       </div>`;
     }).join('');
@@ -3547,16 +4339,24 @@ async function loadSentEmails() {
 }
 
 function updateReplyBadges(counts) {
+  const inboxBadge = document.getElementById('reply-inbox-count');
   const emailBadge = document.getElementById('reply-email-count');
   const formBadge = document.getElementById('reply-form-count');
   const emailUnread = counts ? Number(counts.email_unread || 0) : 0;
   const formUnread = counts ? Number(counts.form_unread || 0) : 0;
+  const unreadFromInbox = counts && counts.unread !== undefined ? Number(counts.unread || 0) : null;
   const unreadTotal = emailUnread + formUnread;
-  if (replyCountsSeen && unreadTotal > lastReplyUnreadTotal) {
+  const badgeTotal = unreadFromInbox === null ? unreadTotal : unreadFromInbox;
+  if (replyCountsSeen && badgeTotal > lastReplyUnreadTotal) {
     showToast('New reply received', 'info');
   }
   replyCountsSeen = true;
-  lastReplyUnreadTotal = unreadTotal;
+  lastReplyUnreadTotal = badgeTotal;
+  if (inboxBadge) {
+    const openCount = Number(counts?.open || 0);
+    inboxBadge.textContent = String(openCount || badgeTotal || 0);
+    inboxBadge.className = 'badge ' + ((openCount || badgeTotal) ? 'badge-red' : 'badge-quiet');
+  }
   if (emailBadge) {
     emailBadge.textContent = emailUnread;
     emailBadge.className = 'badge ' + (emailUnread ? 'badge-red' : 'badge-quiet');
@@ -3571,10 +4371,485 @@ function updateReplyBadges(counts) {
 
 async function loadReplyCounts() {
   try {
-    const res = await fetch('/api/replies');
+    const res = await fetch('/api/inbox');
     const data = await res.json();
     updateReplyBadges(data.counts || {});
   } catch {}
+}
+
+function setInboxFilter(filter) {
+  inboxFilter = filter || 'open';
+  inboxFocusLeadId = '';
+  updateInboxFocusBanner();
+  document.querySelectorAll('[data-inbox-filter]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.inboxFilter === inboxFilter);
+  });
+  loadInbox();
+}
+
+function openLeadInbox(leadId, businessName) {
+  inboxFocusLeadId = leadId || '';
+  inboxFilter = 'all';
+  document.querySelectorAll('[data-inbox-filter]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.inboxFilter === 'all');
+  });
+  switchTab('inbox');
+  updateInboxFocusBanner(businessName || leadId);
+}
+
+function clearInboxFocus() {
+  inboxFocusLeadId = '';
+  inboxFilter = 'open';
+  document.querySelectorAll('[data-inbox-filter]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.inboxFilter === inboxFilter);
+  });
+  updateInboxFocusBanner();
+  loadInbox();
+}
+
+function updateInboxFocusBanner(label) {
+  const banner = document.getElementById('inbox-focus-banner');
+  const text = document.getElementById('inbox-focus-label');
+  if (!banner || !text) return;
+  if (!inboxFocusLeadId) {
+    banner.style.display = 'none';
+    return;
+  }
+  text.textContent = 'Focused on replies for ' + (label || inboxFocusLeadId);
+  banner.style.display = 'flex';
+}
+
+async function loadInbox() {
+  const list = document.getElementById('inbox-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state"><p>Loading inbox...</p></div>';
+  try {
+    const queryStatus = inboxFilter === 'all' || inboxFilter === 'open' ? 'all' : inboxFilter;
+    const res = await fetch('/api/inbox?status=' + encodeURIComponent(queryStatus));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Inbox unavailable');
+    let replies = data.replies || [];
+    if (inboxFocusLeadId) {
+      replies = replies.filter(reply => String(reply.lead_id || '') === inboxFocusLeadId);
+    }
+    if (inboxFilter === 'open') {
+      replies = replies.filter(reply => !['done', 'archived'].includes(String(reply.workflow_status || '')));
+    }
+    renderInbox(replies, data.counts || {});
+  } catch (err) {
+    list.innerHTML = '<div class="empty-state"><p>Could not load inbox.</p></div>';
+    showToast('Inbox failed: ' + err.message, 'error');
+  }
+}
+
+function renderInbox(replies, counts) {
+  updateReplyBadges(counts || {});
+  renderInboxSummary(counts || {});
+  const list = document.getElementById('inbox-list');
+  if (!list) return;
+  if (!replies.length) {
+    list.innerHTML = '<div class="empty-state"><p>No replies match this view.</p></div>';
+    return;
+  }
+  list.innerHTML = replies.map(renderConversationRow).join('');
+}
+
+function renderInboxSummary(counts) {
+  const summary = document.getElementById('inbox-summary');
+  if (!summary) return;
+  const items = [
+    [counts.open || 0, 'Open'],
+    [counts.unread || 0, 'Unread'],
+    [counts.needs_reply || 0, 'Needs reply'],
+    [counts.waiting_on_owner || 0, 'Waiting'],
+    [counts.ready_to_build || 0, 'Ready to build'],
+    [counts.qr_requested || 0, 'QR requested'],
+    [counts.done || 0, 'Done'],
+  ];
+  summary.innerHTML = items.map(([value, label]) =>
+    '<div class="rail-metric"><div class="rail-metric-value">' + escapeHtml(value) + '</div><div><div class="rail-metric-label">' + escapeHtml(label) + '</div></div></div>'
+  ).join('');
+}
+
+const REPLY_WORKFLOW_OPTIONS = [
+  ['needs_reply', 'Needs reply'],
+  ['waiting_on_owner', 'Waiting on owner'],
+  ['ready_to_build', 'Ready to build'],
+  ['qr_requested', 'QR requested'],
+  ['quote_requested', 'Quote requested'],
+  ['objection', 'Objection'],
+  ['done', 'Done'],
+  ['archived', 'Archived'],
+];
+
+function workflowStatusLabel(status) {
+  return String(status || 'needs_reply').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function replyTemplateOptions(reply, next) {
+  const key = String((next || {}).key || '');
+  const intent = String((reply || {}).reply_intent || '');
+  if (key === 'send_quote') return ['quote', 'price', 'ask_photos'];
+  if (key === 'ask_for_photos') return ['ask_photos', 'price', 'qr'];
+  if (key === 'review_uploaded_photos' || key === 'build_sample') return ['received_photos', 'quote'];
+  if (key === 'answer_question' || intent === 'price_question') return ['answer', 'price', 'ask_photos'];
+  if (key === 'create_qr' || key === 'request_qr_details' || intent.includes('qr')) return ['qr', 'ask_photos'];
+  return ['answer', 'ask_photos', 'price'];
+}
+
+function replyTemplateLabel(kind) {
+  return {
+    ask_photos: 'Ask photos',
+    price: 'Price answer',
+    received_photos: 'Received photos',
+    quote: 'Send quote',
+    qr: 'QR details',
+    answer: 'Direct answer',
+  }[kind] || workflowStatusLabel(kind);
+}
+
+function replyTemplateFollowupStatus(kind) {
+  if (kind === 'received_photos') return 'ready_to_build';
+  if (kind === 'quote') return 'quote_requested';
+  return 'waiting_on_owner';
+}
+
+function replyTemplateText(kind, entry) {
+  const name = entry ? (entry.dataset.businessName || 'your restaurant') : 'your restaurant';
+  if (kind === 'ask_photos') {
+    return 'Thank you for your reply. To prepare the English menu accurately, could you please send clear photos of the current menu pages? If you also use a ticket machine, please send a clear photo of the full button layout as well.\n\nOnce I have the photos, I can confirm the best package and next step.';
+  }
+  if (kind === 'price') {
+    return 'Thank you for your reply. The online delivery package is ¥30,000, the printed and delivered package is ¥45,000, and the QR menu system is ¥65,000.\n\nFor ' + name + ', I can recommend the best fit after checking the current menu photos.';
+  }
+  if (kind === 'received_photos') {
+    return 'Thank you for sending the photos. I will review the menu content and confirm the best next step.\n\nIf any page is cropped or hard to read, I will let you know exactly which photo should be resent.';
+  }
+  if (kind === 'quote') {
+    return 'Thank you. Based on what you sent, I recommend the online English menu file package at ¥30,000.\n\nIf that works for you, I can prepare the order details and payment information.';
+  }
+  if (kind === 'qr') {
+    return 'Thank you. For the QR menu, please send clear photos of the current food and drink menu, the preferred shop name in English if you have one, and any sections you want hidden or highlighted.\n\nOnce confirmed, I can prepare the QR menu structure.';
+  }
+  return 'Thank you for your reply. Regarding your question, I can prepare the English menu from your current menu photos and confirm the package before production.\n\nPlease let me know if you would like me to proceed.';
+}
+
+function applyReplyTemplate(btn, kind) {
+  const entry = btn.closest('.sent-entry, .conversation-row');
+  const compose = btn.closest('.reply-compose');
+  if (!compose) return;
+  const english = compose.querySelector('.reply-english') || compose.querySelector('.reply-textarea');
+  const japanese = compose.querySelector('.reply-japanese');
+  if (english) english.value = replyTemplateText(kind, entry);
+  if (japanese) japanese.value = '';
+  compose.dataset.followupStatus = replyTemplateFollowupStatus(kind);
+  const hint = compose.querySelector('.reply-translate-hint');
+  if (hint) {
+    hint.classList.remove('visible');
+    hint.textContent = 'Translate the English draft before sending.';
+  }
+}
+
+function renderReplyTemplateStrip(reply, next) {
+  return '<div class="reply-template-strip">' + replyTemplateOptions(reply, next).map(kind =>
+    '<button type="button" class="reply-template-chip" onclick="applyReplyTemplate(this, \'' + kind + '\')">' + escapeHtml(replyTemplateLabel(kind)) + '</button>'
+  ).join('') + '</div>';
+}
+
+function renderReplyComposer(reply, next) {
+  return `
+    <div class="reply-compose" data-followup-status="waiting_on_owner">
+      ${renderReplyTemplateStrip(reply || {}, next || {})}
+      <div class="reply-compose-grid">
+        <label>
+          <span class="reply-field-label">English source</span>
+          <textarea class="reply-textarea reply-english" placeholder="English draft"></textarea>
+        </label>
+        <label>
+          <span class="reply-field-label">Japanese to send</span>
+          <textarea class="reply-textarea reply-japanese" placeholder="Japanese translation"></textarea>
+        </label>
+      </div>
+      <div class="reply-actions">
+        <span class="reply-translate-hint">Translate the English draft before sending.</span>
+        <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="translateReply(this)">Translate</button>
+        <button class="btn btn-primary" style="height:32px;font-size:12px;padding:0 14px;" onclick="sendReply(this)">Send Japanese</button>
+      </div>
+    </div>`;
+}
+
+function renderWorkflowSelect(currentStatus) {
+  return REPLY_WORKFLOW_OPTIONS.map(([value, label]) =>
+    '<option value="' + escapeHtml(value) + '"' + (value === currentStatus ? ' selected' : '') + '>' + escapeHtml(label) + '</option>'
+  ).join('');
+}
+
+function renderConversationRow(reply) {
+  const lead = reply.lead || {};
+  const next = reply.next_action || {};
+  const original = reply.original_pitch || {};
+  const safeLeadId = escapeHtml(reply.lead_id || '');
+  const safeReplyId = escapeHtml(reply.reply_id || '');
+  const safeName = escapeHtml(reply.business_name || lead.business_name || 'Unknown restaurant');
+  const safeSubject = escapeHtml(reply.subject || 'Restaurant reply');
+  const safeFrom = escapeHtml(reply.from || 'Unknown sender');
+  const safeReplyTo = escapeHtml(reply.reply_to_email || '');
+  const safePackageKey = escapeHtml(reply.package_key || lead.package_key || '');
+  const safeChannel = escapeHtml(reply.channel === 'form' ? 'Form' : 'E-mail');
+  const safeBody = escapeHtml(reply.body || '');
+  const received = reply.received_at ? new Date(reply.received_at).toLocaleString() : '';
+  const unreadClass = reply.read_at ? '' : ' unread';
+  const workflowStatus = String(reply.workflow_status || 'needs_reply');
+  const storedPhotoCount = Number(reply.stored_photo_count || 0);
+  const photoCount = Number(reply.photo_count || 0);
+  const hasEmailReplyTo = Boolean(reply.reply_to_email);
+  const ownerAssets = ((reply.owner_assets || {}).assets || []);
+  const latestOperatorReply = reply.latest_operator_reply || {};
+  const assetReviewHtml = ownerAssets.length ? `
+    <div class="asset-review-strip">
+      ${ownerAssets.map(asset => {
+        const assetId = escapeHtml(asset.asset_id || '');
+        const current = String(asset.operator_status || '');
+        const name = escapeHtml(asset.source_attachment_filename || asset.asset_type || 'Owner asset');
+        return `<div class="asset-review-item" data-asset-id="${assetId}">
+          <div class="asset-review-name">${name}</div>
+          <div class="asset-review-actions">
+            ${['usable', 'needs_better_photo', 'not_needed'].map(status => {
+              const label = status === 'usable' ? 'Usable' : status === 'needs_better_photo' ? 'Needs better photo' : 'Not needed';
+              return `<button type="button" class="${current === status ? 'active' : ''}" onclick="reviewReplyAsset('${safeReplyId}', '${assetId}', '${status}', this)">${label}</button>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+  const photoPill = reply.has_photos ? '<span class="reply-photo-pill">' + escapeHtml(storedPhotoCount ? storedPhotoCount + ' photo ready' : photoCount ? photoCount + ' photo received' : 'Photos mentioned') + '</span>' : '';
+  const qrPill = reply.qr_ready ? '<span class="reply-qr-pill">QR ready</span>' : '';
+  const pitchContext = original.subject
+    ? '<div class="pitch-context"><strong>Original pitch</strong><span>' + escapeHtml(original.subject) + '</span><span>' + escapeHtml(original.sent_at ? new Date(original.sent_at).toLocaleDateString() : '') + '</span>' + (original.body_excerpt ? '<span>' + escapeHtml(original.body_excerpt) + '</span>' : '') + '</div>'
+    : '<div class="pitch-context"><strong>Original pitch</strong><span>No sent pitch record found.</span></div>';
+  const operatorReplyContext = latestOperatorReply.sent_at
+    ? '<div class="operator-reply-context"><strong>Last follow-up</strong><span>' + escapeHtml(new Date(latestOperatorReply.sent_at).toLocaleString()) + '</span><span>' + escapeHtml(String(latestOperatorReply.body || '').slice(0, 180)) + '</span></div>'
+    : '';
+  const menuButton = storedPhotoCount > 0 ? `
+    <button type="button" class="btn btn-primary" style="height:32px;font-size:12px;padding:0 14px;"
+      data-lead-id="${safeLeadId}" data-reply-id="${safeReplyId}" data-business-name="${safeName}"
+      data-subject="${safeSubject}" data-channel="${escapeHtml(reply.channel || '')}" data-photo-count="${photoCount}"
+      data-stored-photo-count="${storedPhotoCount}" data-package-key="${safePackageKey}" onclick="openBuildFromReply(this)">Create Menu</button>` : '';
+  const qrButton = reply.qr_ready ? `
+    <button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;"
+      data-reply-id="${safeReplyId}" onclick="createQrFromReply(this)">Create QR</button>` : '';
+  const replyButton = hasEmailReplyTo ? '<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Reply</button>' : '';
+  const openPitchButton = safeLeadId ? `<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-lead-id="${safeLeadId}" onclick="openPreview(this.dataset.leadId)">Open Pitch</button>` : '';
+  const workspaceButton = safeReplyId ? `<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-reply-id="${safeReplyId}" onclick="openProductionWorkspace(this.dataset.replyId)">Workspace</button>` : '';
+  return `
+    <div class="conversation-row${unreadClass}" data-lead-id="${safeLeadId}" data-reply-id="${safeReplyId}" data-to="${safeReplyTo}" data-subject="${safeSubject}" data-business-name="${safeName}" data-package-key="${safePackageKey}">
+      <div>
+        <div class="conversation-kicker">
+          <span class="reply-channel-pill">${safeChannel}</span>
+          <span class="mini-pill">${escapeHtml(workflowStatusLabel(workflowStatus))}</span>
+          ${photoPill}
+          ${qrPill}
+          ${reply.reply_age_label ? '<span class="mini-pill">' + escapeHtml(reply.reply_age_label) + '</span>' : ''}
+        </div>
+        <div class="conversation-name">${safeName}</div>
+        <div class="conversation-meta">${escapeHtml([lead.city, lead.menu_type_label || lead.category, lead.package_label].filter(Boolean).join(' · '))}</div>
+        <div class="conversation-subject">${safeSubject}</div>
+        <div class="conversation-meta">From: ${safeFrom} · ${escapeHtml(received)}</div>
+        <div class="conversation-body">${safeBody}</div>
+        ${assetReviewHtml}
+      </div>
+      <div class="conversation-side">
+        <div>
+          <div class="next-action-label">Next action</div>
+          <div class="next-action-title">${escapeHtml(next.label || 'Reply Needed')}</div>
+          <div class="next-action-detail">${escapeHtml(next.detail || '')}</div>
+        </div>
+        ${pitchContext}
+        ${operatorReplyContext}
+        <div class="reply-workflow-controls">
+          <div class="next-action-label">Workflow</div>
+          <select class="reply-status-select" aria-label="Reply workflow status">${renderWorkflowSelect(workflowStatus)}</select>
+          <button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="saveReplyWorkflowSelect(this)">Save status</button>
+        </div>
+        ${renderReplyComposer(reply, next)}
+        <div class="conversation-actions">
+          ${openPitchButton}
+          ${replyButton}
+          ${workspaceButton}
+          ${menuButton}
+          ${qrButton}
+          <button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="markReplyWorkflow('${safeReplyId}', 'done', this)">Done</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function markReplyWorkflow(replyId, status, btn) {
+  if (!replyId) return;
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    const res = await fetch('/api/replies/' + encodeURIComponent(replyId) + '/workflow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workflow_status: status }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Update failed');
+    updateReplyBadges(data.counts || {});
+    showToast('Reply marked ' + workflowStatusLabel(status), 'success');
+    loadInbox();
+  } catch (err) {
+    showToast('Reply update failed: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+async function saveReplyWorkflowSelect(btn) {
+  const entry = btn.closest('.conversation-row');
+  const select = entry ? entry.querySelector('.reply-status-select') : null;
+  const replyId = entry ? entry.dataset.replyId : '';
+  if (!replyId || !select) return;
+  await markReplyWorkflow(replyId, select.value, btn);
+}
+
+async function reviewReplyAsset(replyId, assetId, status, btn) {
+  if (!replyId || !assetId) return;
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    const res = await fetch('/api/replies/' + encodeURIComponent(replyId) + '/assets/' + encodeURIComponent(assetId) + '/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operator_status: status }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Asset update failed');
+    showToast('Asset marked ' + status.replace(/_/g, ' '), 'success');
+    loadInbox();
+  } catch (err) {
+    showToast('Asset update failed: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+function closeProductionWorkspace() {
+  document.getElementById('production-workspace-modal').close();
+}
+
+async function openProductionWorkspace(replyId) {
+  if (!replyId) return;
+  const modal = document.getElementById('production-workspace-modal');
+  const content = document.getElementById('production-workspace-content');
+  document.getElementById('production-workspace-title').textContent = 'Production Workspace';
+  content.innerHTML = '<div class="empty-state"><p>Loading workspace...</p></div>';
+  modal.showModal();
+  try {
+    const res = await fetch('/api/replies/' + encodeURIComponent(replyId) + '/workspace');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Workspace unavailable');
+    renderProductionWorkspace(replyId, data.workspace || {});
+  } catch (err) {
+    content.innerHTML = '<div class="empty-state"><p>Could not load workspace.</p></div>';
+    showToast('Workspace failed: ' + err.message, 'error');
+  }
+}
+
+function renderProductionWorkspace(replyId, workspace) {
+  const left = workspace.left_rail || {};
+  const center = workspace.center || {};
+  const right = workspace.right_rail || {};
+  const packageFit = workspace.package_fit || {};
+  const extracted = left.extracted_content || {};
+  const sections = extracted.sections || [];
+  const assets = left.source_assets || [];
+  const unresolved = left.unresolved_questions || [];
+  const mapping = center.ticket_machine_mapping || {};
+  const rows = mapping.rows || [];
+  const controls = (right.structured_controls || {});
+  const outputs = controls.outputs || {};
+  const preview = center.live_rendered_preview || {};
+  const content = document.getElementById('production-workspace-content');
+  const titleParts = [replyId, packageFit.package_key || 'package review'].filter(Boolean);
+  document.getElementById('production-workspace-title').textContent = titleParts.join(' · ');
+
+  const assetHtml = assets.length ? assets.map(asset => `
+    <div class="workspace-asset-row">
+      <div class="workspace-row-title">${escapeHtml(asset.source_attachment_filename || asset.asset_type || 'Owner asset')}</div>
+      <div class="workspace-row-meta">${escapeHtml([asset.asset_type, asset.operator_status, (asset.quality_issues || []).join(', ')].filter(Boolean).join(' · '))}</div>
+    </div>`).join('') : '<div class="workspace-row-meta">No owner assets stored.</div>';
+
+  const itemHtml = sections.length ? sections.map(section => `
+    <div class="workspace-section">
+      <div class="workspace-row-title">${escapeHtml(section.section || 'Menu')}</div>
+      ${(section.items || []).map(item => `
+        <div class="workspace-item-row">
+          <div class="workspace-row-title">${escapeHtml(item.tentative_english_label || item.japanese_item_name || 'Menu item')}</div>
+          <div class="workspace-row-meta">${escapeHtml([item.japanese_item_name, item.price, item.owner_confirmation_status, item.source_provenance].filter(Boolean).join(' · '))}</div>
+        </div>`).join('') || '<div class="workspace-row-meta">No extracted items.</div>'}
+    </div>`).join('') : '<div class="workspace-row-meta">No extracted menu rows.</div>';
+
+  const ticketHtml = rows.length ? `
+    <div class="ticket-grid">
+      ${rows.map(row => `<div class="ticket-grid-row">
+        ${(row.buttons || []).map(button => `
+          <div class="ticket-button-cell">
+            <span>${escapeHtml(button.button_label || 'Unmapped')}</span>
+            <small>${escapeHtml([button.group, button.status].filter(Boolean).join(' · '))}</small>
+          </div>`).join('')}
+      </div>`).join('')}
+    </div>` : '<div class="workspace-row-meta">No ticket-machine grid detected.</div>';
+
+  const controlsHtml = Object.entries({
+    profile: controls.profile || 'review',
+    template: controls.template || 'select during build',
+    item_density: controls.item_density || 'balanced',
+    photo_usage: controls.photo_usage || 'owner_photos_only',
+    price_visibility: controls.price_visibility || 'owner_confirmed_only',
+  }).map(([label, value]) => `
+    <div class="workspace-control-row">
+      <div class="workspace-row-title">${escapeHtml(label.replace(/_/g, ' '))}</div>
+      <div class="workspace-row-meta">${escapeHtml(value)}</div>
+    </div>`).join('');
+
+  content.innerHTML = `
+    <section class="production-workspace-panel" data-workspace-panel="extraction">
+      <h3>Owner Assets</h3>
+      ${assetHtml}
+      <div class="workspace-section">
+        <h3>Extraction Review</h3>
+        ${itemHtml}
+      </div>
+    </section>
+    <section class="production-workspace-panel" data-workspace-panel="ticket-mapping">
+      <h3>Ticket Mapping</h3>
+      ${ticketHtml}
+      <div class="workspace-section">
+        <div class="workspace-row-title">${escapeHtml(Number((mapping.ui || {}).button_count || 0))} buttons · ${escapeHtml(Number(mapping.columns || 0))} columns</div>
+        <div class="workspace-row-meta">${escapeHtml(unresolved.length ? unresolved.join(' · ') : 'No unresolved workspace blockers')}</div>
+      </div>
+      <div class="workspace-section">
+        <h3>Owner Preview</h3>
+        <div class="workspace-preview-box">
+          <div class="workspace-row-title">${escapeHtml(preview.status || 'pending_render')}</div>
+          <div class="workspace-row-meta">${escapeHtml(preview.preview_url || 'Preview appears after the build render passes production QA.')}</div>
+        </div>
+      </div>
+    </section>
+    <section class="production-workspace-panel" data-workspace-panel="build-studio">
+      <h3>Build Studio</h3>
+      <div class="workspace-control-row">
+        <div class="workspace-row-title">${escapeHtml(packageFit.package_key || 'Package review')}</div>
+        <div class="workspace-row-meta">${escapeHtml([packageFit.reason, (packageFit.blockers || []).join(', ')].filter(Boolean).join(' · '))}</div>
+      </div>
+      ${controlsHtml}
+      <div class="workspace-section">
+        <h3>Outputs</h3>
+        <div class="workspace-row-meta">${escapeHtml(['print', 'ticket', 'qr'].filter(key => outputs[key]).join(' · ') || 'No output selected')}</div>
+      </div>
+    </section>`;
 }
 
 async function loadReplies(channel, markRead) {
@@ -3671,18 +4946,25 @@ async function loadReplies(channel, markRead) {
 }
 
 function toggleReply(btn) {
-  const compose = btn.parentElement.querySelector('.reply-compose');
-  compose.classList.toggle('open');
+  const entry = btn.closest('.sent-entry, .conversation-row');
+  const compose = entry ? entry.querySelector('.reply-compose') : btn.parentElement.querySelector('.reply-compose');
+  if (compose) {
+    const opened = compose.classList.toggle('open');
+    const english = compose.querySelector('.reply-english') || compose.querySelector('.reply-textarea');
+    const firstTemplate = compose.querySelector('.reply-template-chip');
+    if (opened && english && !english.value.trim() && firstTemplate) firstTemplate.click();
+  }
 }
 
 async function translateReply(btn) {
   if (btn.disabled) return;
   const compose = btn.closest('.reply-compose');
-  const textarea = compose.querySelector('.reply-textarea');
-  const text = textarea.value.trim();
+  const englishField = compose.querySelector('.reply-english') || compose.querySelector('.reply-textarea');
+  const japaneseField = compose.querySelector('.reply-japanese');
+  const text = englishField.value.trim();
   if (!text) { showToast('Type something first', 'error'); return; }
 
-  const entry = btn.closest('.sent-entry');
+  const entry = btn.closest('.sent-entry, .conversation-row');
   const businessName = entry ? (entry.dataset.businessName || '') : '';
 
   btn.disabled = true;
@@ -3696,9 +4978,13 @@ async function translateReply(btn) {
     });
     const data = await res.json();
     if (res.ok) {
-      textarea.value = data.japanese;
+      if (japaneseField) japaneseField.value = data.japanese;
+      else englishField.value = data.japanese;
       const hint = compose.querySelector('.reply-translate-hint');
-      if (hint) hint.classList.add('visible');
+      if (hint) {
+        hint.textContent = 'Japanese draft ready — review before sending.';
+        hint.classList.add('visible');
+      }
       showToast('Translated to Japanese — review before sending', 'success');
     } else {
       showToast('Translation failed: ' + data.detail, 'error');
@@ -3707,17 +4993,23 @@ async function translateReply(btn) {
     showToast('Error: ' + err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Translate to Japanese';
+    btn.textContent = 'Translate';
   }
 }
 
 async function sendReply(btn) {
   if (btn.disabled) return;
-  const entry = btn.closest('.sent-entry');
+  const entry = btn.closest('.sent-entry, .conversation-row');
   const compose = btn.closest('.reply-compose');
-  const textarea = compose.querySelector('.reply-textarea');
-  const body = textarea.value.trim();
+  const englishField = compose.querySelector('.reply-english') || compose.querySelector('.reply-textarea');
+  const japaneseField = compose.querySelector('.reply-japanese');
+  if (japaneseField && !japaneseField.value.trim()) {
+    showToast('Translate or write the Japanese reply first', 'error');
+    return;
+  }
+  const body = (japaneseField || englishField).value.trim();
   if (!body) return;
+  if (!entry) { showToast('Reply context missing', 'error'); return; }
 
   const toEmail = entry.dataset.to;
   const subject = entry.dataset.subject;
@@ -3731,13 +5023,22 @@ async function sendReply(btn) {
     const res = await fetch('/api/reply/' + leadId, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: toEmail, subject: subject, body: body }),
+      body: JSON.stringify({ email: toEmail, subject: subject, body: body, reply_id: entry.dataset.replyId || '' }),
     });
     const data = await res.json();
     if (res.ok) {
       compose.classList.remove('open');
-      textarea.value = '';
+      if (englishField) englishField.value = '';
+      if (japaneseField) japaneseField.value = '';
+      const hint = compose.querySelector('.reply-translate-hint');
+      if (hint) {
+        hint.textContent = 'Translate the English draft before sending.';
+        hint.classList.remove('visible');
+      }
       showToast('Reply sent', 'success');
+      if (entry && entry.dataset.replyId) {
+        await markReplyWorkflow(entry.dataset.replyId, compose.dataset.followupStatus || 'waiting_on_owner', null);
+      }
     } else {
       showToast('Reply failed: ' + data.detail, 'error');
     }
@@ -3791,9 +5092,12 @@ async function toggleDNC(leadId, btn) {
 
 // Init
 restoreSearchActivity();
+applyCoverageToDropdowns();
+renderCoverageSummary();
 loadDashboardLeads();
 loadSentEmails();
 loadReplyCounts();
+loadSendPlanner();
 setInterval(loadReplyCounts, 45000);
 const initialReviewJob = new URLSearchParams(window.location.search).get('review_job');
 if (initialReviewJob) {

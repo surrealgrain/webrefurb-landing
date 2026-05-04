@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!--
     TEMPLATE: outreach-food-drinks v4c
-    STATUS: MOCKUP - combined izakaya food, drinks, and course rules
+    FORMAT: combined izakaya food, drinks, and course rules
     STYLE: dark warm surface, light text, red vermillion accent
   -->
   <title>Izakaya Food + Drinks Sample</title>
@@ -182,14 +182,6 @@
       font-size: 13px;
       line-height: 1.55;
     }
-    .note {
-      margin-top: 20px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.6;
-      border-top: 1px solid var(--faint);
-      padding-top: 14px;
-    }
     @media (max-width: 760px) {
       body { padding: 18px 12px; }
       .sample-inner { padding: 20px; }
@@ -204,58 +196,58 @@
     }
   </style>
 </head>
-<body>
+<body data-profile="izakaya_food_and_drinks">
   <main class="sample">
     <div class="sample-inner">
       <header class="topline">
         <div class="title-block">
           <div class="eyebrow">English Ordering System Sample</div>
-          <h1>Food, Drinks &amp; Course Rules</h1>
+          <h1 data-slot="panel-title">Food, Drinks &amp; Course Rules</h1>
         </div>
-        <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">隠れ家Bistro</span></span>
+        <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">Sample</span></span>
       </header>
 
       <div class="grid">
-        <section class="panel">
-          <h2>Food Menu</h2>
-          <div class="section">
-            <div class="section-title">Signature Dishes <span>名物料理</span></div>
-            <ul>
-              <li><span>Assorted Sashimi</span><span class="jp">刺身盛り合わせ</span></li>
-              <li><span>Simmered Beef Tendon</span><span class="jp">牛すじ煮込み</span></li>
-              <li><span>Grilled Atka Mackerel</span><span class="jp">ほっけ焼き</span></li>
-              <li><span>Rolled Omelette</span><span class="jp">だし巻き玉子</span></li>
+        <section class="panel" data-panel="food">
+          <h2 data-slot="panel-title">Food Menu</h2>
+          <div class="section" data-section="signature-dishes">
+            <div class="section-title" data-slot="section-title">Signature Dishes <span>名物料理</span></div>
+            <ul data-slot="section-items">
+              <li data-slot="item"><span>Assorted Sashimi</span><span class="jp">刺身盛り合わせ</span></li>
+              <li data-slot="item"><span>Simmered Beef Tendon</span><span class="jp">牛すじ煮込み</span></li>
+              <li data-slot="item"><span>Grilled Atka Mackerel</span><span class="jp">ほっけ焼き</span></li>
+              <li data-slot="item"><span>Rolled Omelette</span><span class="jp">だし巻き玉子</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Shared Plates <span>小皿料理</span></div>
-            <ul>
-              <li><span>Steamed Soybeans</span><span class="jp">枝豆</span></li>
-              <li><span>Deep-Fried Tofu in Broth</span><span class="jp">揚げ出し豆腐</span></li>
-              <li><span>Chicken &amp; Leek Skewer</span><span class="jp">ねぎま</span></li>
-              <li><span>Rice Porridge Finish</span><span class="jp">〆の雑炊</span></li>
+          <div class="section" data-section="shared-plates">
+            <div class="section-title" data-slot="section-title">Shared Plates <span>小皿料理</span></div>
+            <ul data-slot="section-items">
+              <li data-slot="item"><span>Steamed Soybeans</span><span class="jp">枝豆</span></li>
+              <li data-slot="item"><span>Deep-Fried Tofu in Broth</span><span class="jp">揚げ出し豆腐</span></li>
+              <li data-slot="item"><span>Chicken &amp; Leek Skewer</span><span class="jp">ねぎま</span></li>
+              <li data-slot="item"><span>Rice Porridge Finish</span><span class="jp">〆の雑炊</span></li>
             </ul>
           </div>
         </section>
 
-        <section class="panel">
-          <h2>Drinks Menu</h2>
-          <div class="section">
-            <div class="section-title">Beer &amp; Highball <span>ビール・ハイボール</span></div>
-            <ul>
-              <li><span>Draft Beer</span><span class="jp">生ビール</span></li>
-              <li><span>Whisky Highball</span><span class="jp">ハイボール</span></li>
-              <li><span>Yuzu Highball</span><span class="jp">ゆずハイボール</span></li>
-              <li><span>Ginger Highball</span><span class="jp">ジンジャーハイボール</span></li>
+        <section class="panel" data-panel="drinks">
+          <h2 data-slot="panel-title">Drinks Menu</h2>
+          <div class="section" data-section="beer-highball">
+            <div class="section-title" data-slot="section-title">Beer &amp; Highball <span>ビール・ハイボール</span></div>
+            <ul data-slot="section-items">
+              <li data-slot="item"><span>Draft Beer</span><span class="jp">生ビール</span></li>
+              <li data-slot="item"><span>Whisky Highball</span><span class="jp">ハイボール</span></li>
+              <li data-slot="item"><span>Yuzu Highball</span><span class="jp">ゆずハイボール</span></li>
+              <li data-slot="item"><span>Ginger Highball</span><span class="jp">ジンジャーハイボール</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Sake &amp; Shochu <span>日本酒・焼酎</span></div>
-            <ul>
-              <li><span>Junmai Sake</span><span class="jp">純米酒</span></li>
-              <li><span>Sweet Potato Shochu</span><span class="jp">芋焼酎</span></li>
-              <li><span>Barley Shochu</span><span class="jp">麦焼酎</span></li>
-              <li><span>Oolong Tea</span><span class="jp">烏龍茶</span></li>
+          <div class="section" data-section="sake-shochu">
+            <div class="section-title" data-slot="section-title">Sake &amp; Shochu <span>日本酒・焼酎</span></div>
+            <ul data-slot="section-items">
+              <li data-slot="item"><span>Junmai Sake</span><span class="jp">純米酒</span></li>
+              <li data-slot="item"><span>Sweet Potato Shochu</span><span class="jp">芋焼酎</span></li>
+              <li data-slot="item"><span>Barley Shochu</span><span class="jp">麦焼酎</span></li>
+              <li data-slot="item"><span>Oolong Tea</span><span class="jp">烏龍茶</span></li>
             </ul>
           </div>
         </section>
@@ -276,7 +268,8 @@
         </section>
       </div>
 
-      <p class="note">Illustrative sample only. Production uses the owner's current photos and confirmed menu wording.</p>
+      <p style="margin:16px 0 0;color:#a8a29e;font-size:11px;line-height:1.45;text-align:center;">Illustrative sample only. Final production uses owner-confirmed menu content and owner-provided photos.</p>
+
     </div>
   </main>
 </body>

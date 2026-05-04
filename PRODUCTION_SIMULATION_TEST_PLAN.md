@@ -249,7 +249,7 @@ Goal: make sure the simulation cannot send real outreach and does not corrupt op
 
 Steps:
 
-1. Read `PLAN.md`, `HANDOFF.md`, and this file. Read `PRODUCT_AUDIT_2026-04-29.md` only for acceptance criteria or audit details that are not already represented in `PLAN.md`.
+1. Read `HANDOFF.md` and this file. Open targeted sections of `PLAN.md` only when a simulation step touches product phase gates or launch constraints. Read `PRODUCT_AUDIT_2026-04-29.md` only for acceptance criteria or audit details that are not already represented in those files.
 2. Confirm real outreach remains blocked.
 3. Run:
    - `git status --short`;
@@ -261,7 +261,7 @@ Steps:
 5. Ensure any mocked send path is explicit:
    - no `RESEND_API_KEY` needed;
    - any code path touching Resend must be monkeypatched or simulation-gated.
-6. Record the baseline as a compact checkpoint in `HANDOFF.md`; keep detailed evidence in reports or command output.
+6. Record the baseline as a compact checkpoint in `HANDOFF.md`; keep detailed evidence in reports or command output and keep the handoff under roughly 40 lines.
 
 Acceptance criteria:
 
@@ -627,7 +627,7 @@ For any UI-facing slice, also save screenshots under `state/qa-screenshots/produ
 
 ## Handoff Requirements
 
-Every handoff after work on this plan must stay compact. Replace stale checkpoint details instead of appending historical logs. Detailed evidence belongs in generated reports and runtime artifacts.
+Every handoff after work on this plan must stay compact, roughly 40 lines or fewer. Replace stale checkpoint details instead of appending historical logs. Detailed evidence belongs in generated reports and runtime artifacts. Do not copy phase text, raw tables, full command output, search counts, or reviewed-record lists into `HANDOFF.md`.
 
 Record only:
 

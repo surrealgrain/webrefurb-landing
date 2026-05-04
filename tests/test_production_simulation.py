@@ -569,7 +569,8 @@ def test_materialize_collected_candidate_runs_offline_qualification(tmp_path):
     assert record["ticket_machine_state"] == "present"
     assert primary["type"] == "email"
     assert primary["value"] == "owner@aosora.example.jp"
-    assert any("ticket_machine_guide" in path for path in record["outreach_assets_selected"])
+    assert record["outreach_assets_selected"] == []
+    assert record["outreach_asset_template_family"] == "no_first_contact_attachments"
     assert (tmp_path / "state" / "leads" / f"{record['lead_id']}.json").exists()
 
 
@@ -921,10 +922,14 @@ def _write_recommendation_run(tmp_path: Path) -> tuple[Path, list[str]]:
             "primary_contact": {"type": "email", "value": f"lead-{index}@example.test", "actionable": True},
             "establishment_profile": profile,
             "recommended_primary_package": package,
+            "package_recommendation_reason": "fixture_package_fit",
             "outreach_classification": classification,
             "outreach_assets_selected": [],
             "message_variant": "",
             "outreach_status": "new",
+            "launch_readiness_status": "ready_for_outreach",
+            "operator_state": "ready",
+            "operator_reason": "Ready for email outreach.",
             "launch_batch_id": "",
             "launch_outcome": {},
             "status_history": [{"status": "new", "timestamp": "2026-04-29T00:00:00+00:00"}],

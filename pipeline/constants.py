@@ -218,7 +218,7 @@ _CHAIN_SEED_NAMES = (
     "くら寿司", "はま寿司",
     "サイゼリヤ", "ガスト", "ジョナサン", "ロイヤルホスト",
     "デニーズ", "ジョイフル", "バーミヤン", "新時代",
-    "九州じゃんがら", "じゃんがら", "油そば", "東京油組",
+    "九州じゃんがら", "じゃんがら", "東京油組",
 )
 
 _BRANCH_PATTERN_RE = __import__("re").compile(
@@ -403,7 +403,7 @@ OWNER_UPLOAD_PRIVACY_NOTE = (
 # ---------------------------------------------------------------------------
 # Revision policy
 # ---------------------------------------------------------------------------
-DEFAULT_REVISION_LIMIT = 2  # rounds of revisions included in base price
+DEFAULT_REVISION_LIMIT = 1  # one correction window included in base price
 CUSTOM_REVISION_PRICE_YEN = 5000  # per additional revision round
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!--
     TEMPLATE: master-menu v4c — drinks panel (ramen shops)
-    STATUS: MOCKUP — drinks back side for ramen + drinks double-sided menu
+    FORMAT: drinks back side for ramen + drinks double-sided menu
     STYLE: izakaya — dark warm surface, light text, kanji prominent, red vermillion accent
   -->
   <title>Menu v4c — Ramen Drinks</title>
@@ -251,22 +251,31 @@
       flex-shrink: 0;
     }
 
+    @media (max-width: 760px) {
+      body { padding: 18px 12px; align-items: flex-start; }
+      .menu-wrapper { max-width: 100%; }
+      .menu-panel { padding: 20px; }
+      .menu-items li { gap: 10px; align-items: flex-start; }
+      .item-en, .menu-items li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+      .item-jp, .jp { white-space: normal; text-align: right; }
+    }
+
     @media print {
-      @page { size: 148mm 210mm; margin: 0; }
+      @page { size: A4; margin: 0; }
       body { padding: 0; min-height: auto; background: none; }
       .menu-wrapper { max-width: none; width: 100%; height: 100vh; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
-<body>
+<body data-profile="ramen_with_drinks">
 
 <div class="menu-wrapper">
   <div class="menu-panel" id="drinks-panel">
 
     <div class="panel-header">
       <div class="seal-mark" aria-hidden="true">
-        <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">博多らーめん亭</span></span>
+        <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">Sample</span></span>
       </div>
       <h1 class="menu-title" data-slot="panel-title">Drinks Menu</h1>
     </div>
@@ -304,6 +313,8 @@
       </div>
 
     </div>
+
+    <p style="margin:16px 0 0;color:#a8a29e;font-size:11px;line-height:1.45;text-align:center;">Illustrative sample only. Final production uses owner-confirmed menu content and owner-provided photos.</p>
 
   </div>
 </div>
