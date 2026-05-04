@@ -12,6 +12,7 @@ from pipeline.lead_dossier import (
     migrate_state_leads,
     safe_customer_snippets,
 )
+from pipeline.operator_state import OPERATOR_DONE, OPERATOR_READY, OPERATOR_REVIEW, OPERATOR_SKIP
 
 
 def _ready_record(**overrides):
@@ -24,9 +25,12 @@ def _ready_record(**overrides):
         "english_menu_issue": True,
         "menu_evidence_found": True,
         "machine_evidence_found": True,
+        "address": "東京都渋谷区1-1-1",
         "evidence_urls": ["https://example.test/menu"],
         "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
-        "contacts": [{"type": "email", "value": "owner@example.test", "actionable": True}],
+        "contacts": [{"type": "email", "value": "owner@independent-ramen.jp", "actionable": True}],
+        "recommended_primary_package": "package_2_printed_delivered_45k",
+        "package_recommendation_reason": "Ticket machine shop needs a counter-ready English ordering kit.",
         "outreach_status": "new",
     }
     record.update(overrides)
@@ -72,6 +76,101 @@ def test_migration_maps_legacy_package_and_marks_ready():
     assert "recommended_primary_package" in changes
 
 
+def test_migration_sets_ready_operator_state_for_clean_supported_lead():
+    migrated, changes = migrate_lead_record(_ready_record())
+
+    assert migrated["operator_state"] == OPERATOR_READY
+    assert migrated["operator_reason"] == "Ready for email outreach."
+    assert migrated["contact_policy_evidence"]["usable_route_count"] == 1
+    assert migrated["contact_policy_evidence"]["routes"][0]["decision"] == "usable"
+    assert "operator_state" in changes
+    assert "operator_reason" in changes
+    assert "contact_policy_evidence" in changes
+
+
+def test_public_business_email_source_evidence_is_preserved():
+    migrated, _ = migrate_lead_record(_ready_record(
+        contacts=[{
+            "type": "email",
+            "value": "owner@independent-ramen.jp",
+            "actionable": True,
+            "source": "official_site",
+            "source_url": "https://independent-ramen.jp/contact",
+        }],
+    ))
+
+    route = migrated["contact_policy_evidence"]["routes"][0]
+    assert migrated["operator_state"] == OPERATOR_READY
+    assert route["decision"] == "usable"
+    assert route["source"] == "official_site"
+    assert route["source_url"] == "https://independent-ramen.jp/contact"
+
+
+def test_public_personal_domain_email_can_be_ready_when_listed_for_business():
+    migrated, _ = migrate_lead_record(_ready_record(
+        contacts=[{
+            "type": "email",
+            "value": "tanaka@tanaka-family.jp",
+            "actionable": True,
+            "source": "official_site",
+            "source_url": "https://independent-ramen.jp/contact",
+        }],
+    ))
+
+    assert migrated["operator_state"] == OPERATOR_READY
+    assert migrated["contact_policy_evidence"]["routes"][0]["decision"] == "usable"
+
+
+def test_third_party_restaurant_listing_email_can_be_ready_when_not_placeholder():
+    migrated, _ = migrate_lead_record(_ready_record(
+        contacts=[{
+            "type": "email",
+            "value": "shop@listing-restaurant.jp",
+            "actionable": True,
+            "source": "tabelog",
+            "source_url": "https://tabelog.com/tokyo/A1303/A130301/example/",
+        }],
+    ))
+
+    assert migrated["operator_state"] == OPERATOR_READY
+    assert migrated["contact_policy_evidence"]["routes"][0]["source"] == "tabelog"
+
+
+def test_supported_contact_form_can_be_operator_ready_without_email():
+    migrated, _ = migrate_lead_record(_ready_record(
+        email="",
+        contacts=[{
+            "type": "contact_form",
+            "value": "https://independent-ramen.jp/contact",
+            "actionable": True,
+            "status": "discovered",
+            "contact_form_profile": "supported_inquiry",
+            "required_fields": ["お名前", "メールアドレス", "お問い合わせ内容"],
+        }],
+    ))
+
+    assert migrated["operator_state"] == OPERATOR_READY
+    assert migrated["operator_reason"] == "Ready for contact-form outreach review."
+    assert migrated["contact_policy_evidence"]["routes"][0]["decision"] == "usable"
+
+
+def test_email_refusal_text_blocks_operator_outreach():
+    migrated, _ = migrate_lead_record(_ready_record(
+        contacts=[{
+            "type": "email",
+            "value": "info@independent-ramen.jp",
+            "actionable": True,
+            "source": "official_site",
+            "source_url": "https://independent-ramen.jp/contact",
+            "page_text_hint": "営業メール・広告メールはお断りします",
+        }],
+    ))
+
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert migrated["operator_reason"] == "Skipped because the listed email route blocks sales or advertising contact."
+    assert migrated["contact_policy_evidence"]["routes"][0]["reason"] == "email_sales_or_ad_refusal"
+
+
 def test_migration_omits_phone_and_social_routes_but_keeps_supported_form():
     migrated, changes = migrate_lead_record(_ready_record(
         primary_contact={"type": "phone", "value": "03-0000-0000", "actionable": True, "status": "discovered"},
@@ -102,6 +201,8 @@ def test_phone_only_record_cannot_remain_launch_ready():
 
     assert migrated["contacts"] == []
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert migrated["operator_state"] == OPERATOR_REVIEW
+    assert migrated["operator_reason"] == "Add a usable business email or real contact form."
     assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
     assert "contacts" in changes
 
@@ -150,7 +251,10 @@ def test_reservation_contact_form_is_not_supported_route():
     ))
 
     assert migrated["contacts"] == []
+    assert migrated["contact_policy_evidence"]["routes"][0]["reason"] == "contact_form_not_real_inquiry"
     assert migrated["launch_readiness_status"] == READINESS_MANUAL
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert migrated["operator_reason"] == "Skipped because the saved contact form is not a real inquiry form."
     assert "no_supported_contact_route" in migrated["launch_readiness_reasons"]
     assert "contacts" in changes
 
@@ -182,6 +286,8 @@ def test_chain_like_record_cannot_remain_launch_ready():
 
     assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
     assert migrated["outreach_status"] == "do_not_contact"
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert "chain" in migrated["operator_reason"]
     assert "chain_or_franchise_like_business" in migrated["launch_readiness_reasons"]
 
 
@@ -220,6 +326,8 @@ def test_already_solved_english_record_cannot_remain_launch_ready():
     ))
 
     assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert "usable English" in migrated["operator_reason"]
     assert "already_has_usable_english_solution" in migrated["launch_readiness_reasons"]
 
 
@@ -229,6 +337,8 @@ def test_multilingual_qr_record_cannot_remain_launch_ready():
     ))
 
     assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert "multilingual" in migrated["operator_reason"]
     assert "multilingual_qr_or_ordering_solution_present" in migrated["launch_readiness_reasons"]
 
 
@@ -282,7 +392,65 @@ def test_non_japan_record_cannot_remain_launch_ready():
 
     assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
     assert migrated["outreach_status"] == "do_not_contact"
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert "Japan shop location" in migrated["operator_reason"]
     assert "not_in_japan" in migrated["launch_readiness_reasons"]
+
+
+def test_non_v1_category_is_operator_skip():
+    migrated, _ = migrate_lead_record(_ready_record(
+        business_name="Quiet Cafe",
+        primary_category_v1="cafe",
+        category="cafe",
+        evidence_snippets=["コーヒー ケーキ メニュー"],
+    ))
+
+    assert migrated["launch_readiness_status"] == READINESS_DISQUALIFIED
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert "outside ramen or izakaya" in migrated["operator_reason"]
+
+
+def test_closed_business_evidence_is_operator_skip():
+    migrated, _ = migrate_lead_record(_ready_record(
+        evidence_snippets=["閉店しました ラーメン メニュー"],
+    ))
+
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert migrated["operator_reason"] == "Skipped because the shop appears to be closed."
+
+
+def test_operator_state_marks_sent_records_done():
+    migrated, _ = migrate_lead_record(_ready_record(outreach_status="sent"))
+
+    assert migrated["operator_state"] == OPERATOR_DONE
+    assert migrated["operator_reason"] == "Done because the first outreach was sent."
+
+
+def test_operator_state_skips_placeholder_email_route():
+    migrated, _ = migrate_lead_record(_ready_record(
+        email="test@example.com",
+        contacts=[{"type": "email", "value": "test@example.com", "actionable": True}],
+    ))
+
+    assert migrated["operator_state"] == OPERATOR_SKIP
+    assert migrated["operator_reason"] == "Skipped because the saved email route is a placeholder or invalid."
+    assert migrated["contact_policy_evidence"]["routes"][0]["reason"] == "email_placeholder"
+
+
+def test_operator_state_reviews_missing_package_reason():
+    migrated, _ = migrate_lead_record(_ready_record(package_recommendation_reason=""))
+
+    assert migrated["launch_readiness_status"] == READINESS_READY
+    assert migrated["operator_state"] == OPERATOR_REVIEW
+    assert migrated["operator_reason"] == "Choose a recommended package before outreach."
+
+
+def test_operator_state_reviews_missing_japan_location():
+    migrated, _ = migrate_lead_record(_ready_record(address="", phone="", city=""))
+
+    assert migrated["launch_readiness_status"] == READINESS_READY
+    assert migrated["operator_state"] == OPERATOR_REVIEW
+    assert migrated["operator_reason"] == "Confirm this shop has a physical location in Japan."
 
 
 def test_state_migration_persists_changed_leads(tmp_path):

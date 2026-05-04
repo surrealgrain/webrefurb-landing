@@ -37,8 +37,8 @@ def build_restaurant_execution_plan(
 ) -> dict[str, Any]:
     """Build the no-send completion artifact for the restaurant lead plan.
 
-    This intentionally does not promote leads, set pitch_ready, create launch
-    batches, send e-mail, or submit contact forms.
+    This intentionally does not promote leads to launch readiness, create
+    launch batches, send e-mail, or submit contact forms.
     """
     records = list_leads(state_root=state_root)
     wave = build_no_send_review_wave(state_root=state_root, batch_size=batch_size)
@@ -62,6 +62,7 @@ def build_restaurant_execution_plan(
             "records": len(records),
             "openable_pitch_cards": wave["counts"]["openable_pitch_cards"],
             "approved_route_review_cards": wave["counts"]["approved_route_review_cards"],
+            "pitch_pack_ready_no_send": safety.get("pitch_pack_ready_no_send", 0),
             "review_batch_count": wave["counts"]["batch_count"],
             "operator_pack_count": wave["counts"]["operator_pack_count"],
             "review_lane_counts": wave["counts"]["review_lane_counts"],
@@ -84,11 +85,11 @@ def build_restaurant_execution_plan(
         "promotion_gate_preview": _promotion_gate_preview(queue),
         "inline_pitch_pack_plan": _inline_pitch_pack_plan(wave),
         "next_actions": [
-            "Work review-wave batches in order and save only hold, needs_more_info, or reject outcomes.",
+            "Work review-wave batches in order and save only hold, needs_more_info, pitch_pack_ready, or reject outcomes.",
             "Keep locked asset routing and audit expectations aligned as review artifacts are regenerated.",
             "Regenerate this execution-plan artifact after operator review outcomes are saved.",
             "If the review wave is drained, work the needs-more-info enrichment batches without outbound.",
-            "Do not send, submit forms, promote records, or set pitch_ready without a new explicit outbound instruction.",
+            "Do not send, submit forms, or set ready_for_outreach without a new explicit outbound instruction.",
         ],
     }
 
@@ -144,8 +145,8 @@ def _phase_status(wave: dict[str, Any]) -> list[dict[str, Any]]:
         },
         {
             "phase": "P4 Promotion Workflow",
-            "status": "blocked_by_current_safety_boundary",
-            "evidence": "Promotion candidates are previewed only; live pitch_ready mutation is forbidden in this run.",
+            "status": "available_for_no_send_pitch_pack",
+            "evidence": "Reviewed cards may become pitch-pack ready while launch readiness and outbound remain blocked.",
         },
         {
             "phase": "P5 GLM Locked Menu Assets",
@@ -283,6 +284,7 @@ def _promotion_gate_preview(queue: list[dict[str, Any]]) -> dict[str, Any]:
         })
     return {
         "live_promotion_allowed": False,
+        "pitch_pack_ready_no_send_allowed": True,
         "pitch_ready_mutation_allowed": False,
         "ready_for_outreach_mutation_allowed": False,
         "candidate_count": len(queue),
@@ -324,7 +326,7 @@ def _execution_plan_markdown(plan: dict[str, Any]) -> str:
         f"Generated: {plan['generated_at']}",
         "",
         "Real outbound allowed: `false`.",
-        "Promotion, pitch_ready mutation, e-mail sending, and contact-form submission are blocked.",
+        "Launch promotion, e-mail sending, and contact-form submission are blocked.",
         "",
         "## Queue",
         "",
@@ -335,6 +337,7 @@ def _execution_plan_markdown(plan: dict[str, Any]) -> str:
         f"- Operator packs: `{queue['operator_pack_count']}`",
         f"- Ready for outreach: `{safety['ready_for_outreach']}`",
         f"- Pitch ready: `{safety['pitch_ready']}`",
+        f"- Pitch-pack ready no-send: `{safety.get('pitch_pack_ready_no_send', 0)}`",
         f"- Outreach status new: `{safety['outreach_status_new']}`",
         "",
         "## Phase Status",

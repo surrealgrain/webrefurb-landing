@@ -1,0 +1,21 @@
+services:
+  dashboard:
+    build:
+      context: .
+    ports:
+      - "${WEBREFURB_DASHBOARD_PORT:-8000}:8000"
+    environment:
+      WEBREFURB_STATE_ROOT: /app/state
+      WEBREFURB_SEARCH_PROVIDER: ${WEBREFURB_SEARCH_PROVIDER:-webserper}
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      RESEND_FROM_NAME: ${RESEND_FROM_NAME:-}
+      RESEND_REPLY_TO_EMAIL: ${RESEND_REPLY_TO_EMAIL:-}
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+    volumes:
+      - ./state:/app/state
+      - ./docs:/app/docs
+    restart: unless-stopped

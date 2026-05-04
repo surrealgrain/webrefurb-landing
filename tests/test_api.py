@@ -34,6 +34,14 @@ def _initial_leads_from_html(html: str) -> list[dict]:
     return json.loads(match.group(1))
 
 
+def _pdf_bytes(width_pt: float = 594.96, height_pt: float = 841.92) -> bytes:
+    return (
+        "%PDF-1.4\n"
+        f"1 0 obj\n<< /Type /Page /MediaBox [0 0 {width_pt:.2f} {height_pt:.2f}] >>\nendobj\n"
+        "%%EOF\n"
+    ).encode("ascii")
+
+
 @pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 class TestAPIEndpoints:
     """Test API endpoints with a mock pipeline."""
@@ -108,8 +116,29 @@ class TestAPIEndpoints:
         assert data[0]["business_name"] == "Test Ramen"
         assert data[0]["primary_contact_type"] == "email"
         assert data[0]["can_send_email"] is True
+        assert data[0]["operator_state"] == "review"
+        assert data[0]["operator_reason"]
         assert data[0]["establishment_profile_label"] == "Manual Review"
         assert payload["card_counts"]["reviewable_pitch_cards"] == 1
+
+    def test_dashboard_primary_modes_hide_internal_queue_labels(self):
+        response = self.client.get("/")
+        assert response.status_code == 200
+        visible_html = re.sub(r"<(script|style)\b.*?</\1>", "", response.text, flags=re.S | re.I)
+
+        assert "Review" in visible_html
+        assert "Ready" in visible_html
+        assert "Skipped" in visible_html
+        assert "Done" in visible_html
+        for forbidden in (
+            "Confirmed",
+            "Final check",
+            "send-ready",
+            "accepted source policy",
+            "launch readiness",
+            "pitch readiness",
+        ):
+            assert forbidden not in visible_html
 
     def test_paid_order_workflow_records_quote_payment_intake_and_owner_approval(self):
         created = self.client.post("/api/orders", json={
@@ -133,6 +162,20 @@ class TestAPIEndpoints:
             "business_contact_confirmed": True,
         })
         assert intake.status_code == 200
+        qa = self.client.post(f"/api/orders/{order_id}/production-qa", json={
+            "all_source_photos_reviewed": True,
+            "low_quality_photos_resolved": True,
+            "japanese_item_names_checked": True,
+            "english_labels_reviewed": True,
+            "prices_hidden_or_owner_confirmed": True,
+            "allergens_ingredients_hidden_or_owner_confirmed": True,
+            "ticket_machine_buttons_mapped_or_unresolved": True,
+            "pdf_mobile_previews_rendered": True,
+            "visual_overflow_checks_passed": True,
+            "forbidden_customer_language_scan_passed": True,
+        })
+        assert qa.status_code == 200
+        assert qa.json()["production_qa"]["ok"] is True
         review = self.client.post(f"/api/orders/{order_id}/owner-review", json={})
         assert review.status_code == 200
         approval = self.client.post(f"/api/orders/{order_id}/owner-approval", json={
@@ -143,7 +186,16 @@ class TestAPIEndpoints:
             "privacy_note_accepted": True,
         })
         assert approval.status_code == 200
-        delivered = self.client.post(f"/api/orders/{order_id}/delivered", json={"delivery_tracking": "email"})
+        blocked_delivery = self.client.post(f"/api/orders/{order_id}/delivered", json={"delivery_tracking": "email"})
+        assert blocked_delivery.status_code == 409
+        assert "export_qa_not_passed" in str(blocked_delivery.json()["detail"]["blockers"])
+
+        delivered = self.client.post(f"/api/orders/{order_id}/delivered", json={
+            "delivery_tracking": "email",
+            "customer_download_url": "/api/build/job123/download",
+            "final_customer_message": "Final files are ready.",
+            "export_qa": {"ok": True},
+        })
         assert delivered.status_code == 200
 
         loaded = self.client.get(f"/api/orders/{order_id}").json()
@@ -172,6 +224,16 @@ class TestAPIEndpoints:
         assert "Payment has not been confirmed" in str(early_review.json()["detail"]["blockers"])
 
         self.client.post(f"/api/orders/{order_id}/payment", json={"amount_yen": 30000})
+        self.client.post(f"/api/orders/{order_id}/intake", json={
+            "full_menu_photos": True,
+            "price_confirmation": True,
+            "delivery_details": True,
+            "business_contact_confirmed": True,
+        })
+        no_qa_review = self.client.post(f"/api/orders/{order_id}/owner-review", json={})
+        assert no_qa_review.status_code == 409
+        assert "production_qa_not_passed" in str(no_qa_review.json()["detail"]["blockers"])
+
         early_approval = self.client.post(f"/api/orders/{order_id}/owner-approval", json={
             "approved": True,
             "approver_name": "Tanaka",
@@ -472,6 +534,40 @@ class TestAPIEndpoints:
         assert "operator_review_outcome" not in stored
         assert stored["launch_readiness_status"] == "manual_review"
 
+    def test_review_outcome_can_mark_pitch_pack_ready_without_sendability(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            lead_id="wrm-test-review-pitch-pack-ready",
+            outreach_status="needs_review",
+            launch_readiness_status="manual_review",
+            launch_readiness_reasons=["manual_review_required"],
+            email_verification_status="verified",
+            name_verification_status="verified",
+            manual_review_required=True,
+        )
+
+        response = self.client.post(
+            "/api/leads/wrm-test-review-pitch-pack-ready/review-outcome",
+            json={"outcome": "pitch_pack_ready", "note": "Owner route and proof checked"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["operator_review_outcome"] == "pitch_pack_ready"
+        assert data["operator_review_outcome_label"] == "Pitch Pack Ready"
+        assert data["review_status"] == "pitch_pack_ready_no_send"
+        assert data["pitch_pack_ready_no_send"] is True
+        assert data["pitch_ready"] is False
+        assert data["candidate_inbox_status"] == "pitch_pack_ready_no_send"
+        assert data["launch_readiness_status"] == "manual_review"
+        assert data["outreach_status"] == "needs_review"
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-review-pitch-pack-ready.json").read_text(encoding="utf-8"))
+        assert stored["pitch_pack_ready_no_send"] is True
+        assert stored["pitch_ready"] is False
+        assert stored["launch_readiness_status"] == "manual_review"
+        assert stored["outreach_status"] == "needs_review"
+
     def test_outreach_preview_includes_no_send_review_outcome(self, tmp_path):
         self._create_lead(
             tmp_path,
@@ -587,7 +683,8 @@ class TestAPIEndpoints:
         data = response.json()
         assert data["asset_strategy_label"] == "Ramen menu sample set"
         assert "ramen" in data["asset_strategy_note"].lower()
-        assert "Ramen Menu Sample" in data["asset_details"][0]["label"]
+        assert data["assets"] == []
+        assert data["asset_details"] == []
 
     def test_outreach_preview_returns_lead_dossier_and_proof_items(self, tmp_path):
         self._create_lead(
@@ -702,7 +799,7 @@ class TestAPIEndpoints:
         response = self.client.get("/")
         assert response.status_code == 200
         assert "WebRefurbMenu" in response.text
-        assert "Lead evidence dossier" in response.text
+        assert "Debug Evidence" in response.text
 
     def test_main_page_shows_readiness_statuses_and_blocks_manual_review(self, tmp_path):
         self._create_lead(
@@ -775,6 +872,20 @@ class TestAPIEndpoints:
         assert reviewed.json()["phase_12_review"]["summary"]["lead_count"] == 5
         assert reviewed.json()["phase_12_review"]["iteration_decisions"]["scoring_update"]["reason"] == "No replies yet."
 
+    def test_launch_batch_api_returns_controlled_error_when_launch_is_frozen(self, tmp_path, monkeypatch):
+        import pipeline.launch as launch_module
+        from pipeline.launch_freeze import LaunchFreezeError
+
+        def raise_frozen(*, lead_ids, state_root, notes=""):
+            raise LaunchFreezeError("production_readiness_gates_incomplete")
+
+        monkeypatch.setattr(launch_module, "create_launch_batch", raise_frozen)
+
+        blocked = self.client.post("/api/launch-batches", json={"lead_ids": []})
+
+        assert blocked.status_code == 423
+        assert blocked.json()["detail"] == "launch_frozen:production_readiness_gates_incomplete"
+
     def test_launch_outcome_api_records_opt_out_and_operator_minutes(self, tmp_path):
         lead_ids = self._write_launch_ready_leads(tmp_path)
         batch = self.client.post("/api/launch-batches", json={"lead_ids": lead_ids}).json()
@@ -818,6 +929,7 @@ class TestAPIEndpoints:
             "status_history": [],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "address": "東京都渋谷区1-1-1",
             "english_availability": "missing",
             "english_menu_issue": True,
             "evidence_urls": ["https://example.test/menu"],
@@ -827,6 +939,8 @@ class TestAPIEndpoints:
             "establishment_profile_confidence": "medium",
             "establishment_profile_evidence": ["primary_category:ramen"],
             "establishment_profile_source_urls": ["https://example.test/menu"],
+            "recommended_primary_package": "package_1_remote_30k",
+            "package_recommendation_reason": "Simple ramen menu fit for English Ordering Files.",
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -881,7 +995,7 @@ class TestAPIEndpoints:
         assert response.status_code == 422
         detail = response.json()["detail"]
         assert "Lead is not launch-ready for outreach" in detail
-        assert "no_customer_safe_proof_item" in detail
+        assert "Add one customer-safe proof item" in detail
 
     def test_send_blocked_for_do_not_contact(self, tmp_path):
         self._create_lead(tmp_path, outreach_status="do_not_contact")
@@ -904,6 +1018,50 @@ class TestAPIEndpoints:
         # Verify persisted
         stored = json.loads((tmp_path / "leads" / "wrm-test-dnc.json").read_text())
         assert stored["outreach_status"] == "do_not_contact"
+
+    def test_operator_skip_action_persists_operator_state(self, tmp_path):
+        self._create_lead(tmp_path, lead_id="wrm-test-skip-action")
+
+        response = self.client.post(
+            "/api/leads/wrm-test-skip-action/operator-action",
+            json={"action": "skip", "note": "Wrong fit"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["outreach_status"] == "skipped"
+        assert data["operator_state"] == "skip"
+        assert data["operator_reason"]
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-skip-action.json").read_text(encoding="utf-8"))
+        assert stored["outreach_status"] == "skipped"
+        assert stored["operator_state"] == "skip"
+        assert stored["status_history"][-1]["status"] == "operator_skipped"
+
+    def test_operator_field_update_persists_name_and_package(self, tmp_path):
+        self._create_lead(tmp_path, lead_id="wrm-test-field-action")
+
+        response = self.client.post(
+            "/api/leads/wrm-test-field-action/operator-fields",
+            json={
+                "business_name": "Hinode Ramen",
+                "recommended_primary_package": "package_2_printed_delivered_45k",
+                "package_recommendation_reason": "Ticket machine and counter setup fit Package 2.",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["business_name"] == "Hinode Ramen"
+        assert data["recommended_primary_package"] == "package_2_printed_delivered_45k"
+        assert data["package_recommendation_reason"] == "Ticket machine and counter setup fit Package 2."
+
+        stored = json.loads((tmp_path / "leads" / "wrm-test-field-action.json").read_text(encoding="utf-8"))
+        assert stored["business_name"] == "Hinode Ramen"
+        assert stored["business_name_locked"] is True
+        assert stored["recommended_primary_package"] == "package_2_printed_delivered_45k"
+        assert stored["operator_package_override"] is True
+        assert stored["operator_state"] in {"ready", "review"}
 
     def test_unflag_dnc(self, tmp_path):
         self._create_lead(tmp_path, outreach_status="do_not_contact")
@@ -959,14 +1117,156 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         assert response.json()["channel"] == "form"
+        reply_id = response.json()["reply_id"]
 
         replies = self.client.get("/api/replies?channel=form").json()["replies"]
         assert len(replies) == 1
         assert replies[0]["business_name"] == "Photo Reply Ramen"
+        assert replies[0]["reply_intent"] == "menu_photos_sent"
+        assert replies[0]["reply_positive"] is True
+        assert replies[0]["next_action"]["key"] == "review_uploaded_photos"
         assert replies[0]["has_photos"] is True
         assert replies[0]["photo_count"] == 1
         assert replies[0]["stored_photo_count"] == 1
         assert replies[0]["attachments"][0]["stored_path"]
+
+        intake_files = list((tmp_path / "order_intake").glob("*.json"))
+        assert len(intake_files) == 1
+        assert json.loads(intake_files[0].read_text(encoding="utf-8"))["reply_id"] == reply_id
+
+        assets = self.client.get(f"/api/replies/{reply_id}/assets").json()["assets"]
+        assert len(assets) == 1
+        assert assets[0]["asset_type"] == "food_menu_photo"
+        assert assets[0]["operator_status"] in {"usable", "needs_better_photo"}
+        reviewed = self.client.post(
+            f"/api/replies/{reply_id}/assets/{assets[0]['asset_id']}/review",
+            json={"operator_status": "usable"},
+        )
+        assert reviewed.status_code == 200
+        assert reviewed.json()["assets"][0]["operator_status"] == "usable"
+
+        workspace = self.client.get(f"/api/replies/{reply_id}/workspace")
+        assert workspace.status_code == 200
+        assert "structured_controls" in workspace.json()["workspace"]["right_rail"]
+
+    def test_incoming_qr_reply_preserves_lead_package_for_workspace(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            outreach_status="sent",
+            business_name="QR Izakaya",
+            email="owner@qr-izakaya.test",
+            contacts=[{"type": "email", "value": "owner@qr-izakaya.test", "actionable": True}],
+            primary_category_v1="izakaya",
+            establishment_profile="izakaya_course_heavy",
+            recommended_primary_package="package_3_qr_menu_65k",
+            package_recommendation_reason="izakaya_drink_course_rules_likely_need_live_updates",
+            evidence_snippets=["飲み放題 コース 居酒屋 メニュー"],
+        )
+        response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@qr-izakaya.test",
+                "subject": "Re: QR menu",
+                "body": "興味があります。飲み放題メニュー写真を添付します。QRコード付きメニューもお願いします。",
+                "attachments": [
+                    {
+                        "filename": "drink-menu.jpg",
+                        "content_type": "image/jpeg",
+                        "content": "/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+        reply_id = response.json()["reply_id"]
+
+        inbox_reply = self.client.get("/api/inbox").json()["replies"][0]
+        assert inbox_reply["package_key"] == "package_3_qr_menu_65k"
+        assert inbox_reply["lead"]["package_key"] == "package_3_qr_menu_65k"
+        assert inbox_reply["lead"]["package_label"] == "Live QR English Menu"
+
+        workspace = self.client.get(f"/api/replies/{reply_id}/workspace").json()["workspace"]
+        assert workspace["package_fit"]["package_key"] == "package_3_qr_menu_65k"
+        assert workspace["right_rail"]["structured_controls"]["outputs"]["qr"] is True
+
+    def test_inbox_links_reply_to_lead_pitch_context_and_workflow(self, tmp_path):
+        self._create_lead(
+            tmp_path,
+            outreach_status="sent",
+            business_name="Inbox Ramen",
+            email="owner@inbox.test",
+            contacts=[{"type": "email", "value": "owner@inbox.test", "actionable": True}],
+            recommended_primary_package="package_1_remote_30k",
+        )
+        (tmp_path / "sent" / "wrm-test-dnc_20260501010101.json").write_text(
+            json.dumps({
+                "lead_id": "wrm-test-dnc",
+                "to": "owner@inbox.test",
+                "subject": "Pitch for Inbox Ramen",
+                "body": "Original pitch body",
+                "sent_at": "2026-05-01T01:01:01+00:00",
+                "status": "sent",
+                "test_send": False,
+            }),
+            encoding="utf-8",
+        )
+        reply_response = self.client.post(
+            "/api/incoming-reply/wrm-test-dnc",
+            json={
+                "channel": "email",
+                "from": "owner@inbox.test",
+                "subject": "Re: Pitch for Inbox Ramen",
+                "body": "興味があります。写真を送ります。",
+            },
+        )
+        assert reply_response.status_code == 200
+
+        inbox = self.client.get("/api/inbox").json()
+        assert inbox["counts"]["open"] == 1
+        reply = inbox["replies"][0]
+        assert reply["conversation_id"] == "lead:wrm-test-dnc"
+        assert reply["business_name"] == "Inbox Ramen"
+        assert reply["reply_intent"] == "menu_photos_sent"
+        assert reply["reply_positive"] is True
+        assert reply["order_intake_id"].startswith("intake-")
+        assert reply["lead"]["package_label"] == "English Ordering Files"
+        assert reply["original_pitch"]["subject"] == "Pitch for Inbox Ramen"
+        assert reply["next_action"]["key"] == "ask_for_photos"
+        lead_summary = self.client.get("/api/leads").json()["leads"][0]["reply_summary"]
+        assert lead_summary["total"] == 1
+        assert lead_summary["open"] == 1
+        assert lead_summary["latest_subject"] == "Re: Pitch for Inbox Ramen"
+        sent_summary = self.client.get("/api/sent").json()[0]["reply_summary"]
+        assert sent_summary["total"] == 1
+
+        with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = {"id": "reply-send-id"}
+            followup = self.client.post(
+                "/api/reply/wrm-test-dnc",
+                json={
+                    "email": "owner@inbox.test",
+                    "subject": "Pitch for Inbox Ramen",
+                    "body": "写真をお送りいただきありがとうございます。",
+                    "reply_id": reply_response.json()["reply_id"],
+                },
+            )
+        assert followup.status_code == 200
+        assert followup.json()["thread_reply_count"] == 1
+        reply_after_followup = self.client.get("/api/inbox").json()["replies"][0]
+        assert reply_after_followup["operator_reply_count"] == 1
+        assert reply_after_followup["latest_operator_reply"]["provider_id"] == "reply-send-id"
+
+        updated = self.client.post(
+            f"/api/replies/{reply_response.json()['reply_id']}/workflow",
+            json={"workflow_status": "done"},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["reply"]["workflow_status"] == "done"
+        assert updated.json()["counts"]["done"] == 1
+        closed_summary = self.client.get("/api/leads").json()["leads"][0]["reply_summary"]
+        assert closed_summary["open"] == 0
 
     def test_incoming_reply_without_photos_has_no_menu_handoff(self, tmp_path):
         self._create_lead(tmp_path, outreach_status="sent")
@@ -1209,7 +1509,7 @@ class TestAPIEndpoints:
 
     def test_qr_package_approve_and_download(self, tmp_path, monkeypatch):
         def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
-            pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
+            pdf_path.write_bytes(_pdf_bytes())
             return pdf_path
 
         monkeypatch.setattr("pipeline.qr.html_to_pdf_sync", fake_html_to_pdf_sync)
@@ -1260,7 +1560,7 @@ class TestAPIEndpoints:
 
     def test_qr_health_endpoint_flags_missing_sign_pdf_after_approval(self, tmp_path, monkeypatch):
         def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
-            pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
+            pdf_path.write_bytes(_pdf_bytes())
             return pdf_path
 
         monkeypatch.setattr("pipeline.qr.html_to_pdf_sync", fake_html_to_pdf_sync)
@@ -1343,6 +1643,7 @@ class TestDraftSaveAndLoad:
             "status_history": [{"status": "new", "timestamp": "2026-01-01T00:00:00"}],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "address": "東京都渋谷区1-1-1",
             "english_availability": "missing",
             "english_menu_issue": True,
             "evidence_urls": ["https://example.test/menu"],
@@ -1352,6 +1653,8 @@ class TestDraftSaveAndLoad:
             "establishment_profile_confidence": "medium",
             "establishment_profile_evidence": ["primary_category:ramen"],
             "establishment_profile_source_urls": ["https://example.test/menu"],
+            "recommended_primary_package": "package_1_remote_30k",
+            "package_recommendation_reason": "Simple ramen menu fit for English Ordering Files.",
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -1403,9 +1706,7 @@ class TestDraftSaveAndLoad:
 
         assert response.status_code == 200
         stored = json.loads((self.tmp_path / "leads" / "wrm-draft-test.json").read_text(encoding="utf-8"))
-        assert stored["outreach_assets_selected"] == [
-            "/Users/chrisparker/Desktop/WebRefurbMenu/assets/templates/izakaya_food_drinks_menu.html"
-        ]
+        assert stored["outreach_assets_selected"] == []
 
     def test_save_draft_lead_not_found(self):
         response = self.client.post(
@@ -1606,7 +1907,7 @@ class TestDraftSaveAndLoad:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "突然のご連絡にて失礼いたします。" in data["body"]
+        assert "突然のご連絡" in data["body"]
         # Dashboard preview replaces CID references with inline local preview assets
         assert "cid:" not in data["preview_html"]
         assert "data:image/" in data["preview_html"]
@@ -1734,7 +2035,7 @@ class TestSendSafety:
             "lead_id": lead_id,
             "business_name": "Send Test Ramen",
             "lead": True,
-            "email": "test@test.com",
+            "email": "owner@send-test-ramen.jp",
             "lead_score_v1": 80,
             "outreach_status": "draft",
             "outreach_classification": "menu_only",
@@ -1745,6 +2046,7 @@ class TestSendSafety:
             "status_history": [{"status": "draft", "timestamp": "2026-01-01T00:00:00"}],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "address": "東京都渋谷区1-1-1",
             "english_availability": "missing",
             "english_menu_issue": True,
             "evidence_urls": ["https://example.test/menu"],
@@ -1754,6 +2056,8 @@ class TestSendSafety:
             "establishment_profile_confidence": "medium",
             "establishment_profile_evidence": ["primary_category:ramen"],
             "establishment_profile_source_urls": ["https://example.test/menu"],
+            "recommended_primary_package": "package_1_remote_30k",
+            "package_recommendation_reason": "Simple ramen menu fit for English Ordering Files.",
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -1761,6 +2065,35 @@ class TestSendSafety:
             json.dumps(lead), encoding="utf-8"
         )
         return lead
+
+    def _mark_final_checked(
+        self,
+        lead_id="wrm-send-test",
+        *,
+        business_name="Send Test Ramen",
+        assets=None,
+        include_machine_image=False,
+    ):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        assets = assets if assets is not None else [str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)]
+        subject = f"英語注文ガイド制作のご提案（{business_name}様）"
+        body = (
+            f"{business_name} ご担当者様\n\n"
+            "ラーメンの種類、トッピング、セットを英語で整理すると、海外のお客様の注文がスムーズになります。"
+        )
+        response = self.client.post(
+            f"/api/outreach/{lead_id}/final-check",
+            json={
+                "subject": subject,
+                "body": body,
+                "assets": assets,
+                "include_machine_image": include_machine_image,
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["passed"] is True
+        return {"subject": subject, "body": body, "assets": assets}
 
     def test_send_blocked_for_sent_status(self):
         self._create_lead(outreach_status="sent")
@@ -1832,12 +2165,13 @@ class TestSendSafety:
 
     def test_send_blocks_missing_required_attachment(self):
         self._create_lead(outreach_classification="menu_only")
+        checked = self._mark_final_checked()
         response = self.client.post(
             "/api/send/wrm-send-test",
-            json={"email": "test@test.com", "subject": "T", "body": "T", "assets": []},
+            json={"email": "owner@send-test-ramen.jp", "subject": checked["subject"], "body": checked["body"], "assets": []},
         )
-        assert response.status_code == 400
-        assert "Required attachment missing" in response.json()["detail"]
+        assert response.status_code == 422
+        assert "final_check" in response.json()["detail"]
 
     def test_send_uses_saved_draft_when_body_omitted(self):
         from pipeline.constants import GENERIC_MENU_PDF
@@ -1845,21 +2179,20 @@ class TestSendSafety:
         self._create_lead(
             outreach_classification="menu_only",
             outreach_assets_selected=[str(GENERIC_MENU_PDF)],
-            outreach_draft_subject="Saved subject",
-            outreach_draft_body="Saved body",
         )
+        checked = self._mark_final_checked(assets=[str(GENERIC_MENU_PDF)])
         with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = {"id": "mock-send"}
             response = self.client.post(
                 "/api/send/wrm-send-test",
-                json={"email": "test@test.com"},
+                json={"email": "owner@send-test-ramen.jp"},
             )
         assert response.status_code == 200
         stored = json.loads(
             (self.tmp_path / "leads" / "wrm-send-test.json").read_text()
         )
         assert stored["outreach_status"] == "sent"
-        assert stored["outreach_draft_body"] == "Saved body"
+        assert stored["outreach_draft_body"] == checked["body"]
 
     def test_send_record_persists_attachment_metadata(self):
         from pipeline.constants import GENERIC_MENU_PDF
@@ -1867,9 +2200,8 @@ class TestSendSafety:
         self._create_lead(
             outreach_classification="menu_only",
             outreach_assets_selected=[str(GENERIC_MENU_PDF)],
-            outreach_draft_subject="Saved subject",
-            outreach_draft_body="Saved body",
         )
+        self._mark_final_checked(assets=[str(GENERIC_MENU_PDF)])
         with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = {
                 "id": "mock-send",
@@ -1887,7 +2219,7 @@ class TestSendSafety:
             }
             response = self.client.post(
                 "/api/send/wrm-send-test",
-                json={"email": "test@test.com"},
+                json={"email": "owner@send-test-ramen.jp"},
             )
 
         assert response.status_code == 200
@@ -1904,20 +2236,19 @@ class TestSendSafety:
         from pipeline.constants import GENERIC_MENU_PDF
 
         self._create_lead(
-            business_name="QA Phase10 Ramen",
+            business_name="Phase10 Ramen",
             locked_business_name="青空ラーメン",
             business_name_locked=True,
             business_name_locked_at="2026-04-28T00:00:00+00:00",
             outreach_classification="menu_only",
             outreach_assets_selected=[str(GENERIC_MENU_PDF)],
-            outreach_draft_subject="Saved subject",
-            outreach_draft_body="Saved body",
         )
+        self._mark_final_checked(business_name="青空ラーメン", assets=[str(GENERIC_MENU_PDF)])
         with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = {"id": "mock-send"}
             response = self.client.post(
                 "/api/send/wrm-send-test",
-                json={"email": "test@test.com"},
+                json={"email": "owner@send-test-ramen.jp"},
             )
 
         assert response.status_code == 200
@@ -1939,8 +2270,8 @@ class TestSendSafety:
                 "/api/send/wrm-send-test",
                 json={"email": "chris@webrefurb.com"},
             )
-        assert response.status_code == 200
-        assert response.json()["status"] == "test_sent"
+        assert response.status_code == 422
+        assert "final_check" in response.json()["detail"]
 
         stored = json.loads(
             (self.tmp_path / "leads" / "wrm-send-test.json").read_text()
@@ -1964,14 +2295,224 @@ class TestSendSafety:
                 "/api/send/wrm-send-test",
                 json={"email": "someone-else@test.com"},
             )
-        assert response.status_code == 200
-        assert response.json()["status"] == "test_sent"
+        assert response.status_code == 422
+        assert "final_check" in response.json()["detail"]
 
         stored = json.loads(
             (self.tmp_path / "leads" / "wrm-send-test.json").read_text()
         )
         assert stored["outreach_status"] == "draft"
         assert stored["outreach_sent_at"] is None
+
+    def test_api_leads_marks_only_literal_send_ready_green(self):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        self._create_lead(
+            email="owner@ready-ramen.test",
+            contacts=[{"type": "email", "value": "owner@ready-ramen.test", "actionable": True}],
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+            operator_review_outcome="pitch_pack_ready",
+            review_status="pitch_pack_ready_no_send",
+            pitch_pack_ready_no_send=True,
+            proof_items=[{
+                "source_type": "official_site",
+                "url": "https://ready-ramen.test/menu",
+                "snippet": "醤油ラーメン 味玉 トッピング メニュー",
+                "operator_visible": True,
+                "customer_preview_eligible": True,
+            }],
+        )
+        self._mark_final_checked()
+
+        response = self.client.get("/api/leads")
+
+        assert response.status_code == 200
+        readiness = response.json()["leads"][0]["send_readiness"]
+        assert readiness["status"] == "ready_to_send"
+        assert readiness["tags"] == ["SEND READY"]
+
+    def test_send_batch_rejects_non_green_lead(self):
+        self._create_lead(
+            email="owner@not-ready.test",
+            contacts=[{"type": "email", "value": "owner@not-ready.test", "actionable": True}],
+            outreach_draft_subject="Checked subject",
+            outreach_draft_body="Checked body",
+        )
+
+        response = self.client.post(
+            "/api/send-batches",
+            json={"lead_ids": ["wrm-send-test"], "delay_seconds": 0, "start": False},
+        )
+
+        assert response.status_code == 422
+        assert "lead_not_send_ready" in response.json()["detail"]
+
+    def test_send_batch_sends_green_leads_with_zero_delay(self):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        self._create_lead(
+            email="owner@ready-ramen.test",
+            contacts=[{"type": "email", "value": "owner@ready-ramen.test", "actionable": True}],
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+            operator_review_outcome="pitch_pack_ready",
+            review_status="pitch_pack_ready_no_send",
+            pitch_pack_ready_no_send=True,
+            proof_items=[{
+                "source_type": "official_site",
+                "url": "https://ready-ramen.test/menu",
+                "snippet": "醤油ラーメン 味玉 トッピング メニュー",
+                "operator_visible": True,
+                "customer_preview_eligible": True,
+            }],
+        )
+        self._mark_final_checked()
+
+        with patch("dashboard.app._send_email_resend", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = {"id": "mock-send"}
+            response = self.client.post(
+                "/api/send-batches",
+                json={"lead_ids": ["wrm-send-test"], "delay_seconds": 0, "start": True},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["lead_count"] == 1
+        assert response.json()["release_manifest_path"]
+        assert response.json()["mock_payloads_path"]
+        assert mock_send.await_count == 1
+        stored = json.loads((self.tmp_path / "leads" / "wrm-send-test.json").read_text(encoding="utf-8"))
+        assert stored["outreach_status"] == "sent"
+
+    def test_send_planner_lists_and_cancels_scheduled_batches(self):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        self._create_lead(
+            email="owner@ready-ramen.test",
+            contacts=[{"type": "email", "value": "owner@ready-ramen.test", "actionable": True}],
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+            operator_review_outcome="pitch_pack_ready",
+            review_status="pitch_pack_ready_no_send",
+            pitch_pack_ready_no_send=True,
+            proof_items=[{
+                "source_type": "official_site",
+                "url": "https://ready-ramen.test/menu",
+                "snippet": "醤油ラーメン 味玉 トッピング メニュー",
+                "operator_visible": True,
+                "customer_preview_eligible": True,
+            }],
+        )
+        self._mark_final_checked()
+        created = self.client.post(
+            "/api/send-batches",
+            json={"lead_ids": ["wrm-send-test"], "delay_seconds": 60, "start": False},
+        )
+        assert created.status_code == 200
+        batch_id = created.json()["batch_id"]
+
+        planner = self.client.get("/api/send-batches")
+        assert planner.status_code == 200
+        assert planner.json()["ready_count"] == 1
+        assert planner.json()["batches"][0]["batch_id"] == batch_id
+        assert planner.json()["batches"][0]["cancelable"] is True
+
+        canceled = self.client.post(f"/api/send-batches/{batch_id}/cancel")
+        assert canceled.status_code == 200
+        assert canceled.json()["status"] == "canceled"
+        assert canceled.json()["status_counts"]["canceled"] == 1
+
+    def test_final_check_marks_current_pitch_as_second_pass_send_checked(self):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        self._create_lead(
+            email="owner@ready-ramen.test",
+            contacts=[{"type": "email", "value": "owner@ready-ramen.test", "actionable": True}],
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+            outreach_draft_subject="Checked subject",
+            outreach_draft_body="Draft body with Send Test Ramen",
+            operator_review_outcome="pitch_pack_ready",
+            review_status="pitch_pack_ready_no_send",
+            pitch_pack_ready_no_send=True,
+            proof_items=[{
+                "source_type": "official_site",
+                "url": "https://ready-ramen.test/menu",
+                "snippet": "醤油ラーメン 味玉 トッピング メニュー",
+                "operator_visible": True,
+                "customer_preview_eligible": True,
+            }],
+        )
+
+        response = self.client.post(
+            "/api/outreach/wrm-send-test/final-check",
+            json={
+                "subject": "英語注文ガイド制作のご提案（Send Test Ramen様）",
+                "body": "Send Test Ramen ご担当者様\n\nラーメンの種類、トッピング、セットを英語で整理すると注文がスムーズになります。",
+                "assets": [str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+                "include_machine_image": False,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["passed"] is True
+        assert all(item["status"] == "pass" for item in data["checklist"])
+        assert data["tailoring_audit"]["passed"] is True
+        stored = json.loads((self.tmp_path / "leads" / "wrm-send-test.json").read_text(encoding="utf-8"))
+        assert stored["send_ready_checked"] is True
+        assert stored["tailoring_audit"]["input_hash"]
+
+    def test_saved_draft_invalidates_final_check_certification(self):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        self._create_lead(
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+        )
+        checked = self._mark_final_checked()
+
+        response = self.client.post(
+            "/api/draft/wrm-send-test",
+            json={
+                "subject": checked["subject"],
+                "body": checked["body"] + "\n\n追加の変更",
+                "english_body": "",
+                "assets": checked["assets"],
+                "include_machine_image": False,
+            },
+        )
+
+        assert response.status_code == 200
+        stored = json.loads((self.tmp_path / "leads" / "wrm-send-test.json").read_text(encoding="utf-8"))
+        assert stored["send_ready_checked"] is False
+        assert stored["tailoring_audit"]["passed"] is False
+        assert stored["tailoring_audit"]["invalidation_reason"] == "draft_saved"
+
+        blocked = self.client.post("/api/send/wrm-send-test", json={"email": "owner@send-test-ramen.jp"})
+        assert blocked.status_code == 422
+        assert "final_check" in blocked.json()["detail"]
+
+    def test_send_readiness_rejects_stale_final_check_hash(self):
+        from pipeline.constants import OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
+
+        self._create_lead(
+            outreach_classification="menu_only",
+            outreach_assets_selected=[str(OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF)],
+        )
+        self._mark_final_checked()
+
+        path = self.tmp_path / "leads" / "wrm-send-test.json"
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        stored["outreach_draft_body"] = stored["outreach_draft_body"] + "\n\nUnreviewed change"
+        path.write_text(json.dumps(stored), encoding="utf-8")
+
+        response = self.client.get("/api/leads")
+
+        assert response.status_code == 200
+        readiness = response.json()["leads"][0]["send_readiness"]
+        assert readiness["status"] == "not_ready"
+        assert "final_check_stale" in readiness["reasons"]
 
     def test_test_sends_do_not_count_against_daily_limit(self, monkeypatch):
         import dashboard.app as dash_app
@@ -2095,6 +2636,7 @@ class TestClassificationSpecificBehavior:
             "status_history": [],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "address": "東京都渋谷区1-1-1",
             "english_availability": "missing",
             "english_menu_issue": True,
             "evidence_urls": ["https://example.test/menu"],
@@ -2104,6 +2646,8 @@ class TestClassificationSpecificBehavior:
             "establishment_profile_confidence": "medium",
             "establishment_profile_evidence": ["primary_category:ramen"],
             "establishment_profile_source_urls": ["https://example.test/menu"],
+            "recommended_primary_package": "package_1_remote_30k",
+            "package_recommendation_reason": "Simple ramen menu fit for English Ordering Files.",
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -2123,9 +2667,8 @@ class TestClassificationSpecificBehavior:
         data = response.json()
         assert data["classification"] == "menu_machine_unconfirmed"
         assert data["include_machine_image"] is False
-        # Should have exactly one asset (menu PDF)
-        assert len(data["assets"]) == 1
-        assert "machine" not in data["assets"][0].lower()
+        assert data["assets"] == []
+        assert data["asset_details"] == []
 
     def test_izakaya_profile_uses_food_and_drinks_sample(self):
         self._create_lead(
@@ -2138,11 +2681,11 @@ class TestClassificationSpecificBehavior:
         response = self.client.post("/api/outreach/wrm-class-test")
         assert response.status_code == 200
         data = response.json()
-        assert "assets/templates/izakaya_food_drinks_menu.html" in data["assets"][0]
-        assert data["asset_strategy_label"] == "Izakaya sample set"
-        assert data["asset_details"][0]["label"] == "Izakaya Food + Drinks Sample"
+        assert data["assets"] == []
+        assert data["asset_strategy_label"] == "Izakaya nomihodai sample set"
+        assert data["asset_details"] == []
         assert data["include_menu_image"] is True
-        assert "スタッフの個別説明を減らせます" in data["body"]
+        assert "料理・ドリンク" in data["body"]
 
     def test_menu_and_machine_classification(self):
         """menu_and_machine leads get two PDFs and machine content."""
@@ -2155,7 +2698,7 @@ class TestClassificationSpecificBehavior:
         data = response.json()
         assert data["classification"] == "menu_and_machine"
         assert data["include_machine_image"] is True
-        assert len(data["assets"]) == 2
+        assert data["assets"] == []
         # Body should contain machine line
         assert "券売機" in data["body"]
 
@@ -2171,8 +2714,7 @@ class TestClassificationSpecificBehavior:
         assert data["classification"] == "machine_only"
         assert data["include_menu_image"] is False
         assert data["include_machine_image"] is True
-        assert len(data["assets"]) == 1
-        assert "machine" in data["assets"][0].lower()
+        assert data["assets"] == []
         assert "券売機" in data["body"] and "注文ガイド" in data["body"]
 
     def test_default_no_evidence_classifies_as_menu_only(self):
@@ -2219,6 +2761,7 @@ class TestStatusPersistence:
             "status_history": [],
             "menu_evidence_found": True,
             "machine_evidence_found": False,
+            "address": "東京都渋谷区1-1-1",
             "english_availability": "missing",
             "english_menu_issue": True,
             "evidence_urls": ["https://example.test/menu"],
@@ -2228,6 +2771,8 @@ class TestStatusPersistence:
             "establishment_profile_confidence": "medium",
             "establishment_profile_evidence": ["primary_category:ramen"],
             "establishment_profile_source_urls": ["https://example.test/menu"],
+            "recommended_primary_package": "package_1_remote_30k",
+            "package_recommendation_reason": "Simple ramen menu fit for English Ordering Files.",
             "rejection_reason": None,
         }
         lead.update(overrides)
@@ -2379,7 +2924,7 @@ class TestStatusPersistence:
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+            (output_dir / name).write_bytes(_pdf_bytes())
         (output_dir / "food_menu.html").write_text(
             '<html><body><div class="menu-wrapper"><div class="menu-panel">'
             '<div class="sections-stack"><div class="section" data-section="ramen">'
@@ -2513,7 +3058,7 @@ class TestStatusPersistence:
             "food_menu_print_ready.pdf",
             "drinks_menu_print_ready.pdf",
         ):
-            (output_dir / name).write_bytes(b"%PDF-1.4\n% test\n")
+            (output_dir / name).write_bytes(_pdf_bytes())
         (output_dir / "food_menu.html").write_text(
             '<html><body><div class="menu-wrapper"><div class="menu-panel">'
             '<div class="sections-stack"><div class="section" data-section="ramen">'
@@ -2541,6 +3086,25 @@ class TestStatusPersistence:
         download = self.client.get("/api/build/job123/download")
         assert download.status_code == 200
         assert download.headers["content-type"] == "application/zip"
+
+    def test_build_download_requires_export_qa_passed(self):
+        export_path = self.tmp_path / "final_exports" / "job-noqa" / "job-noqa.zip"
+        export_path.parent.mkdir(parents=True, exist_ok=True)
+        export_path.write_bytes(b"not a real zip")
+        (self.tmp_path / "jobs" / "job-noqa.json").write_text(
+            json.dumps({
+                "job_id": "job-noqa",
+                "review_status": "approved",
+                "final_export_status": "ready",
+                "final_export_path": str(export_path),
+            }),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/build/job-noqa/download")
+
+        assert response.status_code == 409
+        assert "QA" in response.json()["detail"]
 
     def test_packages_and_build_history_endpoints(self):
         (self.tmp_path / "jobs" / "job123.json").write_text(

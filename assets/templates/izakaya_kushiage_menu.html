@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!--
     TEMPLATE: locked-kushiage v1
-    STATUS: MOCKUP — fried skewer / kushikatsu izakaya menu
+    FORMAT: fried skewer / kushikatsu izakaya menu
     PROFILE: izakaya_kushiage
     STYLE: dark warm surface, light text, red vermillion accent
   -->
@@ -215,14 +215,6 @@
       font-size: 13px;
       line-height: 1.55;
     }
-    .note {
-      margin-top: 20px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.6;
-      border-top: 1px solid var(--faint);
-      padding-top: 14px;
-    }
     @media (max-width: 760px) {
       body { padding: 18px 12px; }
       .sample-inner { padding: 20px; }
@@ -242,7 +234,7 @@
     <div class="sample-inner">
       <header class="topline">
         <div class="title-block">
-          <h1>Kushiage &amp; Kushikatsu</h1>
+          <h1 data-slot="panel-title">Kushiage &amp; Kushikatsu</h1>
         </div>
         <span class="seal-stamp" data-slot="seal" data-length="6"><span class="seal-text" data-slot="seal-text">串揚げ処</span></span>
       </header>
@@ -258,8 +250,8 @@
       <div class="grid">
         <section class="panel">
           <h2>Fried Skewers</h2>
-          <div class="section">
-            <div class="section-title">Meat <span>肉</span></div>
+          <div class="section" data-section="meat">
+            <div class="section-title" data-slot="section-title">Meat <span>肉</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Pork</span><span class="jp">豚肉</span></li>
               <li data-slot="item"><span>Chicken Breast</span><span class="jp">鶏むね</span></li>
@@ -267,8 +259,8 @@
               <li data-slot="item"><span>Minced Chicken Ball</span><span class="jp">鶏つくね</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Seafood <span>海鮮</span></div>
+          <div class="section" data-section="seafood">
+            <div class="section-title" data-slot="section-title">Seafood <span>海鮮</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Shrimp <span class="allergy">Sh</span></span><span class="jp">えび</span></li>
               <li data-slot="item"><span>Scallop <span class="allergy">Sh</span></span><span class="jp">ほたて</span></li>
@@ -276,8 +268,8 @@
               <li data-slot="item"><span>Octopus</span><span class="jp">たこ</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Vegetable <span>野菜</span></div>
+          <div class="section" data-section="vegetable">
+            <div class="section-title" data-slot="section-title">Vegetable <span>野菜</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Lotus Root</span><span class="jp">れんこん</span></li>
               <li data-slot="item"><span>Onion</span><span class="jp">玉ねぎ</span></li>
@@ -287,8 +279,8 @@
               <li data-slot="item"><span>Cheese <span class="allergy">D</span></span><span class="jp">チーズ</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Assortment Sets <span>盛り合わせ</span></div>
+          <div class="section" data-section="assortment-sets">
+            <div class="section-title" data-slot="section-title">Assortment Sets <span>盛り合わせ</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>5-Stick Set</span><span class="jp">5本盛り合わせ</span></li>
               <li data-slot="item"><span>8-Stick Set</span><span class="jp">8本盛り合わせ</span></li>
@@ -299,8 +291,8 @@
 
         <section class="panel">
           <h2>Sides &amp; Drinks</h2>
-          <div class="section">
-            <div class="section-title">Small Plates <span>小皿</span></div>
+          <div class="section" data-section="small-plates">
+            <div class="section-title" data-slot="section-title">Small Plates <span>小皿</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Shredded Cabbage</span><span class="jp">キャベツ</span></li>
               <li data-slot="item"><span>Japanese Pickles</span><span class="jp">お新香</span></li>
@@ -308,24 +300,24 @@
               <li data-slot="item"><span>Rice Porridge Finish</span><span class="jp">〆の雑炊</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Beer &amp; Highball <span>ビール・ハイボール</span></div>
+          <div class="section" data-section="beer-highball">
+            <div class="section-title" data-slot="section-title">Beer &amp; Highball <span>ビール・ハイボール</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Draft Beer</span><span class="jp">生ビール</span></li>
               <li data-slot="item"><span>Whisky Highball</span><span class="jp">ハイボール</span></li>
               <li data-slot="item"><span>Lemon Sour</span><span class="jp">レモンサワー</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Sake &amp; Shochu <span>日本酒・焼酎</span></div>
+          <div class="section" data-section="sake-shochu">
+            <div class="section-title" data-slot="section-title">Sake &amp; Shochu <span>日本酒・焼酎</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Junmai Sake</span><span class="jp">純米酒</span></li>
               <li data-slot="item"><span>Sweet Potato Shochu</span><span class="jp">芋焼酎</span></li>
               <li data-slot="item"><span>Barley Shochu</span><span class="jp">麦焼酎</span></li>
             </ul>
           </div>
-          <div class="section">
-            <div class="section-title">Soft Drinks <span>ソフトドリンク</span></div>
+          <div class="section" data-section="soft-drinks">
+            <div class="section-title" data-slot="section-title">Soft Drinks <span>ソフトドリンク</span></div>
             <ul data-slot="section-items">
               <li data-slot="item"><span>Green Tea</span><span class="jp">緑茶</span></li>
               <li data-slot="item"><span>Iced Oolong Tea</span><span class="jp">烏龍茶</span></li>
@@ -350,7 +342,8 @@
         </section>
       </div>
 
-      <p class="note">Sample menu — illustrative only. Final version uses the owner&rsquo;s confirmed items, prices, and photos. Allergen and availability details must be verified before publication.</p>
+      <p style="margin:16px 0 0;color:#a8a29e;font-size:11px;line-height:1.45;text-align:center;">Illustrative sample only. Final production uses owner-confirmed menu content and owner-provided photos.</p>
+
     </div>
   </main>
 </body>

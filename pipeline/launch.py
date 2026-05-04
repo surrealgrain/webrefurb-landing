@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from .lead_dossier import ensure_lead_dossier, READINESS_READY
+from .launch_freeze import assert_launch_not_frozen
+from .operator_state import OPERATOR_READY
 from .record import get_primary_contact, load_lead, persist_lead_record
 from .utils import ensure_dir, read_json, utc_now, write_json
 
@@ -33,6 +35,7 @@ def create_launch_batch(
     notes: str = "",
 ) -> dict[str, Any]:
     """Create a controlled launch batch from 5-10 ready leads."""
+    assert_launch_not_frozen(state_root=state_root)
     previous = list_launch_batches(state_root=state_root)
     unreviewed = [batch for batch in previous if not batch.get("reviewed_at")]
     if unreviewed:
@@ -75,6 +78,8 @@ def validate_launch_leads(*, lead_ids: list[str], state_root: Path) -> tuple[lis
         if not lead:
             raise LaunchBatchError(f"lead_not_found:{lead_id}")
         lead = ensure_lead_dossier(lead)
+        if lead.get("operator_state") != OPERATOR_READY:
+            raise LaunchBatchError(f"lead_operator_not_ready:{lead_id}:{lead.get('operator_reason') or 'review_required'}")
         if lead.get("launch_readiness_status") != READINESS_READY:
             raise LaunchBatchError(f"lead_not_ready:{lead_id}")
         measurement_missing = _missing_launch_measurement_fields(lead)

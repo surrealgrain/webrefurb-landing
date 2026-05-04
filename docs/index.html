@@ -183,8 +183,8 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -276,7 +276,9 @@ body::before {
 .btn-cta {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 20px;
   background: var(--cta-bg);
   color: var(--cta-text);
@@ -318,6 +320,8 @@ body::before {
 .btn-outline {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 10px 20px;
   background: transparent;
   color: var(--text-secondary);
@@ -467,6 +471,130 @@ body::before {
   max-width: 44ch;
   opacity: 0;
   animation: slideUp 0.7s var(--ease-out) 0.6s forwards;
+}
+
+/* Product proof */
+.proof-showcase {
+  width: 100%;
+  max-width: 1200px;
+  margin: 24px auto 0;
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 18px;
+  align-items: stretch;
+  opacity: 0;
+  animation: slideUp 0.8s var(--ease-out) 0.68s forwards;
+}
+
+.proof-copy {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.proof-kicker {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+}
+
+.proof-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.06;
+  color: var(--text);
+}
+
+.proof-copy p:not(.proof-kicker) {
+  font-size: 14px;
+  line-height: 1.58;
+  color: var(--text-secondary);
+}
+
+.proof-checks {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin-top: 4px;
+}
+
+.proof-checks li {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+  padding-left: 14px;
+  position: relative;
+}
+
+.proof-checks li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.68em;
+  width: 5px;
+  height: 5px;
+  background: var(--accent-green);
+  border-radius: 50%;
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr 0.7fr;
+  grid-template-rows: 210px 150px;
+  gap: 10px;
+}
+
+.proof-shot {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: #0f0d0b;
+}
+
+.proof-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.proof-shot--ramen {
+  grid-row: span 2;
+}
+
+.proof-shot--ticket img {
+  object-position: center 36%;
+}
+
+.proof-shot--qr-mobile img {
+  object-position: center top;
+}
+
+.proof-shot figcaption {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  right: 10px;
+  display: inline-flex;
+  width: fit-content;
+  max-width: calc(100% - 20px);
+  padding: 6px 8px;
+  background: rgba(12, 12, 11, 0.76);
+  color: #F9F8F5;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 /* ── Divider ── */
@@ -1227,6 +1355,20 @@ a:focus-visible {
     grid-template-columns: repeat(2, 1fr);
     gap: 14px;
   }
+
+  .proof-showcase {
+    grid-template-columns: 1fr;
+  }
+
+  .proof-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 220px 160px 160px;
+  }
+
+  .proof-shot--ramen {
+    grid-column: span 2;
+    grid-row: auto;
+  }
 }
 
 /* ── Mobile ── */
@@ -1255,8 +1397,8 @@ a:focus-visible {
   }
 
   .theme-toggle {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .main {
@@ -1296,14 +1438,33 @@ a:focus-visible {
     line-height: 1.4;
   }
 
+  .proof-copy {
+    padding: 20px;
+  }
+
+  .proof-title {
+    font-size: 24px;
+  }
+
+  .proof-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, 190px);
+  }
+
+  .proof-shot--ramen {
+    grid-column: auto;
+  }
+
   .btn-cta {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
     max-width: none;
   }
 
   .btn-outline {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 14px;
     font-size: 11px;
   }
 
@@ -1420,17 +1581,14 @@ a:focus-visible {
   .btn-cta {
     font-size: 10px;
     max-width: 160px;
-    padding: 8px 12px;
+    min-height: 44px;
+    padding: 0 12px;
     gap: 5px;
   }
 }
 </style>
 </head>
 <body>
-
-<!-- Ambient blobs -->
-<div class="ambient-blob ambient-blob--1" aria-hidden="true"></div>
-<div class="ambient-blob ambient-blob--2" aria-hidden="true"></div>
 
 <!-- Navigation -->
 <nav class="nav" aria-label="Main navigation">
@@ -1498,6 +1656,41 @@ a:focus-visible {
   <div class="divider" aria-hidden="true">
     <div class="divider__line"></div>
   </div>
+
+  <section class="proof-showcase" aria-label="Output previews">
+    <div class="proof-copy">
+      <p class="proof-kicker">Output previews</p>
+      <h2 class="proof-title">English ordering systems built around the way your shop works.</h2>
+      <p>Ramen ticket-machine guides, izakaya food and drink layouts, QR signs, and mobile menus are prepared as usable ordering materials, not loose translated text files.</p>
+      <ul class="proof-checks">
+        <li>Owner approval and one correction window are included before delivery.</li>
+        <li>Prices, ingredients, and allergens are shown only after owner confirmation.</li>
+        <li>Production uses the restaurant's current menu content and owner photos.</li>
+      </ul>
+    </div>
+    <div class="proof-grid" aria-label="Rendered sample outputs">
+      <figure class="proof-shot proof-shot--ramen">
+        <img src="assets/previews/simple-ramen-menu.png" alt="Rendered ramen English menu sample">
+        <figcaption>Ramen menu</figcaption>
+      </figure>
+      <figure class="proof-shot proof-shot--ticket">
+        <img src="assets/previews/ramen-ticket-machine.png" alt="Rendered ramen ticket machine guide sample">
+        <figcaption>Ticket-machine guide</figcaption>
+      </figure>
+      <figure class="proof-shot">
+        <img src="assets/previews/izakaya-food-drinks.png" alt="Rendered izakaya food and drinks layout sample">
+        <figcaption>Izakaya food and drinks</figcaption>
+      </figure>
+      <figure class="proof-shot">
+        <img src="assets/previews/qr-sign.png" alt="Rendered QR English menu sign sample">
+        <figcaption>QR sign</figcaption>
+      </figure>
+      <figure class="proof-shot proof-shot--qr-mobile">
+        <img src="assets/previews/qr-mobile-menu.png" alt="Mobile QR English menu sample">
+        <figcaption>Mobile QR menu</figcaption>
+      </figure>
+    </div>
+  </section>
 
   <!-- Bento Grid -->
   <section class="bento-section" aria-label="We create practical English ordering systems designed to reduce confusion, speed up service, and help overseas customers order with confidence.">

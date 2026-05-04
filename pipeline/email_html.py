@@ -218,19 +218,24 @@ def build_pitch_email_html(
             f'<img src="cid:{LOGO_CID}" alt="WebRefurb" width="140" '
             f'style="display:block; width:140px; height:auto; opacity:0.6; margin-bottom:8px; border:0;" />'
             f'</a>'
+            f'<a href="mailto:chris@webrefurb.com" '
+            'style="text-decoration:none; color:#aaaaaa; font-size:12px; line-height:1.4;">'
+            'chris@webrefurb.com</a>'
+            '<span style="color:#cccccc; font-size:12px; margin:0 6px;">·</span>'
             f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
-            'style="text-decoration:none; color:#999999; font-size:12px; line-height:1.4;">'
+            'style="text-decoration:none; color:#aaaaaa; font-size:12px; line-height:1.4;">'
             'webrefurb.com</a>'
             '</div>'
         )
     else:
         footer = (
             '<div style="margin-top:40px; padding-top:20px; border-top:1px solid #E8E8E5;">'
+            f'<a href="mailto:chris@webrefurb.com" '
+            'style="text-decoration:none; color:#aaaaaa; font-size:12px; line-height:1.4;">'
+            'chris@webrefurb.com</a>'
+            '<span style="color:#cccccc; font-size:12px; margin:0 6px;">·</span>'
             f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
-            'style="text-decoration:none; color:#aaaaaa; font-size:13px; line-height:1.6;">'
-            'WebRefurb</a><br/>'
-            f'<a href="{site_url}" target="_blank" rel="noopener noreferrer" '
-            'style="text-decoration:none; color:#999999; font-size:12px; line-height:1.4;">'
+            'style="text-decoration:none; color:#aaaaaa; font-size:12px; line-height:1.4;">'
             'webrefurb.com</a>'
             '</div>'
         )
@@ -286,7 +291,7 @@ def build_inline_attachments(
         menu_path = Path(menu_jpeg_path)
         if menu_path.exists():
             attachments.append({
-                "filename": "english-menu-sample.jpg",
+                "filename": "英語メニューサンプル.jpg",
                 "content": base64.b64encode(menu_path.read_bytes()).decode("ascii"),
                 "content_id": MENU_CID,
                 "disposition": "inline",
@@ -298,7 +303,7 @@ def build_inline_attachments(
         machine_path = Path(machine_jpeg_path)
         if machine_path.exists():
             attachments.append({
-                "filename": "ticket-machine-guide.jpg",
+                "filename": "券売機注文ガイド.jpg",
                 "content": base64.b64encode(machine_path.read_bytes()).decode("ascii"),
                 "content_id": MACHINE_CID,
                 "disposition": "inline",

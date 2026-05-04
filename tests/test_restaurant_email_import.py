@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 
-from pipeline.constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE, OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF
 from pipeline.outreach import select_outreach_assets
 from pipeline.restaurant_email_import import (
     establishment_profile_for,
@@ -62,7 +61,7 @@ def test_template_assignment_is_locked_to_glm_policy():
     assert assignment["template_family"] == "izakaya"
 
 
-def test_specific_izakaya_profiles_use_locked_izakaya_sample_asset():
+def test_specific_profiles_do_not_attach_first_contact_assets():
     for profile in [
         "izakaya_yakitori_kushiyaki",
         "izakaya_kushiage",
@@ -70,10 +69,8 @@ def test_specific_izakaya_profiles_use_locked_izakaya_sample_asset():
         "izakaya_tachinomi",
         "izakaya_robatayaki",
     ]:
-        assert select_outreach_assets("menu_only", establishment_profile=profile) == [
-            OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE[profile]
-        ]
-    assert select_outreach_assets("menu_only", establishment_profile="ramen_only") == [OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF]
+        assert select_outreach_assets("menu_only", establishment_profile=profile) == []
+    assert select_outreach_assets("menu_only", establishment_profile="ramen_only") == []
 
 
 def test_queue_record_preserves_source_decision_and_blocks_until_verification_promotion():
@@ -91,6 +88,19 @@ def test_queue_record_preserves_source_decision_and_blocks_until_verification_pr
     assert record["pitch_readiness_status"] == "needs_scope_review"
     assert record["template_locked"] is True
     assert record["template_owner"] == "GLM"
+    assert record["recommended_primary_package"] == "package_1_remote_30k"
+    assert record["package_recommendation_reason"] == "simple_ramen_menu_fits_english_ordering_files"
+
+
+def test_queue_record_scores_imported_izakaya_through_package_rules():
+    record = queue_record_from_email_lead(_lead(
+        type_of_restaurant="izakaya",
+        menu_type="izakaya",
+        validation_notes="飲み放題 コース 居酒屋 メニュー",
+    ))
+
+    assert record["recommended_primary_package"] == "package_3_qr_menu_65k"
+    assert record["package_recommendation_reason"] == "izakaya_drink_course_rules_likely_need_live_updates"
 
 
 def test_sort_email_leads_prioritizes_quality_then_city():

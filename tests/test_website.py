@@ -51,6 +51,8 @@ def test_homepages_include_pricing_content():
     ja_text = _visible_text(_read("ja/index.html"))
 
     for expected in (
+        "Output previews",
+        "English ordering systems built around the way your shop works",
         "English Ordering Files",
         "¥30,000",
         "Counter-Ready Ordering Kit",
@@ -62,6 +64,7 @@ def test_homepages_include_pricing_content():
         "Customer Flow",
         "Scan for English Menu",
         "Owner approval and one correction window",
+        "Prices, ingredients, and allergens are shown only after owner confirmation",
         "sized compactly for your menu and shop",
         "hosted English ordering menu",
         "Scan for English Menu",
@@ -70,6 +73,8 @@ def test_homepages_include_pricing_content():
         assert expected in en_text
 
     for expected in (
+        "制作物プレビュー",
+        "お店の注文方法に合わせた英語注文システム",
         "英語注文ファイル",
         "30,000円",
         "店頭用注文キット",
@@ -79,12 +84,34 @@ def test_homepages_include_pricing_content():
         "注文ガイド",
         "QR案内サイン",
         "スムーズな注文の流れ",
+        "無料サンプル",
         "内容量と店舗で扱いやすいサイズ",
         "Scan for English Menu",
         "納品前の店舗確認と修正1回",
+        "価格・原材料・アレルギー表記は店舗確認後のみ掲載します",
         "別途お見積もり",
     ):
         assert expected in ja_text
+
+
+def test_homepages_show_real_output_preview_assets():
+    preview_paths = (
+        "assets/previews/simple-ramen-menu.png",
+        "assets/previews/ramen-ticket-machine.png",
+        "assets/previews/izakaya-food-drinks.png",
+        "assets/previews/qr-sign.png",
+        "assets/previews/qr-mobile-menu.png",
+    )
+    en = _read("index.html")
+    ja = _read("ja/index.html")
+
+    for path in preview_paths:
+        assert f'src="{path}"' in en
+        assert (DOCS_ROOT / path).exists()
+    for path in preview_paths:
+        ja_path = f"../{path}"
+        assert f'src="{ja_path}"' in ja
+        assert (DOCS_ROOT / path).exists()
 
 
 def test_pricing_pages_include_risk_reversal_and_custom_quote_limits():
@@ -101,6 +128,7 @@ def test_pricing_pages_include_risk_reversal_and_custom_quote_limits():
     for expected in (
         "納品前の店舗確認と修正1回を含みます",
         "価格・アレルギー表記は店舗確認後のみ掲載します",
+        "無料サンプルをご希望の場合はこちらからご連絡ください",
         "別途お見積もり",
     ):
         assert expected in ja_text
@@ -177,32 +205,23 @@ def test_dashboard_template_has_no_visible_jinja_when_opened_directly():
 
 
 def test_dashboard_review_filters_include_route_and_profile():
+    """Dashboard sidebar has category and city filters for basic lead browsing."""
     html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
 
-    assert 'id="sidebar-route"' in html
-    assert 'value="contact_form">Contact Form' in html
-    assert 'id="sidebar-profile"' in html
-    assert 'value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki' in html
-    assert "card.dataset.establishmentProfile === profile" in html
-    assert 'data-establishment-profile="' in html
+    assert 'id="sidebar-category"' in html
+    assert 'id="sidebar-city"' in html
+    # Advanced filters (route, profile, verification, etc.) were removed in
+    # the dashboard simplification — operator only needs category + city.
 
 
 def test_dashboard_review_lanes_make_manual_work_queue_visible():
+    """Review lanes were removed — leads tab shows a flat list with preview."""
     html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
 
-    assert 'id="lead-review-lanes"' in html
-    assert "function reviewLaneCounts(leads)" in html
-    assert "Email Route Review" in html
-    assert "Contact Form Review" in html
-    assert "Unreviewed Cards" in html
-    assert "Name Review" in html
-    assert "Scope Review" in html
-    assert "function applyReviewLane(lane)" in html
-    assert "function currentReviewLaneFromFilters()" in html
-    assert "function updateReviewLaneSelection(activeLane)" in html
-    assert "data-review-lane" in html
-    assert 'aria-pressed="false"' in html
-    assert ".review-lane.is-active" in html
+    assert 'id="lead-list"' in html
+    assert 'id="confirmed-list"' in html
+    assert "function renderLeadCard(" in html
+    assert "function renderLeadList(" in html
 
 
 def test_dashboard_keeps_internal_plan_and_filters_out_of_primary_sidebar():
@@ -210,29 +229,62 @@ def test_dashboard_keeps_internal_plan_and_filters_out_of_primary_sidebar():
 
     assert "Phase Plan" not in html
     assert "Queue Filters" not in html
-    assert 'id="advanced-filter-toggle"' in html
-    assert 'id="advanced-filters"' in html
-    assert "function toggleAdvancedFilters()" in html
+    # Advanced filters were removed entirely
+    assert 'id="advanced-filter-toggle"' not in html
+    assert 'id="advanced-filters"' not in html
+    assert "function toggleAdvancedFilters()" not in html
     assert 'id="nav-builds"' not in html
 
 
 def test_dashboard_has_no_send_review_outcome_controls():
+    """Review outcome controls are in the preview modal only, not in the sidebar."""
     html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
 
+    # Review outcome controls are inside the preview modal
     assert 'id="review-outcome-panel"' in html
-    assert 'id="sidebar-review-outcome"' in html
     assert 'id="review-outcome-select"' in html
-    assert 'value="not_reviewed">Not Reviewed' in html
     assert 'value="hold">Hold' in html
-    assert 'value="needs_more_info">Needs More Info' in html
-    assert 'value="reject">Reject' in html
-    assert 'id="save-review-next-btn"' in html
-    assert 'id="next-review-card-btn"' in html
-    assert 'data-review-outcome="' in html
-    assert "reviewOutcomeValue(lead)" in html
-    assert "visibleReviewCardIds" in html
-    assert "nextReviewLeadIdAfterSave" in html
-    assert "openNextReviewCard" in html
-    assert "loadDashboardLeads(true)" in html
-    assert "saveLeadReviewOutcome" in html
-    assert "/review-outcome" in html
+    assert 'value="pitch_pack_ready">Pitch Pack Ready' in html
+    # But NOT in the sidebar filter dropdowns (removed in simplification)
+    assert 'id="sidebar-review-outcome"' not in html
+    assert 'id="sidebar-route"' not in html
+
+
+def test_dashboard_splits_lead_queue_and_confirmed_send_lane():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="nav-leads"' in html
+    assert "Lead queue" in html
+    assert 'id="nav-confirmed"' in html
+    assert 'id="tab-confirmed"' in html
+    assert 'id="confirmed-list"' in html
+    assert 'id="confirmed-summary"' in html
+    assert 'id="nav-opportunistic"' in html
+    assert 'id="tab-opportunistic"' in html
+    assert 'id="opportunistic-list"' in html
+    assert "function isOpportunisticPitchCandidate(lead)" in html
+    assert "function renderOpportunisticList(leads)" in html
+    assert "function isConfirmedLeadCandidate(lead)" in html
+    assert "function renderConfirmedList(leads)" in html
+    assert "renderLeadCard(lead, { showSendSelect: false })" in html
+    assert "renderLeadCard(lead, { showSendSelect: true })" in html
+    assert "document.querySelectorAll('#confirmed-list .lead-card')" in html
+    assert "Final check" not in html
+    assert "Ready" in html
+
+
+def test_dashboard_reply_inbox_has_translation_and_workflow_cockpit():
+    html = (DOCS_ROOT.parent / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="tab-inbox"' in html
+    assert 'data-inbox-filter="needs_reply"' in html
+    assert 'data-inbox-filter="waiting_on_owner"' in html
+    assert "function renderReplyComposer(" in html
+    assert "reply-compose-grid" in html
+    assert "reply-english" in html
+    assert "reply-japanese" in html
+    assert "function applyReplyTemplate(" in html
+    assert "reply-status-select" in html
+    assert "function saveReplyWorkflowSelect(" in html
+    assert 'value="package_3_qr_menu_65k"' in html
+    assert "data-package-key" in html

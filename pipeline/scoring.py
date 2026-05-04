@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from .constants import (
     PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY, PACKAGE_A_KEY, PACKAGE_B_KEY,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
@@ -291,3 +293,89 @@ def recommend_package_details(
         "recommendation_reason": "simple_ramen_menu_fits_english_ordering_files",
         "custom_quote_reason": "",
     }
+
+
+def recommend_package_details_for_record(record: dict[str, Any]) -> dict[str, str]:
+    """Re-score a persisted/imported lead through the current package rules."""
+    category = str(record.get("primary_category_v1") or record.get("category") or "").strip().lower()
+    if category not in {"ramen", "izakaya"}:
+        category = "izakaya" if _record_text(record).find("居酒屋") >= 0 else "ramen"
+
+    menu_complexity_state = str(record.get("menu_complexity_state") or "").strip() or (
+        "medium" if category == "izakaya" else "simple"
+    )
+    izakaya_rules_state = str(record.get("izakaya_rules_state") or "").strip() or "none_found"
+    if category == "izakaya" and izakaya_rules_state in {"", "unknown", "none_found"}:
+        izakaya_rules_state = _infer_izakaya_rules_state(record)
+
+    return recommend_package_details(
+        category=category,
+        english_menu_issue=bool(record.get("english_menu_issue", True)),
+        machine_evidence_found=bool(record.get("machine_evidence_found") or _has_any_token(record, ("券売機", "食券", "ticket_machine"))),
+        menu_complexity_state=menu_complexity_state,
+        izakaya_rules_state=izakaya_rules_state,
+        print_yourself_fit=_has_any_token(record, ("print_yourself", "print yourself", "店内印刷", "自店で印刷")),
+        counter_ready_need=bool(record.get("counter_ready_need")) or _has_any_token(record, ("counter_ready", "counter-ready", "券売機横", "ordering guide")),
+        stable_table_menus=_has_any_token(record, ("stable_table_menu", "stable table", "卓上メニュー", "定番メニュー")),
+        frequent_updates_expected=(
+            bool(record.get("frequent_updates_expected"))
+            or bool(record.get("course_or_drink_plan_evidence_found"))
+            or izakaya_rules_state in {"courses_found", "nomihodai_found"}
+        ),
+        tourist_exposure_score=_float_value(record.get("tourist_exposure_score")),
+        lead_score_v1=_int_value(record.get("lead_score_v1")),
+    )
+
+
+def _record_text(record: dict[str, Any]) -> str:
+    values: list[str] = []
+    for key in (
+        "business_name",
+        "category",
+        "primary_category_v1",
+        "lead_category",
+        "establishment_profile",
+        "menu_type",
+        "package_recommendation_reason",
+    ):
+        values.append(str(record.get(key) or ""))
+    for key in ("lead_signals", "evidence_classes", "evidence_snippets", "matched_friction_evidence"):
+        raw = record.get(key)
+        if isinstance(raw, list):
+            values.extend(str(item) for item in raw)
+        elif raw:
+            values.append(str(raw))
+    dossier = record.get("lead_evidence_dossier")
+    if isinstance(dossier, dict):
+        values.extend(str(value) for value in dossier.values() if isinstance(value, (str, int, float, bool)))
+    return " ".join(values).lower()
+
+
+def _has_any_token(record: dict[str, Any], tokens: tuple[str, ...]) -> bool:
+    text = _record_text(record)
+    return any(token.lower() in text for token in tokens)
+
+
+def _infer_izakaya_rules_state(record: dict[str, Any]) -> str:
+    text = _record_text(record)
+    if any(token in text for token in ("飲み放題", "nomihodai", "all-you-can-drink")):
+        return "nomihodai_found"
+    if any(token in text for token in ("コース", "course", "宴会")):
+        return "courses_found"
+    if any(token in text for token in ("ドリンク", "drink", "beer", "sake", "日本酒")):
+        return "drinks_found"
+    return "unknown"
+
+
+def _float_value(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _int_value(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0

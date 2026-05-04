@@ -10,7 +10,7 @@ from .review_batches import FORBIDDEN_REVIEW_ACTIONS, REQUIRED_REVIEW_STATE
 from .utils import ensure_dir, slugify, utc_now, write_json, write_text
 
 
-ALLOWED_ENRICHMENT_OUTCOMES = ("hold", "needs_more_info", "reject")
+ALLOWED_ENRICHMENT_OUTCOMES = ("hold", "needs_more_info", "pitch_pack_ready", "reject")
 DEFAULT_ENRICHMENT_BATCH_SIZE = 80
 
 
@@ -58,7 +58,7 @@ def build_needs_more_info_enrichment_plan(*, state_root: Path, batch_size: int =
         "batches": batches,
         "next_actions": [
             "Work enrichment batches without sending email or submitting forms.",
-            "Use saved evidence and reference-only route checks to decide hold, needs_more_info, or reject.",
+            "Use saved evidence and reference-only route checks to decide hold, needs_more_info, pitch_pack_ready, or reject.",
             "Regenerate this artifact after enrichment outcomes change.",
         ],
     }
@@ -122,7 +122,7 @@ def _evidence_tasks(record: dict[str, Any], lane: str) -> list[str]:
     tasks = {
         "email_owner_route_enrichment": [
             "Confirm saved email belongs to the restaurant/operator, not a directory, hotel, reviewer, or generic scraped artifact.",
-            "If owner-route evidence is still weak, keep needs_more_info; if clearly invalid, reject.",
+            "If owner-route evidence is strong, mark pitch_pack_ready; if still weak, keep needs_more_info; if clearly invalid, reject.",
         ],
         "contact_form_route_enrichment": [
             "Inspect the saved form route only; do not submit and do not attach assets.",
@@ -201,6 +201,7 @@ def _safety_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
         "outreach_status_counts": _counter(records, lambda record: str(record.get("outreach_status") or "unknown")),
         "ready_for_outreach": sum(1 for record in records if record.get("launch_readiness_status") == "ready_for_outreach"),
         "pitch_ready": sum(1 for record in records if record.get("pitch_ready") is True),
+        "pitch_pack_ready_no_send": sum(1 for record in records if record.get("pitch_pack_ready_no_send") is True),
         "outreach_status_new": sum(1 for record in records if record.get("outreach_status") == "new"),
     }
 
@@ -227,6 +228,7 @@ def _enrichment_markdown(plan: dict[str, Any]) -> str:
         f"- Email send allowed: `{str(plan['no_send_safety']['email_send_allowed']).lower()}`",
         f"- Ready for outreach: `{plan['no_send_safety']['ready_for_outreach']}`",
         f"- Pitch ready: `{plan['no_send_safety']['pitch_ready']}`",
+        f"- Pitch-pack ready no-send: `{plan['no_send_safety']['pitch_pack_ready_no_send']}`",
         f"- Outreach status new: `{plan['no_send_safety']['outreach_status_new']}`",
         "",
         "## Counts",

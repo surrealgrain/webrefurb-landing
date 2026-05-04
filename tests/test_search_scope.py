@@ -43,16 +43,21 @@ def test_all_category_fans_out_to_ramen_and_izakaya_for_specific_city():
     assert "券売機 ラーメン Kyoto" in queries
     assert "食券 ラーメン Kyoto" in queries
     assert "ラーメン メニュー 写真 Kyoto" in queries
+    assert "site:ramendb.supleks.jp ラーメン Kyoto" in queries
     assert "ラーメン 公式 お問い合わせ Kyoto" in queries
     assert "ラーメン 公式 メール Kyoto" in queries
     assert "ラーメン 公式 メニュー Kyoto" in queries
+    assert "ラーメン 公式 メニュー 写真 Kyoto" in queries
     assert "飲み放題 コース 居酒屋 Kyoto" in queries
     assert "お品書き 居酒屋 Kyoto" in queries
     assert "居酒屋 メニュー 写真 Kyoto" in queries
+    assert "site:hotpepper.jp 居酒屋 メニュー Kyoto" in queries
+    assert "site:tabelog.com 居酒屋 メニュー Kyoto" in queries
     assert "居酒屋 公式 お問い合わせ Kyoto" in queries
     assert "居酒屋 公式 メニュー Kyoto" in queries
-    assert {"ramen_ticket_machine", "ramen_meal_ticket", "ramen_official_menu", "ramen_official_contact"} <= job_ids
-    assert {"izakaya_nomihodai_course", "izakaya_oshinagaki", "izakaya_official_menu", "izakaya_official_contact"} <= job_ids
+    assert "居酒屋 公式 SNS メニュー Kyoto" in queries
+    assert {"ramen_ticket_machine", "ramen_meal_ticket", "ramen_ramendb_area", "ramen_official_menu", "ramen_official_contact"} <= job_ids
+    assert {"izakaya_nomihodai_course", "izakaya_oshinagaki", "izakaya_hotpepper_menu", "izakaya_tabelog_menu", "izakaya_official_menu", "izakaya_official_social_menu", "izakaya_official_contact"} <= job_ids
     # Negative-check jobs are NOT included — qualification detects these from page content
     assert "ramen_english_menu_check" not in job_ids
     assert "izakaya_multilingual_qr_check" not in job_ids

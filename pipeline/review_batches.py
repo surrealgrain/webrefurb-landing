@@ -12,7 +12,7 @@ from .utils import ensure_dir, slugify, utc_now, write_json, write_text
 
 APPROVED_REVIEW_ROUTE_TYPES = {"email", "contact_form"}
 REFERENCE_ONLY_ROUTE_TYPES = {"phone", "line", "instagram", "reservation", "map_url", "walk_in", "website"}
-ALLOWED_REVIEW_OUTCOMES = ("hold", "needs_more_info", "reject")
+ALLOWED_REVIEW_OUTCOMES = ("hold", "needs_more_info", "pitch_pack_ready", "reject")
 FORBIDDEN_REVIEW_ACTIONS = (
     "send_email",
     "submit_contact_form",
@@ -171,7 +171,7 @@ def build_no_send_review_batch(*, state_root: Path, batch_size: int = 120) -> di
         "review_queue": queue,
         "next_actions": [
             "Review selected cards using email/contact-form routes only; do not send or submit.",
-            "Save hold, needs_more_info, or reject outcomes for manual-review tracking.",
+            "Save hold, needs_more_info, pitch_pack_ready, or reject outcomes for manual-review tracking.",
             "Keep launch readiness manual_review until an explicit outbound approval gate is added.",
         ],
     }
@@ -259,8 +259,8 @@ def build_no_send_review_wave(*, state_root: Path, batch_size: int = 120) -> dic
         },
         "batches": batches,
         "next_actions": [
-            "Work batches in order and save only hold, needs_more_info, or reject outcomes.",
-            "Do not send emails, submit contact forms, promote records, or set pitch_ready.",
+            "Work batches in order and save only hold, needs_more_info, pitch_pack_ready, or reject outcomes.",
+            "Do not send emails, submit contact forms, or set ready_for_outreach.",
             "Regenerate the wave after operator outcomes are saved so reviewed cards fall out of the queue.",
         ],
     }
@@ -298,6 +298,7 @@ def _safety_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
         "outreach_status_counts": _counter(records, lambda record: str(record.get("outreach_status") or "unknown")),
         "ready_for_outreach": sum(1 for record in records if record.get("launch_readiness_status") == "ready_for_outreach"),
         "pitch_ready": sum(1 for record in records if record.get("pitch_ready") is True),
+        "pitch_pack_ready_no_send": sum(1 for record in records if record.get("pitch_pack_ready_no_send") is True),
         "outreach_status_new": sum(1 for record in records if record.get("outreach_status") == "new"),
     }
 
@@ -650,11 +651,11 @@ def _operator_pack_key(entry: dict[str, Any]) -> str:
 
 def _pack_review_focus(review_lane: str) -> str:
     if review_lane == "email_route_review":
-        return "Confirm the saved email is a business owner route; do not send. Save hold, needs_more_info, or reject only."
+        return "Confirm the saved email is a business owner route; do not send. Save hold, needs_more_info, pitch_pack_ready, or reject only."
     if review_lane == "contact_form_review":
-        return "Inspect the contact form route only; do not submit and do not attach assets. Save hold, needs_more_info, or reject only."
+        return "Inspect the contact form route only; do not submit and do not attach assets. Save hold, needs_more_info, pitch_pack_ready, or reject only."
     if review_lane == "name_review":
-        return "Confirm the shop name is a real restaurant name, not a directory artifact. Save hold, needs_more_info, or reject only."
+        return "Confirm the shop name is a real restaurant name, not a directory artifact. Save hold, needs_more_info, pitch_pack_ready, or reject only."
     if review_lane == "scope_review":
         return "Confirm Japan ramen/izakaya scope and reject non-scope records. Keep valid but unresolved records on hold."
     return "Review evidence quality only; keep the record manual-review blocked."
@@ -716,6 +717,7 @@ def _review_batch_markdown(batch: dict[str, Any]) -> str:
         f"- Selected review queue: `{counts['selected_review_queue']}`",
         f"- Ready for outreach: `{safety['ready_for_outreach']}`",
         f"- Pitch ready: `{safety['pitch_ready']}`",
+        f"- Pitch-pack ready no-send: `{safety['pitch_pack_ready_no_send']}`",
         f"- Outreach status new: `{safety['outreach_status_new']}`",
         "",
         "## GLM Briefs",
@@ -765,7 +767,7 @@ def _review_wave_markdown(wave: dict[str, Any]) -> str:
         f"Generated: {wave['generated_at']}",
         "",
         "Real outbound allowed: `false`.",
-        "Email sending, contact-form submission, promotion, and pitch-ready changes are blocked for this wave.",
+        "Email sending, contact-form submission, launch promotion, and ready-for-outreach changes are blocked for this wave.",
         "",
         "## Queue",
         "",
@@ -776,6 +778,7 @@ def _review_wave_markdown(wave: dict[str, Any]) -> str:
         f"- Operator packs: `{counts['operator_pack_count']}`",
         f"- Ready for outreach: `{safety['ready_for_outreach']}`",
         f"- Pitch ready: `{safety['pitch_ready']}`",
+        f"- Pitch-pack ready no-send: `{safety['pitch_pack_ready_no_send']}`",
         f"- Outreach status new: `{safety['outreach_status_new']}`",
         "",
         "## Wave GLM Briefs",

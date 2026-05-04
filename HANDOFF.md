@@ -1,36 +1,38 @@
 # WebRefurbMenu Handoff
-Updated: 2026-05-03. Compact resume file; replace stale facts instead of appending logs.
+Updated: 2026-05-04. Compact resume file; replace stale facts instead of appending logs.
 Startup read path: read `AGENTS.md`, then this file only. Open long docs, raw leads, reports, or state artifacts only for a specific blocker.
+
 ## Safety Boundary
-- No real email, contact-form submit, or other business contact unless explicitly requested in the current chat; "continue" means no-send work only.
-- Approved review routes are email/contact forms only; phone, LINE, Instagram, reservations, map URLs, walk-ins, and websites are reference-only.
-- During no-send inventory/review, do not set `pitch_ready=true`, `ready_for_outreach`, or `outreach_status=new`.
-- Customer-facing copy must not mention AI, automation, scraping, or internal tools.
+- No restaurant email, contact-form submit, launch batch, or business contact unless explicitly requested in the current chat and production gates are unlocked.
+- Approved routes are email/contact forms only; phone, LINE, Instagram, reservations, map URLs, walk-ins, and websites are reference-only.
+- Customer-facing copy must not mention AI, automation, scraping, internal tools, source policy, or pipeline mechanics.
+
 ## Current Snapshot
-- Branch: `codex/phase11-contact-form-batch`; unrelated dirty files remain, so stage only mission files.
-- Live queue: 596 records, 401 openable pitch cards, 193 hard blocked, 2 unsupported route.
-- Operator review wave is drained: 401/401 openable cards have no-send `needs_more_info` outcomes; 0 unreviewed approved-route cards remain.
-- Safety counters: all 596 `launch_readiness_status=manual_review` and `outreach_status=needs_review`; 0 ready_for_outreach, 0 pitch_ready, 0 `outreach_status:new`.
-- Dashboard server is live at `http://127.0.0.1:8000/` on PID 89260.
-## Current Work State
-- GLM locked templates exist for all five specific izakaya profiles: yakitori/kushiyaki, kushiage, seafood/sake/oden, tachinomi, robatayaki.
-- Codex routing now maps those profiles to dedicated locked HTML templates in outreach selection, dashboard preview, state audit expectations, review guidance, manual import, and execution-plan artifacts.
-- Dashboard preview uses pre-rendered locked sample images when available, with Playwright rendering retained only as fallback.
-- `list_leads()` is cached by lead-file signature and search dedup uses an in-memory place/domain/phone/name-area index; unchanged queue reads are ~6 ms after warmup.
-- Dashboard search category metadata is served from Python `search_scope` instead of duplicated JS constants.
-- Generic profiles still use existing assets: ramen food, izakaya food/drinks, izakaya drinks, and ticket-machine guide as applicable.
-- Dashboard primary UI is simplified: no visible phase plan/build nav/queue-filter block; filters are under Advanced Filters; lead cards show route/profile/package, evidence, next action/outcome, and Preview.
-- Latest no-send artifacts after review outcomes: `state/review_batches/pitch-card-review-20260502T162943Z.*`, `pitch-card-review-wave-20260502T162943Z.*`, and `state/execution_plans/restaurant-lead-execution-plan-20260502T162944Z.*`.
-- Needs-more-info enrichment lane is active: `state/review_batches/needs-more-info-enrichment-20260502T164825Z.*` has 401 cards / 4 batches / 7 packs.
-- Latest execution artifact `state/execution_plans/restaurant-lead-execution-plan-20260502T164833Z.*` includes the enrichment summary.
-## Acquisition / Search Notes
-- `webserper` is the intended no-key acquisition path and does not require Serper credits; Scrapling/local fetch paths remain available.
-- Paid `serper` is unavailable due to credits, Google Places key is unavailable, and the five-city directory source is exhausted through page 100.
-## Next Work
-- Work needs-more-info enrichment batches without outbound: email owner-route, name-source, scope, and contact-form-route checks.
-- Regenerate enrichment/review/execution artifacts after enrichment outcomes change.
-- Do not promote records or begin outbound without an explicit current-chat instruction.
+- Branch per prior handoff: `codex/phase11-contact-form-batch`; unrelated dirty files exist, so stage only mission files.
+- `audit-state` passes: 579 checked; 261 `lead=true` all `manual_review`; 310 disqualified/do-not-contact; 0 `ready_for_outreach`.
+- Operator state: 248 `review`, 323 `skip`; no operator-ready launch candidates.
+- Package distribution: none 79, Package 1 394, Package 2 1, Package 3 97.
+- Controlled pilot remains blocked: `ready_for_outreach_count_below_5`, `missing_ramen_ticket_machine_candidate`, `missing_izakaya_drink_or_course_candidate`.
+
+## Latest Audit
+- Report: `state/audits/system-dashboard-audit-20260503T234743Z/AUDIT_REPORT.md`.
+- Browser evidence: `state/audits/system-dashboard-audit-20260503T234743Z/screenshots/` plus Run 8 screenshots in `state/qa-screenshots/system-dashboard-audit-20260503T234743Z/`.
+- Browser/API audit captured 24 desktop/mobile screens: no console/page errors, no non-font request failures, no horizontal overflow, no public link failures.
+- Customer-facing copy scan: 61 HTML surfaces + 5 generated email variants; 0 forbidden-term or stale-placeholder findings.
+- Audit findings fixed in current uncommitted tree: frozen `POST /api/launch-batches` now returns controlled `423 launch_frozen:*`; audited public/dashboard controls render at least 44px.
+- Latest uncommitted checks also fixed evidence-gated dashboard/send compatibility plus owner-experience gaps: Japanese free-sample CTAs, one-correction policy consistency, ticket-machine guides staying eligible for Package 1 online delivery, and visible sample caveats in active templates.
+- 2026-05-04 no-send production sim: `state/production-sim/production-sim-codex-realworld-20260504-fixed/report.md` -> P0/P1 zero, P2 broad-corpus expansion still deferred, no external send, no real launch batch.
+- Browser reply-flow simulation found and fixed Package 3 QR replies downgrading to Package 1 in workspace/build modal; evidence screenshot: `state/qa-screenshots/production-sim-codex-realworld-20260504-fixed-reply-flow/reply-build-modal.png`.
+- Run 8 readiness: `state/run8-readiness/system-dashboard-audit-20260503T234743Z.json` with `ok_until_send_gate=true`, no external send, no real launch batch.
+- Export QA: `state/export-qa/system-dashboard-audit-20260503T234743Z-package1.json`, `state/export-qa/system-dashboard-audit-20260503T234743Z-package2.json`, `state/export-qa/qr-cdc592e3.json`.
+
+## Email Smoke
+- Exactly 5 real fixture emails were sent through Resend to `chris@webrefurb.com` only, all with `[WEBREFURB TEST]` subjects.
+- Variants covered: ramen menu, ramen ticket-machine, izakaya food/drinks, izakaya nomihodai/course, and machine-only ordering guide.
+- Evidence: `state/test-email-smoke/test-email-smoke-20260503T235037Z/smoke-report.json`; state digests prove no lead, launch-batch, or dashboard sent-record mutation.
+
 ## Last Verification
-- Tests passed: `.venv/bin/python -m pytest tests/ -q` 808; audit-requested subset 188.
-- `git diff --check` passed.
-- Latest safety/audit check: 596 leads, all `manual_review` + `needs_review`; 0 pitch_ready, 0 ready_for_outreach, 0 `outreach_status:new`; `pipeline.cli audit-state` checked 604 with 0 findings.
+- Focused owner-experience tests: `tests/test_website.py tests/test_render_templates.py tests/test_paid_ops.py tests/test_production_workflow.py tests/test_final_export_qa.py tests/test_qr.py -q` -> 48 passed.
+- Full tests: `.venv/bin/python -m pytest tests/ -q` -> 951 passed.
+- `.venv/bin/python -m pipeline.cli audit-state` -> pass.
+- `git diff --check` -> pass.

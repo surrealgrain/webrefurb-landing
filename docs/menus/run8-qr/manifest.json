@@ -1,0 +1,24 @@
+{
+  "checksums": {
+    "index.html": "f74b385098f288d58f12265d7aeb90e61aebee23f29e1fbac452eeaeb21613d7",
+    "menu.json": "e18be208aeec0e976f7fc5a5c1ba8f9c104d20f9691bc279b05196b89b453778",
+    "qr.svg": "f6487460f5be9de39414181472c6f0a4cbd67f93ca5408eb243a358c0d23f874",
+    "qr_sign.html": "5d33c00ea2f57484f7f62ed6d5cb7ce4e85a3ca112b0a2b637538ddb6f7e4326",
+    "qr_sign.svg": "867d22a0baa2ab2ed43f5a8d17161df59871d76ad171d9acd06de46d24dc49e2"
+  },
+  "current_version": "v-20260503235209-a3d57b",
+  "menu_id": "run8-qr",
+  "status": "published",
+  "updated_at": "2026-05-03T23:52:09.422245+00:00",
+  "versions": [
+    "v-20260503204727-25d014",
+    "v-20260503204812-652561",
+    "v-20260503204829-8267a5",
+    "v-20260503205011-631c7b",
+    "v-20260503205219-e977e7",
+    "v-20260503205352-0a8472",
+    "v-20260503205742-fde7e8",
+    "v-20260503211412-580ada",
+    "v-20260503235209-a3d57b"
+  ]
+}

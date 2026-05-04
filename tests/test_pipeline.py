@@ -12,6 +12,7 @@ from pipeline.evidence import (
 from pipeline.scoring import (
     compute_tourist_exposure_score, compute_lead_score_v1,
     detect_english_menu_issue, recommend_package, recommend_package_details,
+    recommend_package_details_for_record,
 )
 from pipeline.models import QualificationResult
 from pipeline.constants import (
@@ -612,6 +613,7 @@ class TestBinaryLead:
     def test_independent_business_not_rejected_by_chain_check(self):
         assert is_chain_business("商店街ラーメン") is False
         assert is_chain_business("小さな居酒屋 よいち") is False
+        assert is_chain_business("麺処おあな") is False
 
     def test_place_id_counts_as_location(self):
         result = qualify_candidate(
@@ -980,6 +982,30 @@ class TestScoring:
         assert details["package_key"] == "custom_quote"
         assert details["recommendation_reason"] == "large_or_complex_menu_requires_manual_quote"
         assert details["custom_quote_reason"] == "large_or_complex_menu_requires_manual_quote"
+
+    def test_record_package_rescore_infers_imported_izakaya_course_fit(self):
+        details = recommend_package_details_for_record({
+            "primary_category_v1": "izakaya",
+            "english_menu_issue": True,
+            "menu_type": "izakaya",
+            "evidence_snippets": ["飲み放題 コース 居酒屋 メニュー"],
+            "course_or_drink_plan_evidence_found": True,
+            "lead_score_v1": 55,
+        })
+
+        assert details["package_key"] == PACKAGE_3_KEY
+        assert details["recommendation_reason"] == "izakaya_drink_course_rules_likely_need_live_updates"
+
+    def test_record_package_rescore_keeps_simple_imported_ramen_remote(self):
+        details = recommend_package_details_for_record({
+            "primary_category_v1": "ramen",
+            "english_menu_issue": True,
+            "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
+            "lead_score_v1": 55,
+        })
+
+        assert details["package_key"] == PACKAGE_1_KEY
+        assert details["recommendation_reason"] == "simple_ramen_menu_fits_english_ordering_files"
 
 
 # ===========================================================================

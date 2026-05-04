@@ -218,18 +218,23 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="ramen_ticket_machine", query=f"券売機 ラーメン {place}", category="ramen", purpose="ticket_machine_lookup", expected_friction="ticket_machine"),
         _job(job_id="ramen_meal_ticket", query=f"食券 ラーメン {place}", category="ramen", purpose="ticket_machine_lookup", expected_friction="meal_ticket"),
         _job(job_id="ramen_menu_photo", query=f"ラーメン メニュー 写真 {place}", category="ramen", purpose="menu_photo_lookup", expected_friction="menu_photo"),
+        _job(job_id="ramen_ramendb_area", query=f"site:ramendb.supleks.jp ラーメン {place}", category="ramen", purpose="ramendb_area_check", expected_friction="ramendb_area_evidence"),
         _job(job_id="ramen_official_contact", query=f"ラーメン 公式 お問い合わせ {place}", category="ramen", purpose="official_contact_lookup", expected_friction="official_contact"),
         _job(job_id="ramen_official_email", query=f"ラーメン 公式 メール {place}", category="ramen", purpose="official_email_lookup", expected_friction="official_email"),
         _job(job_id="ramen_area_discovery", query=f"ラーメン 店 {place}", category="ramen", purpose="area_discovery", expected_friction="area_search"),
         _job(job_id="ramen_official_menu", query=f"ラーメン 公式 メニュー {place}", category="ramen", purpose="official_menu_lookup", expected_friction="official_menu"),
+        _job(job_id="ramen_official_menu_photo", query=f"ラーメン 公式 メニュー 写真 {place}", category="ramen", purpose="official_menu_photo_lookup", expected_friction="official_menu_photo"),
     ]
     izakaya_jobs = [
         _job(job_id="izakaya_nomihodai_course", query=f"飲み放題 コース 居酒屋 {place}", category="izakaya", purpose="drink_course_lookup", expected_friction="nomihodai_or_course"),
         _job(job_id="izakaya_oshinagaki", query=f"お品書き 居酒屋 {place}", category="izakaya", purpose="menu_lookup", expected_friction="printed_menu"),
         _job(job_id="izakaya_menu_photo", query=f"居酒屋 メニュー 写真 {place}", category="izakaya", purpose="menu_photo_lookup", expected_friction="menu_photo"),
+        _job(job_id="izakaya_hotpepper_menu", query=f"site:hotpepper.jp 居酒屋 メニュー {place}", category="izakaya", purpose="hotpepper_menu_check", expected_friction="directory_menu"),
+        _job(job_id="izakaya_tabelog_menu", query=f"site:tabelog.com 居酒屋 メニュー {place}", category="izakaya", purpose="tabelog_menu_check", expected_friction="directory_menu"),
         _job(job_id="izakaya_official_contact", query=f"居酒屋 公式 お問い合わせ {place}", category="izakaya", purpose="official_contact_lookup", expected_friction="official_contact"),
         _job(job_id="izakaya_area_discovery", query=f"居酒屋 店 {place}", category="izakaya", purpose="area_discovery", expected_friction="area_search"),
         _job(job_id="izakaya_official_menu", query=f"居酒屋 公式 メニュー {place}", category="izakaya", purpose="official_menu_lookup", expected_friction="official_menu"),
+        _job(job_id="izakaya_official_social_menu", query=f"居酒屋 公式 SNS メニュー {place}", category="izakaya", purpose="official_social_menu_check", expected_friction="official_social_menu"),
     ]
     if value == "all":
         adjacent_jobs: list[dict[str, str]] = []

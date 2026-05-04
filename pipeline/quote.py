@@ -314,7 +314,7 @@ def render_quote_markdown(order: Order) -> str:
         f"- Quote date: {quote.quote_date}",
         f"- Expires: {quote.expiry_date}",
         f"- Payment terms: {quote.payment_terms}",
-        f"- Revision limit: {quote.revision_limit} rounds",
+        f"- Revision limit: {quote.revision_limit} {'round' if quote.revision_limit == 1 else 'rounds'}",
         "",
         "## Scope",
         quote.scope_description,

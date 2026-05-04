@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from pipeline.constants import PROJECT_ROOT
+from pipeline.lead_dossier import migrate_lead_record
 from pipeline.state_audit import audit_state_leads, expected_dark_assets, repair_state_leads
 
 
@@ -23,14 +24,16 @@ def _write_lead(tmp_path: Path, **overrides):
         "establishment_profile": "ramen_ticket_machine",
         "outreach_classification": "menu_and_machine",
         "machine_evidence_found": True,
+        "recommended_primary_package": "package_2_printed_delivered_45k",
+        "package_recommendation_reason": "ramen_ticket_machine_needs_counter_ready_mapping",
+        "custom_quote_reason": "",
+        "address": "東京都渋谷区1-1-1",
         "evidence_urls": ["https://audit.example.jp/menu"],
         "evidence_snippets": ["醤油ラーメン 味玉 トッピング メニュー"],
         "contacts": [{"type": "email", "value": "owner@audit.example.jp", "actionable": True}],
-        "outreach_assets_selected": [
-            str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html"),
-            str(PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"),
-        ],
+        "outreach_assets_selected": [],
     }
+    lead, _ = migrate_lead_record(lead)
     lead.update(overrides)
     path = leads / f"{lead['lead_id']}.json"
     path.write_text(json.dumps(lead, ensure_ascii=False), encoding="utf-8")
@@ -46,6 +49,8 @@ def test_state_audit_accepts_correct_dark_assets(tmp_path):
     result = audit_state_leads(state_root=tmp_path)
     assert result["ok"] is True
     assert result["checked"] == 1
+    assert result["state_counts"]["launch_readiness_status"] == {"ready_for_outreach": 1}
+    assert result["state_counts"]["operator_state"] == {"ready": 1}
 
 
 def test_state_audit_rejects_ready_non_japan_lead(tmp_path):
@@ -213,24 +218,21 @@ def test_expected_dark_assets_maps_profiles():
         "primary_category_v1": "izakaya",
         "establishment_profile": "izakaya_course_heavy",
         "outreach_classification": "menu_only",
-    }) == [str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_drinks_menu.html")]
+    }) == []
     assert expected_dark_assets({
         "lead": True,
         "outreach_status": "draft",
         "primary_category_v1": "izakaya",
         "establishment_profile": "izakaya_robatayaki",
         "outreach_classification": "menu_only",
-    }) == [str(PROJECT_ROOT / "assets" / "templates" / "izakaya_robatayaki_menu.html")]
+    }) == []
     assert expected_dark_assets({
         "lead": True,
         "outreach_status": "draft",
         "primary_category_v1": "ramen",
         "establishment_profile": "ramen_ticket_machine",
         "outreach_classification": "menu_and_machine",
-    }) == [
-        str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html"),
-        str(PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"),
-    ]
+    }) == []
 
 
 def test_izakaya_dark_template_does_not_show_ramen_menu_items():
@@ -305,6 +307,84 @@ def test_repair_state_leads_clears_attachment_claim_draft_when_route_has_no_asse
     assert repaired["outreach_draft_subject"] is None
 
 
+def test_repair_state_leads_quarantines_ready_stale_copy_and_final_check(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        send_ready_checked=True,
+        send_ready_checked_at="2026-05-03T00:00:00+00:00",
+        send_ready_checklist=["copy_checked"],
+        tailoring_audit={"passed": True, "input_hash": "old-hash"},
+        outreach_draft_subject="英語メニュー制作のご提案",
+        outreach_draft_body="突然のご連絡にて失礼いたします。\n添付のサンプルをご覧ください。",
+    )
+    final_dir = tmp_path / "final_checks" / lead["lead_id"]
+    final_dir.mkdir(parents=True)
+    (final_dir / "menu.html").write_text("<html></html>", encoding="utf-8")
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["launch_readiness_status"] == "manual_review"
+    assert repaired["outreach_status"] == "needs_review"
+    assert repaired["send_ready_checked"] is False
+    assert repaired["outreach_draft_body"] is None
+    assert not final_dir.exists()
+    assert any(reason.startswith("stale_copy:") for reason in repaired["launch_readiness_reasons"])
+
+
+def test_repair_state_leads_quarantines_ready_entity_title(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        business_name="東京、定番つけ麺20選 - タイムアウト東京",
+        locked_business_name="東京、定番つけ麺20選 - タイムアウト東京",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["launch_readiness_status"] == "manual_review"
+    assert "entity_quality:media_blog_pr_or_directory_title" in repaired["launch_readiness_reasons"]
+
+
+def test_repair_state_leads_quarantines_ready_placeholder_email(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        contacts=[{"type": "email", "value": "%22@gmail.com", "actionable": True}],
+        email="%22@gmail.com",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["launch_readiness_status"] == "manual_review"
+    assert any(reason.startswith("placeholder_email:") for reason in repaired["launch_readiness_reasons"])
+
+
+def test_repair_state_leads_quarantines_import_default_package(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        primary_category_v1="izakaya",
+        category="izakaya",
+        evidence_snippets=["飲み放題 コース 居酒屋 メニュー"],
+        course_or_drink_plan_evidence_found=True,
+        izakaya_rules_state="unknown",
+        recommended_primary_package="package_1_remote_30k",
+        package_recommendation_reason="Imported public email lead; start with remote English ordering files until menu scope is reviewed.",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["launch_readiness_status"] == "manual_review"
+    assert repaired["recommended_primary_package"] == "package_3_qr_menu_65k"
+    assert repaired["package_recommendation_reason"] == "izakaya_drink_course_rules_likely_need_live_updates"
+    assert not any(reason.startswith("package_rescore:") for reason in repaired["launch_readiness_reasons"])
+
+
 def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
     lead = _write_lead(
         tmp_path,
@@ -363,7 +443,7 @@ def test_repair_state_leads_updates_launch_smoke_proof_asset(tmp_path):
     repaired_smoke = json.loads(smoke_path.read_text(encoding="utf-8"))
 
     assert result["ok"] is True
-    assert repaired_smoke["leads"][0]["proof_asset"] == expected_dark_assets(lead)[0]
+    assert repaired_smoke["leads"][0]["proof_asset"] == ""
 
 
 def test_repository_state_audit_has_no_findings():

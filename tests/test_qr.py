@@ -24,6 +24,14 @@ from pipeline.qr import (
 )
 
 
+def _pdf_bytes(width_pt: float = 594.96, height_pt: float = 841.92) -> bytes:
+    return (
+        "%PDF-1.4\n"
+        f"1 0 obj\n<< /Type /Page /MediaBox [0 0 {width_pt:.2f} {height_pt:.2f}] >>\nendobj\n"
+        "%%EOF\n"
+    ).encode("ascii")
+
+
 def _reply(tmp_path: Path, *, body: str = "QRコード付き英語メニューページをお願いします。") -> dict:
     photo = tmp_path / "uploads" / "reply-attachments" / "reply-ready" / "menu.jpg"
     photo.parent.mkdir(parents=True, exist_ok=True)
@@ -329,7 +337,7 @@ def test_health_detects_missing_source_data(tmp_path):
 
 def test_health_detects_missing_sign_pdf_for_approved_package(tmp_path, monkeypatch):
     def fake_html_to_pdf_sync(html_path: Path, pdf_path: Path, *, print_profile=None) -> Path:
-        pdf_path.write_bytes(b"%PDF-1.4\n% qr sign\n")
+        pdf_path.write_bytes(_pdf_bytes())
         return pdf_path
 
     monkeypatch.setattr("pipeline.qr.html_to_pdf_sync", fake_html_to_pdf_sync)

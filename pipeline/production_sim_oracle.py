@@ -383,8 +383,8 @@ def _compare_contact(*, record: dict[str, Any], label: dict[str, Any], builder: 
 
 
 def _compare_assets(*, record: dict[str, Any], label: dict[str, Any], builder: FindingBuilder) -> None:
-    expected = sorted(str(item) for item in label.get("inline_assets_expected") or [])
-    actual = sorted(_logical_asset_names(record.get("outreach_assets_selected") or []))
+    expected = [] if str(label.get("contact_route_expected") or "") == "contact_form" else sorted(str(item) for item in label.get("inline_assets_expected") or [])
+    actual = _logical_inline_asset_names_for_record(record)
     if expected != actual:
         builder.add(
             priority="P0",
@@ -394,7 +394,7 @@ def _compare_assets(*, record: dict[str, Any], label: dict[str, Any], builder: F
             expected=expected,
             actual=actual,
             evidence=[str(path) for path in record.get("outreach_assets_selected") or []],
-            fix_hint="Update outreach.select_outreach_assets or profile classification so selected samples match the lead profile.",
+            fix_hint="Update outreach include_menu_image/include_machine_image selection so inline previews match the lead profile.",
         )
 
 
@@ -662,7 +662,7 @@ def _decision_summary(*, record: dict[str, Any], label: dict[str, Any], payload:
         "expected_contact_route": label["contact_route_expected"],
         "actual_contact_route": str((primary or {}).get("type") or "none"),
         "expected_inline_assets": label.get("inline_assets_expected") or [],
-        "actual_inline_assets": _logical_asset_names(record.get("outreach_assets_selected") or []),
+        "actual_inline_assets": _logical_inline_asset_names_for_record(record),
         "mock_payload": bool(payload),
         "readiness_reasons": list(record.get("launch_readiness_reasons") or []),
     }
@@ -683,6 +683,25 @@ def _logical_asset_names(paths: list[Any]) -> list[str]:
         elif name:
             result.append(name)
     return sorted(set(result))
+
+
+def _logical_inline_asset_names_for_record(record: dict[str, Any]) -> list[str]:
+    primary = get_primary_contact(record) or {}
+    if str(primary.get("type") or "") == "contact_form":
+        return []
+    classification = str(record.get("outreach_classification") or "")
+    profile = str(record.get("establishment_profile") or "")
+    category = str(record.get("primary_category_v1") or record.get("category") or "")
+    names: list[str] = []
+    if classification != "machine_only":
+        names.append("izakaya_food_drinks" if profile.startswith("izakaya") or category == "izakaya" else "ramen_food_menu")
+    if (
+        classification in {"menu_and_machine", "machine_only"}
+        or profile == "ramen_ticket_machine"
+        or record.get("machine_evidence_found") is True
+    ):
+        names.append("ticket_machine_guide")
+    return sorted(set(names))
 
 
 def _expected_recipient(*, record: dict[str, Any], label: dict[str, Any]) -> str:
