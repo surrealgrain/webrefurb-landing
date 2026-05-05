@@ -57,7 +57,8 @@ button, input, select, textarea { font: inherit; }
   padding: 10px 12px; border-radius: 16px;
   font-size: 13px; font-weight: 500; color: #A9D0D8;
   cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
-  min-height: 44px; text-decoration: none;
+  min-height: 44px; text-decoration: none; width: 100%;
+  background: transparent; text-align: left; font-family: inherit;
 }
 .nav-item:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: #fff; }
 .nav-item.active { border-color: var(--accent-border); background: var(--panel-dark-alt); color: #fff; box-shadow: 0 8px 30px rgba(2,12,18,0.2); }
@@ -130,6 +131,11 @@ button, input, select, textarea { font: inherit; }
 .btn-success:hover { background: #16A34A; box-shadow: 0 8px 18px rgba(34,197,94,0.2); transform: translateY(-1px); }
 .btn-danger { background: var(--error); color: #fff; font-size: 12px; }
 .btn-danger:hover { background: #A52F24; }
+.btn-danger-quiet { background: #fff; border: 1px solid #E7B0A8; color: #A52F24; }
+.btn-danger-quiet:hover {
+  border-color: #D47568; background: #FFF8F6; color: var(--error);
+  box-shadow: 0 6px 16px rgba(196,61,47,0.1); transform: translateY(-1px);
+}
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Tab content */
@@ -140,7 +146,7 @@ button, input, select, textarea { font: inherit; }
 .lead-list { display: flex; flex-direction: column; gap: 12px; }
 .lead-card {
   border-radius: var(--radius-card); border: 1px solid var(--line);
-  background: #fff; padding: 20px; display: flex; align-items: center; gap: 16px;
+  background: #fff; padding: 18px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(220px, auto); align-items: center; gap: 16px;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .lead-card:hover { border-color: #C9D9DD; box-shadow: 0 12px 28px rgba(3,20,29,0.07); transform: translateY(-1px); }
@@ -159,6 +165,7 @@ button, input, select, textarea { font: inherit; }
 }
 .send-tag-ready { background: #EAF7EF; border-color: #9BD8B0; color: #166534; }
 .send-select { display: flex; align-items: center; justify-content: center; width: 26px; }
+.send-select-empty { width: 0; min-width: 0; }
 .send-select input { width: 16px; height: 16px; accent-color: #15803D; }
 .send-select input:disabled { cursor: not-allowed; opacity: 0.35; }
 .send-batch-bar {
@@ -223,6 +230,21 @@ button, input, select, textarea { font: inherit; }
 .lead-review-line { color: #8A4B0F; font-weight: 650; }
 .lead-card.is-skipped { opacity: 0.72; }
 .lead-card.is-done { border-color: #BFE5EA; }
+.lead-next-action {
+  margin-top: 10px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  color: var(--text-secondary); font-size: 12px; line-height: 1.45;
+}
+.lead-next-label {
+  color: var(--accent); font-size: 10px; font-weight: 900; letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.lead-card-details { margin-top: 8px; }
+.lead-card-details summary {
+  min-height: 44px; display: inline-flex; align-items: center;
+  cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 850;
+  list-style-position: inside;
+}
+.lead-card-detail-grid { margin-top: 8px; display: grid; gap: 5px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
 .lead-group-heading {
   border-bottom: 1px solid var(--line); padding: 12px 0 6px;
   color: var(--text-secondary); font-size: 11px; font-weight: 900;
@@ -231,10 +253,25 @@ button, input, select, textarea { font: inherit; }
 
 .lead-actions {
   display: flex; gap: 8px; align-items: center; justify-content: flex-end;
-  flex-wrap: wrap; max-width: 360px;
+  flex-wrap: wrap; max-width: 420px;
 }
 .lead-actions .btn { min-height: 44px; padding: 0 12px; font-size: 12px; }
 .lead-actions .btn-icon { width: 44px; height: 44px; }
+.action-menu { position: relative; }
+.action-menu summary {
+  list-style: none; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 0 14px; border: 1px solid var(--line); border-radius: 9999px;
+  background: #fff; color: var(--text-primary); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.action-menu summary::-webkit-details-marker { display: none; }
+.action-menu[open] summary { border-color: #B9CACF; box-shadow: 0 6px 16px rgba(3,20,29,0.08); }
+.action-menu-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 210px;
+  display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 14px;
+  background: #fff; box-shadow: 0 18px 42px rgba(3,20,29,0.16);
+}
+.action-menu-panel .btn { width: 100%; justify-content: flex-start; }
+.action-menu-panel .btn-icon { justify-content: center; }
 .btn-icon {
   width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border-radius: 9999px;
   border: 1px solid var(--line); background: #fff; color: var(--muted);
@@ -446,6 +483,21 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .profile-note-input { min-width: 260px; flex: 1; }
 .review-nav-summary { margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
 .review-next-button { border-color: #BFE5EA; color: #0E7490; }
+.review-stepper {
+  margin-bottom: 10px; display: grid; gap: 7px;
+}
+.review-step {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: start;
+  padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff;
+}
+.review-step-number {
+  width: 26px; height: 26px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center;
+  background: #F3F4F6; color: var(--text-secondary); font-size: 11px; font-weight: 850;
+}
+.review-step.is-done .review-step-number { background: #EAF7EF; color: #166534; }
+.review-step.is-current .review-step-number { background: #ECFEFF; color: #0E7490; }
+.review-step-title { font-size: 12px; font-weight: 850; color: var(--text-primary); }
+.review-step-detail { margin-top: 2px; font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
 .dossier-panel { margin-bottom: 12px; padding: 12px; background: #FAFAF8; border: 1px solid rgba(92,74,52,0.16); border-radius: 14px; }
 .dossier-panel .profile-panel-title { color: #6F4E1F; }
 .dossier-panel summary { cursor: pointer; list-style-position: inside; }
@@ -473,7 +525,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .reply-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,116,144,0.1); }
 .reply-template-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .reply-template-chip {
-  min-height: 34px; border: 1px solid var(--input-border); border-radius: 9999px; background: #fff;
+  min-height: 44px; border: 1px solid var(--input-border); border-radius: 9999px; background: #fff;
   padding: 0 10px; color: var(--text-secondary); font-size: 11px; font-weight: 800; cursor: pointer;
 }
 .reply-template-chip:hover { border-color: #B9CACF; color: var(--text-primary); }
@@ -497,6 +549,9 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
   gap: 14px; margin-bottom: 16px; align-items: stretch;
 }
+.task-board-heading { margin-bottom: 8px; display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+.task-board-title { font-size: 12px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.task-board-note { font-size: 12px; color: var(--text-secondary); }
 .operator-brief {
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   padding: 14px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -519,8 +574,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 }
 .operator-summary-card {
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-  padding: 10px 0;
+  padding: 10px 0; background: transparent; text-align: left; width: 100%; cursor: pointer;
+  border-left: 0; border-right: 0; color: inherit; font-family: inherit;
 }
+.operator-summary-card:hover { border-color: #B9CACF; }
 .operator-summary-value { font-family: "Fira Code", monospace; font-size: 24px; font-weight: 850; }
 .operator-summary-label { margin-top: 3px; font-size: 11px; font-weight: 850; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; }
 .launch-freeze-banner {
@@ -545,11 +602,16 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .rail-metric-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
 .conversation-list { display: grid; gap: 10px; }
 .conversation-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .42fr); gap: 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .38fr); gap: 16px;
   background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
 }
 .conversation-row.unread { border-left: 4px solid var(--accent); padding-left: 12px; }
+.conversation-next {
+  border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 10px;
+  display: grid; gap: 2px;
+}
 .conversation-kicker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.conversation-facts { color: var(--text-secondary); font-size: 12px; line-height: 1.45; margin-bottom: 6px; }
 .conversation-name { font-size: 16px; font-weight: 800; letter-spacing: var(--headline-tracking); }
 .conversation-subject { margin-top: 6px; font-size: 13px; font-weight: 750; color: var(--text-primary); }
 .conversation-meta { margin-top: 5px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
@@ -558,10 +620,25 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .next-action-label { font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
 .next-action-title { font-size: 14px; font-weight: 850; color: var(--text-primary); }
 .next-action-detail, .pitch-context { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .pitch-context {
   border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 4px;
 }
+.reply-context-details { border-top: 1px solid var(--line); padding-top: 9px; }
+.reply-context-details summary {
+  min-height: 44px; display: inline-flex; align-items: center;
+  cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 850;
+  list-style-position: inside;
+}
+.reply-context-details .pitch-context { border-top: 0; padding-top: 8px; }
 .conversation-actions { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.workflow-save-state { font-size: 11px; color: var(--text-tertiary); }
+.workflow-save-state.is-saving { color: #9A6700; }
+.workflow-save-state.is-saved { color: #15803D; }
+.workflow-save-state.is-error { color: var(--error); }
 .planner-board { display: grid; grid-template-columns: minmax(0, .72fr) minmax(0, 1fr); gap: 14px; align-items: start; }
 .planner-panel {
   background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px;
@@ -617,6 +694,27 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .qr-check-list li.is-error { color: var(--error); }
 .qr-check-list li.is-warning { color: #9A3412; }
 .qr-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+.qr-menu-row {
+  border-radius: var(--radius-card); border: 1px solid var(--line); background: #fff;
+  padding: 16px 20px; display: grid; gap: 12px;
+}
+.qr-menu-row-main {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start;
+}
+.qr-menu-title { font-size: 16px; font-weight: 800; letter-spacing: var(--headline-tracking); }
+.qr-menu-meta { margin-top: 6px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.qr-menu-url { margin-top: 7px; color: #0E7490; font-weight: 800; overflow-wrap: anywhere; }
+.qr-menu-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.qr-menu-details {
+  border-top: 1px solid var(--line); padding-top: 10px;
+}
+.qr-menu-details summary {
+  min-height: 44px; display: inline-flex; align-items: center;
+  cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 850;
+  list-style-position: inside;
+}
+.qr-menu-detail-grid { margin-top: 10px; display: grid; gap: 10px; }
+.rollback-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
 .production-workspace-grid { display: grid; grid-template-columns: minmax(260px, .86fr) minmax(0, 1.14fr) minmax(260px, .78fr); gap: 14px; min-height: 0; }
 .production-workspace-panel { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; min-width: 0; overflow: auto; }
 .production-workspace-panel h3 { margin: 0 0 10px; font-size: 12px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
@@ -671,9 +769,19 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 @keyframes toast-out { from { opacity: 1; } to { opacity: 0; } }
 
 @media (max-width: 980px) {
-  .sidebar { position: sticky; top: 0; width: auto; min-height: auto; max-height: 38vh; overflow: auto; }
-  .sidebar-logo { padding: 16px 18px 10px; }
+  .sidebar { position: sticky; top: 0; width: auto; min-height: auto; max-height: none; overflow: visible; padding: 10px 10px 8px; display: block; }
+  .sidebar-logo { padding: 6px 8px 10px; border-bottom: 0; }
+  .sidebar-logo .subtitle { font-size: 15px; }
   .sidebar-section { padding: 8px 12px; }
+  .sidebar-section:first-of-type > div {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 !important;
+  }
+  .sidebar-section:first-of-type .search-select,
+  .sidebar-section:first-of-type #search-btn { width: 100% !important; height: 44px !important; margin: 0 !important; }
+  .sidebar-fill { display: block; }
+  .sidebar-fill > .sidebar-section-title { display: none; }
+  .sidebar-nav { flex-direction: row; overflow-x: auto; padding-bottom: 2px; }
+  .nav-item { width: auto; min-width: max-content; flex: 0 0 auto; }
   .search-activity { display: none; }
   .main { margin-left: 0; padding: 18px; }
   .modal-body { overflow-y: auto; }
@@ -691,16 +799,38 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   .controls-bar { align-items: stretch; }
   .control-spacer { margin-left: 0; }
   .recipient-input { min-width: 100%; flex: 1; }
-  .lead-card { align-items: flex-start; flex-wrap: wrap; }
-  .lead-actions { width: 100%; justify-content: flex-end; }
+  .lead-card { grid-template-columns: 1fr; align-items: flex-start; }
+  .send-select { width: 100%; justify-content: flex-start; }
+  .send-select-empty { display: none; }
+  .lead-actions { width: 100%; max-width: none; justify-content: flex-start; }
+  .lead-actions .btn-primary { flex: 1 1 180px; }
+  .action-menu { margin-left: auto; }
+  .action-menu-panel { right: 0; left: auto; }
   .dossier-state-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operator-strip, .inbox-board, .planner-board, .conversation-row { grid-template-columns: 1fr; }
   .operator-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operator-brief { align-items: flex-start; flex-direction: column; }
   .inbox-rail { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .conversation-side { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 10px; }
+  .conversation-actions { justify-content: flex-start; }
+  .conversation-actions .btn-primary { flex: 1 1 180px; }
+  .qr-menu-row-main { grid-template-columns: 1fr; }
+  .qr-menu-actions, .rollback-row { justify-content: flex-start; }
   .reply-compose-grid { grid-template-columns: 1fr; }
   .batch-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .sidebar-section:first-of-type > div { grid-template-columns: 1fr; }
+  .main { padding: 14px 10px; }
+  .page-header { align-items: flex-start; flex-direction: column; }
+  .task-board-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .operator-summary-grid { grid-template-columns: 1fr; }
+  .confirmed-summary { grid-template-columns: 1fr; }
+  .send-batch-bar { align-items: stretch; flex-direction: column; }
+  .send-batch-actions { justify-content: flex-start; }
+  .conversation-row, .lead-card, .qr-menu-row { border-radius: 14px; }
+  .toast { left: 12px; right: 12px; bottom: 12px; }
 }
 </style>
 </head>
@@ -717,10 +847,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Search</div>
+    <div class="sidebar-section-title">Discovery</div>
     <div style="padding: 0 4px;">
       <select class="search-select" id="sidebar-category" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
-        <option value="all">All Categories</option>
+        <option value="all">All categories</option>
         <optgroup label="Ramen family">
           <option value="ramen">Ramen</option>
           <option value="tsukemen">Tsukemen</option>
@@ -759,7 +889,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <option value="Kobe">Kobe</option>
         <option value="Nagoya">Nagoya</option>
       </select>
-      <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Search Leads</button>
+      <button class="btn btn-primary" id="search-btn" style="width:100%;height:36px;font-size:13px;" onclick="runSearch()">Find no-send candidates</button>
       <div id="search-coverage-summary" style="margin-top:6px;padding:6px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;color:#475569;display:none;">
         <div id="coverage-total" style="font-weight:600;margin-bottom:2px;"></div>
         <div id="coverage-breakdown"></div>
@@ -771,49 +901,49 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   <div class="sidebar-section sidebar-fill">
     <div class="sidebar-section-title">Navigate</div>
     <nav class="sidebar-nav">
-      <a class="nav-item active" onclick="switchTab('leads')" id="nav-leads">
+      <button type="button" class="nav-item active" onclick="switchTab('leads')" id="nav-leads">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Lead queue
+        Review leads
         <span class="badge badge-green" id="leads-count">0</span>
-      </a>
-      <a class="nav-item" onclick="switchTab('confirmed')" id="nav-confirmed">
+      </button>
+      <button type="button" class="nav-item" onclick="switchTab('confirmed')" id="nav-confirmed">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/><path d="M3 20h18"/></svg>
-        Ready
+        Approved sends
         <span class="badge badge-cyan" id="confirmed-count">0</span>
-      </a>
-      <a class="nav-item" onclick="switchTab('send-planner')" id="nav-send-planner">
+      </button>
+      <button type="button" class="nav-item" onclick="switchTab('send-planner')" id="nav-send-planner">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-        Send planner
+        Send batches
         <span class="badge badge-quiet" id="send-planner-count">0</span>
-      </a>
-      <a class="nav-item" onclick="switchTab('opportunistic')" id="nav-opportunistic">
+      </button>
+      <button type="button" class="nav-item" onclick="switchTab('opportunistic')" id="nav-opportunistic">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/></svg>
-        Opportunistic
+        Build opportunities
         <span class="badge badge-green" id="opportunistic-count">0</span>
-      </a>
-      <a class="nav-item" onclick="switchTab('sent')" id="nav-sent">
+      </button>
+      <button type="button" class="nav-item" onclick="switchTab('sent')" id="nav-sent">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Done
+        Closed leads
         <span class="badge badge-quiet" id="sent-count">0</span>
-      </a>
-      <a class="nav-item" onclick="switchTab('qr-menus')" id="nav-qr-menus">
+      </button>
+      <button type="button" class="nav-item" onclick="switchTab('qr-menus')" id="nav-qr-menus">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M17.5 17.5h.01"/></svg>
-        QR Menus
-      </a>
+        QR menus
+      </button>
     </nav>
     <div class="sidebar-section-title" style="margin-top:18px;">Replies</div>
     <nav class="sidebar-nav">
-      <a class="nav-item" onclick="switchTab('inbox')" id="nav-inbox">
+      <button type="button" class="nav-item" onclick="switchTab('inbox')" id="nav-inbox">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-        Inbox
+        Owner replies
         <span class="badge badge-quiet" id="reply-inbox-count">0</span>
-      </a>
+      </button>
     </nav>
     <div class="search-activity" id="search-activity" aria-live="polite">
       <div class="search-activity-head">
         <span class="search-activity-dot" aria-hidden="true"></span>
         <span id="search-activity-title">Ready</span>
-        <button type="button" class="search-activity-clear" onclick="clearSearchActivity()">Clear</button>
+        <button type="button" class="search-activity-clear" onclick="clearSearchActivity()">Clear status</button>
       </div>
       <div class="search-activity-summary" id="search-activity-summary">Awaiting next search.</div>
       <ol class="search-activity-steps" id="search-activity-steps">
@@ -828,24 +958,28 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   <!-- Leads tab -->
   <div class="tab-content active" id="tab-leads">
     <div class="launch-freeze-banner" id="launch-freeze-banner"></div>
+    <div class="task-board-heading">
+      <div class="task-board-title">Next work</div>
+      <div class="task-board-note">Start with the highest-risk decision, then move to approval and scheduling.</div>
+    </div>
     <div class="operator-summary-grid" id="operator-summary-grid" aria-live="polite"></div>
     <div class="operator-strip">
       <div class="operator-brief">
         <div>
-          <h1 class="operator-brief-title">Lead queue</h1>
-          <p class="operator-brief-copy" id="lead-queue-summary">Operator work modes only: review, ready, skipped, done.</p>
+          <h1 class="operator-brief-title">Review leads</h1>
+          <p class="operator-brief-copy" id="lead-queue-summary">Work the next lead decision before any send approval.</p>
         </div>
-        <div class="mode-tabs" aria-label="Lead queue modes">
+        <div class="mode-tabs" aria-label="Lead review modes">
           <button class="mode-tab active" type="button" data-lead-mode="review" onclick="setLeadQueueMode('review')">Review</button>
-          <button class="mode-tab" type="button" data-lead-mode="ready" onclick="setLeadQueueMode('ready')">Ready</button>
+          <button class="mode-tab" type="button" data-lead-mode="ready" onclick="setLeadQueueMode('ready')">Approved</button>
           <button class="mode-tab" type="button" data-lead-mode="skip" onclick="setLeadQueueMode('skip')">Skipped</button>
-          <button class="mode-tab" type="button" data-lead-mode="done" onclick="setLeadQueueMode('done')">Done</button>
+          <button class="mode-tab" type="button" data-lead-mode="done" onclick="setLeadQueueMode('done')">Closed</button>
         </div>
       </div>
       <div class="operator-brief">
         <div>
           <div class="operator-brief-title" id="lead-visible-count">0 visible</div>
-          <p class="operator-brief-copy">Use the sidebar for city/category. The Ready mode also requires an approved send check.</p>
+          <p class="operator-brief-copy">Use Discovery filters for city/category. Approved sends only shows records that passed exact-copy review.</p>
         </div>
       </div>
     </div>
@@ -857,25 +991,25 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
   </div>
 
-  <!-- Ready tab -->
+  <!-- Approved sends tab -->
   <div class="tab-content" id="tab-confirmed">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Ready</h1>
-        <p class="page-kicker">Only operator-ready email leads with an approved send check can be scheduled.</p>
+        <h1 class="page-title">Approved sends</h1>
+        <p class="page-kicker">Only exact-copy-approved email leads can be scheduled.</p>
       </div>
     </div>
     <div class="confirmed-summary" id="confirmed-summary" aria-live="polite"></div>
-    <div class="send-batch-bar" aria-live="polite">
+    <div class="send-batch-bar" id="send-batch-bar" aria-live="polite">
       <div>
-        <div class="send-batch-title">Send Batch</div>
-        <div class="send-batch-note" id="send-batch-note">Select approved operator-ready email leads. Maximum 10.</div>
+        <div class="send-batch-title">Real send batch</div>
+        <div class="send-batch-note" id="send-batch-note">Select approved e-mail records only. Maximum 10.</div>
       </div>
       <div class="send-batch-actions">
-        <button class="btn btn-secondary" type="button" style="height:34px;font-size:12px;" onclick="selectFirstSendReady(10)">Select 10</button>
-        <button class="btn btn-secondary" type="button" style="height:34px;font-size:12px;" onclick="clearSendSelection()">Clear</button>
-        <label style="font-size:12px;color:var(--muted);">Delay sec <input class="send-delay-input" id="send-delay-seconds" type="number" min="0" max="3600" value="900"></label>
-        <button class="btn btn-success" id="schedule-send-batch-btn" type="button" style="height:34px;font-size:12px;" onclick="scheduleSelectedSendBatch()">Schedule Send</button>
+        <button class="btn btn-secondary" type="button" style="height:34px;font-size:12px;" onclick="selectFirstSendReady(10)">Select first 10</button>
+        <button class="btn btn-secondary" type="button" style="height:34px;font-size:12px;" onclick="clearSendSelection()">Clear selection</button>
+        <label style="font-size:12px;color:var(--muted);">Delay (sec) <input class="send-delay-input" id="send-delay-seconds" type="number" min="0" max="3600" value="900"></label>
+        <button class="btn btn-success" id="schedule-send-batch-btn" type="button" style="height:34px;font-size:12px;" onclick="scheduleSelectedSendBatch()">Schedule real send</button>
       </div>
     </div>
     <div class="lead-list" id="confirmed-list" aria-live="polite">
@@ -887,7 +1021,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   <div class="tab-content" id="tab-send-planner">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Send Planner</h1>
+        <h1 class="page-title">Send batches</h1>
         <p class="page-kicker">Batch scheduling, running sends, failures, and the handoff into replies.</p>
       </div>
       <button class="btn btn-secondary" onclick="loadSendPlanner()">Refresh</button>
@@ -903,12 +1037,12 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
   </div>
 
-  <!-- Opportunistic tab -->
+  <!-- Build opportunities tab -->
   <div class="tab-content" id="tab-opportunistic">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Opportunistic</h1>
-        <p class="page-kicker">High-volume pitch candidates. This lane allows unknown English-menu status, weak source coverage, and missing proof snippets.</p>
+        <h1 class="page-title">Build opportunities</h1>
+        <p class="page-kicker">High-volume pitch candidates that still need a quick operator decision.</p>
       </div>
     </div>
     <div class="confirmed-summary" id="opportunistic-summary" aria-live="polite"></div>
@@ -921,8 +1055,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   <div class="tab-content" id="tab-sent">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Sent Emails</h1>
-        <p class="page-kicker">A record of outreach and replies from the dashboard.</p>
+        <h1 class="page-title">Closed leads</h1>
+        <p class="page-kicker">Sent outreach and terminal outcomes recorded by the dashboard.</p>
       </div>
     </div>
     <div class="sent-list" id="sent-list">
@@ -947,11 +1081,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
   </div>
 
-  <!-- Inbox tab -->
+  <!-- Owner replies tab -->
   <div class="tab-content" id="tab-inbox">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Inbox</h1>
+        <h1 class="page-title">Owner replies</h1>
         <p class="page-kicker">Restaurant replies linked back to pitch cards, original outreach, and production actions.</p>
       </div>
       <button class="btn btn-secondary" onclick="loadInbox()">Refresh</button>
@@ -967,7 +1101,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     </div>
     <div class="inbox-focus-banner" id="inbox-focus-banner">
       <span id="inbox-focus-label">Focused conversation</span>
-      <button class="btn btn-secondary" style="height:30px;font-size:12px;padding:0 12px;" type="button" onclick="clearInboxFocus()">Show all</button>
+      <button class="btn btn-secondary" style="height:30px;font-size:12px;padding:0 12px;" type="button" onclick="clearInboxFocus()">Show all replies</button>
     </div>
     <div class="inbox-board" style="margin-top:14px;">
       <div class="conversation-list" id="inbox-list">
@@ -1003,7 +1137,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   <div class="modal-header">
     <div class="modal-heading">
       <h2 id="preview-modal-title">Outreach Draft</h2>
-      <div class="modal-subtitle">Left side is the Japanese draft. Edit the English draft on the right, then save.</div>
+      <div class="modal-subtitle">Review the Japanese preview, edit from English, then save or approve the exact send.</div>
     </div>
     <button class="modal-close" onclick="closePreviewModal()" aria-label="Close preview">&times;</button>
   </div>
@@ -1011,6 +1145,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
   <div class="modal-body">
     <div class="outreach-workspace">
       <aside class="outreach-inspector">
+    <div class="review-stepper" id="review-stepper" aria-label="Pitch review steps"></div>
     <!-- Subject + recipient display -->
     <div class="subject-display">
       <div>
@@ -1046,9 +1181,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <option value="reject">Reject</option>
         </select>
         <input class="profile-note-input" id="review-outcome-note" type="text" placeholder="Optional review note">
-        <button class="btn btn-secondary" id="save-review-outcome-btn" onclick="saveLeadReviewOutcome()">Save Review Outcome</button>
-        <button class="btn btn-secondary review-next-button" id="save-review-next-btn" onclick="saveLeadReviewOutcome({ advance: true })">Save &amp; Next</button>
-        <button class="btn btn-secondary review-next-button" id="next-review-card-btn" onclick="openNextReviewCard()">Next Unreviewed</button>
+        <button class="btn btn-secondary" id="save-review-outcome-btn" onclick="saveLeadReviewOutcome()">Save decision</button>
+        <button class="btn btn-primary review-next-button" id="save-review-next-btn" onclick="saveLeadReviewOutcome({ advance: true })">Save and review next</button>
       </div>
     </div>
     <div class="profile-panel" id="establishment-profile-panel">
@@ -1073,12 +1207,12 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
           <option value="izakaya_robatayaki">Robatayaki</option>
         </select>
         <input class="profile-note-input" id="establishment-profile-note" type="text" placeholder="Optional override note">
-        <button class="btn btn-secondary" id="save-profile-btn" onclick="saveEstablishmentProfileOverride()">Save Profile Override</button>
-        <button class="btn btn-secondary" id="clear-profile-btn" onclick="clearEstablishmentProfileOverride()">Clear Override</button>
+        <button class="btn btn-secondary" id="save-profile-btn" onclick="saveEstablishmentProfileOverride()">Save profile</button>
+        <button class="btn btn-secondary" id="clear-profile-btn" onclick="clearEstablishmentProfileOverride()">Clear profile override</button>
       </div>
     </div>
     <details class="dossier-panel" id="lead-dossier-panel">
-      <summary class="profile-panel-title">Debug Evidence</summary>
+      <summary class="profile-panel-title">Evidence details</summary>
       <div class="dossier-state-grid" id="lead-dossier-states"></div>
       <div class="dossier-proof-list" id="lead-dossier-proof"></div>
     </details>
@@ -1103,16 +1237,16 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <input type="checkbox" id="inperson-toggle" checked onchange="toggleInperson()">
         In-person delivery line
       </label>
-      <button class="btn btn-secondary" id="reset-btn" onclick="resetToTemplate()">Reset to Template</button>
-      <button class="btn btn-primary" id="save-draft-btn" onclick="saveDraftNow()">Save Draft</button>
-      <button class="btn btn-secondary" id="final-check-btn" onclick="runFinalCheck()">Approve Send</button>
+      <button class="btn btn-secondary" id="reset-btn" onclick="resetToTemplate()">Reset draft</button>
+      <button class="btn btn-primary" id="save-draft-btn" onclick="saveDraftNow()">Save draft</button>
+      <button class="btn btn-secondary" id="final-check-btn" onclick="runFinalCheck()">Approve exact send</button>
       <span class="rate-limit" id="final-check-status"></span>
     </div>
     <div class="control-group control-spacer">
       <span class="rate-limit" id="rate-limit"></span>
-      <button class="btn btn-secondary" id="copy-draft-btn" style="display:none;" onclick="copyDraftForManualOutreach()">Copy Draft</button>
+      <button class="btn btn-secondary" id="copy-draft-btn" style="display:none;" onclick="copyDraftForManualOutreach()">Copy message</button>
       <input type="email" id="send-email" class="recipient-input" placeholder="Recipient email...">
-      <button class="btn btn-success" id="send-btn" onclick="confirmSend()">Send Email</button>
+      <button class="btn btn-success" id="send-btn" onclick="confirmSend()">Send real email</button>
     </div>
   </div>
 </dialog>
@@ -1120,8 +1254,8 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <!-- Build Modal -->
 <dialog id="build-modal">
   <div class="modal-header">
-    <h2>Create Menu</h2>
-    <button class="modal-close" onclick="closeBuildModal()">&times;</button>
+    <h2>Build package draft</h2>
+    <button class="modal-close" onclick="closeBuildModal()" aria-label="Close build form">&times;</button>
   </div>
   <div class="modal-body">
     <form class="build-form" id="build-form" onsubmit="submitBuild(event)">
@@ -1130,7 +1264,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <input type="hidden" id="build-source">
       <div class="build-source-note" id="build-source-note"></div>
       <div class="form-group">
-        <label class="form-label">Restaurant Name *</label>
+        <label class="form-label">Shop name *</label>
         <input type="text" class="form-input" id="build-name" required>
       </div>
       <div class="form-group">
@@ -1142,23 +1276,23 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Menu Items (type or paste)</label>
+        <label class="form-label">Menu items or OCR text</label>
         <textarea class="form-textarea" id="build-menu-text" placeholder="Paste menu items here, one per line..."></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label" id="build-photos-label">Menu Photos</label>
+        <label class="form-label" id="build-photos-label">Owner menu photos</label>
         <input type="file" class="form-file" id="build-photos" multiple accept="image/*">
       </div>
       <div class="form-group">
-        <label class="form-label">Ticket Machine Photo (optional)</label>
+        <label class="form-label">Ticket-machine photo (optional)</label>
         <input type="file" class="form-file" id="build-ticket-photo" accept="image/*">
       </div>
       <div class="form-group">
-        <label class="form-label">Additional Notes</label>
+        <label class="form-label">Production notes</label>
         <textarea class="form-textarea" id="build-notes" style="min-height:60px;" placeholder="Dietary labels, pricing notes, specials..."></textarea>
       </div>
       <div id="build-status" style="display:none;font-size:14px;padding:12px;border-radius:12px;background:#EEF8F2;color:#166534;"></div>
-      <button type="submit" class="btn btn-primary" id="build-submit-btn" style="align-self:flex-start;">Build Custom Menu</button>
+      <button type="submit" class="btn btn-primary" id="build-submit-btn" style="align-self:flex-start;">Build package draft</button>
     </form>
   </div>
 </dialog>
@@ -1189,7 +1323,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <dialog id="qr-modal">
   <div class="modal-header">
     <h2>QR Menu Review</h2>
-    <button class="modal-close" onclick="closeQrModal()">&times;</button>
+    <button class="modal-close" onclick="closeQrModal()" aria-label="Close QR review">&times;</button>
   </div>
   <div class="modal-body">
     <div class="qr-review-grid" id="qr-review-content">
@@ -1217,11 +1351,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <!-- Confirmation Dialog -->
 <dialog id="confirm-dialog" class="compact-dialog">
   <div style="padding:24px;">
-    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Confirm Send</h3>
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Confirm real email send</h3>
     <p id="confirm-text" style="font-size:14px;color:#666;margin-bottom:20px;"></p>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="document.getElementById('confirm-dialog').close()">Cancel</button>
-      <button class="btn btn-success" id="confirm-send-btn" onclick="executeSend()">Send Email</button>
+      <button class="btn btn-success" id="confirm-send-btn" onclick="executeSend()">Send real email</button>
     </div>
   </div>
 </dialog>
@@ -1229,11 +1363,11 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 <!-- Delete Lead Dialog -->
 <dialog id="delete-lead-dialog" class="compact-dialog">
   <div style="padding:24px;">
-    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Clear lead?</h3>
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Hide lead?</h3>
     <p id="delete-lead-text" style="font-size:14px;color:#666;margin-bottom:20px;line-height:1.5;"></p>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="closeDeleteLeadDialog()">Cancel</button>
-      <button class="btn btn-danger" id="delete-lead-confirm-btn" onclick="executeDeleteLead()">Clear</button>
+      <button class="btn btn-danger" id="delete-lead-confirm-btn" onclick="executeDeleteLead()">Hide</button>
     </div>
   </div>
 </dialog>
@@ -1288,9 +1422,9 @@ function searchCategoryQuery(meta, place) {
 }
 
 function coverageLabel(count) {
-  if (count >= 50) return ' <span style="color:#888;font-size:10px;">(' + count + ' covered)</span>';
-  if (count >= 1) return ' <span style="color:#6b8e23;font-size:10px;">(' + count + ')</span>';
-  return ' <span style="color:#22c55e;font-size:10px;">(new)</span>';
+  if (count >= 50) return ' <span style="color:#888;font-size:10px;">(' + count + ' ready)</span>';
+  if (count >= 1) return ' <span style="color:#6b8e23;font-size:10px;">(' + count + ' ready)</span>';
+  return ' <span style="color:#64748b;font-size:10px;">(0 ready)</span>';
 }
 
 function applyCoverageToDropdowns() {
@@ -1327,7 +1461,7 @@ function renderCoverageSummary() {
 
   var ramen = cov.category.ramen || 0;
   var izakaya = cov.category.izakaya || 0;
-  document.getElementById('coverage-total').textContent = cov.total + ' pitch-ready';
+  document.getElementById('coverage-total').textContent = cov.total + ' ready records';
 
   var parts = [];
   if (ramen) parts.push(ramen + ' ramen');
@@ -1373,13 +1507,13 @@ function contactTypeLabel(type) {
 }
 
 function manualContactButtonLabel(contactType) {
-  if (contactType === 'contact_form') return 'Mark Form Contacted';
-  return 'Mark Contacted';
+  if (contactType === 'contact_form') return 'Record form contact';
+  return 'Record contact';
 }
 
 function manualCopyButtonLabel(contactType) {
-  if (contactType === 'contact_form') return 'Copy Form Message';
-  return 'Copy Draft';
+  if (contactType === 'contact_form') return 'Copy form message';
+  return 'Copy message';
 }
 
 function draftChannelLabel(channel) {
@@ -1390,7 +1524,7 @@ function draftChannelLabel(channel) {
 
 function assetPanelLabel(channel) {
   if (channel === 'contact_form') return 'Attachments';
-  return 'Included files';
+  return 'Files included';
 }
 
 function subjectPlaceholder(channel) {
@@ -1536,9 +1670,8 @@ function nextReviewLeadIdAfterSave(leadId = currentLeadId) {
 
 function renderReviewNavigation(data) {
   const summary = document.getElementById('review-nav-summary');
-  const nextBtn = document.getElementById('next-review-card-btn');
   const saveNextBtn = document.getElementById('save-review-next-btn');
-  if (!summary || !nextBtn || !saveNextBtn) return;
+  if (!summary || !saveNextBtn) return;
   const ids = visibleReviewCardIds({ unreviewedOnly: true });
   const position = ids.indexOf(currentLeadId || '');
   const nextId = nextReviewLeadId(currentLeadId);
@@ -1548,7 +1681,6 @@ function renderReviewNavigation(data) {
   summary.textContent = remaining
     ? 'Visible unreviewed queue: ' + (currentPosition || 1) + ' of ' + remaining + '.'
     : 'No visible unreviewed cards in the current filters.';
-  nextBtn.disabled = !nextId || (remaining === 1 && !outcomeSaved);
   saveNextBtn.disabled = remaining === 0;
 }
 
@@ -1576,6 +1708,49 @@ function renderReviewOutcome(data) {
   select.value = outcome;
   note.value = data.operator_review_note || '';
   renderReviewNavigation(data);
+  renderReviewStepper(data);
+}
+
+function renderReviewStepper(data) {
+  const root = document.getElementById('review-stepper');
+  if (!root) return;
+  const finalCheck = (data || {}).final_send_check || {};
+  const readiness = (data || {}).send_readiness || {};
+  const profile = String(data.establishment_profile_effective || data.establishment_profile || '');
+  const packageLabel = data.recommended_package_label || data.package_label || '';
+  const exactCopyReady = readiness.status === 'ready_to_send';
+  const approved = finalCheck.status === 'passed';
+  const steps = [
+    {
+      title: 'Confirm shop fit',
+      detail: profile && profile !== 'unknown' ? establishmentProfileLabel(profile) : 'Ramen or izakaya profile still needs a decision.',
+      done: profile && profile !== 'unknown',
+    },
+    {
+      title: 'Confirm package',
+      detail: packageLabel || 'Choose the best package before approval.',
+      done: Boolean(packageLabel),
+    },
+    {
+      title: 'Review exact draft',
+      detail: exactCopyReady ? 'Queue check passed.' : 'Check the copy, sample, and contact route.',
+      done: exactCopyReady,
+    },
+    {
+      title: 'Approve send',
+      detail: approved ? 'Exact send approved.' : 'Approval is required before scheduling.',
+      done: approved,
+    },
+  ];
+  const currentIndex = steps.findIndex(step => !step.done);
+  root.innerHTML = steps.map((step, index) => {
+    const stateClass = step.done ? ' is-done' : index === currentIndex ? ' is-current' : '';
+    return '<div class="review-step' + stateClass + '">' +
+      '<span class="review-step-number">' + escapeHtml(step.done ? '✓' : index + 1) + '</span>' +
+      '<div><div class="review-step-title">' + escapeHtml(step.title) + '</div>' +
+      '<div class="review-step-detail">' + escapeHtml(step.detail) + '</div></div>' +
+    '</div>';
+  }).join('');
 }
 
 function renderEstablishmentProfile(data) {
@@ -1745,12 +1920,10 @@ async function saveLeadReviewOutcome(options = {}) {
   const note = document.getElementById('review-outcome-note').value.trim();
   const saveBtn = document.getElementById('save-review-outcome-btn');
   const saveNextBtn = document.getElementById('save-review-next-btn');
-  const nextBtn = document.getElementById('next-review-card-btn');
   const originalText = saveBtn.textContent;
   const originalNextText = saveNextBtn ? saveNextBtn.textContent : '';
   saveBtn.disabled = true;
   if (saveNextBtn) saveNextBtn.disabled = true;
-  if (nextBtn) nextBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
   if (advance && saveNextBtn) saveNextBtn.textContent = 'Saving...';
   try {
@@ -1779,7 +1952,6 @@ async function saveLeadReviewOutcome(options = {}) {
       saveNextBtn.disabled = false;
       saveNextBtn.textContent = originalNextText;
     }
-    if (nextBtn) nextBtn.disabled = false;
     saveBtn.textContent = originalText;
     if (currentEmail) renderReviewNavigation(currentEmail);
   }
@@ -2032,7 +2204,7 @@ function resetLeadFilters() {
 function renderEmptyLeadsState() {
   return '<div class="empty-state">' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' +
-    '<p>No leads yet. Use the search panel to find qualifying businesses.</p>' +
+    '<p>No leads in this view. Use Discovery to find no-send candidates.</p>' +
     '</div>';
 }
 
@@ -2127,11 +2299,25 @@ function operatorSummaryCounts(leads) {
   return counts;
 }
 
+function compactOperatorReason(reason) {
+  const text = String(reason || 'No reason saved').trim();
+  const lower = text.toLowerCase();
+  if (lower.includes('manual review decision')) return 'manual decision needed';
+  if (lower.includes('restaurant name') || lower.includes('identity') || lower.includes('real shop')) return 'shop identity check';
+  if (lower.includes('ramen') || lower.includes('soba') || lower.includes('izakaya') || lower.includes('category')) return 'scope/category check';
+  if (lower.includes('email') || lower.includes('contact form') || lower.includes('contact route')) return 'contact route check';
+  if (lower.includes('package') || lower.includes('quote') || lower.includes('scope')) return 'package fit check';
+  if (lower.includes('pitch') || lower.includes('copy') || lower.includes('sample')) return 'copy/sample check';
+  if (lower.includes('do not contact') || lower.includes('dnc')) return 'do-not-contact';
+  if (lower.includes('skipped')) return 'operator skipped';
+  return text.length > 58 ? text.slice(0, 55).trimEnd() + '...' : text;
+}
+
 function operatorReasonBreakdown(leads, state) {
   const counts = {};
   (Array.isArray(leads) ? leads : []).forEach(lead => {
     if (operatorStateClass(lead.operator_state) !== state) return;
-    const reason = String(lead.operator_reason || 'No reason saved').trim();
+    const reason = compactOperatorReason(lead.operator_reason);
     counts[reason] = (counts[reason] || 0) + 1;
   });
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -2143,7 +2329,7 @@ function operatorOutcomeBreakdown(leads, state) {
     if (operatorStateClass(lead.operator_state) !== state) return;
     const outcome = state === 'done'
       ? titleCaseValue(lead.outreach_status || 'done')
-      : String(lead.operator_reason || 'No reason saved').trim();
+      : compactOperatorReason(lead.operator_reason);
     counts[outcome] = (counts[outcome] || 0) + 1;
   });
   return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -2160,7 +2346,7 @@ function reviewGroupForLead(lead) {
   }
   const reason = String((lead || {}).operator_reason || '').toLowerCase();
   if (reason.includes('restaurant name') || reason.includes('identity') || reason.includes('physical location')) return 'Is this a real restaurant?';
-  if (reason.includes('ramen') || reason.includes('izakaya') || reason.includes('category')) return 'Is this ramen or izakaya?';
+  if (reason.includes('ramen') || reason.includes('soba') || reason.includes('izakaya') || reason.includes('category')) return 'Is this ramen, soba, or izakaya?';
   if (reason.includes('email') || reason.includes('contact form') || reason.includes('contact route')) return 'Is the contact route acceptable?';
   if (reason.includes('package') || reason.includes('quote') || reason.includes('scope')) return 'Is the package fit correct?';
   if (reason.includes('pitch') || reason.includes('copy') || reason.includes('sample')) return 'Is the draft/sample current and safe?';
@@ -2246,18 +2432,18 @@ function renderOperatorSummary(leads) {
     ? pendingReady + ' ready records still need copy/sample approval'
     : (launchFreezeState && launchFreezeState.active ? 'Real outreach remains frozen' : 'No blocked ready records');
   const items = [
-    ['Review', counts.review + pendingReady, formatBreakdown(reviewBreakdown, 'No review blockers')],
-    ['Ready', approvedReady, counts.ready ? approvedReady + ' approved / ' + pendingReady + ' pending approval' : 'No approved ready records'],
-    ['Skipped', counts.skip, formatBreakdown(skipBreakdown, 'No skipped records')],
-    ['Done', counts.done, formatBreakdown(doneBreakdown, 'No completed records')],
-    ['Gate', gateLabel, gateNote],
+    ['Review leads', counts.review + pendingReady, formatBreakdown(reviewBreakdown, 'No review blockers'), "setLeadQueueMode('review')"],
+    ['Approve drafts', pendingReady, pendingReady ? 'Open each draft and approve exact copy/sample' : 'No drafts waiting for approval', "setLeadQueueMode('review')"],
+    ['Approved sends', approvedReady, counts.ready ? approvedReady + ' approved / ' + pendingReady + ' pending approval' : 'No approved send records', "switchTab('confirmed')"],
+    ['Closed leads', counts.done, formatBreakdown(doneBreakdown, 'No completed records'), "switchTab('sent')"],
+    ['Gate', gateLabel, gateNote, ''],
   ];
-  root.innerHTML = items.map(([label, value, note]) => (
-    '<div class="operator-summary-card">'
+  root.innerHTML = items.map(([label, value, note, action]) => (
+    '<button type="button" class="operator-summary-card"' + (action ? ' onclick="' + action + '"' : ' disabled aria-disabled="true"') + '>'
       + '<div class="operator-summary-value">' + escapeHtml(value) + '</div>'
       + '<div class="operator-summary-label">' + escapeHtml(label) + '</div>'
       + '<div class="confirmed-step-note">' + escapeHtml(note) + '</div>'
-    + '</div>'
+    + '</button>'
   )).join('');
 }
 
@@ -2271,6 +2457,18 @@ function renderLaunchFreezeBanner() {
     banner.style.display = 'none';
     banner.textContent = '';
   }
+}
+
+function operatorReasonForCard(reason) {
+  const text = String(reason || 'Review this record before outreach.').trim();
+  const lower = text.toLowerCase();
+  if (lower.includes('manual review decision')) return 'Save a review outcome before any outreach.';
+  if (lower.includes('restaurant name') || lower.includes('identity') || lower.includes('real shop')) return 'Confirm this is a real in-scope shop.';
+  if (lower.includes('ramen') || lower.includes('soba') || lower.includes('izakaya') || lower.includes('category')) return 'Confirm this is ramen, soba, or izakaya.';
+  if (lower.includes('email') || lower.includes('contact form') || lower.includes('contact route')) return 'Verify e-mail or contact form before outreach.';
+  if (lower.includes('package') || lower.includes('quote') || lower.includes('scope')) return 'Check package fit before pitching.';
+  if (lower.includes('pitch') || lower.includes('copy') || lower.includes('sample')) return 'Review exact copy and sample before approval.';
+  return text;
 }
 
 function renderLeadCard(lead, options = {}) {
@@ -2292,13 +2490,18 @@ function renderLeadCard(lead, options = {}) {
   const finalChecked = ((lead.final_send_check || {}).status || '') === 'passed';
   const operatorState = operatorStateClass(lead.operator_state);
   const operatorReason = String(lead.operator_reason || 'Review this record before outreach.').trim();
+  const operatorReasonDisplay = operatorReasonForCard(operatorReason);
   const proofLine = proofLineForLead(lead);
   const proofUrl = proofUrlForLead(lead);
   const blockedSend = ['sent', 'replied', 'converted', 'do_not_contact'].includes(status);
   const canReviewPitch = !blockedSend && lead.pitch_card_openable === true && ['email', 'contact_form'].includes(contactType);
   const reviewBlocked = !blockedSend && (readiness !== 'ready_for_outreach' || pitchCardStatus !== 'reviewable');
   const canOpenPitch = blockedSend || !reviewBlocked || canReviewPitch;
-  const actionLabel = operatorState === 'review' ? 'Review' : operatorState === 'ready' ? 'Open' : 'View';
+  const actionLabel = operatorState === 'review'
+    ? 'Review lead'
+    : operatorState === 'ready'
+      ? (finalChecked ? 'Open approved draft' : 'Approve draft')
+      : 'View pitch';
   const actionAttrs = canOpenPitch
     ? 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"'
     : 'disabled title="' + escapeHtml(operatorReason) + '"';
@@ -2321,32 +2524,84 @@ function renderLeadCard(lead, options = {}) {
   const cityLabel = (lead.city || '').trim();
   const categoryLabel = titleCaseValue(lead.primary_category_v1 || '');
   const routeLabel = contactTypeLabel(contactType);
-  const sendSelectHtml = showSendSelect ? '<label class="send-select" title="' + (finalChecked ? 'Select for delayed batch send' : 'Approval required before batch send') + '">' +
+  const sendSelectHtml = showSendSelect ? '<label class="send-select" title="' + (finalChecked ? 'Select for scheduled real e-mail send' : 'Approval required before scheduled send') + '">' +
     '<input type="checkbox" class="send-ready-select" data-send-lead-id="' + escapeHtml(leadId) + '" ' +
     (sendReady && finalChecked ? '' : 'disabled ') +
     (selectedSendLeadIds.has(leadId) ? 'checked ' : '') +
     'onchange="toggleSendSelection(this)">' +
-  '</label>' : '';
+  '</label>' : '<span class="send-select send-select-empty" aria-hidden="true"></span>';
   const proofButton = proofUrl
-    ? '<a class="btn btn-secondary" href="' + escapeHtml(proofUrl) + '" target="_blank" rel="noopener noreferrer">Proof</a>'
+    ? '<a class="btn btn-secondary" href="' + escapeHtml(proofUrl) + '" target="_blank" rel="noopener noreferrer" title="Open the saved evidence source">Open proof</a>'
     : '';
+  const needsShopConfirm = operatorState === 'review' && operatorReasonDisplay.toLowerCase().includes('confirm this is a real');
   const acceptButton = operatorState === 'review'
-    ? '<button class="btn btn-secondary" type="button" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'approve_real_shop\')">Accept Shop</button>'
+    ? '<button class="btn btn-secondary" type="button" title="Confirm this is a real in-scope shop" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'approve_real_shop\')">Confirm shop</button>'
+    : '';
+  const acceptPrimaryButton = operatorState === 'review'
+    ? '<button class="btn btn-primary" type="button" title="Confirm this is a real in-scope shop" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'approve_real_shop\')">Confirm shop</button>'
     : '';
   const skipButton = ['review', 'ready'].includes(operatorState)
-    ? '<button class="btn btn-secondary" type="button" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'skip\')">Skip</button>'
+    ? '<button class="btn btn-secondary" type="button" title="Move this record out of the active queue" onclick="quickLeadAction(\'' + escapeHtml(leadId) + '\', \'skip\')">Skip lead</button>'
     : '';
   const nameButton = operatorState !== 'done'
-    ? '<button class="btn btn-secondary" type="button" data-lead-id="' + escapeHtml(leadId) + '" data-business-name="' + escapeHtml(lead.business_name || '') + '" onclick="fixLeadNameFromButton(this)">Name</button>'
+    ? '<button class="btn btn-secondary" type="button" data-lead-id="' + escapeHtml(leadId) + '" data-business-name="' + escapeHtml(lead.business_name || '') + '" onclick="fixLeadNameFromButton(this)">Fix name</button>'
     : '';
   const packageButton = operatorState !== 'done'
-    ? '<button class="btn btn-secondary" type="button" data-lead-id="' + escapeHtml(leadId) + '" data-package-key="' + escapeHtml(recommendedPackageKey) + '" onclick="fixLeadPackageFromButton(this)">Package</button>'
+    ? '<button class="btn btn-secondary" type="button" data-lead-id="' + escapeHtml(leadId) + '" data-package-key="' + escapeHtml(recommendedPackageKey) + '" onclick="fixLeadPackageFromButton(this)">Set package</button>'
     : '';
   const regenerateButton = ['review', 'ready'].includes(operatorState)
-    ? '<button class="btn btn-secondary" type="button" onclick="regenerateLeadPitch(\'' + escapeHtml(leadId) + '\')">Regenerate</button>'
+    ? '<button class="btn btn-secondary" type="button" title="Refresh the pitch draft from the current record" onclick="regenerateLeadPitch(\'' + escapeHtml(leadId) + '\')">Refresh pitch</button>'
     : '';
   const dncButton = ['review', 'ready'].includes(operatorState)
-    ? '<button class="btn btn-secondary" type="button" onclick="markLeadDnc(\'' + escapeHtml(leadId) + '\')">DNC</button>'
+    ? '<button class="btn btn-danger-quiet" type="button" title="Persistently mark this lead as do-not-contact" onclick="markLeadDnc(\'' + escapeHtml(leadId) + '\')">Do not contact</button>'
+    : '';
+  const hideButton = '<button class="btn btn-danger-quiet" type="button" title="Hide from this browser" aria-label="Hide ' + escapeHtml(lead.business_name || 'lead') + ' from this browser" onclick="openDeleteLead(\'' + escapeHtml(leadId) + '\', this)">Hide locally</button>';
+  const primaryButton = needsShopConfirm && acceptPrimaryButton
+    ? acceptPrimaryButton
+    : '<button class="btn btn-primary" type="button" ' + actionAttrs + '>' + escapeHtml(actionLabel) + '</button>';
+  const moreActions = [
+    proofButton,
+    needsShopConfirm ? '<button class="btn btn-secondary" type="button" ' + actionAttrs + '>Open draft</button>' : acceptButton,
+    nameButton,
+    packageButton,
+    regenerateButton,
+    dncButton,
+    hideButton,
+  ].filter(Boolean).join('');
+  const moreMenu = moreActions
+    ? '<details class="action-menu"><summary>More</summary><div class="action-menu-panel">' + moreActions + '</div></details>'
+    : '';
+  const nextTitle = needsShopConfirm
+    ? 'Confirm shop'
+    : operatorState === 'ready'
+      ? (finalChecked ? 'Ready to schedule' : 'Approve exact draft')
+      : operatorState === 'skip'
+        ? 'Skipped'
+        : operatorState === 'done'
+          ? 'Closed'
+          : 'Review lead';
+  const nextDetail = needsShopConfirm
+    ? 'Confirm this is a real in-scope shop before draft approval.'
+    : operatorState === 'ready'
+      ? (finalChecked ? 'This record can be selected on Approved sends.' : 'Open the draft and approve exact copy/sample.')
+      : operatorState === 'skip'
+        ? operatorReasonDisplay
+        : operatorState === 'done'
+          ? 'Terminal outcome recorded.'
+          : operatorReasonDisplay;
+  const detailRows = [
+    profileLabel ? ['Profile', profileLabel] : null,
+    routeLabel ? ['Route', routeLabel] : null,
+    recommendedPackage ? ['Package', recommendedPackage + (packageReason ? ' · ' + packageReason : '')] : null,
+    proofLine ? ['Evidence', proofLine] : null,
+    operatorReasonDisplay ? ['Decision reason', operatorReasonDisplay] : null,
+  ].filter(Boolean).map(([label, value]) =>
+    '<div><strong>' + escapeHtml(label) + ':</strong> ' + escapeHtml(value) + '</div>'
+  ).join('');
+  const detailsHtml = detailRows || badges || replyPillHtml
+    ? '<details class="lead-card-details"><summary>Decision details</summary><div class="lead-card-detail-grid">' + detailRows +
+      (badges || replyPillHtml ? '<div class="lead-badges">' + badges + replyPillHtml + '</div>' : '') +
+      '</div></details>'
     : '';
 
   return '<div class="lead-card' + cardStatusClass + '" data-lead-id="' + escapeHtml(leadId) + '"' +
@@ -2362,26 +2617,14 @@ function renderLeadCard(lead, options = {}) {
       ' data-review-outcome="' + escapeHtml(reviewOutcome) + '">' +
     sendSelectHtml +
     '<div class="lead-info">' +
-      '<div class="lead-badges"><span class="operator-state-badge operator-state-' + escapeHtml(operatorState) + '">' + escapeHtml(operatorStateLabel(operatorState)) + '</span></div>' +
       '<div class="lead-name">' + escapeHtml(lead.business_name || 'Unnamed lead') + '</div>' +
-      '<div class="lead-meta">' + escapeHtml([cityLabel, categoryLabel, profileLabel, routeLabel].filter(Boolean).join(' · ')) + '</div>' +
-      '<div class="lead-package-line">' + escapeHtml(recommendedPackage + (packageReason ? ' · ' + packageReason : '')) + '</div>' +
-      '<div class="lead-proof-line">' + escapeHtml(proofLine) + '</div>' +
-      (operatorState === 'review' || operatorState === 'skip' ? '<div class="lead-review-line">' + escapeHtml(operatorReason) + '</div>' : '') +
-      (badges || replyPillHtml ? '<div class="lead-badges">' + badges + replyPillHtml + '</div>' : '') +
+      '<div class="lead-meta">' + escapeHtml([cityLabel, categoryLabel, contactType === 'contact_form' ? 'Contact form' : ''].filter(Boolean).join(' · ')) + '</div>' +
+      detailsHtml +
     '</div>' +
     '<div class="lead-actions">' +
-      proofButton +
-      '<button class="btn btn-secondary" ' + actionAttrs + '>' + escapeHtml(actionLabel) + '</button>' +
-      acceptButton +
+      primaryButton +
       skipButton +
-      nameButton +
-      packageButton +
-      regenerateButton +
-      dncButton +
-      '<button class="btn btn-icon btn-icon-danger" title="Delete lead" aria-label="Delete ' + escapeHtml(lead.business_name || 'lead') + '" onclick="openDeleteLead(\'' + escapeHtml(leadId) + '\', this)">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>' +
-      '</button>' +
+      moreMenu +
     '</div>' +
   '</div>';
 }
@@ -2432,12 +2675,17 @@ function renderConfirmedSummary(leads) {
   const green = confirmed.filter(isFinalCheckedSendReadyLead);
   const pending = confirmed.length - green.length;
   const emailReady = green.filter(lead => String(lead.primary_contact_type || '').toLowerCase() === 'email');
+  if (!confirmed.length && !green.length && !pending && !emailReady.length) {
+    summary.innerHTML = '';
+    const badge = document.getElementById('confirmed-count');
+    if (badge) badge.textContent = '0';
+    return;
+  }
   const items = [
-    [confirmed.length, 'Ready', 'Operator-cleared records.'],
-    [green.length, 'Approved', 'Eligible for batch scheduling.'],
-    [pending, 'Needs approval', 'Open the pitch, inspect the exact copy/sample, then approve send.'],
-    [emailReady.length, 'Email route', 'Only these can be selected for delayed batch send.'],
-  ];
+    [green.length, 'Approved', 'Can be scheduled.'],
+    pending ? [pending, 'Needs approval', 'Approve exact copy before scheduling.'] : null,
+    emailReady.length && emailReady.length !== green.length ? [emailReady.length, 'E-mail route', 'Eligible for delayed send.'] : null,
+  ].filter(Boolean);
   summary.innerHTML = items.map(([value, label, note]) =>
     '<div class="confirmed-step">' +
       '<div class="confirmed-step-value">' + escapeHtml(value) + '</div>' +
@@ -2451,14 +2699,16 @@ function renderConfirmedSummary(leads) {
 
 function renderConfirmedList(leads) {
   const list = document.getElementById('confirmed-list');
+  const bar = document.getElementById('send-batch-bar');
   if (!list) return;
   const confirmed = (Array.isArray(leads) ? leads : []).filter(isConfirmedLeadCandidate);
   const approved = confirmed.filter(isFinalCheckedSendReadyLead);
   renderConfirmedSummary(leads);
+  if (bar) bar.style.display = approved.length ? 'flex' : 'none';
   if (!approved.length) {
     list.innerHTML = '<div class="empty-state">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/><path d="M3 20h18"/></svg>' +
-      '<p>No approved ready leads yet. Complete review decisions and approve exact copy before scheduling.</p>' +
+      '<p>No approved sends yet. Review leads, save a decision, then approve exact copy before scheduling.</p>' +
       '</div>';
     updateSendBatchBar();
     return;
@@ -2471,20 +2721,9 @@ function renderOpportunisticSummary(leads) {
   const summary = document.getElementById('opportunistic-summary');
   if (!summary) return;
   const candidates = (Array.isArray(leads) ? leads : []).filter(isOpportunisticPitchCandidate);
-  const email = candidates.filter(lead => String(lead.primary_contact_type || '').toLowerCase() === 'email');
-  const reviewNeeded = candidates.filter(lead => String(lead.pitch_card_status || '').startsWith('needs_'));
-  const items = [
-    [candidates.length, 'Volume candidates', 'Allowed: unknown English status, weak source coverage, missing proof snippet.'],
-    [email.length, 'E-mail routes', 'Usable saved e-mail route is present.'],
-    [reviewNeeded.length, 'Needs quick skim', 'Open the pitch and keep only obvious fit/copy sanity checks.'],
-  ];
-  summary.innerHTML = items.map(([value, label, note]) =>
-    '<div class="confirmed-step">' +
-      '<div class="confirmed-step-value">' + escapeHtml(value) + '</div>' +
-      '<div class="confirmed-step-label">' + escapeHtml(label) + '</div>' +
-      '<div class="confirmed-step-note">' + escapeHtml(note) + '</div>' +
-    '</div>'
-  ).join('');
+  summary.innerHTML = candidates.length
+    ? '<div class="confirmed-step"><div class="confirmed-step-value">' + escapeHtml(candidates.length) + '</div><div class="confirmed-step-label">Open</div><div class="confirmed-step-note">Quick-review candidates with hard blockers removed.</div></div>'
+    : '';
   const badge = document.getElementById('opportunistic-count');
   if (badge) badge.textContent = String(candidates.length);
 }
@@ -2543,12 +2782,21 @@ function clearSendSelection() {
 }
 
 function updateSendBatchBar() {
+  const bar = document.getElementById('send-batch-bar');
   const note = document.getElementById('send-batch-note');
   const btn = document.getElementById('schedule-send-batch-btn');
   const readyCount = visibleSendReadyCards().length;
   const selectedCount = selectedSendLeadIds.size;
-  if (note) note.textContent = readyCount + ' approved ready email leads visible. ' + selectedCount + ' selected. Maximum 10.';
-  if (btn) btn.disabled = selectedCount < 1 || selectedCount > 10;
+  if (bar && readyCount < 1) bar.style.display = 'none';
+  if (note) {
+    note.textContent = readyCount
+      ? readyCount + ' approved e-mail leads visible. ' + selectedCount + ' selected. Maximum 10.'
+      : 'No approved e-mail leads are available for scheduling.';
+  }
+  if (btn) {
+    btn.disabled = selectedCount < 1 || selectedCount > 10;
+    btn.title = selectedCount < 1 ? 'Select at least one approved e-mail lead first.' : '';
+  }
 }
 
 async function scheduleSelectedSendBatch() {
@@ -2622,7 +2870,7 @@ function renderSendPlanner(data) {
       </div>`;
   }
   if (!batches.length) {
-    list.innerHTML = '<div class="empty-state"><p>No send batches yet. Select approved ready leads from Ready, then schedule them here.</p></div>';
+    list.innerHTML = '<div class="empty-state"><p>No send batches yet. Select approved e-mail leads from Approved sends, then schedule them here.</p></div>';
     return;
   }
   list.innerHTML = batches.map(batch => renderSendBatchRow(batch)).join('');
@@ -2769,9 +3017,9 @@ function openDeleteLead(leadId, btn) {
     card: card,
   };
   document.getElementById('delete-lead-text').textContent =
-    'Clear ' + pendingDeleteLead.name + ' from this dashboard? This only hides it in this browser.';
+    'Hide ' + pendingDeleteLead.name + ' from this dashboard in this browser only? The lead record remains in project state.';
   document.getElementById('delete-lead-confirm-btn').disabled = false;
-  document.getElementById('delete-lead-confirm-btn').textContent = 'Clear';
+  document.getElementById('delete-lead-confirm-btn').textContent = 'Hide';
   document.getElementById('delete-lead-dialog').showModal();
 }
 
@@ -2784,18 +3032,18 @@ async function markLeadDnc(leadId) {
       body: JSON.stringify({ flag: true }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Could not mark DNC');
+    if (!res.ok) throw new Error(data.detail || 'Could not mark do-not-contact');
     showToast('Lead marked do not contact', 'success');
     await loadDashboardLeads(true);
   } catch (err) {
-    showToast('DNC failed: ' + err.message, 'error');
+    showToast('Do-not-contact failed: ' + err.message, 'error');
   }
 }
 
 async function quickLeadAction(leadId, action) {
   if (!leadId || !action) return;
   const labels = {
-    approve_real_shop: 'Shop accepted',
+    approve_real_shop: 'Shop confirmed',
     skip: 'Lead skipped',
   };
   try {
@@ -2819,7 +3067,7 @@ function fixLeadNameFromButton(btn) {
 
 async function fixLeadName(leadId, currentName) {
   if (!leadId) return;
-  const nextName = window.prompt('Restaurant name', currentName || '');
+  const nextName = window.prompt('Correct restaurant name', currentName || '');
   if (nextName === null) return;
   const businessName = nextName.trim();
   if (!businessName) {
@@ -2857,14 +3105,14 @@ function packageKeyFromInput(value, currentKey) {
 
 async function fixLeadPackage(leadId, currentKey) {
   if (!leadId) return;
-  const rawPackage = window.prompt('Package: 1, 2, or 3', currentKey || '1');
+  const rawPackage = window.prompt('Package: 1 online files, 2 printed kit, or 3 QR menu', currentKey || '1');
   if (rawPackage === null) return;
   const packageKey = packageKeyFromInput(rawPackage, currentKey);
   if (!packageKey) {
     showToast('Package was not changed', 'info');
     return;
   }
-  const reason = window.prompt('Package reason', 'Operator selected package after review.');
+  const reason = window.prompt('Reason for package choice', 'Operator selected package after review.');
   if (reason === null) return;
   try {
     const res = await fetch('/api/leads/' + encodeURIComponent(leadId) + '/operator-fields', {
@@ -2890,7 +3138,7 @@ async function regenerateLeadPitch(leadId) {
     const res = await fetch('/api/outreach/' + encodeURIComponent(leadId), { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Regeneration failed');
-    showToast('Pitch regenerated', 'success');
+    showToast('Pitch refreshed', 'success');
     await loadDashboardLeads(true);
     await openPreview(leadId);
   } catch (err) {
@@ -2908,7 +3156,7 @@ async function executeDeleteLead() {
   const { id, name, card } = pendingDeleteLead;
   const btn = document.getElementById('delete-lead-confirm-btn');
   btn.disabled = true;
-  btn.textContent = 'Clearing...';
+  btn.textContent = 'Hiding...';
 
   try {
     const dismissed = loadDismissedLeadIds();
@@ -2916,11 +3164,11 @@ async function executeDeleteLead() {
     saveDismissedLeadIds(dismissed);
     clearLeadCard(card);
     closeDeleteLeadDialog();
-    showToast(name + ' cleared from this dashboard', 'success');
+    showToast(name + ' hidden from this browser', 'success');
   } catch (err) {
-    showToast('Clear failed: ' + err.message, 'error');
+    showToast('Hide failed: ' + err.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Clear';
+    btn.textContent = 'Hide';
   }
 }
 
@@ -3052,8 +3300,8 @@ async function openPreview(leadId) {
   document.getElementById('send-email').style.borderColor = '';
   document.getElementById('send-email').style.display = '';
   document.getElementById('copy-draft-btn').style.display = 'none';
-  document.getElementById('copy-draft-btn').textContent = 'Copy Draft';
-  document.querySelector('#asset-panel .asset-panel-label').textContent = 'Included files';
+  document.getElementById('copy-draft-btn').textContent = 'Copy message';
+  document.querySelector('#asset-panel .asset-panel-label').textContent = 'Files included';
   document.getElementById('asset-panel-note').style.display = 'none';
   document.getElementById('asset-panel-note-title').textContent = 'Sample strategy';
   document.getElementById('asset-panel-note-summary').textContent = '';
@@ -3159,7 +3407,7 @@ async function openPreview(leadId) {
     const blockedByStatus = ['sent', 'replied', 'converted', 'bounced', 'invalid', 'skipped', 'do_not_contact', 'rejected', 'needs_review'];
     if (data.send_blocked || blockedByStatus.includes(leadStatus.replaceAll(' ', '_'))) {
       sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending Blocked';
+      sendBtn.textContent = 'Send blocked';
       document.getElementById('send-email').style.display = '';
       document.getElementById('copy-draft-btn').style.display = 'none';
     } else if (!data.send_enabled) {
@@ -3171,7 +3419,7 @@ async function openPreview(leadId) {
       document.getElementById('rate-limit').textContent = '';
     } else {
       sendBtn.disabled = false;
-      sendBtn.textContent = 'Send Email';
+      sendBtn.textContent = 'Send real email';
       document.getElementById('send-email').style.display = '';
       document.getElementById('copy-draft-btn').style.display = 'none';
     }
@@ -3342,7 +3590,7 @@ function confirmSend() {
   document.getElementById('send-email').style.borderColor = '';
   const dialog = document.getElementById('confirm-dialog');
   document.getElementById('confirm-text').textContent =
-    'Send this email to ' + email + '? This cannot be undone.';
+    'Send the approved Japanese e-mail to ' + email + '? This records real outreach and cannot be undone.';
   dialog.showModal();
 }
 
@@ -3385,6 +3633,7 @@ async function runFinalCheck() {
     currentEmail.send_readiness = data.send_readiness;
     currentEmail.final_send_check = { status: data.passed ? 'passed' : 'not_checked', checklist: data.checklist || [] };
     renderFinalCheckStatus(currentEmail);
+    renderReviewStepper(currentEmail);
     if (data.passed) {
       showToast('Send approval passed. This pitch can be sent.', 'success');
     } else {
@@ -3476,7 +3725,7 @@ async function executeSend() {
     showToast('Email address required', 'error');
     sendInProgress = false;
     confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Send Email';
+    confirmBtn.textContent = 'Send real email';
     return;
   }
 
@@ -3496,10 +3745,10 @@ async function executeSend() {
     } catch (err) {
       showToast('Send blocked until draft translation succeeds', 'error');
       sendBtn.disabled = false;
-      sendBtn.textContent = 'Send Email';
+      sendBtn.textContent = 'Send real email';
       sendInProgress = false;
       confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Send Email';
+      confirmBtn.textContent = 'Send real email';
       return;
     }
   }
@@ -3532,16 +3781,16 @@ async function executeSend() {
     } else {
       showToast('Send failed: ' + data.detail, 'error');
       sendBtn.disabled = false;
-      sendBtn.textContent = 'Send Email';
+      sendBtn.textContent = 'Send real email';
     }
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
     sendBtn.disabled = false;
-    sendBtn.textContent = 'Send Email';
+    sendBtn.textContent = 'Send real email';
   } finally {
     sendInProgress = false;
     confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Send Email';
+    confirmBtn.textContent = 'Send real email';
   }
 }
 
@@ -3552,7 +3801,7 @@ function openBuild(leadId) {
   document.getElementById('build-lead-id').value = leadId || '';
   document.getElementById('build-reply-id').value = '';
   document.getElementById('build-source').value = 'lead';
-  document.getElementById('build-photos-label').textContent = 'Menu Photos';
+  document.getElementById('build-photos-label').textContent = 'Owner menu photos';
   const sourceNote = document.getElementById('build-source-note');
   sourceNote.style.display = 'none';
   sourceNote.textContent = '';
@@ -3561,7 +3810,7 @@ function openBuild(leadId) {
   document.getElementById('build-name').value = nameEl ? nameEl.textContent.trim() : '';
   document.getElementById('build-status').style.display = 'none';
   document.getElementById('build-submit-btn').disabled = false;
-  document.getElementById('build-submit-btn').textContent = 'Build Custom Menu';
+  document.getElementById('build-submit-btn').textContent = 'Build package draft';
   document.getElementById('build-modal').showModal();
 }
 
@@ -3579,7 +3828,7 @@ function openBuildFromReply(btn) {
   document.getElementById('build-lead-id').value = leadId;
   document.getElementById('build-reply-id').value = replyId;
   document.getElementById('build-source').value = channel + '_reply';
-  document.getElementById('build-photos-label').textContent = 'Additional Menu Photos (optional)';
+  document.getElementById('build-photos-label').textContent = 'Additional owner photos (optional)';
   document.getElementById('build-name').value = businessName || leadId;
   const packageSelect = document.getElementById('build-package');
   if (packageKey && Array.from(packageSelect.options).some(option => option.value === packageKey)) {
@@ -3598,7 +3847,7 @@ function openBuildFromReply(btn) {
   sourceNote.style.display = 'block';
   document.getElementById('build-status').style.display = 'none';
   document.getElementById('build-submit-btn').disabled = false;
-  document.getElementById('build-submit-btn').textContent = 'Build Custom Menu';
+  document.getElementById('build-submit-btn').textContent = 'Build package draft';
   document.getElementById('build-modal').showModal();
 }
 
@@ -3645,14 +3894,14 @@ async function submitBuild(e) {
       statusEl.style.background = '#FFF8F6';
       statusEl.style.color = '#C43D2F';
       btn.disabled = false;
-      btn.textContent = 'Build Custom Menu';
+      btn.textContent = 'Build package draft';
     }
   } catch (err) {
     statusEl.textContent = 'Error: ' + err.message;
     statusEl.style.background = '#FFF8F6';
     statusEl.style.color = '#C43D2F';
     btn.disabled = false;
-    btn.textContent = 'Build Custom Menu';
+    btn.textContent = 'Build package draft';
   }
 }
 
@@ -3677,7 +3926,7 @@ async function pollBuildStatus(jobId) {
       statusEl.style.background = errors.length ? '#FFF7ED' : '#EEF8F2';
       statusEl.style.color = errors.length ? '#9A3412' : '#166534';
       btn.disabled = false;
-      btn.textContent = 'Build Custom Menu';
+      btn.textContent = 'Build package draft';
       showToast(packageLabel + ' is ready for review', errors.length ? 'info' : 'success');
     } else if (data.status === 'completed') {
       const downloadUrl = data.final_export_path ? '/api/build/' + encodeURIComponent(jobId) + '/download' : '';
@@ -3686,14 +3935,14 @@ async function pollBuildStatus(jobId) {
       statusEl.style.background = '#EEF8F2';
       statusEl.style.color = '#166534';
       btn.disabled = false;
-      btn.textContent = 'Build Custom Menu';
+      btn.textContent = 'Build package draft';
       showToast('Package final export is ready', 'success');
     } else if (data.status === 'failed') {
       statusEl.textContent = 'Build failed: ' + (data.error || 'Unknown error');
       statusEl.style.background = '#FFF8F6';
       statusEl.style.color = '#C43D2F';
       btn.disabled = false;
-      btn.textContent = 'Build Custom Menu';
+      btn.textContent = 'Build package draft';
     } else {
       statusEl.textContent = 'Building... (status: ' + data.status + ')';
       setTimeout(() => pollBuildStatus(jobId), 2000);
@@ -3703,7 +3952,7 @@ async function pollBuildStatus(jobId) {
     statusEl.style.background = '#FFF8F6';
     statusEl.style.color = '#C43D2F';
     btn.disabled = false;
-    btn.textContent = 'Build Custom Menu';
+    btn.textContent = 'Build package draft';
   }
 }
 
@@ -4037,7 +4286,7 @@ function renderQrReview(review) {
       <div class="qr-actions">
         <button class="btn btn-secondary" onclick="closeQrModal()">Close</button>
         <button class="btn btn-secondary" ${canConfirmOwnerContent ? '' : 'disabled aria-disabled="true"'} onclick="confirmQrOwnerContent('${escapeHtml(review.job_id || '')}', this)">Confirm Owner Content</button>
-        <button class="btn btn-secondary" onclick="createQrSign('${escapeHtml(review.job_id || '')}', this)">Create QR Sign</button>
+        <button class="btn btn-secondary" onclick="createQrSign('${escapeHtml(review.job_id || '')}', this)">Create QR sign</button>
         <button class="btn btn-success" title="${publishTitle}" ${publishDisabled} onclick="approveQrPackage('${escapeHtml(review.job_id || '')}', this)">Approve Package 3</button>
       </div>
     </div>`;
@@ -4190,34 +4439,51 @@ async function loadQrMenus() {
       const versions = menu.versions || [];
       const previousVersions = versions.filter(v => v !== menu.current_version);
       const rollbackOptions = previousVersions.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-      const audit = (menu.audit || []).slice(-4).reverse().map(entry => {
+      const recentAudit = (menu.audit || []).slice(-4).reverse();
+      const lastAudit = recentAudit[0] || {};
+      const stateText = liveUrl ? 'Live menu' : 'Draft menu';
+      const healthFlag = health.ok ? '' : '<span class="reply-qr-pill">Needs health check</span>';
+      const audit = recentAudit.map(entry => {
         return `<li>${escapeHtml(entry.action || '')} · ${escapeHtml(entry.at || '')}</li>`;
       }).join('');
       return `
-        <div class="reply-entry">
-          <div class="reply-entry-header">
-            <span class="reply-entry-subject">${name}</span>
-            <span class="reply-entry-flags">
-              <span class="reply-channel-pill">${escapeHtml(menu.status || 'draft')}</span>
-              <span class="${health.ok ? 'reply-photo-pill' : 'reply-qr-pill'}">${health.ok ? 'Healthy' : 'Check'}</span>
-            </span>
-          </div>
-          <div class="reply-entry-meta">Version: ${currentVersion}</div>
-          ${liveUrl ? `<div class="reply-entry-body"><a class="qr-review-link" href="${liveUrl}" target="_blank" rel="noopener">${liveUrl}</a>${signUrl ? `<br><a class="qr-review-link" href="${signUrl}" target="_blank" rel="noopener">QR sign</a>` : ''}</div>` : '<div class="reply-entry-body">No live URL yet.</div>'}
-          <div class="qr-review-card" style="margin-top:12px;">
-            <div class="qr-review-label">Version history</div>
-            <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${versions.map(escapeHtml).join(' · ') || 'No versions yet'}</div>
-            ${audit ? `<div class="qr-review-label">Recent audit</div><ul class="qr-check-list">${audit}</ul>` : ''}
-            <div class="qr-actions">
-              <button class="btn btn-secondary" onclick="createQrEditDraft('${menuId}', this)">Edit Draft</button>
-              <select class="search-select" style="height:36px;max-width:260px;" data-menu-id="${menuId}">
-                <option value="">Previous version</option>
-                ${rollbackOptions}
-              </select>
-              <button class="btn btn-secondary" ${rollbackOptions ? '' : 'disabled'} onclick="rollbackQrMenu('${menuId}', this)">Rollback</button>
-              <button class="btn btn-primary" onclick="refreshQrHealth('${menuId}', this)">Check Health</button>
+        <div class="qr-menu-row">
+          <div class="qr-menu-row-main">
+            <div>
+              <div class="qr-menu-title">${name}</div>
+              <div class="qr-menu-meta">${escapeHtml(stateText)} ${healthFlag ? ' · ' : ''}${healthFlag}</div>
+              ${liveUrl ? `<div class="qr-menu-url"><a class="qr-review-link" href="${liveUrl}" target="_blank" rel="noopener">${liveUrl}</a>${signUrl ? `<br><a class="qr-review-link" href="${signUrl}" target="_blank" rel="noopener">QR sign</a>` : ''}</div>` : '<div class="qr-menu-meta">No live URL yet.</div>'}
+            </div>
+            <div class="qr-menu-actions">
+              <button class="btn btn-primary" onclick="refreshQrHealth('${menuId}', this)">Check health</button>
+              <button class="btn btn-secondary" onclick="createQrEditDraft('${menuId}', this)">Edit draft</button>
             </div>
           </div>
+          <details class="qr-menu-details">
+            <summary>Version details</summary>
+            <div class="qr-menu-detail-grid">
+              <div>
+                <div class="qr-review-label">Current version</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${currentVersion}</div>
+              </div>
+              <div>
+                <div class="qr-review-label">Last event</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${escapeHtml(lastAudit.action || 'No audit event')} ${lastAudit.at ? '· ' + escapeHtml(lastAudit.at) : ''}</div>
+              </div>
+              <div>
+                <div class="qr-review-label">Version history</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${versions.map(escapeHtml).join(' · ') || 'No versions yet'}</div>
+              </div>
+              ${audit ? `<div><div class="qr-review-label">Recent audit</div><ul class="qr-check-list">${audit}</ul></div>` : ''}
+              <div class="rollback-row">
+                <select class="search-select" style="height:44px;max-width:260px;" data-menu-id="${menuId}" onchange="toggleRollbackReady(this)">
+                  <option value="">Choose previous version</option>
+                  ${rollbackOptions}
+                </select>
+                <button class="btn btn-secondary" disabled onclick="rollbackQrMenu('${menuId}', this)">Rollback selected version</button>
+              </div>
+            </div>
+          </details>
         </div>`;
     }).join('');
   } catch (err) {
@@ -4253,10 +4519,17 @@ async function createQrEditDraft(menuId, btn) {
   }
 }
 
+function toggleRollbackReady(select) {
+  const row = select.closest('.rollback-row');
+  const button = row ? row.querySelector('button') : null;
+  if (button) button.disabled = !select.value;
+}
+
 async function rollbackQrMenu(menuId, btn) {
   const select = document.querySelector('select[data-menu-id="' + menuId + '"]');
   const versionId = select ? select.value : '';
   if (!versionId) { showToast('Choose a previous version first', 'error'); return; }
+  if (!window.confirm('Rollback this live QR menu to the selected previous version?')) return;
   btn.disabled = true;
   const original = btn.textContent;
   btn.textContent = 'Rolling back...';
@@ -4330,7 +4603,7 @@ async function loadSentEmails() {
         <div style="margin-top:8px;font-size:13px;color:#666;">To: ${safeTo} &middot; Status: ${s.status}</div>
         <div class="reply-section">
           ${replyAction}
-          <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Reply</button>
+          <button class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Write reply</button>
           ${renderReplyComposer({}, {})}
         </div>
       </div>`;
@@ -4457,15 +4730,15 @@ function renderInbox(replies, counts) {
 function renderInboxSummary(counts) {
   const summary = document.getElementById('inbox-summary');
   if (!summary) return;
-  const items = [
-    [counts.open || 0, 'Open'],
-    [counts.unread || 0, 'Unread'],
+  const items = [[counts.open || 0, 'Open'], [counts.unread || 0, 'Unread']];
+  [
     [counts.needs_reply || 0, 'Needs reply'],
     [counts.waiting_on_owner || 0, 'Waiting'],
     [counts.ready_to_build || 0, 'Ready to build'],
     [counts.qr_requested || 0, 'QR requested'],
-    [counts.done || 0, 'Done'],
-  ];
+  ].forEach(item => {
+    if (Number(item[0] || 0) > 0 && items.length < 4) items.push(item);
+  });
   summary.innerHTML = items.map(([value, label]) =>
     '<div class="rail-metric"><div class="rail-metric-value">' + escapeHtml(value) + '</div><div><div class="rail-metric-label">' + escapeHtml(label) + '</div></div></div>'
   ).join('');
@@ -4587,6 +4860,7 @@ function renderWorkflowSelect(currentStatus) {
 function renderConversationRow(reply) {
   const lead = reply.lead || {};
   const next = reply.next_action || {};
+  const nextKey = String(next.key || '');
   const original = reply.original_pitch || {};
   const safeLeadId = escapeHtml(reply.lead_id || '');
   const safeReplyId = escapeHtml(reply.reply_id || '');
@@ -4615,70 +4889,83 @@ function renderConversationRow(reply) {
           <div class="asset-review-name">${name}</div>
           <div class="asset-review-actions">
             ${['usable', 'needs_better_photo', 'not_needed'].map(status => {
-              const label = status === 'usable' ? 'Usable' : status === 'needs_better_photo' ? 'Needs better photo' : 'Not needed';
+              const label = status === 'usable' ? 'Use photo' : status === 'needs_better_photo' ? 'Request better photo' : 'Ignore photo';
               return `<button type="button" class="${current === status ? 'active' : ''}" onclick="reviewReplyAsset('${safeReplyId}', '${assetId}', '${status}', this)">${label}</button>`;
             }).join('')}
           </div>
         </div>`;
       }).join('')}
     </div>` : '';
-  const photoPill = reply.has_photos ? '<span class="reply-photo-pill">' + escapeHtml(storedPhotoCount ? storedPhotoCount + ' photo ready' : photoCount ? photoCount + ' photo received' : 'Photos mentioned') + '</span>' : '';
-  const qrPill = reply.qr_ready ? '<span class="reply-qr-pill">QR ready</span>' : '';
-  const pitchContext = original.subject
+  const pitchContextBody = original.subject
     ? '<div class="pitch-context"><strong>Original pitch</strong><span>' + escapeHtml(original.subject) + '</span><span>' + escapeHtml(original.sent_at ? new Date(original.sent_at).toLocaleDateString() : '') + '</span>' + (original.body_excerpt ? '<span>' + escapeHtml(original.body_excerpt) + '</span>' : '') + '</div>'
     : '<div class="pitch-context"><strong>Original pitch</strong><span>No sent pitch record found.</span></div>';
+  const pitchContext = '<details class="reply-context-details"><summary>Pitch context</summary>' + pitchContextBody + '</details>';
   const operatorReplyContext = latestOperatorReply.sent_at
     ? '<div class="operator-reply-context"><strong>Last follow-up</strong><span>' + escapeHtml(new Date(latestOperatorReply.sent_at).toLocaleString()) + '</span><span>' + escapeHtml(String(latestOperatorReply.body || '').slice(0, 180)) + '</span></div>'
     : '';
-  const menuButton = storedPhotoCount > 0 ? `
-    <button type="button" class="btn btn-primary" style="height:32px;font-size:12px;padding:0 14px;"
+  const replyPrimary = ['send_quote', 'ask_for_photos', 'answer_question', 'request_qr_details', 'needs_reply'].includes(nextKey);
+  const menuPrimary = nextKey === 'build_sample';
+  const photoReviewPrimary = nextKey === 'review_uploaded_photos';
+  const qrPrimary = nextKey === 'create_qr';
+  const replyLabel = nextKey === 'send_quote' ? 'Write quote reply' : 'Write reply';
+  const menuButton = storedPhotoCount > 0 && menuPrimary ? `
+    <button type="button" class="btn ${menuPrimary ? 'btn-primary' : 'btn-secondary'}" style="height:32px;font-size:12px;padding:0 14px;"
       data-lead-id="${safeLeadId}" data-reply-id="${safeReplyId}" data-business-name="${safeName}"
       data-subject="${safeSubject}" data-channel="${escapeHtml(reply.channel || '')}" data-photo-count="${photoCount}"
-      data-stored-photo-count="${storedPhotoCount}" data-package-key="${safePackageKey}" onclick="openBuildFromReply(this)">Create Menu</button>` : '';
-  const qrButton = reply.qr_ready ? `
-    <button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;"
-      data-reply-id="${safeReplyId}" onclick="createQrFromReply(this)">Create QR</button>` : '';
-  const replyButton = hasEmailReplyTo ? '<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">Reply</button>' : '';
-  const openPitchButton = safeLeadId ? `<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-lead-id="${safeLeadId}" onclick="openPreview(this.dataset.leadId)">Open Pitch</button>` : '';
-  const workspaceButton = safeReplyId ? `<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-reply-id="${safeReplyId}" onclick="openProductionWorkspace(this.dataset.replyId)">Workspace</button>` : '';
+      data-stored-photo-count="${storedPhotoCount}" data-package-key="${safePackageKey}" onclick="openBuildFromReply(this)">Build menu draft</button>` : '';
+  const qrButton = reply.qr_ready && qrPrimary ? `
+    <button type="button" class="btn ${qrPrimary ? 'btn-primary' : 'btn-secondary'}" style="height:32px;font-size:12px;padding:0 14px;"
+      data-reply-id="${safeReplyId}" onclick="createQrFromReply(this)">Draft QR menu</button>` : '';
+  const replyButton = hasEmailReplyTo ? '<button type="button" class="btn ' + (replyPrimary ? 'btn-primary' : 'btn-secondary') + '" style="height:32px;font-size:12px;padding:0 14px;" onclick="toggleReply(this)">' + replyLabel + '</button>' : '';
+  const openPitchButton = safeLeadId ? `<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-lead-id="${safeLeadId}" onclick="openPreview(this.dataset.leadId)">Open original pitch</button>` : '';
+  const workspaceRelevant = ['review_uploaded_photos', 'build_sample', 'create_qr'].includes(nextKey);
+  const workspaceButton = safeReplyId && workspaceRelevant ? `<button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" data-reply-id="${safeReplyId}" onclick="openProductionWorkspace(this.dataset.replyId)">Production workspace</button>` : '';
+  const closeButton = `<button type="button" class="btn ${nextKey === 'close' ? 'btn-primary' : 'btn-secondary'}" style="height:32px;font-size:12px;padding:0 14px;" onclick="markReplyWorkflow('${safeReplyId}', 'done', this)">Close reply</button>`;
+  const primaryActions = [
+    replyPrimary ? replyButton : '',
+    menuButton,
+    qrButton,
+    photoReviewPrimary ? '<span class="workflow-save-state">Review the photo buttons on this card.</span>' : '',
+    nextKey === 'close' ? closeButton : '',
+  ].filter(Boolean).join('');
+  const moreActions = [
+    !replyPrimary && hasEmailReplyTo && nextKey !== 'close' ? replyButton : '',
+    openPitchButton,
+    workspaceButton,
+    nextKey !== 'close' ? closeButton : '',
+  ].filter(Boolean).join('');
+  const moreMenu = moreActions
+    ? '<details class="action-menu"><summary>More</summary><div class="action-menu-panel">' + moreActions + '</div></details>'
+    : '';
+  const replyFacts = [
+    reply.channel === 'form' ? 'Form reply' : '',
+    storedPhotoCount ? storedPhotoCount + ' photo' : photoCount ? photoCount + ' photo received' : '',
+    (nextKey === 'create_qr' || nextKey === 'request_qr_details') && reply.qr_ready ? 'QR ready' : '',
+    reply.reply_age_label || '',
+  ].filter(Boolean).join(' · ');
   return `
     <div class="conversation-row${unreadClass}" data-lead-id="${safeLeadId}" data-reply-id="${safeReplyId}" data-to="${safeReplyTo}" data-subject="${safeSubject}" data-business-name="${safeName}" data-package-key="${safePackageKey}">
       <div>
-        <div class="conversation-kicker">
-          <span class="reply-channel-pill">${safeChannel}</span>
-          <span class="mini-pill">${escapeHtml(workflowStatusLabel(workflowStatus))}</span>
-          ${photoPill}
-          ${qrPill}
-          ${reply.reply_age_label ? '<span class="mini-pill">' + escapeHtml(reply.reply_age_label) + '</span>' : ''}
+        <div class="conversation-next">
+          <div class="next-action-title">${escapeHtml(next.label || 'Reply needed')}</div>
+          <div class="next-action-detail">${escapeHtml(next.detail || '')}</div>
         </div>
         <div class="conversation-name">${safeName}</div>
-        <div class="conversation-meta">${escapeHtml([lead.city, lead.menu_type_label || lead.category, lead.package_label].filter(Boolean).join(' · '))}</div>
-        <div class="conversation-subject">${safeSubject}</div>
-        <div class="conversation-meta">From: ${safeFrom} · ${escapeHtml(received)}</div>
+        ${replyFacts ? '<div class="conversation-facts">' + escapeHtml(replyFacts) + '</div>' : ''}
         <div class="conversation-body">${safeBody}</div>
         ${assetReviewHtml}
       </div>
       <div class="conversation-side">
-        <div>
-          <div class="next-action-label">Next action</div>
-          <div class="next-action-title">${escapeHtml(next.label || 'Reply Needed')}</div>
-          <div class="next-action-detail">${escapeHtml(next.detail || '')}</div>
-        </div>
-        ${pitchContext}
         ${operatorReplyContext}
         <div class="reply-workflow-controls">
-          <div class="next-action-label">Workflow</div>
-          <select class="reply-status-select" aria-label="Reply workflow status">${renderWorkflowSelect(workflowStatus)}</select>
-          <button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="saveReplyWorkflowSelect(this)">Save status</button>
+          <label class="sr-only">Workflow</label>
+          <select class="reply-status-select" aria-label="Reply workflow status" onchange="saveReplyWorkflowSelect(this)">${renderWorkflowSelect(workflowStatus)}</select>
+          <div class="workflow-save-state" aria-live="polite"></div>
         </div>
         ${renderReplyComposer(reply, next)}
         <div class="conversation-actions">
-          ${openPitchButton}
-          ${replyButton}
-          ${workspaceButton}
-          ${menuButton}
-          ${qrButton}
-          <button type="button" class="btn btn-secondary" style="height:32px;font-size:12px;padding:0 14px;" onclick="markReplyWorkflow('${safeReplyId}', 'done', this)">Done</button>
+          ${primaryActions}
+          ${moreMenu}
         </div>
       </div>
     </div>`;
@@ -4706,12 +4993,45 @@ async function markReplyWorkflow(replyId, status, btn) {
   }
 }
 
-async function saveReplyWorkflowSelect(btn) {
-  const entry = btn.closest('.conversation-row');
-  const select = entry ? entry.querySelector('.reply-status-select') : null;
+async function saveReplyWorkflowSelect(control) {
+  const entry = control.closest('.conversation-row');
+  const select = control.matches && control.matches('.reply-status-select') ? control : (entry ? entry.querySelector('.reply-status-select') : null);
   const replyId = entry ? entry.dataset.replyId : '';
   if (!replyId || !select) return;
-  await markReplyWorkflow(replyId, select.value, btn);
+  if (control.matches && control.matches('.reply-status-select')) {
+    const state = entry.querySelector('.workflow-save-state');
+    select.disabled = true;
+    if (state) {
+      state.textContent = 'Saving workflow...';
+      state.className = 'workflow-save-state is-saving';
+    }
+    try {
+      const res = await fetch('/api/replies/' + encodeURIComponent(replyId) + '/workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow_status: select.value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Update failed');
+      updateReplyBadges(data.counts || {});
+      if (state) {
+        state.textContent = 'Workflow saved';
+        state.className = 'workflow-save-state is-saved';
+      }
+      showToast('Reply marked ' + workflowStatusLabel(select.value), 'success');
+      loadInbox();
+    } catch (err) {
+      if (state) {
+        state.textContent = 'Workflow save failed';
+        state.className = 'workflow-save-state is-error';
+      }
+      showToast('Reply update failed: ' + err.message, 'error');
+    } finally {
+      select.disabled = false;
+    }
+    return;
+  }
+  await markReplyWorkflow(replyId, select.value, control);
 }
 
 async function reviewReplyAsset(replyId, assetId, status, btn) {
@@ -4726,7 +5046,8 @@ async function reviewReplyAsset(replyId, assetId, status, btn) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Asset update failed');
-    showToast('Asset marked ' + status.replace(/_/g, ' '), 'success');
+    const label = status === 'usable' ? 'use photo' : status === 'needs_better_photo' ? 'request better photo' : 'ignore photo';
+    showToast('Asset review saved: ' + label, 'success');
     loadInbox();
   } catch (err) {
     showToast('Asset update failed: ' + err.message, 'error');
@@ -4898,7 +5219,7 @@ async function loadReplies(channel, markRead) {
                 data-photo-count="${photoCount}"
                 data-stored-photo-count="${storedPhotoCount}"
                 onclick="openBuildFromReply(this)"
-              >Create Menu</button>` : '';
+              >Build menu draft</button>` : '';
         const qrButton = reply.qr_ready ? `
               <button
                 type="button"
@@ -4906,7 +5227,7 @@ async function loadReplies(channel, markRead) {
                 style="height:32px;font-size:12px;padding:0 14px;"
                 data-reply-id="${safeReplyId}"
                 onclick="createQrFromReply(this)"
-              >Create QR</button>` : '';
+              >Draft QR menu</button>` : '';
         const createAction = menuButton || qrButton ? `
             <div class="reply-entry-actions">
               ${menuButton}
@@ -5046,7 +5367,7 @@ async function sendReply(btn) {
     showToast('Error: ' + err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Send Reply';
+    btn.textContent = 'Send Japanese';
   }
 }
 
@@ -5084,7 +5405,7 @@ async function toggleDNC(leadId, btn) {
       }
     }
   } catch (err) {
-    showToast('DNC toggle error: ' + err.message, 'error');
+    showToast('Do-not-contact toggle error: ' + err.message, 'error');
   } finally {
     btn.disabled = false;
   }

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, Request, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -121,6 +121,8 @@ def _menu_template_for_profile(establishment_profile: str) -> Path:
     specific = OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.get(profile)
     if specific:
         return specific
+    if "soba" in profile:
+        return templates / "soba_food_menu.html"
     if "izakaya" in profile:
         return templates / "izakaya_food_drinks_menu.html"
     return templates / "ramen_food_menu.html"
@@ -368,6 +370,7 @@ ESTABLISHMENT_PROFILE_LABELS = {
     "ramen_with_drinks": "Ramen With Drinks",
     "ramen_ticket_machine": "Ramen With Ticket Machine",
     "ramen_with_sides_add_ons": "Ramen With Sides / Add-ons",
+    "soba_only": "Soba Only",
     "izakaya_food_and_drinks": "Izakaya Food And Drinks",
     "izakaya_drink_heavy": "Izakaya Drink Heavy",
     "izakaya_course_heavy": "Izakaya Course Heavy",
@@ -582,6 +585,8 @@ def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
     override = str(lead.get("establishment_profile_override") or "").strip()
     stored = str(lead.get("establishment_profile") or "").strip() or "unknown"
     effective = override or stored or "unknown"
+    if str(lead.get("primary_category_v1") or lead.get("category") or "").strip().lower() == "soba" and not effective.startswith("soba"):
+        effective = "soba_only"
     mode = "operator_override" if override else "evidence"
     confidence = "operator" if override else str(lead.get("establishment_profile_confidence") or "low")
     note = str(lead.get("establishment_profile_override_note") or "").strip()
@@ -711,10 +716,8 @@ def _legacy_observed_menu_topics(*, classification: str, profile: str) -> list[s
     topics: list[str] = []
     if profile.startswith("izakaya"):
         topics.extend(["food_items", "drink_items"])
-        if profile == "izakaya_drink_heavy":
-            topics.extend(["nomihodai", "last_order", "extra_charges"])
-        elif profile == "izakaya_course_heavy":
-            topics.extend(["course_items", "nomihodai", "last_order", "extra_charges"])
+    elif profile.startswith("soba"):
+        topics.extend(["soba_types", "hot_cold_options", "tsuyu", "tempura_add_ons", "ordering_rules"])
     else:
         topics.extend(["ramen_types", "toppings", "set_items"])
 
@@ -736,10 +739,12 @@ def _evidence_classifier_payload(
     _seed_evidence_value(payload, "business_name", business_name)
 
     primary_category = str(payload.get("primary_category_v1") or "").lower()
-    if primary_category in {"ramen", "izakaya"}:
+    if primary_category in {"ramen", "soba", "izakaya"}:
         restaurant_type = primary_category
     elif profile.startswith("izakaya"):
         restaurant_type = "izakaya"
+    elif profile.startswith("soba"):
+        restaurant_type = "soba"
     elif profile.startswith("ramen"):
         restaurant_type = "ramen"
     else:
@@ -758,15 +763,6 @@ def _evidence_classifier_payload(
         _seed_evidence_value(payload, "ticket_machine_confidence", 0.9)
         _seed_evidence_value(payload, "ticket_machine_evidence_type", "explicit_text")
         _seed_evidence_value(payload, "ticket_machine_evidence_notes", "Verified machine_evidence_found legacy field")
-
-    if profile == "izakaya_drink_heavy":
-        _seed_evidence_value(payload, "nomihodai_confidence", 0.88)
-        _seed_evidence_value(payload, "nomihodai_evidence_notes", "Verified izakaya_drink_heavy profile")
-    elif profile == "izakaya_course_heavy":
-        _seed_evidence_value(payload, "nomihodai_confidence", 0.88)
-        _seed_evidence_value(payload, "course_confidence", 0.82)
-        _seed_evidence_value(payload, "nomihodai_evidence_notes", "Verified izakaya_course_heavy profile")
-        _seed_evidence_value(payload, "course_evidence_notes", "Verified izakaya_course_heavy profile")
 
     if _missing_evidence_value(payload.get("observed_menu_topics")):
         payload["observed_menu_topics"] = _legacy_observed_menu_topics(
@@ -803,11 +799,55 @@ def _validate_email_claims(email_body: str, evidence_audit: dict[str, Any]) -> N
                 f"but '{required_claim}' not in allowed_claims"
             )
 
-    for forbidden in ("BUSINESS_ADDRESS",):
+    for forbidden in ("BUSINESS_ADDRESS", "所在地", "住所"):
         if forbidden in email_body:
             raise ValueError(
                 f"Send-time claim validation failed: '{forbidden}' placeholder found"
             )
+
+
+def _evidence_batch_skip_reason(record: dict[str, Any]) -> str:
+    evidence_audit = record.get("evidence_audit") or {}
+    if not evidence_audit.get("selected_template"):
+        return "evidence_audit_missing"
+    if evidence_audit.get("selected_template") == "skip":
+        return f"evidence_skip:{evidence_audit.get('skip_reason') or 'unknown'}"
+    if evidence_audit.get("human_review_required"):
+        return "evidence_human_review_required"
+    return ""
+
+
+def _ensure_evidence_audit_for_batch_record(record: dict[str, Any]) -> dict[str, Any]:
+    if (record.get("evidence_audit") or {}).get("selected_template"):
+        return record
+
+    from pipeline.evidence_classifier import classify_lead
+    from pipeline.models import QualificationResult
+    from pipeline.outreach import build_evidence_gated_email, classify_business
+    from pipeline.record import authoritative_business_name, persist_lead_record
+
+    business_name = authoritative_business_name(record)
+    q = QualificationResult(
+        lead=record.get("lead") is True,
+        rejection_reason=record.get("rejection_reason"),
+        business_name=business_name,
+        menu_evidence_found=record.get("menu_evidence_found", True),
+        machine_evidence_found=record.get("machine_evidence_found", False),
+    )
+    classification = str(record.get("outreach_classification") or classify_business(q))
+    profile = _effective_establishment_profile(record)
+    evidence_payload = _evidence_classifier_payload(
+        record,
+        business_name=business_name,
+        classification=classification,
+        profile=profile["effective"],
+    )
+    classification_obj = classify_lead(evidence_payload)
+    record["evidence_audit"] = _build_evidence_audit(classification_obj)
+    if build_evidence_gated_email(classification_obj) is None:
+        record["outreach_status"] = "evidence_blocked"
+    persist_lead_record(record, state_root=STATE_ROOT)
+    return record
 
 
 def _dashboard_card_counts(leads: list[dict[str, Any]]) -> dict[str, int]:
@@ -1415,6 +1455,10 @@ def _create_send_batch(*, lead_ids: list[str], delay_seconds: int, notes: str = 
         record = load_lead(lead_id, state_root=STATE_ROOT)
         if not record:
             raise HTTPException(status_code=404, detail=f"lead_not_found:{lead_id}")
+        record = _ensure_evidence_audit_for_batch_record(record)
+        evidence_skip_reason = _evidence_batch_skip_reason(record)
+        if evidence_skip_reason:
+            raise HTTPException(status_code=422, detail=f"lead_evidence_blocked:{lead_id}:{evidence_skip_reason}")
         gate = _send_readiness_for_record(record)
         if gate["status"] != "ready_to_send":
             raise HTTPException(status_code=422, detail=f"lead_not_send_ready:{lead_id}:{','.join(gate['reasons'])}")
@@ -1593,6 +1637,8 @@ def _final_checklist_for_record(
     body_text = f"{subject}\n{body}"
     if str(profile).startswith("ramen"):
         diagnosis_terms = ("ラーメン", "らーめん", "券売機", "トッピング", "セット", "注文")
+    elif str(profile).startswith("soba"):
+        diagnosis_terms = ("そば", "蕎麦", "冷たい", "温かい", "つゆ", "注文")
     elif "izakaya" in str(profile):
         diagnosis_terms = ("居酒屋", "料理", "ドリンク", "コース", "飲み放題", "お品書き", "注文")
     else:
@@ -1655,6 +1701,21 @@ async def _run_send_batch(batch_id: str) -> None:
         matching["attempted_at"] = datetime.now(timezone.utc).isoformat()
         matching["status"] = "sending"
         _save_send_batch(batch)
+
+        from pipeline.record import load_lead
+
+        record = load_lead(str(matching.get("lead_id") or ""), state_root=STATE_ROOT)
+        if not record:
+            matching["status"] = "skipped"
+            matching["error"] = "lead_not_found"
+            _save_send_batch(batch)
+            continue
+        evidence_skip_reason = _evidence_batch_skip_reason(record)
+        if evidence_skip_reason:
+            matching["status"] = "skipped"
+            matching["error"] = evidence_skip_reason
+            _save_send_batch(batch)
+            continue
 
         try:
             await _send_lead_email_payload(str(matching.get("lead_id") or ""), require_send_ready=True)
@@ -2384,7 +2445,6 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
     from pipeline.record import authoritative_business_name, load_lead, persist_lead_record
     from pipeline.outreach import (
         build_manual_outreach_message,
-        build_outreach_email,
         build_evidence_gated_email,
         classify_business,
         describe_outreach_assets,
@@ -2524,7 +2584,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         lead_classification = classify_lead(evidence_payload)
         draft = build_evidence_gated_email(lead_classification)
         if draft is None:
-            # Evidence-gated classifier says skip — fall through with skip marker
+            # Evidence-gated classifier says skip — fall through with skip marker.
             draft = {
                 "subject": "",
                 "body": "",
