@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja" data-theme="light">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -45,21 +45,6 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --transition-fast: 150ms var(--ease-out);
   --transition-med: 300ms var(--ease-out);
-}
-
-[data-theme="dark"] {
-  --bg: #0C0C0B;
-  --surface: #151514;
-  --surface-elevated: #1A1A19;
-  --text: #F9F8F5;
-  --text-secondary: #D4D3CE;
-  --text-tertiary: #9D9C97;
-  --text-muted: #6E6D68;
-  --border: rgba(249, 248, 245, 0.08);
-  --border-strong: rgba(249, 248, 245, 0.14);
-  --cta-bg: #F9F8F5;
-  --cta-text: #0C0C0B;
-  --cta-hover: #E0DFDC;
 }
 
 html {
@@ -137,10 +122,6 @@ body::before {
   transition: background var(--transition-med);
 }
 
-[data-theme="dark"] .nav {
-  background: rgba(12, 12, 11, 0.7);
-}
-
 .nav__left {
   display: flex;
   align-items: center;
@@ -196,47 +177,6 @@ body::before {
   color: var(--text-muted);
   opacity: 0.4;
 }
-
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  padding: 0;
-  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.theme-toggle:hover {
-  background: var(--surface-elevated);
-  border-color: var(--border-strong);
-  transform: scale(1.05);
-}
-
-.theme-toggle svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: var(--text-tertiary);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: stroke var(--transition-fast);
-}
-
-.theme-toggle:hover svg {
-  stroke: var(--text-secondary);
-}
-
-.theme-toggle .icon-moon,
-.theme-toggle .icon-sun { display: none; }
-
-[data-theme="light"] .theme-toggle .icon-moon,
-[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 
 .btn-outline {
   display: inline-flex;
@@ -513,11 +453,6 @@ a:focus-visible {
   .lang-toggle {
     gap: 5px;
     font-size: 12px;
-  }
-
-  .theme-toggle {
-    width: 44px;
-    height: 44px;
   }
 
   .main {

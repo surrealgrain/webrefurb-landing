@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="ja" data-theme="light">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>WebRefurb | 飲食店向け英語注文システム制作</title>
-<meta name="description" content="ラーメン店・居酒屋向けに、英語の注文資料、券売機ガイド、QR英語メニューを制作します。海外からのお客様が迷わず注文できるようにします。">
+<title>WebRefurb | 飲食店向け英語メニュー・注文ガイド制作</title>
+<meta name="description" content="飲食店向けに、英語メニューや注文ガイドを見やすく実用的な形で制作します。海外からのお客様が迷わず注文できるようにします。">
 <link rel="canonical" href="https://webrefurb.com/ja">
 <link rel="alternate" hreflang="en" href="https://webrefurb.com/">
 <link rel="alternate" hreflang="ja" href="https://webrefurb.com/ja">
@@ -60,28 +60,6 @@
   --transition-fast: 150ms var(--ease-out);
   --transition-med: 300ms var(--ease-out);
   --transition-slow: 500ms var(--ease-out);
-}
-
-[data-theme="dark"] {
-  --bg: #0C0C0B;
-  --surface: #151514;
-  --surface-elevated: #1A1A19;
-  --text: #F9F8F5;
-  --text-secondary: #D4D3CE;
-  --text-tertiary: #9D9C97;
-  --text-muted: #6E6D68;
-  --border: rgba(249, 248, 245, 0.08);
-  --border-strong: rgba(249, 248, 245, 0.14);
-  --cta-bg: #F9F8F5;
-  --cta-text: #0C0C0B;
-  --cta-hover: #E0DFDC;
-  --glass-bg: rgba(26, 26, 25, 0.72);
-  --glass-border: rgba(249, 248, 245, 0.08);
-  --glass-blur: 20px;
-  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
-  --tile-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.3);
-  --tile-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
-  --backdrop: rgba(0, 0, 0, 0.6);
 }
 
 html {
@@ -164,10 +142,6 @@ body::before {
   transition: background var(--transition-med);
 }
 
-[data-theme="dark"] .nav {
-  background: rgba(12, 12, 11, 0.7);
-}
-
 .nav__left {
   display: flex;
   align-items: center;
@@ -209,51 +183,6 @@ body::before {
   color: var(--text-muted);
   opacity: 0.4;
 }
-
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  padding: 0;
-  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.theme-toggle:hover {
-  background: var(--surface-elevated);
-  border-color: var(--border-strong);
-  transform: scale(1.05);
-}
-
-.theme-toggle:active {
-  transform: scale(0.96);
-}
-
-.theme-toggle svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: var(--text-tertiary);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: stroke var(--transition-fast);
-}
-
-.theme-toggle:hover svg {
-  stroke: var(--text-secondary);
-}
-
-.theme-toggle .icon-moon,
-.theme-toggle .icon-sun { display: none; }
-
-[data-theme="light"] .theme-toggle .icon-moon,
-[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 
 .btn-cta {
   display: inline-flex;
@@ -372,7 +301,7 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 72px 40px 24px;
+  padding: 100px 40px 24px;
 }
 
 /* ── Hero Section ── */
@@ -455,65 +384,53 @@ body::before {
   animation: slideUp 0.7s var(--ease-out) 0.6s forwards;
 }
 
-/* Product proof */
+/* ── Proof section ── */
+
 .proof-showcase {
   width: 100%;
   max-width: 1200px;
-  margin: 24px auto 0;
-  display: grid;
-  grid-template-columns: 0.72fr 1.28fr;
-  gap: 18px;
-  align-items: stretch;
+  margin: 48px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
   opacity: 0;
   animation: slideUp 0.8s var(--ease-out) 0.68s forwards;
 }
 
 .proof-copy {
-  background: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 12px;
-}
-
-.proof-kicker {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-cyan);
+  gap: 10px;
+  max-width: 600px;
 }
 
 .proof-title {
   font-family: 'Noto Sans JP', 'Outfit', sans-serif;
-  font-size: 28px;
+  font-size: clamp(20px, 2vw, 26px);
   font-weight: 700;
-  line-height: 1.18;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
 .proof-copy p:not(.proof-kicker) {
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.72;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 .proof-checks {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   list-style: none;
   margin-top: 4px;
 }
 
 .proof-checks li {
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.55;
-  color: var(--text-tertiary);
-  padding-left: 14px;
+  color: var(--text-muted);
+  padding-left: 16px;
   position: relative;
 }
 
@@ -521,62 +438,12 @@ body::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.78em;
+  top: 0.72em;
   width: 5px;
   height: 5px;
   background: var(--accent-green);
   border-radius: 50%;
-}
-
-.proof-grid {
-  display: grid;
-  grid-template-columns: 1.12fr 0.88fr 0.7fr;
-  grid-template-rows: 210px 150px;
-  gap: 10px;
-}
-
-.proof-shot {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  background: #0f0d0b;
-}
-
-.proof-shot img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.proof-shot--ramen {
-  grid-row: span 2;
-}
-
-.proof-shot--ticket img {
-  object-position: center 36%;
-}
-
-.proof-shot--qr-mobile img {
-  object-position: center top;
-}
-
-.proof-shot figcaption {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  right: 10px;
-  display: inline-flex;
-  width: fit-content;
-  max-width: calc(100% - 20px);
-  padding: 6px 8px;
-  background: rgba(12, 12, 11, 0.76);
-  color: #F9F8F5;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
+  opacity: 0.8;
 }
 
 /* ── Divider ── */
@@ -601,7 +468,7 @@ body::before {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: clamp(24px, 4vh, 44px) 0 0;
+  padding: clamp(36px, 5vh, 56px) 0 0;
   opacity: 0;
   animation: slideUp 0.8s var(--ease-out) 0.75s forwards;
 }
@@ -619,6 +486,14 @@ body::before {
 
 .bento-label strong {
   font-weight: 700;
+}
+
+.bento-subtitle {
+  font-size: 13.5px;
+  line-height: 1.72;
+  color: var(--text-secondary);
+  max-width: 72ch;
+  margin-bottom: 24px;
 }
 
 .bento-grid {
@@ -738,14 +613,6 @@ body::before {
 .bento-tile__visual svg {
   width: 100%;
   height: 100%;
-}
-
-[data-theme="dark"] .bento-tile__visual {
-  opacity: 0.55;
-}
-
-[data-theme="dark"] .bento-tile:hover .bento-tile__visual {
-  opacity: 0.9;
 }
 
 /* Title */
@@ -1339,17 +1206,8 @@ a:focus-visible {
   }
 
   .proof-showcase {
-    grid-template-columns: 1fr;
-  }
-
-  .proof-grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 220px 160px 160px;
-  }
-
-  .proof-shot--ramen {
-    grid-column: span 2;
-    grid-row: auto;
+    margin-top: 28px;
+    gap: 24px;
   }
 }
 
@@ -1378,13 +1236,13 @@ a:focus-visible {
     font-size: 12px;
   }
 
-  .theme-toggle {
-    width: 44px;
-    height: 44px;
-  }
-
   .main {
     padding: 68px 16px 24px;
+  }
+
+  .proof-showcase {
+    margin-top: 20px;
+    gap: 18px;
   }
 
   .hero {
@@ -1421,20 +1279,11 @@ a:focus-visible {
   }
 
   .proof-copy {
-    padding: 20px;
+    padding: 0 0 4px;
   }
 
   .proof-title {
-    font-size: 23px;
-  }
-
-  .proof-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(5, 190px);
-  }
-
-  .proof-shot--ramen {
-    grid-column: auto;
+    font-size: 22px;
   }
 
   .btn-cta {
@@ -1582,31 +1431,15 @@ a:focus-visible {
     </div>
   </div>
   <div class="nav__right">
-    <button class="theme-toggle" id="themeToggle" aria-label="ダークモード切替">
-      <svg class="icon-sun" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="5"/>
-        <line x1="12" y1="1" x2="12" y2="3"/>
-        <line x1="12" y1="21" x2="12" y2="23"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="1" y1="12" x2="3" y2="12"/>
-        <line x1="21" y1="12" x2="23" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <svg class="icon-moon" viewBox="0 0 24 24">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
     <div class="cta-stack">
       <a class="btn-cta" id="ctaBtn" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">
-        無料サンプル
+        無料サンプルについて相談する
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
       </a>
       <a class="btn-pricing-modal" id="pricingModalBtn" href="/ja/pricing.html">
-        料金
+        料金を見る
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
@@ -1630,7 +1463,7 @@ a:focus-visible {
     <img class="logo" src="../logo.svg" alt="" aria-hidden="true">
     <div class="hero-copy">
       <span class="wordmark">WebRefurb</span>
-      <p class="headline">海外のお客様にも分かりやすい<br>英語の注文システムを制作します</p>
+      <p class="headline">海外のお客様にも伝わりやすい<br>英語メニュー・注文ガイドを制作します</p>
     </div>
   </section>
 
@@ -1639,55 +1472,33 @@ a:focus-visible {
     <div class="divider__line"></div>
   </div>
 
-  <section class="proof-showcase" aria-label="制作物プレビュー">
+  <section class="proof-showcase" aria-label="制作内容">
     <div class="proof-copy">
-      <p class="proof-kicker">制作物プレビュー</p>
-      <h2 class="proof-title">お店の注文方法に合わせた英語注文システムを制作します。</h2>
-      <p>ラーメン店の券売機ガイド、居酒屋の料理・ドリンクレイアウト、QR案内サイン、スマホ用英語メニューなど、実際に使いやすい形で制作します。</p>
+      <h2 class="proof-title">飲食店の実際のメニュー内容と注文方法に合わせて、英語メニュー・注文ガイド・QR案内サイン・印刷用レイアウトを制作します。</h2>
+      <p>料理名、ドリンク、コース内容、トッピング、券売機の案内、QR注文などの情報を分かりやすい英語で整理し、海外のお客様がスタッフの方に確認しなくても内容を把握しやすくなるようサポートします。</p>
       <ul class="proof-checks">
-        <li>納品前の店舗確認と修正1回を含みます。</li>
-        <li>価格・原材料・アレルギー表記は店舗確認後のみ掲載します。</li>
-        <li>本番制作では、現在のメニュー内容と店舗から提供された写真を使用します。</li>
+        <li>納品前に店舗様による内容確認と修正1回を含みます。</li>
+        <li>価格・原材料・アレルギー情報は、店舗様によるご確認後のみ掲載します。</li>
+        <li>正式に制作する際は、最新のメニュー内容と店舗様からご提供いただいた写真を使用します。</li>
       </ul>
-    </div>
-    <div class="proof-grid" aria-label="制作物サンプル">
-      <figure class="proof-shot proof-shot--ramen">
-        <img src="../assets/previews/simple-ramen-menu.png" alt="ラーメン英語メニューの制作サンプル">
-        <figcaption>ラーメンメニュー</figcaption>
-      </figure>
-      <figure class="proof-shot proof-shot--ticket">
-        <img src="../assets/previews/ramen-ticket-machine.png" alt="券売機ガイドの制作サンプル">
-        <figcaption>券売機ガイド</figcaption>
-      </figure>
-      <figure class="proof-shot">
-        <img src="../assets/previews/izakaya-food-drinks.png" alt="居酒屋の料理とドリンクレイアウトの制作サンプル">
-        <figcaption>居酒屋 料理・ドリンク</figcaption>
-      </figure>
-      <figure class="proof-shot">
-        <img src="../assets/previews/qr-sign.png" alt="QR英語メニュー案内サインの制作サンプル">
-        <figcaption>QR案内サイン</figcaption>
-      </figure>
-      <figure class="proof-shot proof-shot--qr-mobile">
-        <img src="../assets/previews/qr-mobile-menu.png" alt="スマホ用QR英語メニューの制作サンプル">
-        <figcaption>スマホQRメニュー</figcaption>
-      </figure>
     </div>
   </section>
 
   <!-- Bento Grid -->
-  <section class="bento-section" aria-label="飲食店向けに、英語の注文資料を分かりやすく制作します。海外からのお客様へのご説明の手間を減らし、お客様ご自身で注文内容をご確認いただけるようにします。">
-    <h2 class="bento-label"><strong>飲食店向けに、英語の注文資料を分かりやすく制作します。海外からのお客様へのご説明の手間を減らし、お客様ご自身で注文内容をご確認いただけるようにします。</strong></h2>
+  <section class="bento-section" aria-label="飲食店向けに、英語メニューや注文ガイドを分かりやすく制作します。">
+    <h2 class="bento-label"><strong>WebRefurbでは、飲食店向けに実用的な英語メニュー・注文ガイドを制作します。</strong></h2>
+    <p class="bento-subtitle">翻訳した文章だけをお渡しするのではなく、読みやすく、印刷しやすく、店内で使いやすいレイアウトに整えて納品します。</p>
     <div class="bento-grid" role="list">
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="english-menus">
         <span class="bento-tile__dot"></span>
-        <span class="bento-tile__title">英語注文資料</span>
+        <span class="bento-tile__title">英語メニュー</span>
         <div class="bento-tile__visual" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
           </svg>
         </div>
-        <span class="bento-tile__hint">現在のメニュー内容に合わせて、見やすく分かりやすい英語の注文資料を制作します。</span>
+        <span class="bento-tile__hint">現在お使いのメニュー内容に合わせて、料理名・ドリンク・コース内容などを自然で分かりやすい英語表記に整えます。</span>
       </button>
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="ticket-machine-guides">
@@ -1709,7 +1520,7 @@ a:focus-visible {
             <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
           </svg>
         </div>
-        <span class="bento-tile__hint">料理、ドリンク、セットメニュー、季節メニューなどに対応した片面・両面レイアウトを作成します。</span>
+        <span class="bento-tile__hint">片面・両面レイアウトに対応し、料理、ドリンク、コース、季節メニュー、セットメニューなどを読みやすく整えます。</span>
       </button>
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="print-ready-design">
@@ -1720,48 +1531,48 @@ a:focus-visible {
             <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
           </svg>
         </div>
-        <span class="bento-tile__hint">印刷やラミネート加工に適した、実用的で見やすいデータを作成します。</span>
+        <span class="bento-tile__hint">印刷・ラミネート加工に適したデータを作成し、店内でそのまま使いやすい形に仕上げます。</span>
       </button>
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="qr-signs">
         <span class="bento-tile__dot"></span>
-        <span class="bento-tile__title">QR案内サイン</span>
+        <span class="bento-tile__title">QR案内サイン・スマホ用メニュー</span>
         <div class="bento-tile__visual" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-indigo)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M18 18h3v3h-3z"/><path d="M14 21h2"/><path d="M21 14v2"/>
           </svg>
         </div>
-        <span class="bento-tile__hint">QRメニューには、卓上やカウンターに置ける「Scan for English Menu」案内サインを含めます。</span>
+        <span class="bento-tile__hint">必要に応じて、QRメニュー用の「Scan for English Menu」案内サインや、スマホで見やすい英語メニューページも制作します。</span>
       </button>
 
       <button class="bento-tile" role="listitem" tabindex="0" data-popover="customer-flow">
         <span class="bento-tile__dot"></span>
-        <span class="bento-tile__title">スムーズな注文の流れ</span>
+        <span class="bento-tile__title">納品まで対応</span>
         <div class="bento-tile__visual" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
         </div>
-        <span class="bento-tile__hint">海外のお客様が迷わず注文できるよう、分かりやすさと使いやすさを重視して制作します。</span>
+        <span class="bento-tile__hint">デザイン制作から印刷・ラミネート加工、店舗への納品まで対応可能です。</span>
       </button>
 
     </div>
   </section>
 
   <!-- About Section -->
-  <section class="about-section" id="about" aria-label="WebRefurbについて">
-    <h2 class="about-section__title">注文をスムーズにする小さな工夫</h2>
+  <section class="about-section" id="about" aria-label="海外のお客様にも注文しやすいメニューに">
+    <h2 class="about-section__title">海外のお客様にも注文しやすいメニューに</h2>
     <hr class="about-section__divider">
     <ul class="about-section__questions">
-      <li>海外のお客様は、スタッフに聞かなくてもメニュー内容を理解できますか？</li>
-      <li>券売機や注文機を使う場合、海外のお客様にも操作方法が分かりやすくなっていますか？</li>
-      <li>料理、ドリンク、トッピング、セット内容、追加オプションは英語で分かりやすく説明されていますか？</li>
-      <li>混雑時でも、すぐに読みやすいメニューになっていますか？</li>
-      <li>シンプルな英語ガイドを置くことで、注文時の迷いや確認を減らせませんか？</li>
+      <li>海外のお客様は、スタッフの方に確認しなくてもメニュー内容を理解しやすくなっていますか？</li>
+      <li>券売機やセルフ注文機を使う場合、操作方法やボタン内容は英語でも分かりやすくなっていますか？</li>
+      <li>料理、ドリンク、トッピング、コース内容、セット内容、追加オプションは英語で分かりやすく整理されていますか？</li>
+      <li>混雑時でも、短時間で読みやすいメニューになっていますか？</li>
+      <li>英語メニューや注文ガイドで、カウンター、テーブル、券売機、QRページでの迷いや確認を減らせませんか？</li>
     </ul>
-    <p class="about-section__insight"><span class="about-section__insight--em">注文時のお悩みは、料理や接客に原因があるわけではありません。</span>メニューや注文方法が海外のお客様にとって分かりにくいことから生まれるものです。</p>
-    <p class="about-section__insight">WebRefurbでは、お客様の目線に立って、分かりやすく実用的な英語の注文資料や注文ガイドを制作します。テーブル、カウンター、券売機、QRページなど、お店の注文スタイルに合わせて、海外のお客様がすぐに理解できる形に整えます。</p>
-    <p class="about-section__insight"><span class="about-section__insight--em">単なるメニュー制作ではありません。</span>実際のメニュー内容やお店の注文方法に合わせて、飲食店でそのまま使いやすい形に仕上げます。</p>
+    <p class="about-section__insight"><span class="about-section__insight--em">注文時の迷いや確認は、料理や接客の問題ではなく、メニュー内容や注文方法が海外のお客様に伝わりにくいことから生まれる場合があります。</span></p>
+    <p class="about-section__insight">WebRefurbでは、海外のお客様の目線に立って、英語メニューや注文ガイドを分かりやすく実用的な形に整えます。テーブル、カウンター、券売機、セルフ注文機、QRページなど、お店の注文方法に合わせて制作します。</p>
+    <p class="about-section__insight"><span class="about-section__insight--em">単なる直訳ではなく、</span>実際のメニュー内容やお店の注文方法、店内での使いやすさを考えた英語メニュー・注文ガイドに仕上げます。</p>
     <a class="about-section__cta" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">
       無料サンプルを依頼
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1797,45 +1608,35 @@ a:focus-visible {
     <div class="pricing-modal__header">
       <div>
         <h2 class="pricing-modal__title">料金</h2>
-        <p class="pricing-modal__sub">店舗確認後に納品する、英語注文資料の固定料金プランです。</p>
+        <p class="pricing-modal__sub">店舗ごとの内容確認後に制作・納品する固定料金プランです。</p>
       </div>
       <button class="pricing-modal__close" id="pricingModalClose" type="button" aria-label="料金モーダルを閉じる">&times;</button>
     </div>
     <div class="pricing-modal__body">
       <div class="pricing-modal__grid">
         <article class="pricing-modal__card pricing-modal__card--online">
-          <span class="pricing-modal__name">英語注文ファイル</span>
+          <span class="pricing-modal__name">英語メニュー制作データ</span>
           <span class="pricing-modal__price">30,000円</span>
-          <p class="pricing-modal__desc">印刷用データをオンラインでお届けします。</p>
+          <p class="pricing-modal__desc">印刷用の英語メニューデータをオンラインでお届けします。</p>
         </article>
         <article class="pricing-modal__card pricing-modal__card--printed">
-          <span class="pricing-modal__name">店頭用注文キット</span>
+          <span class="pricing-modal__name">店頭用メニュー・注文ガイドキット</span>
           <span class="pricing-modal__price">45,000円</span>
-          <p class="pricing-modal__desc">印刷・ラミネート済みの注文資料を、内容量と店舗で扱いやすいサイズに整えてお届けします。</p>
+          <p class="pricing-modal__desc">印刷・ラミネート済みの英語メニューや注文ガイドを、店舗で扱いやすいサイズに整えて納品します。</p>
         </article>
         <article class="pricing-modal__card pricing-modal__card--qr">
-          <span class="pricing-modal__name">ライブQR英語メニュー</span>
+          <span class="pricing-modal__name">QR対応英語メニューページ</span>
           <span class="pricing-modal__price">65,000円</span>
-          <p class="pricing-modal__desc">英語注文ページ、QRコード、「Scan for English Menu」掲示用サインをまとめたプランです。</p>
+          <p class="pricing-modal__desc">英語メニューページ、QRコード、「Scan for English Menu」掲示用サインをまとめたプランです。</p>
         </article>
       </div>
-      <p class="pricing-modal__foot">納品前の店舗確認と修正1回を含みます。メニューの規模や追加対応がある場合は、別途お見積もりいたします。価格・アレルギー表記は店舗確認後のみ掲載します。</p>
+      <p class="pricing-modal__foot">納品前の内容確認と修正1回を含みます。メニューの規模や追加対応がある場合は、別途お見積もりいたします。価格・アレルギー表記は、店舗様による確認後のみ掲載します。</p>
     </div>
   </div>
 </div>
 
 <script>
 (function() {
-  /* ── Theme toggle ─ */
-  var html = document.documentElement;
-  html.setAttribute('data-theme', 'light');
-
-  document.getElementById('themeToggle').addEventListener('click', function() {
-    var current = html.getAttribute('data-theme');
-    var next = current === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-  });
-
   var pricingModal = document.getElementById('pricingModal');
   var pricingModalBtn = document.getElementById('pricingModalBtn');
   var pricingModalClose = document.getElementById('pricingModalClose');
@@ -1869,8 +1670,8 @@ a:focus-visible {
   /* ── Popover data ─ */
   var descriptions = {
     'english-menus': {
-      title: '英語注文資料',
-      body: '現在のメニュー内容に合わせて、見やすく分かりやすい英語の注文資料を制作します。',
+      title: '英語メニュー',
+      body: '現在お使いのメニュー内容に合わせて、料理・ドリンク・コース内容を分かりやすい英語表記で整理します。',
       color: '#2D8A4E'
     },
     'ticket-machine-guides': {
@@ -1880,22 +1681,22 @@ a:focus-visible {
     },
     'food-drink-layouts': {
       title: '料理・ドリンクのレイアウト',
-      body: '料理、ドリンク、セットメニュー、季節メニューなどに対応した片面・両面レイアウトを作成します。',
+      body: '片面・両面レイアウトに対応し、料理、ドリンク、コース、季節メニューなどを読みやすく整えます。',
       color: '#D4920B'
     },
     'print-ready-design': {
       title: '印刷用デザイン',
-      body: '印刷やラミネート加工に適した、実用的で見やすいデータを作成します。',
+      body: '印刷・ラミネート加工に適したデータを作成し、店内でそのまま使いやすい形に仕上げます。',
       color: '#0E7A8A'
     },
     'qr-signs': {
       title: 'QR案内サイン',
-      body: 'QRメニューには、卓上やカウンターに置ける「Scan for English Menu」案内サインを含めます。',
+      body: '必要に応じて、QRメニュー用の「Scan for English Menu」案内サインも作成します。',
       color: '#6B7BD8'
     },
     'customer-flow': {
-      title: 'スムーズな注文の流れ',
-      body: '海外のお客様が迷わず注文できるよう、分かりやすさと使いやすさを重視して制作します。',
+      title: '納品まで対応',
+      body: 'デザイン制作から印刷・ラミネート加工、店舗への納品まで対応可能です。',
       color: '#C74B3B'
     }
   };
