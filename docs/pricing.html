@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -45,21 +45,6 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --transition-fast: 150ms var(--ease-out);
   --transition-med: 300ms var(--ease-out);
-}
-
-[data-theme="dark"] {
-  --bg: #0C0C0B;
-  --surface: #151514;
-  --surface-elevated: #1A1A19;
-  --text: #F9F8F5;
-  --text-secondary: #D4D3CE;
-  --text-tertiary: #9D9C97;
-  --text-muted: #6E6D68;
-  --border: rgba(249, 248, 245, 0.08);
-  --border-strong: rgba(249, 248, 245, 0.14);
-  --cta-bg: #F9F8F5;
-  --cta-text: #0C0C0B;
-  --cta-hover: #E0DFDC;
 }
 
 html {
@@ -137,10 +122,6 @@ body::before {
   transition: background var(--transition-med);
 }
 
-[data-theme="dark"] .nav {
-  background: rgba(12, 12, 11, 0.7);
-}
-
 .nav__left {
   display: flex;
   align-items: center;
@@ -196,47 +177,6 @@ body::before {
   color: var(--text-muted);
   opacity: 0.4;
 }
-
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  padding: 0;
-  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.theme-toggle:hover {
-  background: var(--surface-elevated);
-  border-color: var(--border-strong);
-  transform: scale(1.05);
-}
-
-.theme-toggle svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: var(--text-tertiary);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: stroke var(--transition-fast);
-}
-
-.theme-toggle:hover svg {
-  stroke: var(--text-secondary);
-}
-
-.theme-toggle .icon-moon,
-.theme-toggle .icon-sun { display: none; }
-
-[data-theme="light"] .theme-toggle .icon-moon,
-[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 
 .nav__cta-group {
   display: flex;
@@ -560,11 +500,6 @@ a:focus-visible {
     font-size: 12px;
   }
 
-  .theme-toggle {
-    width: 44px;
-    height: 44px;
-  }
-
   .main {
     padding: 80px 16px 24px;
   }
@@ -633,22 +568,6 @@ a:focus-visible {
     </div>
   </div>
   <div class="nav__right">
-    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-      <svg class="icon-sun" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="5"/>
-        <line x1="12" y1="1" x2="12" y2="3"/>
-        <line x1="12" y1="21" x2="12" y2="23"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="1" y1="12" x2="3" y2="12"/>
-        <line x1="21" y1="12" x2="23" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <svg class="icon-moon" viewBox="0 0 24 24">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
     <a class="btn-cta" href="mailto:chris@webrefurb.com?subject=Request%20a%20free%20sample&body=Hi%20Chris%2C%0A%0AI%27d%20like%20to%20request%20a%20free%20sample%20English%20menu.%0A%0ARestaurant%20name%3A%20%0ALocation%3A%20%0A%0AThanks%2C">
       Request a free sample
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -705,18 +624,6 @@ a:focus-visible {
   </footer>
 
 </main>
-
-<script>
-(function() {
-  var html = document.documentElement;
-  html.setAttribute('data-theme', 'light');
-  document.getElementById('themeToggle').addEventListener('click', function() {
-    var current = html.getAttribute('data-theme');
-    var next = current === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-  });
-})();
-</script>
 
 </body>
 </html>
