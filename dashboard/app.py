@@ -101,7 +101,7 @@ def _dashboard_email_preview_html(
             _menu_template_for_profile(establishment_profile),
             business_name=business_name,
             stem="menu",
-        ) or _inline_preview_svg("English ordering sample", "Menu / Order Guide")
+        ) or _inline_preview_svg("English QR Menu demo", "Show Staff List")
         html_body = html_body.replace(f"cid:{MENU_CID}", menu_preview)
     if include_machine_image:
         html_body = html_body.replace(f"cid:{MACHINE_CID}", "")
@@ -270,12 +270,6 @@ DASHBOARD_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = DASHBOARD_ROOT.parent
 STATE_ROOT = Path(os.environ.get("WEBREFURB_STATE_ROOT", PROJECT_ROOT / "state")).resolve()
 QR_DOCS_ROOT = PROJECT_ROOT / "docs"
-
-
-def _dashboard_sample_docs_root() -> Path:
-    from pipeline.hosted_sample import default_sample_docs_root
-
-    return default_sample_docs_root(state_root=STATE_ROOT)
 
 
 def _dashboard_search_category_meta() -> dict[str, dict[str, str]]:
@@ -998,8 +992,6 @@ def _render_final_check_previews(
     preview_sources: list[tuple[str, Path]] = []
     if include_menu_image:
         preview_sources.append(("menu", _menu_template_for_profile(profile)))
-    if include_machine_image:
-        preview_sources.append(("machine", PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"))
 
     for kind, source in preview_sources:
         with tempfile.TemporaryDirectory(prefix=f"wrm-final-check-{kind}-") as tmp_dir:
@@ -1278,13 +1270,6 @@ def _send_readiness_for_record(
         menu_template = _menu_template_for_profile(profile["effective"])
         if not menu_template.exists():
             reasons.append("inline_menu_template_missing")
-    expected_machine = bool(default_email.get("include_machine_image"))
-    resolved_machine = checked.get("outreach_include_machine_image", expected_machine) if include_machine_image is None else include_machine_image
-    if expected_machine and not resolved_machine:
-        reasons.append("machine_inline_missing")
-    if expected_machine and not (PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html").exists():
-        reasons.append("machine_template_missing")
-
     if checked.get("outreach_status") in BLOCKED_SEND_STATUSES:
         reasons.append("already_contacted_or_blocked")
     if checked.get("lead_category") == "skip" or checked.get("lead") is not True:
@@ -1743,13 +1728,7 @@ async def dashboard_main(request: Request):
     leads = [
         _prepare_lead_for_dashboard(lead)
         for lead in list_leads(state_root=STATE_ROOT)
-        if (
-            lead.get("lead") is True
-            or (
-                lead.get("production_sim_fixture") is True
-                and lead.get("launch_readiness_status") == "disqualified"
-            )
-        )
+        if lead.get("lead") is True
         and (
             _restaurant_email_queue_record(lead)
             or lead.get("outreach_status", "new") not in BLOCKED_SEND_STATUSES
@@ -1758,10 +1737,6 @@ async def dashboard_main(request: Request):
         and (
             _restaurant_email_queue_record(lead)
             or _has_supported_contact_route(lead)
-            or (
-                lead.get("production_sim_fixture") is True
-                and lead.get("launch_readiness_status") in {"manual_review", "disqualified"}
-            )
         )
     ]
     leads = sorted(leads, key=_lead_queue_sort_key)
@@ -1846,63 +1821,6 @@ async def api_search_coverage():
     from pipeline.record import list_leads
     leads = list_leads(state_root=STATE_ROOT)
     return _compute_search_coverage(leads)
-
-
-@app.get("/api/launch-batches")
-async def api_launch_batches():
-    from pipeline.launch import list_launch_batches
-
-    return {"batches": list_launch_batches(state_root=STATE_ROOT)}
-
-
-@app.post("/api/launch-batches")
-async def api_create_launch_batch(request: Request):
-    from pipeline.launch import LaunchBatchError, create_launch_batch
-    from pipeline.launch_freeze import LaunchFreezeError
-
-    payload = await request.json()
-    try:
-        batch = create_launch_batch(
-            lead_ids=list(payload.get("lead_ids") or []),
-            state_root=STATE_ROOT,
-            notes=str(payload.get("notes") or ""),
-        )
-    except LaunchFreezeError as exc:
-        raise HTTPException(status_code=423, detail=f"launch_frozen:{exc}") from exc
-    except LaunchBatchError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-    return batch
-
-
-@app.post("/api/launch-batches/{batch_id}/review")
-async def api_review_launch_batch(batch_id: str, request: Request):
-    from pipeline.launch import LaunchBatchError, review_launch_batch
-
-    payload = await request.json()
-    try:
-        return review_launch_batch(
-            batch_id=batch_id,
-            state_root=STATE_ROOT,
-            notes=str(payload.get("notes") or ""),
-            iteration_decisions=(
-                payload.get("iteration_decisions")
-                if isinstance(payload.get("iteration_decisions"), dict)
-                else None
-            ),
-        )
-    except LaunchBatchError as exc:
-        raise HTTPException(status_code=404 if str(exc) == "batch_not_found" else 422, detail=str(exc))
-
-
-@app.post("/api/launch-batches/{batch_id}/leads/{lead_id}/outcome")
-async def api_record_launch_outcome(batch_id: str, lead_id: str, request: Request):
-    from pipeline.launch import LaunchBatchError, record_launch_outcome
-
-    payload = await request.json()
-    try:
-        return record_launch_outcome(batch_id=batch_id, lead_id=lead_id, state_root=STATE_ROOT, outcome=payload)
-    except LaunchBatchError as exc:
-        raise HTTPException(status_code=404 if "not_found" in str(exc) or "not_in_batch" in str(exc) else 422, detail=str(exc))
 
 
 @app.post("/api/send-batches")
@@ -2754,11 +2672,7 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
         "review_status_label": _dashboard_state_label(record.get("review_status"), default="Pending"),
         "message_variant": record.get("message_variant", ""),
         "sample_menu_url": sample_menu_url,
-        "hosted_menu_sample": sample_result or {
-            "sample_menu_url": sample_menu_url,
-            "published": record.get("hosted_menu_sample_status") == "published",
-            "path": record.get("hosted_menu_sample_path", ""),
-        },
+        "generic_demo": sample_result,
         "is_test_fixture": bool(test_fixture_label),
         "test_fixture_label": test_fixture_label,
     }
@@ -3104,10 +3018,6 @@ async def _send_lead_email_payload(
         if not menu_html.exists():
             raise HTTPException(status_code=400, detail="Required menu preview image source file not found")
 
-    machine_html = None
-    if include_machine_image:
-        machine_html = PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"
-
     try:
         result = await _send_email_resend(
             to=to_email,
@@ -3115,7 +3025,7 @@ async def _send_lead_email_payload(
             body=email_body,
             attachments=asset_paths,
             menu_html_path=str(menu_html) if menu_html and menu_html.exists() else None,
-            machine_html_path=str(machine_html) if machine_html and machine_html.exists() else None,
+            machine_html_path=None,
             include_menu_image=include_menu_image,
             include_machine_image=include_machine_image,
             business_name=business_name,
@@ -4474,73 +4384,6 @@ async def api_qr_health(menu_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Background build runner
-# ---------------------------------------------------------------------------
-
-async def _run_build_job(job_id: str, meta: dict[str, Any]) -> None:
-    """Execute a custom build job in the background."""
-    try:
-        from pipeline.custom_build import run_custom_build
-        from pipeline.models import CustomBuildInput
-        import concurrent.futures
-
-        build_input = CustomBuildInput(
-            restaurant_name=meta["restaurant_name"],
-            menu_items_text=meta.get("menu_text", ""),
-            menu_photo_paths=meta.get("photo_paths", []),
-            ticket_machine_photo_path=meta.get("ticket_path"),
-            notes=meta.get("notes", ""),
-        )
-
-        output_dir = STATE_ROOT / "builds" / job_id
-
-        # run_custom_build uses asyncio.run() internally, so it must run
-        # in a thread to avoid "cannot be called from a running event loop"
-        loop = asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            result = await loop.run_in_executor(
-                pool,
-                lambda: run_custom_build(build_input, output_dir=output_dir),
-            )
-
-        from pipeline.package_export import (
-            REVIEW_STATUS_PENDING,
-            validate_package_output,
-        )
-
-        meta["status"] = "ready_for_review"
-        meta["review_status"] = REVIEW_STATUS_PENDING
-        meta["final_export_status"] = ""
-        meta["output_dir"] = str(result.output_dir)
-        meta["artifacts"] = {
-            "food_pdf": str(result.food_pdf) if result.food_pdf else "",
-            "drinks_pdf": str(result.drinks_pdf) if result.drinks_pdf else "",
-            "combined_pdf": str(result.combined_pdf) if result.combined_pdf else "",
-            "ticket_machine_pdf": str(result.ticket_machine_pdf) if result.ticket_machine_pdf else "",
-            "menu_json": str(result.menu_json) if result.menu_json else "",
-        }
-        meta["package_validation"] = validate_package_output(
-            output_dir=result.output_dir,
-            package_key=meta.get("package_key", ""),
-        )
-        meta["completed_at"] = datetime.now(timezone.utc).isoformat()
-        meta.setdefault("status_history", []).append({
-            "status": "ready_for_review",
-            "timestamp": meta["completed_at"],
-        })
-        _log("build_ready_for_review", lead_id=job_id)
-
-    except Exception as exc:
-        meta["status"] = "failed"
-        meta["error"] = str(exc)
-        _log("build_failed", str(exc)[:200], lead_id=job_id)
-
-    # Persist updated meta
-    from pipeline.utils import write_json
-    write_json(STATE_ROOT / "jobs" / f"{job_id}.json", meta)
-
-
-# ---------------------------------------------------------------------------
 # Email sending via Resend
 # ---------------------------------------------------------------------------
 
@@ -4638,9 +4481,7 @@ def _personalised_email_html(source_path: str | None, business_name: str, tmp_di
         return None
     html_text = source.read_text(encoding="utf-8")
     if business_name:
-        from pipeline.render import replace_seal_text
-
-        html_text = replace_seal_text(html_text, business_name)
+        html_text = html_text.replace('data-slot="seal-text">見本<', f'data-slot="seal-text">{business_name}<')
     output = Path(tmp_dir) / f"{stem}.html"
     output.write_text(html_text, encoding="utf-8")
     return str(output)

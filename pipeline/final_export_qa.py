@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .export import is_valid_pdf
+from .pdf_export import is_valid_pdf
 from .constants import ENGLISH_QR_MENU_KEY, LEGACY_PACKAGE_KEY_MAP
-from .render import validate_rendered_html
 from .utils import write_json
 
 EXPORT_QA_VERSION = "2026-05-run7"
@@ -218,6 +217,17 @@ def validate_visual_artifacts(paths: list[Path]) -> dict[str, Any]:
         }
         results.append({"path": str(path), "ok": all(checks.values()), "checks": checks, "errors": errors})
     return {"ok": all(item["ok"] for item in results), "artifacts": results}
+
+
+def validate_rendered_html(html_text: str) -> list[str]:
+    """Small HTML sanity check for exported QR artifacts."""
+    errors: list[str] = []
+    lowered = html_text.lower()
+    if "<html" not in lowered:
+        errors.append("html_document_missing")
+    if "src=\"\"" in lowered or "href=\"\"" in lowered:
+        errors.append("empty_asset_reference")
+    return errors
 
 
 def validate_zip_package(

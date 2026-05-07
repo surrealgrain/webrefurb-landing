@@ -118,7 +118,6 @@ def print_state_summary() -> None:
     print(f"  orders: {count_files(state / 'orders', '*.json')}")
     print(f"  sent records: {count_files(state / 'sent', '*.json')}")
     print(f"  incoming replies: {count_files(state / 'incoming_replies', '*.json')}")
-    print(f"  launch batches: {count_files(state / 'launch_batches', '*.json')}")
     print(f"  email discovery sqlite: {'present' if (state / 'email_discovery.db').exists() else 'not present'}")
     print(f"  QR/static menu files: {count_files(ROOT / 'docs' / 'menus', '**/*')}")
 

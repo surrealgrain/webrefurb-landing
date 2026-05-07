@@ -10,24 +10,18 @@ from pathlib import Path
 from typing import Any
 
 from .business_name import business_name_is_suspicious
-from .constants import ENGLISH_QR_MENU_KEY, OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE, PROJECT_ROOT
+from .constants import ENGLISH_QR_MENU_KEY, PROJECT_ROOT
 from .lead_dossier import migrate_lead_record, record_explicitly_not_japan
 from .operator_state import apply_operator_state
 from .record import authoritative_business_name
 from .scoring import recommend_package_details_for_record
 
 STATE_ROOT = PROJECT_ROOT / "state"
-TEMPLATES_ROOT = PROJECT_ROOT / "assets" / "templates"
-RAMEN_MENU_TEMPLATE = TEMPLATES_ROOT / "ramen_food_menu.html"
-IZAKAYA_MENU_TEMPLATE = TEMPLATES_ROOT / "izakaya_food_menu.html"
-IZAKAYA_FOOD_DRINKS_TEMPLATE = TEMPLATES_ROOT / "izakaya_food_drinks_menu.html"
-TICKET_MACHINE_TEMPLATE = TEMPLATES_ROOT / "ticket_machine_guide.html"
 
 BLOCKED_ASSET_PATTERNS = (
     "state/builds",
     "phase10-sample-",
     "glm_menu_template",
-    "ticket_machine_guide_template",
     "food_menu_print_ready",
     "restaurant_menu_print_ready",
     "locked_food_menu",
@@ -175,9 +169,6 @@ def audit_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any]
         _audit_saved_outreach_copy(record, path, lead_id, findings)
         _audit_current_ready_safety(record, path, lead_id, findings)
         _audit_approved_scope_integrity(record, path, lead_id, findings)
-
-    checked += _audit_launch_proof_assets(root / "launch_smoke_tests", lead_records, findings)
-    checked += _audit_launch_proof_assets(root / "launch_batches", lead_records, findings)
 
     return {
         "ok": not findings,
@@ -335,9 +326,6 @@ def repair_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any
             if readiness_change:
                 item["readiness_change"] = readiness_change
             repaired.append(item)
-
-    repaired.extend(_repair_launch_proof_assets(root / "launch_smoke_tests", lead_records))
-    repaired.extend(_repair_launch_proof_assets(root / "launch_batches", lead_records))
 
     audit = audit_state_leads(state_root=root)
     audit["repaired"] = repaired
@@ -644,6 +632,12 @@ def _audit_outreach_assets(record: dict[str, Any], path: Path, lead_id: str, fin
     for asset in assets:
         lower = asset.lower()
         blocked = [pattern for pattern in BLOCKED_ASSET_PATTERNS if pattern in lower]
+        findings.append(_finding(
+            path,
+            lead_id,
+            "first_contact_attachments_not_supported",
+            f"asset={asset!r}",
+        ))
         if blocked:
             findings.append(_finding(
                 path,
@@ -651,22 +645,12 @@ def _audit_outreach_assets(record: dict[str, Any], path: Path, lead_id: str, fin
                 "legacy_or_cream_asset_reference",
                 f"asset={asset!r} matched={blocked}",
             ))
-        if "assets/templates" not in asset:
-            findings.append(_finding(
-                path,
-                lead_id,
-                "asset_not_from_dark_template_directory",
-                f"asset={asset!r}",
-            ))
         if not Path(asset).exists():
             findings.append(_finding(path, lead_id, "asset_file_missing", f"asset={asset!r}"))
 
 
 def _audit_draft_asset_consistency(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
     assets = [str(asset) for asset in record.get("outreach_assets_selected") or []]
-    profile = str(record.get("establishment_profile") or "").lower()
-    category = str(record.get("primary_category_v1") or record.get("category") or "").lower()
-
     if not assets and _record_mentions_attached_sample(record):
         findings.append(_finding(
             path,
@@ -674,16 +658,6 @@ def _audit_draft_asset_consistency(record: dict[str, Any], path: Path, lead_id: 
             "draft_mentions_attachment_without_assets",
             "saved outreach draft references an attached/reference sample but no sample assets are selected",
         ))
-
-    if "izakaya" in profile or category == "izakaya":
-        food_only = str(IZAKAYA_MENU_TEMPLATE)
-        if food_only in assets:
-            findings.append(_finding(
-                path,
-                lead_id,
-                "izakaya_food_drinks_claim_uses_food_only_template",
-                f"asset={food_only!r}; use {str(IZAKAYA_FOOD_DRINKS_TEMPLATE)!r}",
-            ))
 
 
 def _audit_saved_outreach_copy(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
@@ -958,87 +932,6 @@ def _primary_contact_type(record: dict[str, Any]) -> str:
         if isinstance(contact, dict) and contact.get("actionable") is True:
             return str(contact.get("type") or "").strip().lower()
     return ""
-
-
-def _audit_launch_proof_assets(
-    directory: Path,
-    lead_records: dict[str, dict[str, Any]],
-    findings: list[dict[str, Any]],
-) -> int:
-    checked = 0
-    for path in sorted(directory.glob("*.json")):
-        checked += 1
-        try:
-            record = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            findings.append(_finding(path, "", "invalid_json", str(exc)))
-            continue
-        for lead in record.get("leads") or []:
-            lead_id = str(lead.get("lead_id") or "")
-            proof_asset = str(lead.get("proof_asset") or "")
-            expected = _expected_primary_proof_asset(lead_records, lead_id)
-            if proof_asset != expected:
-                findings.append(_finding(
-                    path,
-                    lead_id,
-                    "launch_proof_asset_does_not_match_dark_profile",
-                    f"expected={expected!r} actual={proof_asset!r}",
-                ))
-            if proof_asset:
-                _audit_asset_value(path, lead_id, proof_asset, findings)
-    return checked
-
-
-def _repair_launch_proof_assets(directory: Path, lead_records: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    repaired: list[dict[str, Any]] = []
-    for path in sorted(directory.glob("*.json")):
-        try:
-            record = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        changed_leads: list[str] = []
-        for lead in record.get("leads") or []:
-            lead_id = str(lead.get("lead_id") or "")
-            expected = _expected_primary_proof_asset(lead_records, lead_id)
-            if lead.get("proof_asset") != expected:
-                lead["proof_asset"] = expected
-                changed_leads.append(lead_id)
-        if changed_leads:
-            record["state_audit_repaired_at"] = "2026-04-29T00:00:00+00:00"
-            path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            repaired.append({
-                "lead_id": ",".join(changed_leads),
-                "file": str(path),
-                "changes": ["launch_proof_asset"],
-            })
-    return repaired
-
-
-def _expected_primary_proof_asset(lead_records: dict[str, dict[str, Any]], lead_id: str) -> str:
-    lead = lead_records.get(lead_id) or {}
-    assets = expected_dark_assets(lead)
-    return assets[0] if assets else ""
-
-
-def _audit_asset_value(path: Path, lead_id: str, asset: str, findings: list[dict[str, Any]]) -> None:
-    lower = asset.lower()
-    blocked = [pattern for pattern in BLOCKED_ASSET_PATTERNS if pattern in lower]
-    if blocked:
-        findings.append(_finding(
-            path,
-            lead_id,
-            "legacy_or_cream_asset_reference",
-            f"asset={asset!r} matched={blocked}",
-        ))
-    if "assets/templates" not in asset:
-        findings.append(_finding(
-            path,
-            lead_id,
-            "asset_not_from_dark_template_directory",
-            f"asset={asset!r}",
-        ))
-    if not Path(asset).exists():
-        findings.append(_finding(path, lead_id, "asset_file_missing", f"asset={asset!r}"))
 
 
 def _finding(path: Path, lead_id: str, code: str, detail: str) -> dict[str, Any]:

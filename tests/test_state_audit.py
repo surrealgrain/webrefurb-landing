@@ -241,29 +241,31 @@ def test_repair_state_leads_migrates_stale_ready_branch_and_clears_samples(tmp_p
     )
 
 
-def test_state_audit_rejects_legacy_cream_assets(tmp_path):
+def test_state_audit_rejects_retired_first_contact_assets(tmp_path):
+    attachment = tmp_path / "retired-first-contact-sample.pdf"
+    attachment.write_text("retired", encoding="utf-8")
     _write_lead(
         tmp_path,
-        outreach_assets_selected=[
-            str(PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf")
-        ],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
 
     assert result["ok"] is False
-    assert "legacy_or_cream_asset_reference" in _codes(result)
     assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
+    assert "first_contact_attachments_not_supported" in _codes(result)
 
 
-def test_state_audit_rejects_wrong_profile_template(tmp_path):
+def test_state_audit_rejects_any_first_contact_attachment_for_qualified_lead(tmp_path):
+    attachment = tmp_path / "wrong-first-contact-sample.pdf"
+    attachment.write_text("retired", encoding="utf-8")
     _write_lead(
         tmp_path,
         primary_category_v1="izakaya",
         establishment_profile="izakaya_drink_heavy",
         outreach_classification="menu_only",
         machine_evidence_found=False,
-        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html")],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
@@ -273,11 +275,13 @@ def test_state_audit_rejects_wrong_profile_template(tmp_path):
 
 
 def test_state_audit_rejects_dnc_records_with_assets(tmp_path):
+    attachment = tmp_path / "blocked-contact-sample.pdf"
+    attachment.write_text("retired", encoding="utf-8")
     _write_lead(
         tmp_path,
         outreach_status="do_not_contact",
         launch_readiness_status="disqualified",
-        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html")],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
@@ -352,42 +356,19 @@ def test_expected_dark_assets_maps_profiles():
     }) == []
 
 
-def test_izakaya_dark_template_does_not_show_ramen_menu_items():
-    html = (PROJECT_ROOT / "assets" / "templates" / "izakaya_food_drinks_menu.html").read_text(encoding="utf-8")
-
-    assert "Food &amp; Drinks" in html
-    assert "Drinks" in html
-    assert "Soy Sauce Ramen" not in html
-    assert "Creamy Chicken Broth Ramen" not in html
-    assert "醤油ラーメン" not in html
-
-
-def test_izakaya_food_drinks_template_contains_drinks_and_rules():
-    html = (PROJECT_ROOT / "assets" / "templates" / "izakaya_food_drinks_menu.html").read_text(encoding="utf-8")
-
-    assert "Food &amp; Drinks" in html
-    assert "Drinks" in html
-    assert "Nomihodai" not in html
-    assert "Course Flow" not in html
-    assert "data-slot=\"seal-text\"" in html
-    assert "Creamy Chicken Broth Ramen" not in html
-
-
-def test_state_audit_rejects_izakaya_food_only_template_when_claiming_food_drinks(tmp_path):
+def test_state_audit_rejects_first_contact_attachments(tmp_path):
+    attachment = tmp_path / "first-contact-sample.pdf"
+    attachment.write_text("not used by QR-first outreach", encoding="utf-8")
     _write_lead(
         tmp_path,
-        primary_category_v1="izakaya",
-        establishment_profile="izakaya_drink_heavy",
-        outreach_classification="menu_only",
-        machine_evidence_found=False,
-        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html")],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
 
     assert result["ok"] is False
     assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
-    assert "izakaya_food_drinks_claim_uses_food_only_template" in _codes(result)
+    assert "first_contact_attachments_not_supported" in _codes(result)
 
 
 def test_state_audit_rejects_saved_draft_claiming_attachment_without_assets(tmp_path):
@@ -533,9 +514,7 @@ def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
         locked_business_name="青空ラーメン",
         business_name_locked=True,
         outreach_draft_body="QA Phase10 Ramen ご担当者様\n\n本文",
-        outreach_assets_selected=[
-            str(PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf")
-        ],
+        outreach_assets_selected=[str(tmp_path / "retired-first-contact-sample.pdf")],
     )
 
     result = repair_state_leads(state_root=tmp_path)
@@ -547,45 +526,6 @@ def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
     assert repaired["outreach_draft_body"] in {"", None}
     assert repaired["outreach_status"] == "needs_review"
     assert repaired["outreach_assets_selected"] == []
-
-
-def test_state_audit_rejects_legacy_launch_smoke_proof_asset(tmp_path):
-    lead = _write_lead(tmp_path)
-    smoke_dir = tmp_path / "launch_smoke_tests"
-    smoke_dir.mkdir()
-    (smoke_dir / "smoke-test.json").write_text(json.dumps({
-        "smoke_test_id": "smoke-test",
-        "leads": [{
-            "lead_id": lead["lead_id"],
-            "proof_asset": str(PROJECT_ROOT / "state" / "qa-screenshots" / "phase10-sample-ramen-preview-desktop.png"),
-        }],
-    }), encoding="utf-8")
-
-    result = audit_state_leads(state_root=tmp_path)
-
-    assert result["ok"] is False
-    assert "launch_proof_asset_does_not_match_dark_profile" in _codes(result)
-    assert "legacy_or_cream_asset_reference" in _codes(result)
-
-
-def test_repair_state_leads_updates_launch_smoke_proof_asset(tmp_path):
-    lead = _write_lead(tmp_path)
-    smoke_dir = tmp_path / "launch_smoke_tests"
-    smoke_dir.mkdir()
-    smoke_path = smoke_dir / "smoke-test.json"
-    smoke_path.write_text(json.dumps({
-        "smoke_test_id": "smoke-test",
-        "leads": [{
-            "lead_id": lead["lead_id"],
-            "proof_asset": str(PROJECT_ROOT / "state" / "qa-screenshots" / "phase10-sample-ramen-preview-desktop.png"),
-        }],
-    }), encoding="utf-8")
-
-    result = repair_state_leads(state_root=tmp_path)
-    repaired_smoke = json.loads(smoke_path.read_text(encoding="utf-8"))
-
-    assert result["ok"] is True
-    assert repaired_smoke["leads"][0]["proof_asset"] == ""
 
 
 def test_repository_state_audit_has_no_findings():

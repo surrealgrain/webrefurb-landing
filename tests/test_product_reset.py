@@ -105,7 +105,6 @@ def test_no_stale_sample_or_old_package_language_in_active_outbound_paths():
         PROJECT_ROOT / "pipeline" / "outreach.py",
         PROJECT_ROOT / "pipeline" / "email_templates.py",
         PROJECT_ROOT / "pipeline" / "pitch.py",
-        PROJECT_ROOT / "pipeline" / "hosted_sample.py",
         PROJECT_ROOT / "dashboard" / "templates" / "index.html",
         PROJECT_ROOT / "docs" / "index.html",
         PROJECT_ROOT / "docs" / "pricing.html",

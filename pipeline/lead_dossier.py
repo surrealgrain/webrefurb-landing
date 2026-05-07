@@ -275,11 +275,6 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
 
     if not _has_supported_contact(record):
         reasons.append("no_supported_contact_route")
-    if (
-        _primary_supported_contact_type(record) == "contact_form"
-        and str(record.get("hosted_menu_sample_status") or "") == "publish_failed"
-    ):
-        reasons.append("hosted_sample_publish_failed")
     if not any(item.get("customer_preview_eligible") for item in proof_items):
         reasons.append("no_customer_safe_proof_item")
     if _record_contains_bad_preview(record) or record.get("legacy_pitch_blocked_reason"):

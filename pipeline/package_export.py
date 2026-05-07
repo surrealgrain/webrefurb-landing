@@ -14,7 +14,7 @@ from .constants import (
     ENGLISH_QR_MENU_KEY,
     PACKAGE_REGISTRY,
 )
-from .export import is_valid_pdf
+from .pdf_export import is_valid_pdf
 from .final_export_qa import artifact_entry, package_manifest, sha256_file, write_export_qa_report
 from .utils import ensure_dir, write_json, write_text
 

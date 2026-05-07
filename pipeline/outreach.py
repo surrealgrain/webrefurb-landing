@@ -109,34 +109,14 @@ def describe_outreach_assets(
     """Return operator-facing labels and rationale for selected sample files."""
     situation = _determine_situation(classification, establishment_profile)
     profile_plan = _profile_asset_plan(situation)
-    menu_sample = _menu_sample_for_profile(establishment_profile, classification)
     described_assets: list[dict[str, str]] = []
 
     for path in assets:
-        if path == GENERIC_MACHINE_PDF:
-            described_assets.append(
-                {
-                    "path": str(path),
-                    "label": "Ticket Machine Guide Sample",
-                    "kind": "machine",
-                }
-            )
-        elif menu_sample is not None and path == menu_sample:
-            described_assets.append(
-                {
-                    "path": str(path),
-                    "label": profile_plan["menu_label"],
-                    "kind": "menu",
-                }
-            )
-        else:
-            described_assets.append(
-                {
-                    "path": str(path),
-                    "label": "English Menu Sample",
-                    "kind": "menu",
-                }
-            )
+        described_assets.append({
+            "path": str(path),
+            "label": "Retired first-contact attachment",
+            "kind": "retired",
+        })
 
     return {
         "strategy_label": profile_plan["strategy_label"],
@@ -327,10 +307,6 @@ def _contact_form_body(*, sample_menu_url: str = "", sender_name: str = "Chris�
         "どうぞよろしくお願いいたします。",
         sender_name,
     ])
-
-
-def _menu_sample_for_profile(establishment_profile: str, classification: str) -> Path | None:
-    return None
 
 
 def _profile_asset_plan(situation: str) -> dict[str, str]:

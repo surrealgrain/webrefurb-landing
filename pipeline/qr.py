@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from .constants import ENGLISH_QR_MENU_KEY, ENGLISH_QR_MENU_LABEL, ENGLISH_QR_MENU_PRICE_YEN
-from .export import PrintProfile, html_to_pdf_sync, is_valid_pdf
+from .pdf_export import PrintProfile, html_to_pdf_sync, is_valid_pdf
 from .final_export_qa import artifact_entry, package_manifest, write_export_qa_report
 from .utils import ensure_dir, slugify, write_json, write_text
 

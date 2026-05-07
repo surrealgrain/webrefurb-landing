@@ -23,11 +23,10 @@ Startup read path: `AGENTS.md` -> `HANDOFF.codex.md` only.
 - Dashboard simplified around active category, active product, generic demo, QR draft/review actions.
 
 ## Validation
-- Focused reset suite passed: `tests/test_qr.py tests/test_outreach.py tests/test_website.py tests/test_search_scope.py tests/test_scoring.py tests/test_state_audit.py`.
-- Full remaining suite after legacy cleanup: `.venv/bin/python -m pytest tests/ -q` -> 389 passed.
-- State audit passed: `.venv/bin/python -m pipeline.cli audit-state`.
+- Full remaining suite after bloat cleanup: `.venv/bin/python -m pytest tests/ -q` -> 370 passed.
+- State audit passed: `.venv/bin/python -m pipeline.cli audit-state` -> `ok: true`.
 
 ## Caveats
-- Legacy product tests and old generated package artifacts were removed because they encoded the retired print/design/template system.
+- Legacy product tests, old generated package artifacts, old sample templates, and old simulation/review command modules were removed because they encoded the retired print/design/template system.
 - Existing lead state is QR-reset audited: old drafts/manual-review are blocked; no real-send path is enabled.
 - Keep future cleanup scoped to QR menu, generic demo, send safety, state audit, and owner-confirmed publish/export paths.
