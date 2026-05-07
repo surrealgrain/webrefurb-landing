@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .constants import (
-    PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY, PACKAGE_A_KEY, PACKAGE_B_KEY,
+    ENGLISH_QR_MENU_KEY,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MACHINE_MAPPING,
     LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE,
@@ -212,85 +212,25 @@ def recommend_package_details(
     tourist_exposure_score: float,
     lead_score_v1: int,
 ) -> dict[str, str]:
-    """Recommend a package plus the audit-required reason fields."""
+    """Recommend the single active product plus audit-required reason fields."""
+    category = str(category or "").strip().lower()
     if not english_menu_issue:
         return {
             "package_key": "none",
-            "recommendation_reason": "no_english_ordering_gap",
+            "recommendation_reason": "no_english_qr_menu_gap",
             "custom_quote_reason": "",
         }
 
-    if menu_complexity_state == "large_custom_quote":
+    if category not in {"ramen", "izakaya"}:
         return {
-            "package_key": "custom_quote",
-            "recommendation_reason": "large_or_complex_menu_requires_manual_quote",
-            "custom_quote_reason": "large_or_complex_menu_requires_manual_quote",
-        }
-
-    if category == "izakaya" and izakaya_rules_state in {"drinks_found", "courses_found", "nomihodai_found"}:
-        if stable_table_menus:
-            return {
-                "package_key": PACKAGE_2_KEY,
-                "recommendation_reason": "stable_izakaya_table_menu_needs_staff_explanation_support",
-                "custom_quote_reason": "",
-            }
-        if frequent_updates_expected is None:
-            frequent_updates_expected = izakaya_rules_state in {"courses_found", "nomihodai_found"}
-        if frequent_updates_expected:
-            return {
-                "package_key": PACKAGE_3_KEY,
-                "recommendation_reason": "izakaya_drink_course_rules_likely_need_live_updates",
-                "custom_quote_reason": "",
-            }
-        return {
-            "package_key": PACKAGE_2_KEY,
-            "recommendation_reason": "izakaya_drink_or_course_menu_fits_counter_ready_print",
-            "custom_quote_reason": "",
-        }
-
-    if category == "izakaya":
-        return {
-            "package_key": PACKAGE_2_KEY if counter_ready_need or menu_complexity_state == "medium" else PACKAGE_1_KEY,
-            "recommendation_reason": "izakaya_menu_needs_ordering_materials_without_live_update_signal",
-            "custom_quote_reason": "",
-        }
-
-    if machine_evidence_found:
-        if print_yourself_fit:
-            return {
-                "package_key": PACKAGE_1_KEY,
-                "recommendation_reason": "ramen_ticket_machine_with_clear_print_yourself_fit",
-                "custom_quote_reason": "",
-            }
-        return {
-            "package_key": PACKAGE_2_KEY,
-            "recommendation_reason": "ramen_ticket_machine_needs_counter_ready_mapping",
-            "custom_quote_reason": "",
-        }
-
-    if category == "ramen":
-        if counter_ready_need or menu_complexity_state == "medium":
-            return {
-                "package_key": PACKAGE_2_KEY,
-                "recommendation_reason": "ramen_without_machine_but_counter_ready_materials_fit",
-                "custom_quote_reason": "",
-            }
-        return {
-            "package_key": PACKAGE_1_KEY,
-            "recommendation_reason": "simple_ramen_menu_fits_english_ordering_files",
-            "custom_quote_reason": "",
-        }
-
-    if counter_ready_need or tourist_exposure_score >= 0.65 or lead_score_v1 >= 70 or menu_complexity_state == "medium":
-        return {
-            "package_key": PACKAGE_2_KEY,
-            "recommendation_reason": "ramen_without_machine_but_counter_ready_materials_fit",
+            "package_key": "skip",
+            "recommendation_reason": "unsupported_restaurant_category_outside_active_scope",
             "custom_quote_reason": "",
         }
 
     return {
-        "package_key": PACKAGE_1_KEY,
-        "recommendation_reason": "simple_ramen_menu_fits_english_ordering_files",
+        "package_key": ENGLISH_QR_MENU_KEY,
+        "recommendation_reason": f"{category}_english_qr_menu_show_staff_list_fit",
         "custom_quote_reason": "",
     }
 
@@ -299,7 +239,13 @@ def recommend_package_details_for_record(record: dict[str, Any]) -> dict[str, st
     """Re-score a persisted/imported lead through the current package rules."""
     category = str(record.get("primary_category_v1") or record.get("category") or "").strip().lower()
     if category not in {"ramen", "izakaya"}:
-        category = "izakaya" if _record_text(record).find("居酒屋") >= 0 else "ramen"
+        text = _record_text(record)
+        if "居酒屋" in text or "izakaya" in text:
+            category = "izakaya"
+        elif "ラーメン" in text or "ramen" in text:
+            category = "ramen"
+        else:
+            category = "skip"
 
     menu_complexity_state = str(record.get("menu_complexity_state") or "").strip() or (
         "medium" if category == "izakaya" else "simple"
@@ -310,7 +256,7 @@ def recommend_package_details_for_record(record: dict[str, Any]) -> dict[str, st
 
     return recommend_package_details(
         category=category,
-        english_menu_issue=bool(record.get("english_menu_issue", True)),
+        english_menu_issue=_effective_english_menu_issue_for_record(record),
         machine_evidence_found=bool(record.get("machine_evidence_found") or _has_any_token(record, ("券売機", "食券", "ticket_machine"))),
         menu_complexity_state=menu_complexity_state,
         izakaya_rules_state=izakaya_rules_state,
@@ -325,6 +271,29 @@ def recommend_package_details_for_record(record: dict[str, Any]) -> dict[str, st
         tourist_exposure_score=_float_value(record.get("tourist_exposure_score")),
         lead_score_v1=_int_value(record.get("lead_score_v1")),
     )
+
+
+def _effective_english_menu_issue_for_record(record: dict[str, Any]) -> bool:
+    """Treat unknown English support as a package opportunity for valid leads.
+
+    Explicitly usable English ordering support is still a disqualifying signal
+    elsewhere. For persisted lead repair, a false boolean often means "not
+    proven from available public evidence", not "already solved".
+    """
+    availability = str(record.get("english_availability") or "").strip()
+    reasons = {str(reason) for reason in record.get("launch_readiness_reasons") or []}
+    if (
+        availability in {"clear_usable", "usable_complete"}
+        or record.get("rejection_reason") == "already_has_good_english_menu"
+        or "already_has_usable_english_solution" in reasons
+        or "multilingual_qr_or_ordering_solution_present" in reasons
+    ):
+        return False
+    if record.get("english_menu_issue") is True:
+        return True
+    if record.get("lead") is True:
+        return True
+    return bool(record.get("english_menu_issue", True))
 
 
 def _record_text(record: dict[str, Any]) -> str:

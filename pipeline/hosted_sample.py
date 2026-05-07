@@ -7,7 +7,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from .constants import PROJECT_ROOT
+from .constants import GENERIC_DEMO_URL, PROJECT_ROOT
 from .lead_dossier import safe_customer_snippets
 from .models import EvidenceAssessment
 from .preview import build_preview_menu
@@ -46,7 +46,7 @@ def ensure_hosted_menu_sample(
     base_url: str | None = None,
     dry_run: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Ensure a lead has a stable hosted sample URL and, unless dry-run, page."""
+    """Legacy-only hosted preview helper for manually approved post-reply work."""
     updated = dict(record)
     token = _existing_or_new_token(updated)
     url = f"{public_base_url(base_url)}/s/{token}"
@@ -302,12 +302,12 @@ li {{ margin: 6px 0; }}
 <main>
   <div class="brand">
     <span>WebRefurb</span>
-    <span>English menu sample</span>
+    <span>English QR Menu preview</span>
   </div>
 
   <section class="intro">
     <h1>{escape(business_name)}</h1>
-    <p class="lead">公開されているメニュー情報をもとに、海外のお客様にも伝わりやすい英語メニュー改善のサンプルを1枚作成しました。</p>
+    <p class="lead">これは手動確認後のプレビュー用ページです。初回のご案内では、店舗別ページではなく汎用デモをご案内します。</p>
   </section>
 
   <section class="sample-card" aria-label="Sample English menu">
@@ -325,10 +325,10 @@ li {{ margin: 6px 0; }}
   </section>
 
   <section class="cta">
-    <p>ご興味があれば、このお問い合わせフォームへの返信でご連絡ください。</p>
+    <p>初回案内用の汎用デモ：<a href="{escape(GENERIC_DEMO_URL)}">{escape(GENERIC_DEMO_URL)}</a></p>
   </section>
 
-  <p class="disclaimer">このページは公開リストには掲載していません。実際の制作では、店舗様からいただく最新のメニュー写真をもとに内容を確認して作成します。</p>
+  <p class="disclaimer">このページは公開リストには掲載していません。価格、説明、原材料、アレルギー情報は店舗様の確認がある場合のみ公開します。</p>
 </main>
 </body>
 </html>

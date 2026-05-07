@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generic Demo - English QR Menu</title>
+<meta name="description" content="Generic demo of an English QR Menu with Add to list and Show Staff List.">
+<style>
+:root { --ink:#171717; --muted:#62676d; --line:#ded8cd; --paper:#fbfaf6; --panel:#fff; --accent:#b82f2f; --teal:#0f766e; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); }
+button { font:inherit; }
+.app { max-width:520px; margin:0 auto; min-height:100vh; background:#fffdf8; border-left:1px solid var(--line); border-right:1px solid var(--line); }
+.top { position:sticky; top:0; z-index:4; background:#fffdf8; border-bottom:1px solid var(--line); padding:14px 16px 12px; }
+.demo-label { color:var(--accent); font-weight:850; text-transform:uppercase; letter-spacing:.11em; font-size:12px; }
+h1 { margin:6px 0 4px; font-size:28px; letter-spacing:0; }
+.top p { margin:0; color:var(--muted); font-size:14px; line-height:1.45; }
+.tabs { display:flex; gap:8px; overflow:auto; padding:12px 16px 4px; }
+.tab { border:1px solid var(--line); background:#fff; border-radius:999px; padding:8px 12px; white-space:nowrap; color:#333; }
+.tab.is-active { background:#171717; color:#fff; border-color:#171717; }
+.menu { padding:10px 16px 120px; display:grid; gap:16px; }
+.section-title { margin:18px 0 0; font-size:13px; text-transform:uppercase; color:var(--muted); letter-spacing:.09em; font-weight:850; }
+.item { border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; }
+.photo { min-height:132px; display:grid; place-items:center; color:#fff; font-weight:850; letter-spacing:.04em; background:#70382f url("../assets/previews/simple-ramen-menu.png") center / cover no-repeat; }
+.photo.izakaya { background:#294746 url("../assets/previews/izakaya-food-drinks.png") center / cover no-repeat; }
+.body { padding:14px; }
+.names { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+.en { font-size:19px; font-weight:850; line-height:1.2; }
+.ja { color:var(--muted); font-size:13px; margin-top:4px; }
+.price { color:#2f302f; font-weight:800; white-space:nowrap; }
+.desc { color:#4d5258; line-height:1.45; margin:10px 0; font-size:14px; }
+.meta { display:grid; gap:5px; margin:10px 0 12px; color:#596067; font-size:13px; }
+.tags { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+.tag { border:1px solid var(--line); border-radius:999px; padding:4px 8px; color:#3f4449; background:#fbfaf6; font-size:12px; }
+.option { margin-top:10px; display:grid; gap:7px; }
+.option label { font-size:12px; color:#5d6268; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.option select { min-height:38px; border:1px solid var(--line); border-radius:6px; background:#fff; padding:0 10px; color:#242629; }
+.add { width:100%; min-height:42px; border:0; border-radius:6px; background:var(--teal); color:#fff; font-weight:850; margin-top:12px; }
+.bar { position:fixed; left:50%; bottom:0; transform:translateX(-50%); z-index:6; width:min(520px,100%); background:#171717; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; box-shadow:0 -16px 34px rgba(0,0,0,.18); }
+.bar span { font-weight:850; }
+.bar button, .staff-button { min-height:42px; border:0; border-radius:6px; padding:0 14px; background:#fff; color:#171717; font-weight:850; }
+.panel { position:fixed; inset:0; z-index:8; background:#fffdf8; display:none; overflow:auto; }
+.panel.is-open { display:block; }
+.panel-inner { max-width:520px; margin:0 auto; padding:18px 16px 110px; }
+.panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:14px; }
+.panel-head h2 { margin:0; font-size:26px; }
+.close { border:1px solid var(--line); background:#fff; border-radius:6px; min-height:38px; padding:0 12px; }
+.selected { border:1px solid var(--line); border-radius:8px; background:#fff; padding:12px; margin-bottom:10px; }
+.selected-row { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; }
+.qty { display:flex; align-items:center; gap:8px; }
+.qty button { width:34px; height:34px; border:1px solid var(--line); border-radius:6px; background:#fff; font-weight:850; }
+.remove { margin-top:10px; border:0; background:transparent; color:var(--accent); font-weight:800; padding:0; }
+.empty { color:var(--muted); padding:28px 0; line-height:1.5; }
+.staff-list { display:grid; gap:12px; }
+.staff-card { border:2px solid #171717; border-radius:8px; padding:14px; background:#fff; }
+.staff-main { display:grid; grid-template-columns:1fr auto; gap:14px; align-items:start; }
+.staff-ja { font-size:25px; font-weight:900; line-height:1.18; }
+.staff-qty { font-size:24px; font-weight:900; }
+.staff-en { margin-top:5px; color:#62676d; font-size:13px; }
+.staff-options { margin-top:10px; font-weight:800; color:#282a2d; }
+.staff-price { margin-top:6px; color:#62676d; font-size:13px; }
+.notice { padding:10px 12px; border:1px solid var(--line); border-radius:8px; color:#4e545a; background:#fff; line-height:1.45; margin-bottom:14px; font-size:14px; }
+@media (min-width: 700px) { body { padding:24px 0; } .app { min-height:calc(100vh - 48px); border-radius:14px; overflow:hidden; } .bar { bottom:24px; border-radius:10px 10px 0 0; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="demo-label">Generic demo - example content only</div>
+    <h1>Demo English QR Menu</h1>
+    <p>This demo does not use a real restaurant name, menu, logo, or prices. Sensitive details shown here are example-only.</p>
+  </header>
+  <nav class="tabs" aria-label="Menu categories"></nav>
+  <main class="menu" id="menu"></main>
+</div>
+
+<div class="bar" aria-live="polite">
+  <span id="count">0 items selected</span>
+  <button type="button" id="reviewBtn">Review list</button>
+</div>
+
+<section class="panel" id="reviewPanel" aria-labelledby="reviewTitle">
+  <div class="panel-inner">
+    <div class="panel-head">
+      <div>
+        <div class="demo-label">Review list</div>
+        <h2 id="reviewTitle">Selected items</h2>
+      </div>
+      <button type="button" class="close" data-close>Close</button>
+    </div>
+    <div id="reviewList"></div>
+    <button type="button" class="staff-button" id="staffBtn">Show to staff</button>
+  </div>
+</section>
+
+<section class="panel" id="staffPanel" aria-labelledby="staffTitle">
+  <div class="panel-inner">
+    <div class="panel-head">
+      <div>
+        <div class="demo-label">Show Staff List</div>
+        <h2 id="staffTitle">Show this list to staff</h2>
+      </div>
+      <button type="button" class="close" data-close>Close</button>
+    </div>
+    <div class="notice">Staff-facing demo screen. Japanese item names are first, with quantities and selected structured options.</div>
+    <div class="staff-list" id="staffList"></div>
+  </div>
+</section>
+
+<script>
+const items = [
+  {
+    id: "shoyu",
+    category: "Ramen",
+    japanese_name: "醤油ラーメン",
+    english_name: "Shoyu Ramen",
+    price: "950 yen",
+    price_confirmed: true,
+    description: "Clear soy sauce broth with noodles, chashu, bamboo shoots, and green onion.",
+    description_confirmed: true,
+    ingredients: "Wheat noodles, soy sauce broth, pork chashu, bamboo shoots, green onion.",
+    ingredients_confirmed: true,
+    allergy_notes: "Example allergens: wheat, soy.",
+    allergens_confirmed: true,
+    tags: ["Popular", "Pork broth"],
+    image: "ramen",
+    options: [{ name: "Noodle firmness", values: ["Regular", "Firm"] }]
+  },
+  {
+    id: "miso",
+    category: "Ramen",
+    japanese_name: "味噌ラーメン",
+    english_name: "Miso Ramen",
+    price: "1,050 yen",
+    price_confirmed: true,
+    description: "Rich miso broth with corn, bean sprouts, chashu, and green onion.",
+    description_confirmed: true,
+    ingredients: "Wheat noodles, miso broth, pork chashu, corn, bean sprouts.",
+    ingredients_confirmed: true,
+    allergy_notes: "Example allergens: wheat, soy.",
+    allergens_confirmed: true,
+    tags: ["Rich", "Hot"],
+    image: "ramen",
+    options: [{ name: "Spice level", values: ["None", "Mild", "Spicy"] }]
+  },
+  {
+    id: "karaage",
+    category: "Izakaya",
+    japanese_name: "若鶏の唐揚げ",
+    english_name: "Fried Chicken",
+    price: "780 yen",
+    price_confirmed: true,
+    description: "Crisp fried chicken served with lemon.",
+    description_confirmed: true,
+    ingredients: "Chicken, soy sauce marinade, wheat flour.",
+    ingredients_confirmed: true,
+    allergy_notes: "Example allergens: wheat, soy.",
+    allergens_confirmed: true,
+    tags: ["Share plate"],
+    image: "izakaya",
+    options: [{ name: "Sauce", values: ["Lemon", "Salt", "Spicy mayo"] }]
+  }
+];
+
+const state = new Map();
+const menu = document.getElementById("menu");
+const tabs = document.querySelector(".tabs");
+const count = document.getElementById("count");
+const reviewPanel = document.getElementById("reviewPanel");
+const staffPanel = document.getElementById("staffPanel");
+const reviewList = document.getElementById("reviewList");
+const staffList = document.getElementById("staffList");
+
+function categories() {
+  return [...new Set(items.map(item => item.category))];
+}
+
+function optionKey(id) {
+  const item = items.find(entry => entry.id === id);
+  return (item.options || []).map(option => {
+    const select = document.querySelector(`[data-option="${id}-${option.name}"]`);
+    return option.name + ": " + (select ? select.value : option.values[0]);
+  }).join(" | ");
+}
+
+function renderTabs(active = "All") {
+  const all = ["All", ...categories()];
+  tabs.innerHTML = all.map(name => `<button type="button" class="tab ${name === active ? "is-active" : ""}" data-cat="${name}">${name}</button>`).join("");
+  tabs.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => {
+    renderTabs(button.dataset.cat);
+    renderMenu(button.dataset.cat);
+  }));
+}
+
+function publicField(value, confirmed) {
+  return value && confirmed ? value : "";
+}
+
+function renderMenu(active = "All") {
+  const visible = active === "All" ? items : items.filter(item => item.category === active);
+  menu.innerHTML = visible.map(item => `
+    <article class="item">
+      <div class="photo ${item.image === "izakaya" ? "izakaya" : ""}">Demo photo</div>
+      <div class="body">
+        <div class="names">
+          <div><div class="en">${item.english_name}</div><div class="ja">${item.japanese_name}</div></div>
+          <div class="price">${publicField(item.price, item.price_confirmed)}</div>
+        </div>
+        <div class="desc">${publicField(item.description, item.description_confirmed)}</div>
+        <div class="meta">
+          ${publicField(item.ingredients, item.ingredients_confirmed) ? `<div><b>Ingredients:</b> ${item.ingredients}</div>` : ""}
+          ${publicField(item.allergy_notes, item.allergens_confirmed) ? `<div><b>Allergy notes:</b> ${item.allergy_notes}</div>` : ""}
+        </div>
+        <div class="tags">${(item.tags || []).map(tag => `<span class="tag">${tag}</span>`).join("")}</div>
+        ${(item.options || []).map(option => `
+          <div class="option">
+            <label>${option.name}</label>
+            <select data-option="${item.id}-${option.name}">${option.values.map(value => `<option>${value}</option>`).join("")}</select>
+          </div>`).join("")}
+        <button type="button" class="add" data-add="${item.id}">Add to list</button>
+      </div>
+    </article>
+  `).join("");
+  menu.querySelectorAll("[data-add]").forEach(button => button.addEventListener("click", () => addItem(button.dataset.add)));
+}
+
+function addItem(id) {
+  const item = items.find(entry => entry.id === id);
+  const options = optionKey(id);
+  const key = id + "::" + options;
+  const current = state.get(key) || { item, qty: 0, options };
+  current.qty += 1;
+  state.set(key, current);
+  renderCount();
+}
+
+function renderCount() {
+  const total = [...state.values()].reduce((sum, entry) => sum + entry.qty, 0);
+  count.textContent = total + (total === 1 ? " item selected" : " items selected");
+}
+
+function changeQty(key, delta) {
+  const entry = state.get(key);
+  if (!entry) return;
+  entry.qty += delta;
+  if (entry.qty <= 0) state.delete(key);
+  renderReview();
+  renderCount();
+}
+
+function renderReview() {
+  const entries = [...state.entries()];
+  reviewList.innerHTML = entries.length ? entries.map(([key, entry]) => `
+    <div class="selected">
+      <div class="selected-row">
+        <div><strong>${entry.item.english_name}</strong><div class="ja">${entry.item.japanese_name}</div><div class="ja">${entry.options}</div></div>
+        <div class="qty"><button type="button" data-qty="${key}" data-delta="-1">-</button><strong>${entry.qty}</strong><button type="button" data-qty="${key}" data-delta="1">+</button></div>
+      </div>
+      <button type="button" class="remove" data-remove="${key}">Remove item</button>
+    </div>
+  `).join("") : `<div class="empty">No items selected.</div>`;
+  reviewList.querySelectorAll("[data-qty]").forEach(button => button.addEventListener("click", () => changeQty(button.dataset.qty, Number(button.dataset.delta))));
+  reviewList.querySelectorAll("[data-remove]").forEach(button => button.addEventListener("click", () => {
+    state.delete(button.dataset.remove);
+    renderReview();
+    renderCount();
+  }));
+}
+
+function renderStaff() {
+  const entries = [...state.values()];
+  staffList.innerHTML = entries.length ? entries.map(entry => `
+    <div class="staff-card">
+      <div class="staff-main"><div><div class="staff-ja">${entry.item.japanese_name}</div><div class="staff-en">${entry.item.english_name}</div></div><div class="staff-qty">x${entry.qty}</div></div>
+      <div class="staff-options">${entry.options}</div>
+      <div class="staff-price">${publicField(entry.item.price, entry.item.price_confirmed)}</div>
+    </div>
+  `).join("") : `<div class="empty">No items selected.</div>`;
+}
+
+document.getElementById("reviewBtn").addEventListener("click", () => {
+  renderReview();
+  reviewPanel.classList.add("is-open");
+});
+document.getElementById("staffBtn").addEventListener("click", () => {
+  renderStaff();
+  staffPanel.classList.add("is-open");
+});
+document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => {
+  reviewPanel.classList.remove("is-open");
+  staffPanel.classList.remove("is-open");
+}));
+
+renderTabs();
+renderMenu();
+renderCount();
+</script>
+</body>
+</html>

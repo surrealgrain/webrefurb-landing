@@ -50,6 +50,19 @@ button, input, select, textarea { font: inherit; }
 .sidebar-section { padding: 16px 12px; }
 .sidebar-fill { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .sidebar-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #74A8B7; margin-bottom: 8px; padding: 0 8px; }
+.sidebar-disclosure {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin-top: 12px; padding-top: 12px;
+}
+.sidebar-disclosure summary {
+  min-height: 44px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between;
+  color: #74A8B7; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em;
+  cursor: pointer; list-style: none;
+}
+.sidebar-disclosure summary::-webkit-details-marker { display: none; }
+.sidebar-disclosure summary::after { content: "+"; font-size: 14px; color: #A9D0D8; }
+.sidebar-disclosure[open] summary::after { content: "−"; }
+.sidebar-disclosure .sidebar-nav { margin-top: 4px; }
 
 .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
 .nav-item {
@@ -94,6 +107,11 @@ button, input, select, textarea { font: inherit; }
 .search-activity.is-error .search-activity-dot { background: var(--error); }
 .search-activity-summary { margin-top: 7px; color: #A9D0D8; font-size: 11px; line-height: 1.45; }
 .search-activity-steps { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.search-activity details { margin-top: 8px; }
+.search-activity details summary {
+  min-height: 36px; display: inline-flex; align-items: center;
+  cursor: pointer; color: #BEEAF0; font-size: 11px; font-weight: 800;
+}
 .search-activity-steps li { display: flex; gap: 7px; color: #8DB9C4; font-size: 11px; line-height: 1.35; }
 .search-activity-steps li::before { content: ""; width: 6px; height: 6px; border-radius: 9999px; margin-top: 4px; background: rgba(141,227,240,0.24); flex-shrink: 0; }
 .search-activity-steps li.done { color: #D8EEF2; }
@@ -473,6 +491,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .contact-route-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .contact-route-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9999px; background: rgba(194,133,34,0.08); color: #7A4A00; font-size: 12px; }
 .profile-panel { margin-bottom: 10px; padding: 12px; background: #F7FBFD; border: 1px solid rgba(54,111,145,0.18); border-radius: 14px; }
+.profile-panel.is-collapsible summary {
+  cursor: pointer; list-style-position: inside; margin-bottom: 0;
+}
+.profile-panel.is-collapsible[open] summary { margin-bottom: 6px; }
 .profile-panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #245B78; margin-bottom: 6px; }
 .profile-panel-summary { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
 .profile-evidence-list, .profile-source-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -569,7 +591,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .mode-tab.active { background: #0A2736; border-color: #0A2736; color: #fff; }
 .queue-limit-row { margin-top: 12px; display: flex; justify-content: center; }
 .operator-summary-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px; margin-bottom: 14px;
 }
 .operator-summary-card {
@@ -580,6 +602,10 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 .operator-summary-card:hover { border-color: #B9CACF; }
 .operator-summary-value { font-family: "Fira Code", monospace; font-size: 24px; font-weight: 850; }
 .operator-summary-label { margin-top: 3px; font-size: 11px; font-weight: 850; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; }
+.operator-gate-note {
+  margin: -4px 0 14px; color: var(--text-secondary); font-size: 12px; line-height: 1.45;
+}
+.operator-gate-note strong { color: var(--text-primary); }
 .launch-freeze-banner {
   display: none; margin-bottom: 14px; border: 1px solid #F59E0B; background: #FFFBEB;
   color: #7C2D12; border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 750;
@@ -851,27 +877,9 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <div style="padding: 0 4px;">
       <select class="search-select" id="sidebar-category" style="width:100%;height:36px;margin-bottom:6px;" onchange="filterLeads()">
         <option value="all">All categories</option>
-        <optgroup label="Ramen family">
-          <option value="ramen">Ramen</option>
-          <option value="tsukemen">Tsukemen</option>
-          <option value="abura_soba">Abura Soba</option>
-          <option value="mazesoba">Mazesoba</option>
-          <option value="tantanmen">Tantanmen</option>
-          <option value="chuka_soba">Chuka Soba</option>
-        </optgroup>
-        <optgroup label="Izakaya family">
-          <option value="izakaya">Izakaya</option>
-          <option value="yakitori">Yakitori</option>
-          <option value="kushiyaki">Kushiyaki</option>
-          <option value="yakiton">Yakiton</option>
-          <option value="tachinomi">Tachinomi</option>
-          <option value="oden">Oden</option>
-          <option value="kushikatsu">Kushikatsu</option>
-          <option value="kushiage">Kushiage</option>
-          <option value="robatayaki">Robatayaki</option>
-          <option value="seafood_izakaya">Seafood Izakaya</option>
-          <option value="sakaba">Sakaba</option>
-        </optgroup>
+        <option value="ramen">Ramen</option>
+        <option value="izakaya">Izakaya</option>
+        <option value="skip">Skip</option>
       </select>
       <select class="search-select" id="sidebar-city" style="width:100%;height:36px;margin-bottom:8px;" onchange="filterLeads()">
         <option value="all">All Japan</option>
@@ -900,7 +908,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
 
   <div class="sidebar-section sidebar-fill">
     <div class="sidebar-section-title">Navigate</div>
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="Primary navigation">
       <button type="button" class="nav-item active" onclick="switchTab('leads')" id="nav-leads">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Review leads
@@ -911,34 +919,36 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         Approved sends
         <span class="badge badge-cyan" id="confirmed-count">0</span>
       </button>
-      <button type="button" class="nav-item" onclick="switchTab('send-planner')" id="nav-send-planner">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-        Send batches
-        <span class="badge badge-quiet" id="send-planner-count">0</span>
-      </button>
-      <button type="button" class="nav-item" onclick="switchTab('opportunistic')" id="nav-opportunistic">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/></svg>
-        Build opportunities
-        <span class="badge badge-green" id="opportunistic-count">0</span>
-      </button>
-      <button type="button" class="nav-item" onclick="switchTab('sent')" id="nav-sent">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Closed leads
-        <span class="badge badge-quiet" id="sent-count">0</span>
-      </button>
-      <button type="button" class="nav-item" onclick="switchTab('qr-menus')" id="nav-qr-menus">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M17.5 17.5h.01"/></svg>
-        QR menus
-      </button>
-    </nav>
-    <div class="sidebar-section-title" style="margin-top:18px;">Replies</div>
-    <nav class="sidebar-nav">
       <button type="button" class="nav-item" onclick="switchTab('inbox')" id="nav-inbox">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
         Owner replies
         <span class="badge badge-quiet" id="reply-inbox-count">0</span>
       </button>
     </nav>
+    <details class="sidebar-disclosure">
+      <summary>Secondary tools</summary>
+      <nav class="sidebar-nav" aria-label="Secondary navigation">
+        <button type="button" class="nav-item" onclick="switchTab('send-planner')" id="nav-send-planner">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          Send batches
+          <span class="badge badge-quiet" id="send-planner-count">0</span>
+        </button>
+        <button type="button" class="nav-item" onclick="switchTab('opportunistic')" id="nav-opportunistic">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/></svg>
+          Build opportunities
+          <span class="badge badge-green" id="opportunistic-count">0</span>
+        </button>
+        <button type="button" class="nav-item" onclick="switchTab('sent')" id="nav-sent">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Closed leads
+          <span class="badge badge-quiet" id="sent-count">0</span>
+        </button>
+        <button type="button" class="nav-item" onclick="switchTab('qr-menus')" id="nav-qr-menus">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M17.5 17.5h.01"/></svg>
+          QR menus
+        </button>
+      </nav>
+    </details>
     <div class="search-activity" id="search-activity" aria-live="polite">
       <div class="search-activity-head">
         <span class="search-activity-dot" aria-hidden="true"></span>
@@ -946,9 +956,12 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <button type="button" class="search-activity-clear" onclick="clearSearchActivity()">Clear status</button>
       </div>
       <div class="search-activity-summary" id="search-activity-summary">Awaiting next search.</div>
-      <ol class="search-activity-steps" id="search-activity-steps">
-        <li>Search updates will appear here.</li>
-      </ol>
+      <details>
+        <summary>Search log</summary>
+        <ol class="search-activity-steps" id="search-activity-steps">
+          <li>Search updates will appear here.</li>
+        </ol>
+      </details>
     </div>
   </div>
 </aside>
@@ -963,6 +976,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <div class="task-board-note">Start with the highest-risk decision, then move to approval and scheduling.</div>
     </div>
     <div class="operator-summary-grid" id="operator-summary-grid" aria-live="polite"></div>
+    <div class="operator-gate-note" id="operator-gate-note" aria-live="polite"></div>
     <div class="operator-strip">
       <div class="operator-brief">
         <div>
@@ -1160,15 +1174,15 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <span class="asset-panel-label">Included files</span>
       <div id="asset-items"></div>
     </div>
-    <div class="asset-panel-note" id="asset-panel-note" style="display:none;">
-      <div class="asset-panel-note-title" id="asset-panel-note-title">Sample strategy</div>
+    <details class="asset-panel-note" id="asset-panel-note" style="display:none;">
+      <summary class="asset-panel-note-title" id="asset-panel-note-title">Sample strategy</summary>
       <div class="asset-panel-note-summary" id="asset-panel-note-summary"></div>
-    </div>
-    <div class="contact-route-panel" id="contact-route-panel" style="display:none;">
-      <div class="contact-route-title">Contact route</div>
+    </details>
+    <details class="contact-route-panel" id="contact-route-panel" style="display:none;">
+      <summary class="contact-route-title">Contact route</summary>
       <div class="contact-route-summary" id="contact-route-summary"></div>
       <div class="contact-route-list" id="contact-route-list"></div>
-    </div>
+    </details>
     <div class="profile-panel" id="review-outcome-panel">
       <div class="profile-panel-title">Review outcome</div>
       <div class="profile-panel-summary" id="review-outcome-summary"></div>
@@ -1185,32 +1199,23 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <button class="btn btn-primary review-next-button" id="save-review-next-btn" onclick="saveLeadReviewOutcome({ advance: true })">Save and review next</button>
       </div>
     </div>
-    <div class="profile-panel" id="establishment-profile-panel">
-      <div class="profile-panel-title">Establishment profile</div>
+    <details class="profile-panel is-collapsible" id="establishment-profile-panel">
+      <summary class="profile-panel-title">Establishment profile</summary>
       <div class="profile-panel-summary" id="establishment-profile-summary"></div>
       <div class="profile-evidence-list" id="establishment-profile-evidence"></div>
       <div class="profile-source-list" id="establishment-profile-sources"></div>
       <div class="profile-override-controls">
         <select class="profile-select" id="establishment-profile-select">
           <option value="unknown">Manual Review</option>
-          <option value="ramen_only">Ramen Only</option>
-          <option value="ramen_with_drinks">Ramen With Drinks</option>
-          <option value="ramen_ticket_machine">Ramen With Ticket Machine</option>
-          <option value="ramen_with_sides_add_ons">Ramen With Sides / Add-ons</option>
-          <option value="izakaya_food_and_drinks">Izakaya Food And Drinks</option>
-          <option value="izakaya_drink_heavy">Izakaya Drink Heavy</option>
-          <option value="izakaya_course_heavy">Izakaya Course Heavy</option>
-          <option value="izakaya_yakitori_kushiyaki">Yakitori / Kushiyaki</option>
-          <option value="izakaya_kushiage">Kushikatsu / Kushiage</option>
-          <option value="izakaya_seafood_sake_oden">Seafood / Sake / Oden</option>
-          <option value="izakaya_tachinomi">Tachinomi</option>
-          <option value="izakaya_robatayaki">Robatayaki</option>
+          <option value="ramen">Ramen</option>
+          <option value="izakaya">Izakaya</option>
+          <option value="skip">Skip</option>
         </select>
         <input class="profile-note-input" id="establishment-profile-note" type="text" placeholder="Optional override note">
         <button class="btn btn-secondary" id="save-profile-btn" onclick="saveEstablishmentProfileOverride()">Save profile</button>
         <button class="btn btn-secondary" id="clear-profile-btn" onclick="clearEstablishmentProfileOverride()">Clear profile override</button>
       </div>
-    </div>
+    </details>
     <details class="dossier-panel" id="lead-dossier-panel">
       <summary class="profile-panel-title">Evidence details</summary>
       <div class="dossier-state-grid" id="lead-dossier-states"></div>
@@ -1235,7 +1240,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
     <div class="control-group">
       <label class="toggle-label">
         <input type="checkbox" id="inperson-toggle" checked onchange="toggleInperson()">
-        In-person delivery line
+        QR sign note
       </label>
       <button class="btn btn-secondary" id="reset-btn" onclick="resetToTemplate()">Reset draft</button>
       <button class="btn btn-primary" id="save-draft-btn" onclick="saveDraftNow()">Save draft</button>
@@ -1270,9 +1275,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
       <div class="form-group">
         <label class="form-label">Package</label>
         <select class="form-input" id="build-package">
-          <option value="package_1_remote_30k">English Ordering Files — ¥30,000</option>
-          <option value="package_2_printed_delivered_45k">Counter-Ready Ordering Kit — ¥45,000</option>
-          <option value="package_3_qr_menu_65k">Live QR English Menu — ¥65,000</option>
+          <option value="english_qr_menu_65k">English QR Menu - ¥65,000</option>
         </select>
       </div>
       <div class="form-group">
@@ -1284,7 +1287,7 @@ dialog::backdrop { background: rgba(26,26,26,0.4); }
         <input type="file" class="form-file" id="build-photos" multiple accept="image/*">
       </div>
       <div class="form-group">
-        <label class="form-label">Ticket-machine photo (optional)</label>
+        <label class="form-label">Additional menu/reference photo (optional)</label>
         <input type="file" class="form-file" id="build-ticket-photo" accept="image/*">
       </div>
       <div class="form-group">
@@ -1384,7 +1387,7 @@ let sendInProgress = false;
 let draftDirty = false;
 let draftTranslateTimer = null;
 let draftTranslatePromise = null;
-const ENGLISH_INPERSON_LINE = 'Lamination and direct delivery to your restaurant are also available.';
+const ENGLISH_INPERSON_LINE = 'A printable QR sign for the table or counter is included.';
 let searchActivityTimers = [];
 let pendingDeleteLead = null;
 let replyCountsSeen = false;
@@ -1401,24 +1404,27 @@ let inboxFocusLeadId = '';
 const DISMISSED_LEADS_STORAGE_KEY = 'webrefurbmenu.dismissedLeadIds';
 const ESTABLISHMENT_PROFILE_LABELS = {
   unknown: 'Manual Review',
-  ramen_only: 'Ramen Only',
-  ramen_with_drinks: 'Ramen With Drinks',
-  ramen_ticket_machine: 'Ramen With Ticket Machine',
-  ramen_with_sides_add_ons: 'Ramen With Sides / Add-ons',
-  izakaya_food_and_drinks: 'Izakaya Food And Drinks',
-  izakaya_drink_heavy: 'Izakaya Drink Heavy',
-  izakaya_course_heavy: 'Izakaya Course Heavy',
-  izakaya_yakitori_kushiyaki: 'Yakitori / Kushiyaki',
-  izakaya_kushiage: 'Kushikatsu / Kushiage',
-  izakaya_seafood_sake_oden: 'Seafood / Sake / Oden',
-  izakaya_tachinomi: 'Tachinomi',
-  izakaya_robatayaki: 'Robatayaki',
+  ramen: 'Ramen',
+  ramen_only: 'Ramen',
+  ramen_with_drinks: 'Ramen',
+  ramen_ticket_machine: 'Ramen',
+  ramen_with_sides_add_ons: 'Ramen',
+  izakaya: 'Izakaya',
+  izakaya_food_and_drinks: 'Izakaya',
+  izakaya_drink_heavy: 'Izakaya',
+  izakaya_course_heavy: 'Izakaya',
+  izakaya_yakitori_kushiyaki: 'Izakaya',
+  izakaya_kushiage: 'Izakaya',
+  izakaya_seafood_sake_oden: 'Izakaya',
+  izakaya_tachinomi: 'Izakaya',
+  izakaya_robatayaki: 'Izakaya',
+  skip: 'Skip',
 };
 const SEARCH_CATEGORY_META = {{ search_category_meta | tojson }};
 const SEARCH_COVERAGE = {{ search_coverage | tojson }};
 
 function searchCategoryQuery(meta, place) {
-  return String((meta && meta.default_query) || '券売機 ラーメン {place}').replace('{place}', place);
+  return String((meta && meta.default_query) || 'ラーメン 公式 お問い合わせ {place}').replace('{place}', place);
 }
 
 function coverageLabel(count) {
@@ -1791,7 +1797,7 @@ function renderLeadDossier(data) {
 
   const dossier = data.lead_evidence_dossier || {};
   const states = [
-    ['Ticket machine', dossier.ticket_machine_state],
+    ['Existing English QR/menu found', dossier.existing_english_qr_menu_state],
     ['English menu', dossier.english_menu_state],
     ['Menu complexity', dossier.menu_complexity_state],
     ['Izakaya rules', dossier.izakaya_rules_state],
@@ -1971,7 +1977,7 @@ function summarizeSearchResult(data, categoryLabel, cityLabel) {
   const steps = [
     { text: 'Searched ' + categoryLabel + ' in ' + placeLabel + ' and found ' + candidateCount + ' ' + plural(candidateCount, 'candidate') + '.', state: 'done' },
     { text: 'Reviewed ' + reviewedCount + ' restaurant ' + plural(reviewedCount, 'website') + ' for menu evidence.', state: 'done' },
-    { text: 'Found ' + machineCount + ' ticket machine ' + plural(machineCount, 'signal') + '.', state: 'done' },
+    { text: 'Found ' + machineCount + ' menu-source ' + plural(machineCount, 'signal') + '.', state: 'done' },
   ];
   if (duplicateCount) {
     steps.push({ text: 'Skipped ' + duplicateCount + ' already tracked ' + plural(duplicateCount, 'business', 'businesses') + '.', state: 'done' });
@@ -2078,7 +2084,11 @@ function switchTab(tab) {
   if (!panel) return;
   panel.classList.add('active');
   const nav = document.getElementById('nav-' + tab);
-  if (nav) nav.classList.add('active');
+  if (nav) {
+    nav.classList.add('active');
+    const disclosure = nav.closest('.sidebar-disclosure');
+    if (disclosure) disclosure.open = true;
+  }
   if (tab === 'sent') loadSentEmails();
   if (tab === 'confirmed') {
     renderConfirmedList(dashboardLeadState || []);
@@ -2346,7 +2356,7 @@ function reviewGroupForLead(lead) {
   }
   const reason = String((lead || {}).operator_reason || '').toLowerCase();
   if (reason.includes('restaurant name') || reason.includes('identity') || reason.includes('physical location')) return 'Is this a real restaurant?';
-  if (reason.includes('ramen') || reason.includes('soba') || reason.includes('izakaya') || reason.includes('category')) return 'Is this ramen, soba, or izakaya?';
+  if (reason.includes('ramen') || reason.includes('soba') || reason.includes('izakaya') || reason.includes('category')) return 'Is this ramen or izakaya?';
   if (reason.includes('email') || reason.includes('contact form') || reason.includes('contact route')) return 'Is the contact route acceptable?';
   if (reason.includes('package') || reason.includes('quote') || reason.includes('scope')) return 'Is the package fit correct?';
   if (reason.includes('pitch') || reason.includes('copy') || reason.includes('sample')) return 'Is the draft/sample current and safe?';
@@ -2421,10 +2431,9 @@ function renderLeadQueueSummary(total, shown) {
 function renderOperatorSummary(leads) {
   const root = document.getElementById('operator-summary-grid');
   if (!root) return;
+  const gateRoot = document.getElementById('operator-gate-note');
   const counts = operatorSummaryCounts(leads);
   const reviewBreakdown = operatorReasonBreakdown(leads, 'review');
-  const skipBreakdown = operatorReasonBreakdown(leads, 'skip');
-  const doneBreakdown = operatorOutcomeBreakdown(leads, 'done');
   const approvedReady = (Array.isArray(leads) ? leads : []).filter(lead => operatorStateClass(lead.operator_state) === 'ready' && isFinalCheckedSendReadyLead(lead)).length;
   const pendingReady = Math.max(0, counts.ready - approvedReady);
   const gateLabel = launchFreezeState && launchFreezeState.active ? 'Locked' : 'Open';
@@ -2433,10 +2442,8 @@ function renderOperatorSummary(leads) {
     : (launchFreezeState && launchFreezeState.active ? 'Real outreach remains frozen' : 'No blocked ready records');
   const items = [
     ['Review leads', counts.review + pendingReady, formatBreakdown(reviewBreakdown, 'No review blockers'), "setLeadQueueMode('review')"],
-    ['Approve drafts', pendingReady, pendingReady ? 'Open each draft and approve exact copy/sample' : 'No drafts waiting for approval', "setLeadQueueMode('review')"],
+    ['Review drafts', pendingReady, pendingReady ? 'Open each draft to preview copy/sample' : 'No drafts waiting for review', "setLeadQueueMode('review')"],
     ['Approved sends', approvedReady, counts.ready ? approvedReady + ' approved / ' + pendingReady + ' pending approval' : 'No approved send records', "switchTab('confirmed')"],
-    ['Closed leads', counts.done, formatBreakdown(doneBreakdown, 'No completed records'), "switchTab('sent')"],
-    ['Gate', gateLabel, gateNote, ''],
   ];
   root.innerHTML = items.map(([label, value, note, action]) => (
     '<button type="button" class="operator-summary-card"' + (action ? ' onclick="' + action + '"' : ' disabled aria-disabled="true"') + '>'
@@ -2445,6 +2452,10 @@ function renderOperatorSummary(leads) {
       + '<div class="confirmed-step-note">' + escapeHtml(note) + '</div>'
     + '</button>'
   )).join('');
+  if (gateRoot) {
+    gateRoot.innerHTML = '<strong>Launch gate: ' + escapeHtml(gateLabel) + '.</strong> ' + escapeHtml(gateNote) +
+      ' Secondary tools and closed records are tucked into the sidebar when needed.';
+  }
 }
 
 function renderLaunchFreezeBanner() {
@@ -2464,7 +2475,7 @@ function operatorReasonForCard(reason) {
   const lower = text.toLowerCase();
   if (lower.includes('manual review decision')) return 'Save a review outcome before any outreach.';
   if (lower.includes('restaurant name') || lower.includes('identity') || lower.includes('real shop')) return 'Confirm this is a real in-scope shop.';
-  if (lower.includes('ramen') || lower.includes('soba') || lower.includes('izakaya') || lower.includes('category')) return 'Confirm this is ramen, soba, or izakaya.';
+  if (lower.includes('ramen') || lower.includes('soba') || lower.includes('izakaya') || lower.includes('category')) return 'Confirm this is ramen or izakaya.';
   if (lower.includes('email') || lower.includes('contact form') || lower.includes('contact route')) return 'Verify e-mail or contact form before outreach.';
   if (lower.includes('package') || lower.includes('quote') || lower.includes('scope')) return 'Check package fit before pitching.';
   if (lower.includes('pitch') || lower.includes('copy') || lower.includes('sample')) return 'Review exact copy and sample before approval.';
@@ -2500,7 +2511,7 @@ function renderLeadCard(lead, options = {}) {
   const actionLabel = operatorState === 'review'
     ? 'Review lead'
     : operatorState === 'ready'
-      ? (finalChecked ? 'Open approved draft' : 'Approve draft')
+      ? (finalChecked ? 'Open approved draft' : 'Review draft')
       : 'View pitch';
   const actionAttrs = canOpenPitch
     ? 'onclick="openPreview(\'' + escapeHtml(leadId) + '\')"'
@@ -2562,6 +2573,7 @@ function renderLeadCard(lead, options = {}) {
   const moreActions = [
     proofButton,
     needsShopConfirm ? '<button class="btn btn-secondary" type="button" ' + actionAttrs + '>Open draft</button>' : acceptButton,
+    skipButton,
     nameButton,
     packageButton,
     regenerateButton,
@@ -2574,7 +2586,7 @@ function renderLeadCard(lead, options = {}) {
   const nextTitle = needsShopConfirm
     ? 'Confirm shop'
     : operatorState === 'ready'
-      ? (finalChecked ? 'Ready to schedule' : 'Approve exact draft')
+      ? (finalChecked ? 'Ready to schedule' : 'Review exact draft')
       : operatorState === 'skip'
         ? 'Skipped'
         : operatorState === 'done'
@@ -2583,7 +2595,7 @@ function renderLeadCard(lead, options = {}) {
   const nextDetail = needsShopConfirm
     ? 'Confirm this is a real in-scope shop before draft approval.'
     : operatorState === 'ready'
-      ? (finalChecked ? 'This record can be selected on Approved sends.' : 'Open the draft and approve exact copy/sample.')
+      ? (finalChecked ? 'This record can be selected on Approved sends.' : 'Open the draft to preview copy/sample, then approve exact send in the modal.')
       : operatorState === 'skip'
         ? operatorReasonDisplay
         : operatorState === 'done'
@@ -2623,7 +2635,6 @@ function renderLeadCard(lead, options = {}) {
     '</div>' +
     '<div class="lead-actions">' +
       primaryButton +
-      skipButton +
       moreMenu +
     '</div>' +
   '</div>';
@@ -3096,16 +3107,13 @@ function fixLeadPackageFromButton(btn) {
 function packageKeyFromInput(value, currentKey) {
   const raw = String(value || '').trim().toLowerCase();
   if (!raw) return '';
-  if (raw === '1' || raw.includes('30') || raw.includes('remote') || raw.includes('files')) return 'package_1_remote_30k';
-  if (raw === '2' || raw.includes('45') || raw.includes('printed') || raw.includes('counter')) return 'package_2_printed_delivered_45k';
-  if (raw === '3' || raw.includes('65') || raw.includes('qr')) return 'package_3_qr_menu_65k';
-  if (raw.startsWith('package_')) return raw;
-  return currentKey || '';
+  if (raw.includes('65') || raw.includes('qr') || raw.includes('english')) return 'english_qr_menu_65k';
+  return currentKey || 'english_qr_menu_65k';
 }
 
 async function fixLeadPackage(leadId, currentKey) {
   if (!leadId) return;
-  const rawPackage = window.prompt('Package: 1 online files, 2 printed kit, or 3 QR menu', currentKey || '1');
+  const rawPackage = window.prompt('Product: English QR Menu', currentKey || 'english_qr_menu_65k');
   if (rawPackage === null) return;
   const packageKey = packageKeyFromInput(rawPackage, currentKey);
   if (!packageKey) {
@@ -3373,7 +3381,7 @@ async function openPreview(leadId) {
       selectedAssets.forEach((asset, i) => {
         const detail = assetDetails.find(item => item.path === asset) || {};
         const name = asset.split('/').pop().replace(/\.pdf$/i, '');
-        const label = detail.label || (name.includes('ticket') ? 'Ticket Machine Guide' : name.includes('combined') ? 'Menu (Combined)' : name.includes('drinks') ? 'Drinks Menu' : 'Food Menu');
+        const label = detail.label || (name.includes('combined') ? 'Menu Data' : name.includes('drinks') ? 'Drinks Menu' : 'Food Menu');
         const div = document.createElement('label');
         div.className = 'asset-thumb';
         div.innerHTML = '<input type="checkbox" checked data-asset-index="' + i + '"> ' + label;
@@ -3986,8 +3994,8 @@ function renderBuildReview(review) {
   const printProfile = review.print_profile || validation.print_profile || null;
   const paidOps = review.paid_operations || {};
   const paidOpsBlockers = paidOps.blockers || [];
-  const isPrinted = review.package_key === 'package_2_printed_delivered_45k';
-  const actionErrors = isPrinted ? errors.filter(e => !['delivery_contact_name_missing', 'delivery_address_missing'].includes(e)) : errors;
+  const isPrinted = false;
+  const actionErrors = errors;
   const requiredReady = artifacts.filter(a => a.required && a.exists).length;
   const requiredTotal = artifacts.filter(a => a.required).length;
   const visiblePriceCount = Number(checklist.price_count || 0);
@@ -3996,7 +4004,7 @@ function renderBuildReview(review) {
   const approvalBlocked = actionErrors.length > 0 || paidOpsBlockers.length > 0 || approved;
   const approveDisabled = approvalBlocked ? 'disabled aria-disabled="true"' : '';
   const approveTitle = actionErrors.length ? 'Resolve validation errors before final export' : paidOpsBlockers.length ? 'Complete paid operations before final export' : approved ? 'Already approved' : 'Approve final export';
-  const approvalButton = isPrinted ? 'Approve Print Pack' : 'Approve Final Export';
+  const approvalButton = 'Approve QR Menu Export';
 
   document.getElementById('build-review-title').textContent =
     (review.package_label || 'Package') + ' Review — ' + (review.restaurant_name || review.job_id);
@@ -4024,7 +4032,7 @@ function renderBuildReview(review) {
       <div class="qr-review-label">Print profile</div>
       <ul class="qr-check-list">
         <li>${escapeHtml(printProfile.paper_size || '')} ${escapeHtml(printProfile.orientation || '')}</li>
-        <li>${printProfile.duplex ? 'Duplex' : 'Single-sided'} · ${printProfile.laminated ? 'laminated' : 'not laminated'} · ${Number(printProfile.copy_count || 0)} copies</li>
+        <li>${printProfile.duplex ? 'Duplex' : 'Single-sided'} · ${Number(printProfile.copy_count || 0)} QR sign copies</li>
         <li>${escapeHtml(printProfile.physical_scope || '')}</li>
         <li class="${printProfile.custom_quote_required ? 'is-error' : ''}">${escapeHtml(printProfile.reason || '')}</li>
       </ul>
@@ -4039,14 +4047,6 @@ function renderBuildReview(review) {
         <li class="${checklist.stale_text_absent === false ? 'is-error' : ''}">Stale text absent: ${checklist.stale_text_absent === false ? 'No' : 'Yes'}</li>
         <li class="${checklist.owner_source_present ? '' : 'is-error'}">Owner source present: ${checklist.owner_source_present ? 'Yes' : 'No'}</li>
       </ul>
-    </div>` : '';
-  const deliveryCard = isPrinted && !approved ? `
-    <div class="qr-review-card">
-      <div class="qr-review-label">Delivery</div>
-      <div class="form-group"><input class="form-input" id="delivery-contact-name" placeholder="Delivery contact name"></div>
-      <div class="form-group"><textarea class="form-textarea" id="delivery-address" style="min-height:80px;" placeholder="Delivery address"></textarea></div>
-      <div class="form-group"><input class="form-input" id="delivery-phone" placeholder="Phone (optional)"></div>
-      <div class="form-group"><textarea class="form-textarea" id="delivery-notes" style="min-height:70px;" placeholder="Delivery notes (optional)"></textarea></div>
     </div>` : '';
   const paidOpsCard = `
     <div class="qr-review-card">
@@ -4067,7 +4067,6 @@ function renderBuildReview(review) {
     ${checklistCard}
     ${printCard}
     ${paidOpsCard}
-    ${deliveryCard}
     <div class="qr-review-card">
       <div class="qr-review-label">Artifacts</div>
       <ul class="qr-check-list">
@@ -4090,12 +4089,6 @@ async function approvePackage(jobId, packageKey, btn) {
   const original = btn.textContent;
   btn.textContent = 'Approving...';
   const body = { package_key: packageKey || '' };
-  if (packageKey === 'package_2_printed_delivered_45k') {
-    body.delivery_contact_name = document.getElementById('delivery-contact-name')?.value || '';
-    body.delivery_address = document.getElementById('delivery-address')?.value || '';
-    body.delivery_phone = document.getElementById('delivery-phone')?.value || '';
-    body.delivery_notes = document.getElementById('delivery-notes')?.value || '';
-  }
   try {
     const res = await fetch('/api/build/' + encodeURIComponent(jobId) + '/approve', {
       method: 'POST',
@@ -4234,7 +4227,7 @@ function renderQrReview(review) {
     return;
   }
   const publishDisabled = errors.length ? 'disabled' : '';
-  const publishTitle = errors.length ? 'Resolve validation errors before approval' : 'Approve Live QR English Menu';
+  const publishTitle = errors.length ? 'Resolve validation errors before approval' : 'Approve English QR Menu';
   const missingDescriptions = completeness.missing_descriptions || [];
   const missingIngredientAllergen = completeness.missing_ingredient_allergen || completeness.missing_ingredients || [];
   const descriptionPending = Number(confirmation.description_pending_count || 0);
@@ -4243,7 +4236,7 @@ function renderQrReview(review) {
   content.innerHTML = `
     <div class="qr-review-card">
       <div class="qr-review-label">Package</div>
-      <div><strong>${escapeHtml(review.package_label || 'Live QR English Menu')}</strong> · ¥${Number(review.price_yen || 65000).toLocaleString()}</div>
+      <div><strong>${escapeHtml(review.package_label || 'English QR Menu')}</strong> · ¥${Number(review.price_yen || 65000).toLocaleString()}</div>
       <div class="qr-review-label">Draft page</div>
       <a class="qr-review-link" href="${escapeHtml(draftUrl)}" target="_blank" rel="noopener">${escapeHtml(draftUrl || 'Draft unavailable')}</a>
       <div class="qr-review-label">QR asset</div>
@@ -4389,7 +4382,7 @@ async function approveQrPackage(jobId, btn) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Approval failed');
     renderQrPublished(data);
-    showToast('Live QR English Menu approved', 'success');
+    showToast('English QR Menu approved', 'success');
     loadQrMenus();
   } catch (err) {
     showToast('QR approval blocked: ' + err.message, 'error');
@@ -4790,21 +4783,21 @@ function replyTemplateFollowupStatus(kind) {
 function replyTemplateText(kind, entry) {
   const name = entry ? (entry.dataset.businessName || 'your restaurant') : 'your restaurant';
   if (kind === 'ask_photos') {
-    return 'Thank you for your reply. To prepare the English menu accurately, could you please send clear photos of the current menu pages? If you also use a ticket machine, please send a clear photo of the full button layout as well.\n\nOnce I have the photos, I can confirm the best package and next step.';
+    return 'Thank you for your reply. To prepare the English QR menu accurately, could you please send the latest menu photos, files, or text?\n\nAfter I review the material, I can draft the English menu and Show Staff List for owner confirmation.';
   }
   if (kind === 'price') {
-    return 'Thank you for your reply. The online delivery package is ¥30,000, the printed and delivered package is ¥45,000, and the QR menu system is ¥65,000.\n\nFor ' + name + ', I can recommend the best fit after checking the current menu photos.';
+    return 'Thank you for your reply. The English QR Menu is ¥65,000 and includes the hosted English menu page, QR code, printable QR sign, Show Staff List, 12 months hosting, one pre-launch revision, and owner confirmation before publishing prices, descriptions, ingredients, or allergens.\n\nUpdates after launch are available on request and quoted separately unless manually agreed.';
   }
   if (kind === 'received_photos') {
     return 'Thank you for sending the photos. I will review the menu content and confirm the best next step.\n\nIf any page is cropped or hard to read, I will let you know exactly which photo should be resent.';
   }
   if (kind === 'quote') {
-    return 'Thank you. Based on what you sent, I recommend the online English menu file package at ¥30,000.\n\nIf that works for you, I can prepare the order details and payment information.';
+    return 'Thank you. For ' + name + ', I recommend the English QR Menu at ¥65,000.\n\nIf that works for you, I can prepare the draft workflow and confirmation summary.';
   }
   if (kind === 'qr') {
-    return 'Thank you. For the QR menu, please send clear photos of the current food and drink menu, the preferred shop name in English if you have one, and any sections you want hidden or highlighted.\n\nOnce confirmed, I can prepare the QR menu structure.';
+    return 'Thank you. Please send clear photos or files for the current food and drink menu, the preferred shop name in English if you have one, and any sections or options you want hidden or highlighted.\n\nOnce reviewed, I can prepare the English QR menu draft.';
   }
-  return 'Thank you for your reply. Regarding your question, I can prepare the English menu from your current menu photos and confirm the package before production.\n\nPlease let me know if you would like me to proceed.';
+  return 'Thank you for your reply. Regarding your question, I can prepare the English QR menu from your current menu material and confirm the details before publishing.\n\nPlease let me know if you would like me to proceed.';
 }
 
 function applyReplyTemplate(btn, kind) {
@@ -5121,7 +5114,7 @@ function renderProductionWorkspace(replyId, workspace) {
             <small>${escapeHtml([button.group, button.status].filter(Boolean).join(' · '))}</small>
           </div>`).join('')}
       </div>`).join('')}
-    </div>` : '<div class="workspace-row-meta">No ticket-machine grid detected.</div>';
+    </div>` : '<div class="workspace-row-meta">No structured option grid detected.</div>';
 
   const controlsHtml = Object.entries({
     profile: controls.profile || 'review',
@@ -5145,7 +5138,7 @@ function renderProductionWorkspace(replyId, workspace) {
       </div>
     </section>
     <section class="production-workspace-panel" data-workspace-panel="ticket-mapping">
-      <h3>Ticket Mapping</h3>
+      <h3>Structured Options</h3>
       ${ticketHtml}
       <div class="workspace-section">
         <div class="workspace-row-title">${escapeHtml(Number((mapping.ui || {}).button_count || 0))} buttons · ${escapeHtml(Number(mapping.columns || 0))} columns</div>

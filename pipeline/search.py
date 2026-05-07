@@ -15,9 +15,9 @@ from .contact_crawler import extract_contact_signals, is_usable_business_email
 from .contact_policy import normalise_contact_actionability
 from .constants import (
     DEEP_EMAIL_DISCOVERY_ENABLED,
+    ENGLISH_QR_MENU_KEY,
     LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
-    PACKAGE_1_KEY,
 )
 from .evidence import _count_japanese_chars, has_chain_or_franchise_infrastructure, is_chain_business
 from .html_parser import extract_page_payload
@@ -580,6 +580,31 @@ def _normalise_search_job(query: str, category: str, search_job: dict[str, Any] 
     return normalised
 
 
+def _qr_first_pitch_draft(
+    *,
+    business_name: str,
+    establishment_profile: str,
+) -> dict[str, dict[str, str]]:
+    """Return a QR-first compatibility draft for records that still store pitch_draft."""
+    from .outreach import build_outreach_email
+
+    draft = build_outreach_email(
+        business_name=business_name,
+        classification="menu_only",
+        establishment_profile=establishment_profile,
+    )
+    return {
+        "native": {
+            "subject": str(draft["subject"]),
+            "body": str(draft["body"]),
+        },
+        "english": {
+            "subject": str(draft["subject"]),
+            "body": str(draft["english_body"]),
+        },
+    }
+
+
 def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, str]) -> list[str]:
     matches: list[str] = []
     classes = set(decision.get("evidence_classes") or [])
@@ -606,8 +631,8 @@ def _matched_friction_evidence(decision: dict[str, Any], search_job: dict[str, s
         matches.append("drink_or_course_friction")
     if reason in {"already_has_good_english_menu", "already_has_multilingual_ordering_solution"}:
         matches.append("already_solved_english_solution")
-    if decision.get("recommended_primary_package") == "package_1_remote_30k" and decision.get("primary_category_v1") == "ramen" and not decision.get("machine_evidence_found"):
-        matches.append("simple_menu_package_fit")
+    if decision.get("recommended_primary_package") == ENGLISH_QR_MENU_KEY and decision.get("primary_category_v1") in {"ramen", "izakaya"}:
+        matches.append("english_qr_menu_fit")
     if job_id.startswith("ramen_ramendb"):
         matches.append("ramendb_lookup_source")
     if any(source in job_id for source in ("tabelog", "hotpepper", "gurunavi", "gnavi", "retty", "hitosara", "paypay")):
@@ -1280,7 +1305,6 @@ def search_and_qualify(
                     qualified_with_non_email_contact += 1
 
                 from .preview import build_preview_menu, build_preview_html
-                from .pitch import build_pitch
                 from .record import create_lead_record, persist_lead_record
 
                 preview_menu = build_preview_menu(
@@ -1293,12 +1317,9 @@ def search_and_qualify(
                     ticket_machine_hint=None,
                     business_name=business_name,
                 )
-                pitch = build_pitch(
+                pitch = _qr_first_pitch_draft(
                     business_name=business_name,
-                    category=qualification.primary_category_v1,
-                    preview_menu=preview_menu,
-                    ticket_machine_hint=None,
-                    recommended_package=qualification.recommended_primary_package,
+                    establishment_profile=qualification.establishment_profile,
                 )
                 record = create_lead_record(
                     qualification=qualification,
@@ -1716,12 +1737,12 @@ def _recover_codex_review_qualification(
     source_url: str,
     rejection_reason: str,
 ) -> Any:
-    lead_category = (
-        LEAD_CATEGORY_RAMEN_MENU_TRANSLATION
-        if canonical == "ramen"
-        else LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION
-    )
-    establishment_profile = "ramen_only" if canonical == "ramen" else "izakaya_food_and_drinks"
+    if canonical == "ramen":
+        lead_category = LEAD_CATEGORY_RAMEN_MENU_TRANSLATION
+        establishment_profile = "ramen_only"
+    elif canonical == "izakaya":
+        lead_category = LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION
+        establishment_profile = "izakaya_food_and_drinks"
     evidence_urls = _ordered_unique([
         *(getattr(qualification, "evidence_urls", []) or []),
         source_url,
@@ -1765,8 +1786,8 @@ def _recover_codex_review_qualification(
         izakaya_rules_state="unknown" if canonical == "izakaya" else "none_found",
         launch_readiness_status="manual_review",
         launch_readiness_reasons=[f"recoverable_organic_scope_review:{rejection_reason}", "manual_review_required"],
-        recommended_primary_package=getattr(qualification, "recommended_primary_package", "") or PACKAGE_1_KEY,
-        package_recommendation_reason=getattr(qualification, "package_recommendation_reason", "") or "Organic email pitch-card review candidate.",
+        recommended_primary_package=ENGLISH_QR_MENU_KEY,
+        package_recommendation_reason=f"{canonical}_english_qr_menu_show_staff_list_fit",
         decision_reason=f"Recovered for no-send pitch-card review after {rejection_reason}.",
         false_positive_risk="high",
         preview_available=True,
@@ -1815,7 +1836,6 @@ def codex_search_and_qualify(
     from .search_scope import canonical_search_category
     from .record import find_existing_lead, create_lead_record, persist_lead_record
     from .preview import build_preview_menu, build_preview_html
-    from .pitch import build_pitch
 
     if state_root is None:
         state_root = Path(__file__).resolve().parent.parent / "state"
@@ -1997,7 +2017,7 @@ def codex_search_and_qualify(
                 decision["contact_route_types"] = [str(r.get("type") or "") for r in contact_routes]
                 decision["primary_contact_type"] = actionable_routes[0]["type"] if actionable_routes else ""
 
-                # --- build preview & pitch ---
+                # --- build preview and QR-first compatibility draft ---
                 preview_menu = build_preview_menu(
                     assessment=qualification,
                     snippets=qualification.evidence_snippets,
@@ -2008,12 +2028,9 @@ def codex_search_and_qualify(
                     ticket_machine_hint=None,
                     business_name=source_name,
                 )
-                pitch = build_pitch(
+                pitch = _qr_first_pitch_draft(
                     business_name=source_name,
-                    category=qualification.primary_category_v1,
-                    preview_menu=preview_menu,
-                    ticket_machine_hint=None,
-                    recommended_package=qualification.recommended_primary_package,
+                    establishment_profile=qualification.establishment_profile,
                 )
 
                 record = create_lead_record(
