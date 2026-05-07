@@ -104,28 +104,16 @@ def _dashboard_email_preview_html(
         ) or _inline_preview_svg("English ordering sample", "Menu / Order Guide")
         html_body = html_body.replace(f"cid:{MENU_CID}", menu_preview)
     if include_machine_image:
-        machine_preview = _dashboard_inline_rendered_preview_data_uri(
-            PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html",
-            business_name=business_name,
-            stem="machine",
-        ) or _inline_preview_svg("Ticket machine sample", "Button Map")
-        html_body = html_body.replace(f"cid:{MACHINE_CID}", machine_preview)
+        html_body = html_body.replace(f"cid:{MACHINE_CID}", "")
     return html_body
 
 
 def _menu_template_for_profile(establishment_profile: str) -> Path:
     templates = PROJECT_ROOT / "assets" / "templates"
     profile = str(establishment_profile or "").lower()
-    from pipeline.constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE
-
-    specific = OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE.get(profile)
-    if specific:
-        return specific
-    if "soba" in profile:
-        return templates / "soba_food_menu.html"
     if "izakaya" in profile:
-        return templates / "izakaya_food_drinks_menu.html"
-    return templates / "ramen_food_menu.html"
+        return templates / "qr_code_sign.html"
+    return templates / "qr_code_sign.html"
 
 
 _DASHBOARD_PREVIEW_CACHE_LIMIT = 12
@@ -366,19 +354,22 @@ MANUAL_CONTACT_STATUS_BY_ROUTE = {
 
 ESTABLISHMENT_PROFILE_LABELS = {
     "unknown": "Manual Review",
-    "ramen_only": "Ramen Only",
-    "ramen_with_drinks": "Ramen With Drinks",
-    "ramen_ticket_machine": "Ramen With Ticket Machine",
-    "ramen_with_sides_add_ons": "Ramen With Sides / Add-ons",
-    "soba_only": "Soba Only",
-    "izakaya_food_and_drinks": "Izakaya Food And Drinks",
-    "izakaya_drink_heavy": "Izakaya Drink Heavy",
-    "izakaya_course_heavy": "Izakaya Course Heavy",
-    "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki",
-    "izakaya_kushiage": "Kushikatsu / Kushiage",
-    "izakaya_seafood_sake_oden": "Seafood / Sake / Oden",
-    "izakaya_tachinomi": "Tachinomi",
-    "izakaya_robatayaki": "Robatayaki",
+    "ramen": "Ramen",
+    "ramen_only": "Ramen",
+    "ramen_with_drinks": "Ramen",
+    "ramen_ticket_machine": "Ramen",
+    "ramen_with_sides_add_ons": "Ramen",
+    "soba_only": "Skip",
+    "izakaya": "Izakaya",
+    "izakaya_food_and_drinks": "Izakaya",
+    "izakaya_drink_heavy": "Izakaya",
+    "izakaya_course_heavy": "Izakaya",
+    "izakaya_yakitori_kushiyaki": "Izakaya",
+    "izakaya_kushiage": "Izakaya",
+    "izakaya_seafood_sake_oden": "Izakaya",
+    "izakaya_tachinomi": "Izakaya",
+    "izakaya_robatayaki": "Izakaya",
+    "skip": "Skip",
 }
 
 LEAD_QUEUE_QUALITY_ORDER = {"v1_clean": 0, "high": 1, "medium": 2, "low": 3}
@@ -478,16 +469,6 @@ MENU_TYPE_LABELS = {
     "tantanmen": "Tantanmen",
     "chuka_soba": "Chuka Soba",
     "izakaya": "Izakaya",
-    "yakitori": "Yakitori",
-    "kushiyaki": "Kushiyaki",
-    "yakiton": "Yakiton",
-    "kushikatsu": "Kushikatsu",
-    "kushiage": "Kushiage",
-    "seafood_izakaya": "Seafood / Sake / Oden",
-    "oden": "Oden",
-    "tachinomi": "Tachinomi",
-    "robatayaki": "Robatayaki",
-    "sakaba": "Sakaba",
 }
 
 
@@ -585,8 +566,6 @@ def _effective_establishment_profile(lead: dict[str, Any]) -> dict[str, Any]:
     override = str(lead.get("establishment_profile_override") or "").strip()
     stored = str(lead.get("establishment_profile") or "").strip() or "unknown"
     effective = override or stored or "unknown"
-    if str(lead.get("primary_category_v1") or lead.get("category") or "").strip().lower() == "soba" and not effective.startswith("soba"):
-        effective = "soba_only"
     mode = "operator_override" if override else "evidence"
     confidence = "operator" if override else str(lead.get("establishment_profile_confidence") or "low")
     note = str(lead.get("establishment_profile_override_note") or "").strip()
@@ -716,8 +695,6 @@ def _legacy_observed_menu_topics(*, classification: str, profile: str) -> list[s
     topics: list[str] = []
     if profile.startswith("izakaya"):
         topics.extend(["food_items", "drink_items"])
-    elif profile.startswith("soba"):
-        topics.extend(["soba_types", "hot_cold_options", "tsuyu", "tempura_add_ons", "ordering_rules"])
     else:
         topics.extend(["ramen_types", "toppings", "set_items"])
 
@@ -739,12 +716,10 @@ def _evidence_classifier_payload(
     _seed_evidence_value(payload, "business_name", business_name)
 
     primary_category = str(payload.get("primary_category_v1") or "").lower()
-    if primary_category in {"ramen", "soba", "izakaya"}:
+    if primary_category in {"ramen", "izakaya"}:
         restaurant_type = primary_category
     elif profile.startswith("izakaya"):
         restaurant_type = "izakaya"
-    elif profile.startswith("soba"):
-        restaurant_type = "soba"
     elif profile.startswith("ramen"):
         restaurant_type = "ramen"
     else:
@@ -777,12 +752,11 @@ def _evidence_classifier_payload(
 _CLAIM_VALIDATIONS = [
     ("券売機", "mention_ticket_machine"),
     ("食券", "mention_ticket_machine"),
-    ("飲み放題", "mention_nomihodai"),
-    ("コース", "mention_course"),
     ("トッピング", "mention_toppings"),
     ("セット内容", "mention_set_items"),
     ("公開されているメニュー情報をもとに", "offer_sample_from_public_menu"),
 ]
+_DISALLOWED_FIRST_CONTACT_TERMS = ("飲み放題", "コース")
 
 
 def _validate_email_claims(email_body: str, evidence_audit: dict[str, Any]) -> None:
@@ -791,6 +765,12 @@ def _validate_email_claims(email_body: str, evidence_audit: dict[str, Any]) -> N
         return
 
     allowed = set(evidence_audit.get("allowed_claims") or [])
+    for keyword in _DISALLOWED_FIRST_CONTACT_TERMS:
+        if keyword in email_body:
+            raise ValueError(
+                f"Send-time claim validation failed: '{keyword}' found in email "
+                "but active first-contact copy is generic QR-first copy only"
+            )
 
     for keyword, required_claim in _CLAIM_VALIDATIONS:
         if keyword in email_body and required_claim not in allowed:
@@ -883,16 +863,11 @@ def _compute_search_coverage(leads: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _is_test_recipient_email(value: str) -> bool:
-    """Treat self/test recipients as test sends, including older sent records."""
+    """Only Chris's inbox is allowed for test sends."""
     normalised = str(value or "").strip().lower()
     if not normalised:
         return False
-    from_email = os.environ.get("RESEND_FROM_EMAIL", "chris@webrefurb.com").strip().lower()
-    test_recipient = os.environ.get("TEST_RECIPIENT_EMAIL", "").strip().lower()
-    test_recipients = {from_email}
-    if test_recipient:
-        test_recipients.add(test_recipient)
-    return normalised in test_recipients
+    return normalised == "chris@webrefurb.com"
 
 
 def _is_lead_business_recipient(lead_id: str, to_email: str) -> bool:
@@ -915,6 +890,18 @@ FORBIDDEN_FINAL_CHECK_TERMS = (
     "scraping",
     "scraped",
     "internal tool",
+    "crawler",
+    "classifier",
+    "qr ordering system",
+    "ordering system",
+    "online ordering",
+    " pos ",
+    "checkout",
+    "place order",
+    "submit order",
+    "package_1_remote_30k",
+    "package_2_printed_delivered_45k",
+    "package_3_qr_menu_65k",
     "llm",
     "gpt",
 )
@@ -1002,7 +989,7 @@ def _render_final_check_previews(
     include_menu_image: bool,
     include_machine_image: bool,
 ) -> list[dict[str, str]]:
-    """Materialize the exact lead-specific inline HTML used for the seal check."""
+    """Materialize the exact inline HTML used for the generic sample seal check."""
     lead_id = str(record.get("lead_id") or "lead")
     output_dir = _final_check_render_dir(lead_id)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1190,6 +1177,8 @@ def _clear_tailoring_audit(record: dict[str, Any], reason: str) -> None:
         "invalidation_reason": reason,
         "previous_input_hash": previous.get("input_hash", ""),
     }
+    record["manual_real_send_approved"] = False
+    record["manual_real_send_approved_at"] = ""
 
 
 def _send_readiness_for_record(
@@ -1208,6 +1197,7 @@ def _send_readiness_for_record(
     from pipeline.record import authoritative_business_name, get_primary_email_contact
     from pipeline.models import QualificationResult
     from pipeline.outreach import classify_business, select_outreach_assets, build_outreach_email
+    from pipeline.constants import ENGLISH_QR_MENU_KEY
 
     checked = dict(record)
     if not checked.get("lead_evidence_dossier") or not checked.get("launch_readiness_status"):
@@ -1236,6 +1226,11 @@ def _send_readiness_for_record(
     resolved_body = body or str(checked.get("outreach_draft_body") or "").strip()
     if not resolved_subject or not resolved_body:
         reasons.append("checked_draft_missing")
+    padded_body = f" {resolved_subject}\n{resolved_body} ".lower()
+    if any(term in padded_body for term in FORBIDDEN_FINAL_CHECK_TERMS):
+        reasons.append("banned_customer_copy_term")
+    if resolved_body and ("qr" not in padded_body or ("show staff" not in padded_body and "スタッフ" not in resolved_body)):
+        reasons.append("stale_or_non_qr_first_draft")
     if final_check:
         if not resolved_subject or not resolved_body:
             reasons.append("translations_not_checked")
@@ -1292,6 +1287,12 @@ def _send_readiness_for_record(
 
     if checked.get("outreach_status") in BLOCKED_SEND_STATUSES:
         reasons.append("already_contacted_or_blocked")
+    if checked.get("lead_category") == "skip" or checked.get("lead") is not True:
+        reasons.append("skipped_or_not_true_lead")
+    if str(checked.get("recommended_primary_package") or "") != ENGLISH_QR_MENU_KEY:
+        reasons.append("active_product_missing")
+    if _is_lead_business_recipient(lead_id, email) and checked.get("manual_real_send_approved") is not True:
+        reasons.append("manual_real_send_approval_missing")
 
     if reasons:
         reason_set = set(reasons)
@@ -1311,6 +1312,10 @@ def _send_readiness_for_record(
             tags.append("NAME")
         if "already_contacted_or_blocked" in reason_set:
             tags.append("BLOCKED")
+        if "manual_real_send_approval_missing" in reason_set:
+            tags.append("APPROVE")
+        if "banned_customer_copy_term" in reason_set or "stale_or_non_qr_first_draft" in reason_set:
+            tags.append("COPY")
     else:
         tags.append("SEND READY")
 
@@ -1582,9 +1587,9 @@ def _final_checklist_for_record(
     sample_failed = bool({"inline_pitch_asset_missing", "inline_menu_template_missing", "machine_inline_missing", "machine_template_missing"} & reasons)
     checklist.append({
         "key": "sample",
-        "label": "Inline pitch sample",
+        "label": "Generic demo",
         "status": "fail" if sample_failed else "pass",
-        "detail": "Expected sample assets and inline templates are available" if not sample_failed else "Expected inline sample or asset is missing",
+        "detail": "Generic QR demo link is used; no first-contact sample attachments" if not sample_failed else "Expected demo proof is missing",
     })
 
     rendered_previews = rendered_previews or []
@@ -1596,25 +1601,18 @@ def _final_checklist_for_record(
             seal_failures.append(f"{kind} preview missing")
             continue
         rendered_text = Path(path_text).read_text(encoding="utf-8")
-        if business_name and business_name not in rendered_text:
-            seal_failures.append(f"{kind} preview missing restaurant name")
-    if rendered_previews and not seal_failures:
+        if "見本" not in rendered_text:
+            seal_failures.append(f"{kind} preview missing generic sample seal")
+    if not rendered_previews:
         seal_status = "pass"
-        seal_detail = "Personalized sample seal renders with the restaurant name"
+        seal_detail = "No first-contact inline sample is used"
+    elif not seal_failures:
+        seal_status = "pass"
+        seal_detail = "Generic sample seal renders as 見本"
     else:
         seal_status = "fail"
         seal_detail = "; ".join(seal_failures) or "No rendered inline sample was available for the seal check"
-    checklist.append({"key": "seal", "label": "Name seal", "status": seal_status, "detail": seal_detail})
-
-    machine_expected = include_machine_image is True or record.get("outreach_include_machine_image") is True
-    if machine_expected:
-        machine_path = PROJECT_ROOT / "assets" / "templates" / "ticket_machine_guide.html"
-        checklist.append({
-            "key": "machine",
-            "label": "Machine inline",
-            "status": "pass" if machine_path.exists() else "fail",
-            "detail": "Ticket-machine inline template available" if machine_path.exists() else "Ticket-machine inline template missing",
-        })
+    checklist.append({"key": "seal", "label": "Sample seal", "status": seal_status, "detail": seal_detail})
 
     proof_items = _eligible_proof_items(record)
     checklist.append({
@@ -1624,8 +1622,10 @@ def _final_checklist_for_record(
         "detail": f"{len(proof_items)} customer-safe proof item(s) selected" if proof_items else "No customer-safe proof item tied to this establishment",
     })
 
+    from pipeline.constants import ENGLISH_QR_MENU_KEY
+
     package_key = str(record.get("recommended_primary_package") or "")
-    package_status = "pass" if package_key.startswith("package_") else "fail"
+    package_status = "pass" if package_key == ENGLISH_QR_MENU_KEY else "fail"
     checklist.append({
         "key": "package",
         "label": "Package fit",
@@ -1635,20 +1635,13 @@ def _final_checklist_for_record(
 
     profile = gate.get("establishment_profile") or _effective_establishment_profile(record)["effective"]
     body_text = f"{subject}\n{body}"
-    if str(profile).startswith("ramen"):
-        diagnosis_terms = ("ラーメン", "らーめん", "券売機", "トッピング", "セット", "注文")
-    elif str(profile).startswith("soba"):
-        diagnosis_terms = ("そば", "蕎麦", "冷たい", "温かい", "つゆ", "注文")
-    elif "izakaya" in str(profile):
-        diagnosis_terms = ("居酒屋", "料理", "ドリンク", "コース", "飲み放題", "お品書き", "注文")
-    else:
-        diagnosis_terms = ("メニュー", "注文", "海外")
+    diagnosis_terms = ("QR", "英語QR", "Show Staff", "スタッフ")
     diagnosis_ok = any(term in body_text for term in diagnosis_terms)
     checklist.append({
         "key": "diagnosis",
-        "label": "Shop-specific diagnosis",
+        "label": "QR-first copy",
         "status": "pass" if diagnosis_ok else "fail",
-        "detail": "Copy contains profile-specific ordering-friction language" if diagnosis_ok else "Copy does not contain profile-specific diagnosis language",
+        "detail": "Copy mentions QR menu and Show Staff List" if diagnosis_ok else "Copy does not mention the QR menu and Show Staff List flow",
     })
 
     padded = f" {body_text.lower()} "
@@ -1798,6 +1791,46 @@ async def api_leads():
         "leads": leads,
         "card_counts": _dashboard_card_counts(leads),
         "launch_freeze": launch_freeze_status(state_root=STATE_ROOT),
+    }
+
+
+@app.get("/api/funnel")
+async def api_funnel():
+    """Return send-ready funnel counts: total → categorized → email valid → send-ready."""
+    from pipeline.record import list_leads
+    leads = list_leads(state_root=STATE_ROOT)
+    total = len(leads)
+    categorized = sum(
+        1 for lead in leads
+        if lead.get("primary_category_v1") in {"ramen", "izakaya"}
+    )
+    email_valid = sum(
+        1 for lead in leads
+        if lead.get("primary_category_v1") in {"ramen", "izakaya"}
+        and lead.get("email_mx_valid") is not False
+        and lead.get("email")
+    )
+    send_ready = sum(
+        1 for lead in leads
+        if lead.get("operator_state") == "ready"
+    )
+    by_category = {}
+    for cat in ("ramen", "izakaya"):
+        cat_leads = [l for l in leads if l.get("primary_category_v1") == cat]
+        by_category[cat] = {
+            "total": len(cat_leads),
+            "email_valid": sum(
+                1 for l in cat_leads
+                if l.get("email_mx_valid") is not False and l.get("email")
+            ),
+            "send_ready": sum(1 for l in cat_leads if l.get("operator_state") == "ready"),
+        }
+    return {
+        "total": total,
+        "categorized": categorized,
+        "email_valid": email_valid,
+        "send_ready": send_ready,
+        "by_category": by_category,
     }
 
 
@@ -2418,6 +2451,8 @@ async def api_outreach_final_check(lead_id: str, request: Request):
         record["send_ready_checked_at"] = checked_at
         record["send_ready_checklist"] = checklist
         record["tailoring_audit"] = tailoring_audit
+        record["manual_real_send_approved"] = True
+        record["manual_real_send_approved_at"] = checked_at
         record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
         gate = _send_readiness_for_record(record)
@@ -2425,6 +2460,8 @@ async def api_outreach_final_check(lead_id: str, request: Request):
         record["send_ready_checked"] = False
         record["send_ready_checklist"] = checklist
         record["tailoring_audit"] = tailoring_audit
+        record["manual_real_send_approved"] = False
+        record["manual_real_send_approved_at"] = ""
         record = _refresh_operator_lead(record)
         persist_lead_record(record, state_root=STATE_ROOT)
 
@@ -2542,26 +2579,13 @@ async def _build_outreach_payload(lead_id: str, *, regenerate: bool) -> dict[str
             status_code=422,
             detail="Lead is not launch-ready for outreach: no supported e-mail or contact-form route for pitch preview.",
         )
-    sample_result: dict[str, Any] = {}
-    sample_menu_url = str(record.get("sample_menu_url") or record.get("hosted_menu_sample_url") or "").strip()
-    if primary_contact_type == "contact_form":
-        from pipeline.hosted_sample import ensure_hosted_menu_sample
+    from pipeline.constants import GENERIC_DEMO_URL
 
-        record, sample_result = ensure_hosted_menu_sample(
-            record,
-            state_root=STATE_ROOT,
-            docs_root=_dashboard_sample_docs_root(),
-        )
-        record = _refresh_operator_lead(record)
-        persist_lead_record(record, state_root=STATE_ROOT)
-        if not sample_result.get("ok"):
-            raise HTTPException(
-                status_code=502,
-                detail=f"Hosted sample page could not be published: {sample_result.get('error') or 'unknown_error'}",
-            )
-        sample_menu_url = str(sample_result.get("sample_menu_url") or sample_menu_url)
+    sample_result: dict[str, Any] = {"ok": True, "sample_menu_url": GENERIC_DEMO_URL, "generic_demo": True}
+    sample_menu_url = GENERIC_DEMO_URL
+    if primary_contact_type == "contact_form":
         contact_action = "use_contact_form"
-        contact_action_note = "Use this no-attachment version in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
+        contact_action_note = "Use this short no-attachment QR-first version in the restaurant's saved contact form route. Dashboard e-mail sending stays disabled for this lead."
     else:
         contact_action = "send_email"
         contact_action_note = "This lead has a saved business e-mail route."
@@ -2796,18 +2820,8 @@ async def api_translate_draft(request: Request):
 
     candidate_profiles = [establishment_profile] if establishment_profile and establishment_profile != "unknown" else [
         "unknown",
-        "ramen_only",
-        "ramen_with_drinks",
-        "ramen_ticket_machine",
-        "ramen_with_sides_add_ons",
-        "izakaya_food_and_drinks",
-        "izakaya_drink_heavy",
-        "izakaya_course_heavy",
-        "izakaya_yakitori_kushiyaki",
-        "izakaya_kushiage",
-        "izakaya_seafood_sake_oden",
-        "izakaya_tachinomi",
-        "izakaya_robatayaki",
+        "ramen",
+        "izakaya",
     ]
     japanese_body = ""
     normalised_english_body = _normalise_body(english_body)
@@ -2931,10 +2945,18 @@ async def _send_lead_email_payload(
 
     if not email_body:
         raise HTTPException(status_code=400, detail="Email body required")
+    padded_copy = f" {subject}\n{email_body} ".lower()
+    banned_terms = [term.strip() for term in FORBIDDEN_FINAL_CHECK_TERMS if term in padded_copy]
+    if banned_terms:
+        raise HTTPException(status_code=422, detail=f"Outbound copy contains banned terms: {', '.join(sorted(set(banned_terms)))}")
+    if "qr" not in padded_copy or ("show staff" not in padded_copy and "スタッフ" not in email_body):
+        raise HTTPException(status_code=422, detail="Outbound copy must be regenerated with QR-first Show Staff List wording")
 
     normalised_to = to_email.strip().lower()
     is_business_send = _is_lead_business_recipient(lead_id, normalised_to)
     is_test_send = not is_business_send
+    if is_test_send and not _is_test_recipient_email(normalised_to):
+        raise HTTPException(status_code=403, detail="Test sends are only allowed to chris@webrefurb.com")
     if is_business_send:
         from pipeline.launch_freeze import LaunchFreezeError, assert_launch_not_frozen
 
@@ -2943,6 +2965,10 @@ async def _send_lead_email_payload(
         except LaunchFreezeError as exc:
             raise HTTPException(status_code=423, detail=f"launch_frozen:{exc}") from exc
         require_send_ready = True
+        if record.get("manual_real_send_approved") is not True:
+            raise HTTPException(status_code=422, detail="Lead is not send-ready: manual_real_send_approval_missing")
+    else:
+        require_send_ready = False
     if require_send_ready:
         if record.get("send_ready_checked") is not True:
             raise HTTPException(status_code=422, detail="Lead is not send-ready: final_check_missing")
@@ -2956,8 +2982,6 @@ async def _send_lead_email_payload(
         )
         if gate["status"] != "ready_to_send":
             raise HTTPException(status_code=422, detail=f"Lead is not send-ready: {', '.join(gate['reasons'])}")
-        if not is_business_send:
-            raise HTTPException(status_code=422, detail="Lead is not send-ready: email_not_saved_business_route")
     if is_business_send:
         from pipeline.lead_dossier import ensure_lead_dossier, READINESS_READY
         from pipeline.operator_state import OPERATOR_READY
@@ -3057,13 +3081,8 @@ async def _send_lead_email_payload(
 
     # Derive image flags from evidence audit
     tmpl = evidence_audit.get("selected_template", "")
-    include_menu_image = tmpl not in (
-        "ramen_ticket_machine_only", "ramen_needs_ticket_machine_photo",
-    )
-    expected_machine_image = tmpl in (
-        "ramen_menu_plus_ticket_machine", "ramen_ticket_machine_only",
-        "ramen_needs_ticket_machine_photo",
-    )
+    include_menu_image = False
+    expected_machine_image = False
     if include_machine_image is None:
         include_machine_image = record.get("outreach_include_machine_image", expected_machine_image)
     if expected_machine_image and not include_machine_image:
@@ -3800,10 +3819,10 @@ async def api_update_order_intake(order_id: str, request: Request):
     intake = dict(order.get("intake") or {})
     for key in (
         "full_menu_photos",
-        "ticket_machine_photos",
+        "structured_options",
         "price_confirmation",
         "dietary_ingredient_notes",
-        "delivery_details",
+        "qr_sign_confirmation",
         "business_contact_confirmed",
     ):
         if key in body:
@@ -3813,7 +3832,7 @@ async def api_update_order_intake(order_id: str, request: Request):
     intake["is_complete"] = all(bool(intake.get(key)) for key in (
         "full_menu_photos",
         "price_confirmation",
-        "delivery_details",
+        "qr_sign_confirmation",
         "business_contact_confirmed",
     ))
     order["intake"] = intake
@@ -3902,7 +3921,7 @@ async def api_record_owner_approval(order_id: str, request: Request):
     intake = order.get("intake") or {}
     intake_complete = bool(intake.get("is_complete")) or all(
         bool(intake.get(key))
-        for key in ("full_menu_photos", "price_confirmation", "delivery_details", "business_contact_confirmed")
+        for key in ("full_menu_photos", "price_confirmation", "qr_sign_confirmation", "business_contact_confirmed")
     )
     blockers: list[str] = []
     if str(payment.get("status") or "") != "confirmed":
@@ -4086,15 +4105,16 @@ async def api_build(
     lead_id: str = Form(""),
     reply_id: str = Form(""),
     source: str = Form(""),
-    package_key: str = Form("package_1_remote_30k"),
+    package_key: str = Form("english_qr_menu_65k"),
     menu_photos: list[UploadFile] = File(default=[]),
     ticket_photo: UploadFile | None = File(default=None),
 ):
-    """Accept custom build form data and start build job."""
-    from pipeline.constants import PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY, PACKAGE_REGISTRY
+    """Accept owner materials and create an English QR Menu draft job."""
+    from pipeline.constants import ENGLISH_QR_MENU_KEY, PACKAGE_REGISTRY
+    from pipeline.qr import QRMenuError, create_qr_draft
 
-    if package_key not in {PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY}:
-        raise HTTPException(status_code=422, detail="Unsupported custom build package")
+    if package_key != ENGLISH_QR_MENU_KEY:
+        raise HTTPException(status_code=422, detail="Only english_qr_menu_65k is active")
 
     job_id = str(uuid.uuid4())[:8]
     job_dir = STATE_ROOT / "uploads" / job_id
@@ -4127,33 +4147,33 @@ async def api_build(
         dest.write_bytes(content)
         ticket_path = str(dest)
 
-    # Save job metadata
-    job_meta = {
-        "job_id": job_id,
-        "restaurant_name": name,
-        "menu_text": menu_text,
-        "notes": notes,
+    reply = {
+        "reply_id": reply_id or f"manual-{job_id}",
         "lead_id": lead_id,
-        "reply_id": reply_id,
-        "source": source,
-        "package_key": package_key,
-        "package_label": PACKAGE_REGISTRY[package_key]["label"],
-        "price_yen": PACKAGE_REGISTRY[package_key]["price_yen"],
-        "photo_paths": photo_paths,
-        "ticket_path": ticket_path,
-        "status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "business_name": name,
+        "subject": "English QR Menu",
+        "body": "Please create the English QR menu.",
+        "stored_photo_count": len(photo_paths) or (1 if menu_text.strip() else 0),
+        "attachments": [{"stored_path": path} for path in photo_paths],
     }
-    _build_jobs[job_id] = job_meta
-    from pipeline.utils import write_json
-    write_json(STATE_ROOT / "jobs" / f"{job_id}.json", job_meta)
+    payload: dict[str, Any] = {
+        "restaurant_name": name,
+        "raw_text": menu_text,
+        "notes": notes,
+        "ticket_machine": {"stored_path": ticket_path} if ticket_path else None,
+    }
+    try:
+        result = create_qr_draft(
+            reply=reply,
+            state_root=STATE_ROOT,
+            docs_root=QR_DOCS_ROOT,
+            payload=payload,
+        )
+    except QRMenuError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
-    _log("build_started", f"name={name[:50]}", lead_id=job_id)
-
-    # Start build in background
-    asyncio.create_task(_run_build_job(job_id, job_meta))
-
-    return {"job_id": job_id, "status": "started"}
+    _log("qr_build_started", f"name={name[:50]}", lead_id=str(result.get("job_id") or job_id))
+    return {**result, "package_label": PACKAGE_REGISTRY[package_key]["label"], "price_yen": PACKAGE_REGISTRY[package_key]["price_yen"]}
 
 
 @app.get("/api/build/{job_id}/status")
@@ -4217,7 +4237,6 @@ async def api_build_approve(job_id: str, request: Request):
             state_root=STATE_ROOT,
             job_id=job_id,
             package_key=str((body or {}).get("package_key") or ""),
-            delivery_details=body if isinstance(body, dict) else {},
         )
     except PackageExportError as exc:
         status_code = 404 if "not found" in str(exc).lower() else 422
@@ -4679,8 +4698,6 @@ def _count_today_sends() -> int:
 def _professional_attachment_name(path: Path) -> str:
     """Use recipient-friendly sample PDF names without changing source files."""
     lower = path.name.lower()
-    if "ticket" in lower or "machine" in lower:
-        return "WebRefurb-Ticket-Machine-Guide-Sample.pdf"
     if "menu" in lower:
         return "WebRefurb-English-Menu-Sample.pdf"
     return path.name
@@ -5001,7 +5018,7 @@ def _attach_reply_to_order(order: dict[str, Any], reply_id: str) -> None:
 
 
 def _write_positive_reply_order_intake(reply: dict[str, Any], lead: dict[str, Any] | None, order: dict[str, Any] | None) -> dict[str, Any] | None:
-    from pipeline.constants import PACKAGE_1_KEY
+    from pipeline.constants import ENGLISH_QR_MENU_KEY
     from pipeline.production_workflow import build_order_intake_record
     from pipeline.utils import write_json
 
@@ -5011,7 +5028,7 @@ def _write_positive_reply_order_intake(reply: dict[str, Any], lead: dict[str, An
         reply.get("package_key")
         or (lead or {}).get("recommended_primary_package")
         or (lead or {}).get("package_key")
-        or PACKAGE_1_KEY
+        or ENGLISH_QR_MENU_KEY
     )
     intake = build_order_intake_record(
         reply=reply,

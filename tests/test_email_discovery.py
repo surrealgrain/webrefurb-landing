@@ -230,9 +230,9 @@ class TestGenreClassification:
         assert result.is_approved
         assert result.genre == "izakaya"
 
-    def test_yakitori_adjacent(self):
+    def test_kushikatsu_adjacent(self):
         from pipeline.email_discovery.genre_classifier import classify_genre
-        result = classify_genre(genre_text="焼鳥")
+        result = classify_genre(genre_text="串カツ")
         assert result.is_approved
         assert result.category == "adjacent"
 

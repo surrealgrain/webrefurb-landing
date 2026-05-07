@@ -45,7 +45,7 @@ PROFILE_LABELS = {
     "izakaya_food_and_drinks": "Izakaya Food And Drinks",
     "izakaya_drink_heavy": "Izakaya Drinks / Courses",
     "izakaya_course_heavy": "Izakaya Courses",
-    "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki",
+    "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki",  # retained for existing records
     "izakaya_kushiage": "Kushikatsu / Kushiage",
     "izakaya_seafood_sake_oden": "Seafood / Sake / Oden",
     "izakaya_tachinomi": "Tachinomi",
@@ -65,8 +65,8 @@ PROFILE_ASSET_GUIDANCE = {
     },
     "ramen_with_drinks": {
         "family": "ramen",
-        "asset_profile": "ramen_food_menu + ramen_drinks_menu",
-        "brief": "Prioritize ramen item clarity with a small drink section for beer, highball, and pairings.",
+        "asset_profile": "ramen_food_menu",
+        "brief": "Prioritize one-page ramen translation with concise add-on, side, and drink handling when present.",
     },
     "ramen_with_sides_add_ons": {
         "family": "ramen",
@@ -75,13 +75,13 @@ PROFILE_ASSET_GUIDANCE = {
     },
     "izakaya_food_and_drinks": {
         "family": "izakaya",
-        "asset_profile": "izakaya_food_menu + izakaya_drinks_menu",
+        "asset_profile": "izakaya_food_drinks_menu",
         "brief": "Prioritize food and drink pairing clarity, house recommendations, and group-order scanning.",
     },
     "izakaya_drink_heavy": {
         "family": "izakaya",
-        "asset_profile": "izakaya_drinks_menu",
-        "brief": "Prioritize drink categories, all-you-can-drink rules, and concise pairing notes.",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize the universal izakaya food-and-drinks sample; treat drink-plan evidence as internal context only.",
     },
     "izakaya_course_heavy": {
         "family": "izakaya",
@@ -90,28 +90,28 @@ PROFILE_ASSET_GUIDANCE = {
     },
     "izakaya_yakitori_kushiyaki": {
         "family": "izakaya",
-        "asset_profile": "izakaya_yakitori_kushiyaki_menu",
-        "brief": "Prioritize skewer cuts, sauce/salt options, set platters, and drink pairing sections.",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize the universal izakaya food-and-drinks sample with skewer items handled as menu content.",
     },
     "izakaya_kushiage": {
         "family": "izakaya",
-        "asset_profile": "izakaya_kushiage_menu",
-        "brief": "Prioritize fried skewer categories, dipping rules, set counts, and allergen-friendly labels.",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize the universal izakaya food-and-drinks sample with fried skewer items handled as menu content.",
     },
     "izakaya_seafood_sake_oden": {
         "family": "izakaya",
-        "asset_profile": "izakaya_seafood_sake_oden_menu",
-        "brief": "Prioritize seasonal seafood, sake/shochu pairing, oden items, and freshness notes.",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize the universal izakaya food-and-drinks sample with seafood, sake, and oden handled as menu content.",
     },
     "izakaya_tachinomi": {
         "family": "izakaya",
-        "asset_profile": "izakaya_tachinomi_menu",
-        "brief": "Prioritize fast scanning, small plates, drink rounds, and standing-bar ordering cues.",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize the universal izakaya food-and-drinks sample with standing-bar context kept internal.",
     },
     "izakaya_robatayaki": {
         "family": "izakaya",
-        "asset_profile": "izakaya_robatayaki_menu",
-        "brief": "Prioritize grill categories, ingredient display, doneness notes, and shared-plate ordering.",
+        "asset_profile": "izakaya_food_drinks_menu",
+        "brief": "Prioritize the universal izakaya food-and-drinks sample with grilled items handled as menu content.",
     },
 }
 

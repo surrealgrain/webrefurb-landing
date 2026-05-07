@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .export import is_valid_pdf
+from .constants import ENGLISH_QR_MENU_KEY, LEGACY_PACKAGE_KEY_MAP
 from .render import validate_rendered_html
 from .utils import write_json
 
@@ -331,7 +332,8 @@ def write_export_qa_report(
 
 
 def delivery_export_qa_blockers(order: dict[str, Any]) -> list[str]:
-    package_key = str(order.get("package_key") or "")
+    raw_package_key = str(order.get("package_key") or "")
+    package_key = LEGACY_PACKAGE_KEY_MAP.get(raw_package_key, raw_package_key)
     qa = order.get("export_qa") or {}
     blockers: list[str] = []
     if not bool(qa.get("ok")):
@@ -340,10 +342,8 @@ def delivery_export_qa_blockers(order: dict[str, Any]) -> list[str]:
         blockers.append("customer_download_link_missing")
     if not str(order.get("final_customer_message") or "").strip():
         blockers.append("final_customer_message_missing")
-    if package_key == "package_2_printed_delivered_45k" and not (order.get("print_handoff_record") or {}).get("created_at"):
-        blockers.append("package_2_print_handoff_missing")
-    if package_key == "package_3_qr_menu_65k" and not (order.get("hosting_support_record") or {}).get("created_at"):
-        blockers.append("package_3_hosting_support_missing")
+    if package_key == ENGLISH_QR_MENU_KEY and not (order.get("hosting_support_record") or {}).get("created_at"):
+        blockers.append("english_qr_menu_hosting_support_missing")
     return blockers
 
 
@@ -367,18 +367,11 @@ def _image_dimensions(path: Path) -> dict[str, int]:
 
 
 def _package_promise_errors(*, package_key: str, names: list[str]) -> list[str]:
+    package_key = LEGACY_PACKAGE_KEY_MAP.get(package_key, package_key)
     name_set = set(names)
     errors: list[str] = []
-    if package_key == "package_1_remote_30k":
-        for required in ("food_menu_print_ready.pdf", "menu_data.json", "OWNER_APPROVED_CONTENT.json", "PRINT_YOURSELF_NOTE.md"):
-            if required not in name_set:
-                errors.append(f"package_1_missing:{required}")
-    elif package_key == "package_2_printed_delivered_45k":
-        for required in ("PRINT_ORDER.json", "PRINT_CHECKLIST.md", "DELIVERY_CHECKLIST.md"):
-            if required not in name_set:
-                errors.append(f"package_2_missing:{required}")
-    elif package_key == "package_3_qr_menu_65k":
+    if package_key == ENGLISH_QR_MENU_KEY:
         for required in ("index.html", "menu.json", "qr.svg", "qr_sign_print_ready.pdf", "QR_HEALTH_REPORT.json", "QR_SUPPORT_RECORD.md", "source.json"):
             if required not in name_set:
-                errors.append(f"package_3_missing:{required}")
+                errors.append(f"english_qr_menu_missing:{required}")
     return errors

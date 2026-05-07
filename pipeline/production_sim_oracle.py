@@ -676,9 +676,7 @@ def _logical_asset_names(paths: list[Any]) -> list[str]:
             result.append("ticket_machine_guide")
         elif "izakaya_food_drinks_menu" in name:
             result.append("izakaya_food_drinks")
-        elif "izakaya_food_menu" in name or "izakaya_drinks_menu" in name:
-            result.append("izakaya_food_drinks")
-        elif "ramen_food_menu" in name or "ramen_drinks_menu" in name:
+        elif "ramen_food_menu" in name:
             result.append("ramen_food_menu")
         elif name:
             result.append(name)
@@ -694,7 +692,10 @@ def _logical_inline_asset_names_for_record(record: dict[str, Any]) -> list[str]:
     category = str(record.get("primary_category_v1") or record.get("category") or "")
     names: list[str] = []
     if classification != "machine_only":
-        names.append("izakaya_food_drinks" if profile.startswith("izakaya") or category == "izakaya" else "ramen_food_menu")
+        if profile.startswith("izakaya") or category == "izakaya":
+            names.append("izakaya_food_drinks")
+        elif profile.startswith("ramen") or category == "ramen":
+            names.append("ramen_food_menu")
     if (
         classification in {"menu_and_machine", "machine_only"}
         or profile == "ramen_ticket_machine"

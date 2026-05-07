@@ -24,10 +24,10 @@ Startup read path: `AGENTS.md` -> `HANDOFF.codex.md` only.
 
 ## Validation
 - Focused reset suite passed: `tests/test_qr.py tests/test_outreach.py tests/test_website.py tests/test_search_scope.py tests/test_scoring.py tests/test_state_audit.py`.
-- Full remaining suite passed during reset review: `.venv/bin/python -m pytest tests/ -q` -> 468 passed.
+- Full remaining suite after legacy cleanup: `.venv/bin/python -m pytest tests/ -q` -> 389 passed.
 - State audit passed: `.venv/bin/python -m pipeline.cli audit-state`.
 
 ## Caveats
-- Many legacy product tests were deleted because they encoded the removed print/design/template system.
-- Existing lead state was repaired to mark stale old drafts/manual-review; no real-send path was enabled.
-- Worktree already had broad unrelated changes before this reset; do not revert unrelated user/model work.
+- Legacy product tests and old generated package artifacts were removed because they encoded the retired print/design/template system.
+- Existing lead state is QR-reset audited: old drafts/manual-review are blocked; no real-send path is enabled.
+- Keep future cleanup scoped to QR menu, generic demo, send safety, state audit, and owner-confirmed publish/export paths.

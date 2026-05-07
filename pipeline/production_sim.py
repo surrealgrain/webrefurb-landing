@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import re
 import socket
@@ -18,8 +17,8 @@ from .constants import PROJECT_ROOT
 from .email_html import LOGO_CID, MACHINE_CID, MENU_CID, build_pitch_email_html
 from .launch import LaunchBatchError
 from .launch_smoke import create_launch_smoke_test, prepare_launch_smoke_drafts
-from .models import QualificationResult
-from .outreach import build_outreach_email, classify_business
+from .evidence_classifier import classify_lead
+from .outreach import build_evidence_gated_email
 from .production_sim_oracle import evaluate_simulation
 from .record import authoritative_business_name, get_primary_contact
 from .search_replay import (
@@ -468,22 +467,16 @@ def build_mock_email_payload(record: dict[str, Any]) -> dict[str, Any]:
     """Create the same logical email payload shape without calling Resend."""
     business_name = authoritative_business_name(record)
     primary = get_primary_contact(record) or {}
-    q = QualificationResult(
-        lead=record.get("lead") is True,
-        rejection_reason=record.get("rejection_reason"),
-        business_name=business_name,
-        menu_evidence_found=record.get("menu_evidence_found", True),
-        machine_evidence_found=record.get("machine_evidence_found", False),
-    )
-    classification = str(record.get("outreach_classification") or classify_business(q))
     establishment_profile = str(record.get("establishment_profile") or "unknown")
-    draft = build_outreach_email(
-        business_name=business_name,
-        classification=classification,
-        establishment_profile=establishment_profile,
-        include_inperson_line=record.get("outreach_include_inperson", True),
-        lead_dossier=record.get("lead_evidence_dossier") or {},
-    )
+    classification_obj = classify_lead(_mock_evidence_payload(record, business_name=business_name))
+    draft = build_evidence_gated_email(classification_obj)
+    if draft is None:
+        raise ValueError(
+            "evidence-gated mock payload blocked: "
+            f"{record.get('lead_id') or business_name}: "
+            f"{classification_obj.get('selected_template_reason') or 'skip'}"
+        )
+    evidence_audit = _mock_evidence_audit(classification_obj)
     include_menu = bool(draft["include_menu_image"])
     include_machine = bool(record.get("outreach_include_machine_image", draft["include_machine_image"]))
     html_body = build_pitch_email_html(
@@ -515,10 +508,98 @@ def build_mock_email_payload(record: dict[str, Any]) -> dict[str, Any]:
         "content_ids": [item["content_id"] for item in inline_attachments],
         "selected_package": record.get("recommended_primary_package"),
         "establishment_profile": establishment_profile,
-        "outreach_classification": classification,
+        "outreach_classification": classification_obj.get("selected_template", ""),
+        "evidence_audit": evidence_audit,
         "selected_assets": list(record.get("outreach_assets_selected") or []),
         "mock_send": True,
         "external_send_performed": False,
+    }
+
+
+def _mock_evidence_payload(record: dict[str, Any], *, business_name: str) -> dict[str, Any]:
+    primary = get_primary_contact(record) or {}
+    contact_type = str(primary.get("type") or "").strip()
+    category = str(record.get("primary_category_v1") or record.get("category") or "").strip().lower()
+    profile = str(record.get("establishment_profile") or "").strip().lower()
+    if category not in {"ramen", "izakaya"}:
+        if profile.startswith("izakaya"):
+            category = "izakaya"
+        elif profile.startswith("ramen"):
+            category = "ramen"
+        else:
+            category = "unknown"
+
+    dossier = record.get("lead_evidence_dossier") if isinstance(record.get("lead_evidence_dossier"), dict) else {}
+    topics = _mock_topics_for_record(record, category=category, profile=profile, dossier=dossier)
+    machine_found = bool(record.get("machine_evidence_found")) or str(dossier.get("ticket_machine_state") or "") == "present"
+    izakaya_rules = str(record.get("izakaya_rules_state") or dossier.get("izakaya_rules_state") or "")
+
+    return {
+        **record,
+        "business_name": business_name,
+        "restaurant_type": category,
+        "restaurant_type_confidence": 0.90,
+        "contact_channel": "public_email" if contact_type == "email" else "official_contact_form" if contact_type == "contact_form" else "none",
+        "public_contact_source": str(primary.get("source") or primary.get("source_url") or "production_sim"),
+        "public_menu_found": bool(record.get("menu_evidence_found", True)),
+        "public_menu_source_type": "other",
+        "menu_readability_confidence": float(record.get("menu_readability_confidence") or 0.85),
+        "observed_menu_topics": topics,
+        "ticket_machine_confidence": 0.90 if machine_found else 0.0,
+        "ticket_machine_evidence_type": "explicit_text" if machine_found else "none",
+        "ticket_machine_content_usable": machine_found and "ticket_machine_buttons" in topics,
+        "nomihodai_confidence": 0.90 if izakaya_rules == "nomihodai_found" or "nomihodai" in topics else 0.0,
+        "nomihodai_evidence_notes": "Production simulation izakaya rules evidence" if izakaya_rules == "nomihodai_found" else "",
+        "course_confidence": 0.82 if izakaya_rules == "courses_found" or "course_items" in topics else 0.0,
+        "course_evidence_notes": "Production simulation izakaya rules evidence" if izakaya_rules == "courses_found" else "",
+        "existing_english_menu_quality": "none_found",
+    }
+
+
+def _mock_topics_for_record(
+    record: dict[str, Any],
+    *,
+    category: str,
+    profile: str,
+    dossier: dict[str, Any],
+) -> list[str]:
+    raw_topics = record.get("observed_menu_topics")
+    if isinstance(raw_topics, list) and raw_topics:
+        return [str(topic) for topic in raw_topics]
+
+    topics: list[str]
+    if category == "izakaya":
+        topics = ["food_items", "drink_items"]
+    elif category == "ramen":
+        topics = ["ramen_types", "toppings", "set_items"]
+    else:
+        topics = []
+
+    if bool(record.get("machine_evidence_found")) or str(dossier.get("ticket_machine_state") or "") == "present" or "ticket_machine" in profile:
+        topics.extend(["ticket_machine_buttons", "purchase_steps"])
+    rules_state = str(record.get("izakaya_rules_state") or dossier.get("izakaya_rules_state") or "")
+    if rules_state == "nomihodai_found":
+        topics.extend(["nomihodai", "last_order", "extra_charges"])
+    elif rules_state == "courses_found":
+        topics.append("course_items")
+    return list(dict.fromkeys(topics))
+
+
+def _mock_evidence_audit(classification: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "evidence_classifier_version": "1.0",
+        "template_renderer_version": "1.0",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "selected_template": classification.get("selected_template", ""),
+        "selected_template_reason": classification.get("selected_template_reason", ""),
+        "allowed_claims": classification.get("allowed_claims", []),
+        "blocked_claims": classification.get("blocked_claims", []),
+        "human_review_required": classification.get("human_review_required", False),
+        "skip_reason": (
+            classification.get("selected_template_reason", "")
+            if classification.get("selected_template") == "skip"
+            else ""
+        ),
     }
 
 
@@ -673,7 +754,7 @@ def _open_preview(page: Any, record: dict[str, Any]) -> None:
     lead_id = str(record["lead_id"])
     _switch_dashboard_mode_for_record(page, record)
     card = page.locator(f'.lead-card[data-lead-id="{lead_id}"]')
-    card.locator("button.btn-secondary").first.click()
+    card.locator('button[onclick^="openPreview"]').first.click()
     page.locator("#preview-modal[open]").wait_for(timeout=20000)
     page.locator("#jp-preview").wait_for(timeout=20000)
 
@@ -1085,9 +1166,9 @@ def _logical_asset_names(paths: list[str]) -> list[str]:
         name = str(value)
         if "ticket_machine_guide" in name:
             result.append("ticket_machine_guide")
-        elif "izakaya_food_drinks_menu" in name or "izakaya_food_menu" in name or "izakaya_drinks_menu" in name:
+        elif "izakaya_food_drinks_menu" in name:
             result.append("izakaya_food_drinks")
-        elif "ramen_food_menu" in name or "ramen_drinks_menu" in name:
+        elif "ramen_food_menu" in name:
             result.append("ramen_food_menu")
         elif name:
             result.append(name)
@@ -1103,7 +1184,10 @@ def _logical_inline_asset_names_for_record(record: dict[str, Any]) -> list[str]:
     category = str(record.get("primary_category_v1") or record.get("category") or "")
     names: list[str] = []
     if classification != "machine_only":
-        names.append("izakaya_food_drinks" if profile.startswith("izakaya") or category == "izakaya" else "ramen_food_menu")
+        if profile.startswith("izakaya") or category == "izakaya":
+            names.append("izakaya_food_drinks")
+        elif category == "ramen" or profile.startswith("ramen"):
+            names.append("ramen_food_menu")
     if (
         classification in {"menu_and_machine", "machine_only"}
         or profile == "ramen_ticket_machine"

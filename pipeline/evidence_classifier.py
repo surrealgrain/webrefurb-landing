@@ -56,13 +56,8 @@ VALID_MENU_TOPICS = {
 }
 
 VALID_TEMPLATES = {
-    "ramen_visible_menu", "ramen_visible_menu_neutral_ordering",
-    "ramen_menu_plus_ticket_machine", "ramen_ticket_machine_only",
-    "ramen_needs_menu_photo", "ramen_needs_ticket_machine_photo",
-    "izakaya_standard", "izakaya_food_drink_only",
-    "izakaya_course_only", "izakaya_nomihodai_only",
-    "izakaya_nomihodai_course", "izakaya_needs_menu_photo",
-    "contact_form_public_menu", "contact_form_needs_menu_photo",
+    "qr_first_email",
+    "qr_first_contact_form",
     "skip",
 }
 
@@ -71,7 +66,11 @@ VALID_TEMPLATES = {
 # Keywords for evidence detection
 # ---------------------------------------------------------------------------
 
-RAMEN_KEYWORDS = {"ラーメン", "ラーメン店", "ramen", "拉麺", "らーめん"}
+RAMEN_KEYWORDS = {
+    "ラーメン", "ラーメン店", "ramen", "拉麺", "らーめん",
+    "油そば", "まぜそば", "中華そば", "abura soba", "mazesoba", "chuka soba",
+}
+PLAIN_SOBA_KEYWORDS = {"そば", "蕎麦", "そば店", "蕎麦店", "手打ちそば", "手打ち蕎麦", "soba"}
 IZAKAYA_KEYWORDS = {"居酒屋", "izakaya", "酒場", "バー"}
 
 STRONG_TICKET_MACHINE_KEYWORDS = {
@@ -119,6 +118,7 @@ def classify_lead(lead_data: dict[str, Any]) -> dict[str, Any]:
     _evaluate_nomihodai(lead_data, c)
     _evaluate_course(lead_data, c)
     _evaluate_english_menu(lead_data, c)
+    _prune_unsupported_topics(c)
     _generate_claims(c)
     _select_template(c)
     _check_human_review(c)
@@ -174,7 +174,7 @@ def _init_classification(lead_data: dict[str, Any]) -> dict[str, Any]:
         if key in lead_data:
             defaults[key] = lead_data[key]
 
-    defaults["business_name"] = str(lead_data.get("business_name", defaults["business_name"]))
+    defaults["business_name"] = str(lead_data.get("business_name", defaults["business_name"])).strip()
 
     # Normalise observed_menu_topics
     topics = defaults["observed_menu_topics"]
@@ -201,6 +201,7 @@ def _classify_restaurant_type(lead_data: dict[str, Any], c: dict[str, Any]) -> N
     text = f"{category} {name} {description}"
 
     has_ramen = any(kw in text for kw in RAMEN_KEYWORDS)
+    has_plain_soba = any(kw in text for kw in PLAIN_SOBA_KEYWORDS)
     has_izakaya = any(kw in text for kw in IZAKAYA_KEYWORDS)
 
     # Also check primary_category_v1 and establishment_profile
@@ -213,6 +214,9 @@ def _classify_restaurant_type(lead_data: dict[str, Any], c: dict[str, Any]) -> N
     elif has_izakaya or is_izakaya_profile:
         c["restaurant_type"] = "izakaya"
         c["restaurant_type_confidence"] = 0.90 if (has_izakaya and is_izakaya_profile) else 0.80
+    elif has_plain_soba or primary_category == "soba" or establishment_profile.startswith("soba"):
+        c["restaurant_type"] = "other_japanese_restaurant"
+        c["restaurant_type_confidence"] = 0.90
     else:
         c["restaurant_type"] = "unknown"
         c["restaurant_type_confidence"] = 0.0
@@ -388,35 +392,36 @@ def _evaluate_ticket_machine(lead_data: dict[str, Any], c: dict[str, Any]) -> No
 
 def _evaluate_nomihodai(lead_data: dict[str, Any], c: dict[str, Any]) -> None:
     if c["nomihodai_confidence"] > 0.0:
+        if c["nomihodai_confidence"] >= NOMIHODAI_THRESHOLD and "nomihodai" not in c["observed_menu_topics"]:
+            c["observed_menu_topics"].append("nomihodai")
         return  # already set
 
     snippets = lead_data.get("evidence_snippets") or []
+    evidence_classes = lead_data.get("evidence_classes") or []
     dossier = lead_data.get("lead_evidence_dossier") or {}
     izakaya_state = str(dossier.get("izakaya_rules_state") or "")
-    profile = str(lead_data.get("establishment_profile") or "")
 
     confidence = 0.0
     notes = ""
+    all_text = " ".join(str(s) for s in snippets + evidence_classes).lower()
+    has_nomihodai_signal = (
+        "nomihodai_menu" in {str(item).lower() for item in evidence_classes}
+        or any(kw in all_text for kw in NOMIHODAI_KEYWORDS)
+    )
 
-    # Strong: dossier says nomihodai found
-    if izakaya_state == "nomihodai_found":
+    # Strong: dossier says nomihodai found and evidence text/classes support it
+    if izakaya_state == "nomihodai_found" and has_nomihodai_signal:
         confidence = 0.92
         notes = "Lead dossier reports nomihodai_found"
 
-    # Strong: profile is drink_heavy or course_heavy
-    elif profile in ("izakaya_drink_heavy", "izakaya_course_heavy"):
-        confidence = 0.88
-        notes = f"Establishment profile: {profile}"
-
-    else:
-        # Check snippets for keywords
-        all_text = " ".join(str(s) for s in snippets).lower()
-        if any(kw in all_text for kw in NOMIHODAI_KEYWORDS):
-            confidence = 0.87
-            notes = "Nomihodai keyword found in evidence snippets"
+    elif has_nomihodai_signal:
+        confidence = 0.87
+        notes = "Nomihodai keyword found in evidence"
 
     c["nomihodai_confidence"] = confidence
     c["nomihodai_evidence_notes"] = notes
+    if confidence >= NOMIHODAI_THRESHOLD and "nomihodai" not in c["observed_menu_topics"]:
+        c["observed_menu_topics"].append("nomihodai")
 
 
 # ---------------------------------------------------------------------------
@@ -425,31 +430,44 @@ def _evaluate_nomihodai(lead_data: dict[str, Any], c: dict[str, Any]) -> None:
 
 def _evaluate_course(lead_data: dict[str, Any], c: dict[str, Any]) -> None:
     if c["course_confidence"] > 0.0:
+        if c["course_confidence"] >= COURSE_THRESHOLD and "course_items" not in c["observed_menu_topics"]:
+            c["observed_menu_topics"].append("course_items")
         return
 
     snippets = lead_data.get("evidence_snippets") or []
+    evidence_classes = lead_data.get("evidence_classes") or []
     dossier = lead_data.get("lead_evidence_dossier") or {}
     izakaya_state = str(dossier.get("izakaya_rules_state") or "")
-    course_found = bool(lead_data.get("course_or_drink_plan_evidence_found"))
 
     confidence = 0.0
     notes = ""
+    all_text = " ".join(str(s) for s in snippets + evidence_classes).lower()
+    has_course_kw = (
+        "course_menu" in {str(item).lower() for item in evidence_classes}
+        or any(kw in all_text for kw in COURSE_KEYWORDS)
+    )
 
-    if izakaya_state == "courses_found":
+    if izakaya_state == "courses_found" and has_course_kw:
         confidence = 0.90
         notes = "Lead dossier reports courses_found"
-    elif course_found:
-        all_text = " ".join(str(s) for s in snippets).lower()
-        has_course_kw = any(kw in all_text for kw in COURSE_KEYWORDS)
-        if has_course_kw:
-            confidence = 0.88
-            notes = "Course keyword found in evidence snippets"
-        else:
-            confidence = 0.78
-            notes = "course_or_drink_plan_evidence_found flag set"
+    elif has_course_kw:
+        confidence = 0.88
+        notes = "Course keyword found in evidence"
 
     c["course_confidence"] = confidence
     c["course_evidence_notes"] = notes
+    if confidence >= COURSE_THRESHOLD and "course_items" not in c["observed_menu_topics"]:
+        c["observed_menu_topics"].append("course_items")
+
+
+def _prune_unsupported_topics(c: dict[str, Any]) -> None:
+    """Remove risky topics that are not backed by the stricter evidence gates."""
+    topics = list(c.get("observed_menu_topics") or [])
+    if c["nomihodai_confidence"] < NOMIHODAI_THRESHOLD:
+        topics = [topic for topic in topics if topic != "nomihodai"]
+    if c["course_confidence"] < COURSE_THRESHOLD:
+        topics = [topic for topic in topics if topic != "course_items"]
+    c["observed_menu_topics"] = list(dict.fromkeys(topic for topic in topics if topic in VALID_MENU_TOPICS))
 
 
 # ---------------------------------------------------------------------------
@@ -517,10 +535,17 @@ def _generate_claims(c: dict[str, Any]) -> None:
         blocked.append("offer_sample_from_public_menu")
 
     # --- Topic-specific claims ---
+    topic_claims_allowed = (
+        c["public_menu_usable_for_sample"]
+        or c["ticket_machine_content_usable"]
+    )
     for topic in c["observed_menu_topics"]:
-        allowed.append(f"mention_{topic}")
+        if topic_claims_allowed:
+            allowed.append(f"mention_{topic}")
+        else:
+            blocked.append(f"mention_{topic}")
 
-    # Block topics not observed
+    # Block topics not observed or not safely renderable
     for topic in VALID_MENU_TOPICS:
         if topic not in c["observed_menu_topics"]:
             blocked.append(f"mention_{topic}")
@@ -567,12 +592,8 @@ def _generate_claims(c: dict[str, Any]) -> None:
     if c["should_skip_due_to_contact_policy"]:
         blocked.append("send_email")
 
-    # --- Photo request claims ---
-    if not c["public_menu_usable_for_sample"] and not c["ticket_machine_content_usable"]:
-        allowed.append("request_photo")
-
-    c["allowed_claims"] = allowed
-    c["blocked_claims"] = blocked
+    c["allowed_claims"] = list(dict.fromkeys(allowed))
+    c["blocked_claims"] = list(dict.fromkeys(blocked))
 
 
 # ---------------------------------------------------------------------------
@@ -604,99 +625,13 @@ def _select_template(c: dict[str, Any]) -> None:
         )
         return
 
-    # --- Contact form path ---
     if c["contact_channel"] == "official_contact_form":
-        _select_contact_form_template(c)
+        c["selected_template"] = "qr_first_contact_form"
+        c["selected_template_reason"] = f"Qualified {c['restaurant_type']} lead with official contact form"
         return
 
-    # --- Type-specific paths ---
-    if c["restaurant_type"] == "ramen":
-        _select_ramen_template(c)
-    elif c["restaurant_type"] == "izakaya":
-        _select_izakaya_template(c)
-
-
-def _select_ramen_template(c: dict[str, Any]) -> None:
-    has_menu = c["public_menu_usable_for_sample"]
-    tm_confident = c["ticket_machine_confidence"] >= TICKET_MACHINE_THRESHOLD
-    tm_content = c["ticket_machine_content_usable"]
-
-    if has_menu and tm_confident:
-        c["selected_template"] = "ramen_menu_plus_ticket_machine"
-        c["selected_template_reason"] = (
-            "Ramen + usable public menu + ticket machine confidence "
-            f"{c['ticket_machine_confidence']:.2f}"
-        )
-    elif has_menu and not tm_confident:
-        if "neutral_ordering_wording" in c["allowed_claims"]:
-            c["selected_template"] = "ramen_visible_menu_neutral_ordering"
-            c["selected_template_reason"] = (
-                "Ramen + usable public menu + weak ticket-machine signals "
-                f"(confidence {c['ticket_machine_confidence']:.2f})"
-            )
-        else:
-            c["selected_template"] = "ramen_visible_menu"
-            c["selected_template_reason"] = "Ramen + usable public menu, no ticket-machine evidence"
-    elif not has_menu and tm_confident and tm_content:
-        c["selected_template"] = "ramen_ticket_machine_only"
-        c["selected_template_reason"] = "Ramen + no usable menu + ticket machine content usable"
-    elif not has_menu and tm_confident and not tm_content:
-        c["selected_template"] = "ramen_needs_ticket_machine_photo"
-        c["selected_template_reason"] = (
-            "Ramen + no usable menu + ticket machine detected but content not readable"
-        )
-    else:
-        # No usable menu, no ticket machine
-        c["selected_template"] = "ramen_needs_menu_photo"
-        c["selected_template_reason"] = "Ramen + no usable public menu + no ticket-machine evidence"
-
-
-def _select_izakaya_template(c: dict[str, Any]) -> None:
-    has_menu = c["public_menu_usable_for_sample"]
-    has_nomihodai = c["nomihodai_confidence"] >= NOMIHODAI_THRESHOLD
-    has_course = c["course_confidence"] >= COURSE_THRESHOLD
-    topics = c["observed_menu_topics"]
-
-    if not has_menu:
-        c["selected_template"] = "izakaya_needs_menu_photo"
-        c["selected_template_reason"] = "Izakaya + no usable public menu"
-        return
-
-    if has_nomihodai and has_course:
-        c["selected_template"] = "izakaya_nomihodai_course"
-        c["selected_template_reason"] = "Izakaya + nomihodai + course evidence"
-    elif has_nomihodai and not has_course:
-        c["selected_template"] = "izakaya_nomihodai_only"
-        c["selected_template_reason"] = "Izakaya + nomihodai, no course evidence"
-    elif has_course and not has_nomihodai:
-        c["selected_template"] = "izakaya_course_only"
-        c["selected_template_reason"] = "Izakaya + course, no nomihodai evidence"
-    elif "food_items" in topics and "drink_items" in topics:
-        c["selected_template"] = "izakaya_food_drink_only"
-        c["selected_template_reason"] = "Izakaya + food + drink menu, no course/nomihodai"
-    elif "food_items" in topics and "drink_items" not in topics:
-        c["selected_template"] = "izakaya_standard"
-        c["selected_template_reason"] = "Izakaya + food menu only"
-    elif "drink_items" in topics and "food_items" not in topics:
-        c["selected_template"] = "izakaya_standard"
-        c["selected_template_reason"] = "Izakaya + drink menu only"
-    else:
-        c["selected_template"] = "izakaya_standard"
-        c["selected_template_reason"] = "Izakaya + usable public menu, general"
-
-
-def _select_contact_form_template(c: dict[str, Any]) -> None:
-    if c["should_skip_due_to_contact_policy"]:
-        c["selected_template"] = "skip"
-        c["selected_template_reason"] = "Contact form prohibits sales inquiries"
-        return
-
-    if c["public_menu_usable_for_sample"]:
-        c["selected_template"] = "contact_form_public_menu"
-        c["selected_template_reason"] = "Contact form + usable public menu"
-    else:
-        c["selected_template"] = "contact_form_needs_menu_photo"
-        c["selected_template_reason"] = "Contact form + no usable public menu"
+    c["selected_template"] = "qr_first_email"
+    c["selected_template_reason"] = f"Qualified {c['restaurant_type']} lead with public email"
 
 
 # ---------------------------------------------------------------------------
@@ -715,18 +650,6 @@ def _check_human_review(c: dict[str, Any]) -> None:
     if c["public_menu_found"] and not c["public_menu_usable_for_sample"]:
         if c["menu_readability_confidence"] > 0:
             review = True  # menu exists but readability unclear
-
-    if c["selected_template"] in (
-        "ramen_menu_plus_ticket_machine",
-        "ramen_ticket_machine_only",
-        "izakaya_nomihodai_course",
-        "izakaya_nomihodai_only",
-    ):
-        # Specialized template based mainly on evidence interpretation
-        if c["ticket_machine_evidence_type"] in ("review_text", "third_party_listing"):
-            review = True
-        if not c["nomihodai_evidence_notes"] and c["nomihodai_confidence"] >= NOMIHODAI_THRESHOLD:
-            review = True
 
     if c["no_sales_or_solicitation_notice_found"] and not c["should_skip_due_to_contact_policy"]:
         review = True  # ambiguous wording

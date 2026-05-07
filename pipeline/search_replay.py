@@ -549,19 +549,17 @@ def reconcile_label_contact_policy(corpus_dir: str | Path) -> dict[str, Any]:
             continue
         before = json.dumps(label, sort_keys=True, ensure_ascii=False)
         route = str(label.get("contact_route_expected") or "").strip()
-        if route in UNSUPPORTED_LABEL_CONTACT_ROUTES:
+        candidate_id = str(label.get("candidate_id") or "")
+        record = candidates_by_id.get(candidate_id)
+
+        if _restore_stale_contact_form_policy_label(label, record):
+            pass
+        elif route in UNSUPPORTED_LABEL_CONTACT_ROUTES:
             _move_label_to_no_supported_route(
                 label,
                 legacy_route=route,
                 note_suffix="Reconciled to email/contact-form-only policy; unsupported outreach routes require manual review.",
                 review_reason="route policy reconciliation moved unsupported-route ready label to manual review",
-            )
-        elif route == "contact_form" and _label_contact_form_is_unverified(label, candidates_by_id):
-            _move_label_to_no_supported_route(
-                label,
-                legacy_route=route,
-                note_suffix="Reconciled to verified-contact-form policy; unverified contact-form routes require manual review.",
-                review_reason="route policy reconciliation moved unverified contact-form ready label to manual review",
             )
         elif route not in LABEL_CONTACT_ROUTE_VALUES:
             _move_label_to_no_supported_route(
@@ -608,14 +606,109 @@ def _candidate_records_by_id(*, root: Path, manifest: dict[str, Any]) -> dict[st
     return records
 
 
-def _label_contact_form_is_unverified(label: dict[str, Any], candidates_by_id: dict[str, dict[str, Any]]) -> bool:
-    if label.get("readiness_expected") != "ready_for_outreach":
-        return False
-    record = candidates_by_id.get(str(label.get("candidate_id") or ""))
+def _restore_stale_contact_form_policy_label(label: dict[str, Any], record: dict[str, Any] | None) -> bool:
+    """Undo the retired verified-form-only label downgrade when current gates allow it."""
     if not record:
         return False
+    if str(label.get("legacy_contact_route_expected") or "") != "contact_form":
+        return False
+    if str(label.get("contact_route_expected") or "") != "none":
+        return False
+    if str(label.get("rejection_reason_expected") or "") != "no_supported_contact_route":
+        return False
+
+    current = ensure_lead_dossier(record)
+    current_status = str(current.get("launch_readiness_status") or "")
+    primary_route = _supported_label_contact_route(current)
+    if current_status == "ready_for_outreach" and primary_route in {"email", "contact_form"}:
+        label["readiness_expected"] = "ready_for_outreach"
+        label["contact_route_expected"] = primary_route
+        label["rejection_reason_expected"] = ""
+        package = str(current.get("recommended_primary_package") or "none")
+        label["package_expected"] = package if package in LABEL_PACKAGE_VALUES else "none"
+        label["inline_assets_expected"] = _inline_assets_expected_for_current_record(current, contact_route=primary_route)
+        label["ticket_machine_state_expected"] = _current_dossier_state(current, "ticket_machine_state", default="unknown")
+        label["english_menu_state_expected"] = _current_dossier_state(current, "english_menu_state", default="unknown")
+        _append_label_note(
+            label,
+            "Reconciled from retired verified-contact-form policy to current email/contact-form policy.",
+        )
+        _set_label_review_reason(
+            label,
+            reason="retired verified-contact-form policy restored to current supported contact-form route",
+        )
+        return True
+
+    if current_status == "disqualified":
+        label["readiness_expected"] = "disqualified"
+        label["contact_route_expected"] = "none"
+        label["inline_assets_expected"] = []
+        label["package_expected"] = "none"
+        label["rejection_reason_expected"] = _current_rejection_reason(current)
+        _append_label_note(
+            label,
+            "Reconciled from retired verified-contact-form policy; current safety gates disqualify this record.",
+        )
+        _set_label_review_reason(
+            label,
+            reason="current safety gates disqualify stale contact-form-policy label",
+        )
+        return True
+
+    return False
+
+
+def _supported_label_contact_route(record: dict[str, Any]) -> str:
     primary = get_primary_contact(record)
-    return str((primary or {}).get("type") or "none") != "contact_form"
+    route = str((primary or {}).get("type") or "").strip()
+    return route if route in {"email", "contact_form"} else "none"
+
+
+def _inline_assets_expected_for_current_record(record: dict[str, Any], *, contact_route: str) -> list[str]:
+    if contact_route == "contact_form":
+        return []
+    category = str(record.get("primary_category_v1") or "")
+    if category == "ramen":
+        assets = ["ramen_food_menu"]
+        if _current_dossier_state(record, "ticket_machine_state", default="unknown") == "present":
+            assets.append("ticket_machine_guide")
+        return assets
+    if category == "izakaya":
+        return ["izakaya_food_drinks"]
+    return []
+
+
+def _current_dossier_state(record: dict[str, Any], key: str, *, default: str) -> str:
+    value = str(record.get(key) or (record.get("lead_evidence_dossier") or {}).get(key) or default)
+    if key == "ticket_machine_state" and value not in LABEL_TICKET_MACHINE_VALUES:
+        return default
+    if key == "english_menu_state" and value not in LABEL_ENGLISH_MENU_VALUES:
+        return default
+    return value
+
+
+def _current_rejection_reason(record: dict[str, Any]) -> str:
+    reasons = [str(item) for item in record.get("launch_readiness_reasons") or [] if str(item)]
+    if reasons:
+        return reasons[0]
+    return str(record.get("rejection_reason") or "disqualified")
+
+
+def _append_label_note(label: dict[str, Any], note: str) -> None:
+    existing = str(label.get("label_notes") or "").strip()
+    if note in existing:
+        return
+    label["label_notes"] = f"{existing} {note}".strip()
+
+
+def _set_label_review_reason(label: dict[str, Any], *, reason: str) -> None:
+    review = label.get("second_pass_review") if isinstance(label.get("second_pass_review"), dict) else {}
+    label["second_pass_review"] = {
+        **review,
+        "required": False,
+        "status": str(review.get("status") or "not_required"),
+        "reason": reason,
+    }
 
 
 def _move_label_to_no_supported_route(

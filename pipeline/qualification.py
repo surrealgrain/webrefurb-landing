@@ -585,6 +585,4 @@ def _izakaya_rules_state_for_qualification(primary_category: str, assessment: An
         return "courses_found"
     if "drink_menu_photo" in classes or any(token in text for token in ("生ビール", "ハイボール", "日本酒", "ドリンク")):
         return "drinks_found"
-    if assessment.course_or_drink_plan_evidence_found:
-        return "courses_found"
     return "unknown"

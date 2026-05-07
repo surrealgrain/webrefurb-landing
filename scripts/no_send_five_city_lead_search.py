@@ -68,16 +68,6 @@ DEFAULT_CATEGORIES = (
     "tantanmen",
     "chuka_soba",
     "izakaya",
-    "yakitori",
-    "kushiyaki",
-    "yakiton",
-    "tachinomi",
-    "oden",
-    "kushikatsu",
-    "kushiage",
-    "robatayaki",
-    "seafood_izakaya",
-    "sakaba",
 )
 DUCKDUCKGO_CITY_TERMS = {
     "Tokyo": "東京",
@@ -103,16 +93,6 @@ DUCKDUCKGO_CATEGORY_TERMS = {
     "tantanmen": "担々麺",
     "chuka_soba": "中華そば",
     "izakaya": "居酒屋",
-    "yakitori": "焼き鳥 居酒屋",
-    "kushiyaki": "串焼き 居酒屋",
-    "yakiton": "やきとん 居酒屋",
-    "tachinomi": "立ち飲み 居酒屋",
-    "oden": "おでん 居酒屋",
-    "kushikatsu": "串カツ 居酒屋",
-    "kushiage": "串揚げ 居酒屋",
-    "robatayaki": "炉端焼き 居酒屋",
-    "seafood_izakaya": "海鮮 居酒屋",
-    "sakaba": "酒場",
 }
 DUCKDUCKGO_USER_AGENT = "Mozilla/5.0 WebRefurbMenu no-send lead research"
 DUCKDUCKGO_CONTACT_TITLE_TOKENS = (

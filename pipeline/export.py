@@ -208,8 +208,8 @@ async def build_custom_package(
     is_izakaya = "izakaya" in (menu_data.get("menu_type") or "").lower()
     V4C = PROJECT_ROOT / "assets" / "templates"
 
-    # --- Food menu ---
-    food_template = "izakaya_food_menu.html" if is_izakaya else "ramen_food_menu.html"
+    # --- Menu sample ---
+    food_template = "izakaya_food_drinks_menu.html" if is_izakaya else "ramen_food_menu.html"
     food_src = V4C / food_template
     food_html_out = output_dir / "food_menu.html"
     food_pdf_out = output_dir / "food_menu_print_ready.pdf"
@@ -224,26 +224,6 @@ async def build_custom_package(
         )
         await html_to_pdf(
             food_html_out, food_pdf_out,
-            print_profile=PrintProfile(paper_size="A5"),
-        )
-
-    # --- Drinks menu ---
-    drinks_template = "izakaya_drinks_menu.html" if is_izakaya else "ramen_drinks_menu.html"
-    drinks_src = V4C / drinks_template
-    drinks_html_out = output_dir / "drinks_menu.html"
-    drinks_pdf_out = output_dir / "drinks_menu_print_ready.pdf"
-
-    has_drinks = bool((menu_data.get("drinks") or {}).get("sections"))
-    if has_drinks and drinks_src.exists():
-        shutil.copy2(drinks_src, drinks_html_out)
-        populate_menu_html(
-            template_path=drinks_html_out,
-            data=menu_data,
-            output_path=drinks_html_out,
-            business_name=restaurant_name or None,
-        )
-        await html_to_pdf(
-            drinks_html_out, drinks_pdf_out,
             print_profile=PrintProfile(paper_size="A5"),
         )
 

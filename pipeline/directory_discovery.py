@@ -40,7 +40,8 @@ AGGREGATOR_HOSTS: tuple[str, ...] = (
 )
 
 # Genre keywords for categorization (not filtering — all genres accepted)
-RAMEN_GENRE_KEYWORDS = ("ラーメン", "つけ麺", "中華そば", "担々麺", "油そば", "そば", "うどん")
+RAMEN_GENRE_KEYWORDS = ("ラーメン", "つけ麺", "中華そば", "担々麺", "油そば", "まぜそば")
+SOBA_GENRE_KEYWORDS = ("そば", "蕎麦", "手打ちそば", "手打ち蕎麦")
 IZAKAYA_GENRE_KEYWORDS = (
     "居酒屋", "ダイニングバー", "バー", "日本酒バー", "酒場",
     "焼鳥", "焼き鳥", "やきとり", "ホルモン", "おでん",
@@ -164,6 +165,7 @@ TABELOG_CATEGORY_PATHS: dict[str, list[str]] = {
     "all": ["ramen", "izakaya"],
     "ramen": ["ramen"],
     "izakaya": ["izakaya"],
+    "skip": [],
 }
 
 # Shared fetcher instance (reuses connection pool and TLS config)
@@ -297,17 +299,26 @@ def _extract_genres_from_dtlmenu(html: str) -> list[str]:
 
 
 def _classify_genre(genres: list[str], *, category: str) -> str:
-    """Return 'ramen', 'izakaya', or 'restaurant' based on genre tags.
+    """Return 'ramen', 'soba', 'izakaya', or 'restaurant' based on genre tags.
 
     Never returns None — all restaurants are accepted. The category
     parameter is used to prefer a specific label when both match.
     """
     genre_text = " ".join(genres)
     is_ramen = any(kw in genre_text for kw in RAMEN_GENRE_KEYWORDS)
+    is_soba = any(kw in genre_text for kw in SOBA_GENRE_KEYWORDS)
     is_izakaya = any(kw in genre_text for kw in IZAKAYA_GENRE_KEYWORDS)
 
+    if category == "soba" and is_soba:
+        return "soba"
+    if category == "ramen" and is_ramen:
+        return "ramen"
+    if category == "izakaya" and is_izakaya:
+        return "izakaya"
     if is_ramen:
         return "ramen"
+    if is_soba:
+        return "soba"
     if is_izakaya:
         return "izakaya"
     return "restaurant"
@@ -376,6 +387,8 @@ def crawl_tabelog_area(
     # still paginating through the target city/category result set.
     area_paths: list[str | None] = [None]
     category_paths = TABELOG_CATEGORY_PATHS.get(category, TABELOG_CATEGORY_PATHS["all"])
+    if not category_paths:
+        return []
 
     for area_path in area_paths:
         if detail_fetches >= max_detail_fetches:
@@ -490,6 +503,8 @@ def crawl_tabelog_listing_page(
     fetcher = _get_fetcher()
     city_slug = TABELOG_CITY_AREAS.get(city, city.lower())
     category_paths = TABELOG_CATEGORY_PATHS.get(category, [category])
+    if not category_paths:
+        return TabelogPageResult(city, category, page, "", 0, 0, True, [], area_path or "")
     category_path = category_paths[0]
     listing_url = _tabelog_listing_url(
         city_slug=city_slug,

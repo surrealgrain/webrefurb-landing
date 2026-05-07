@@ -1,4 +1,4 @@
-"""Final export and operator review gates for paid packages."""
+"""Final export and operator review gates for English QR Menu artifacts."""
 
 from __future__ import annotations
 
@@ -11,17 +11,10 @@ from typing import Any
 from xml.etree import ElementTree as ET
 
 from .constants import (
-    PACKAGE_1_KEY,
-    PACKAGE_1_LABEL,
-    PACKAGE_1_PRICE_YEN,
-    PACKAGE_2_KEY,
-    PACKAGE_2_LABEL,
-    PACKAGE_2_PRICE_YEN,
-    PACKAGE_3_KEY,
+    ENGLISH_QR_MENU_KEY,
     PACKAGE_REGISTRY,
-    TEMPLATE_PACKAGE_MENU,
 )
-from .export import PrintProfile, html_to_pdf_sync, is_valid_pdf
+from .export import is_valid_pdf
 from .final_export_qa import artifact_entry, package_manifest, sha256_file, write_export_qa_report
 from .utils import ensure_dir, write_json, write_text
 
@@ -30,32 +23,21 @@ REVIEW_STATUS_PENDING = "pending_review"
 REVIEW_STATUS_APPROVED = "approved"
 FINAL_EXPORT_READY = "ready"
 
-PACKAGE_1_CORE_FILES = (
-    "food_menu_print_ready.pdf",
-    "food_menu.html",
-    "menu_data.json",
+QR_MENU_FILES = (
+    "index.html",
+    "menu.json",
+    "qr.svg",
 )
 
-PACKAGE_1_OPTIONAL_DRINKS_FILES = (
-    "drinks_menu_print_ready.pdf",
-    "drinks_menu.html",
+QR_MENU_OPTIONAL_FILES = (
+    "qr_sign.html",
+    "qr_sign.svg",
+    "qr_sign_print_ready.pdf",
+    "source.json",
+    "CONFIRMATION_SUMMARY.json",
 )
 
-OPTIONAL_PACKAGE_FILES = (
-    "ticket_machine_guide_print_ready.pdf",
-    "ticket_machine_guide.html",
-)
-
-PREVIEW_FILES = (
-    "food_menu.html",
-    "drinks_menu.html",
-)
-
-PACKAGE_2_PRINT_FILES = (
-    "PRINT_ORDER.json",
-    "PRINT_CHECKLIST.md",
-    "DELIVERY_CHECKLIST.md",
-)
+PREVIEW_FILES = ("index.html",)
 
 INTERNAL_MARKERS = (
     "watermark-overlay",
@@ -85,7 +67,7 @@ class PackageExportError(ValueError):
 
 def package_registry() -> list[dict[str, Any]]:
     """Return public package metadata in offer order."""
-    return [PACKAGE_REGISTRY[key] for key in (PACKAGE_1_KEY, PACKAGE_2_KEY, "package_3_qr_menu_65k")]
+    return [PACKAGE_REGISTRY[ENGLISH_QR_MENU_KEY]]
 
 
 def get_build_history(*, state_root: Path) -> dict[str, Any]:
@@ -104,7 +86,7 @@ def get_build_history(*, state_root: Path) -> dict[str, Any]:
             validation = validate_package_output(
                 output_dir=output_dir,
                 package_key=package_key,
-                delivery_details=job.get("delivery_details") if package_key == PACKAGE_2_KEY else None,
+                delivery_details=None,
             )
         else:
             validation = _validation_result(errors=["output_dir_missing"], warnings=[])
@@ -134,7 +116,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
     validation = validate_package_output(
         output_dir=output_dir,
         package_key=package_key,
-        delivery_details=job.get("delivery_details") if package_key == PACKAGE_2_KEY else None,
+        delivery_details=None,
     )
     package = PACKAGE_REGISTRY[package_key]
     menu_data = _load_menu_data(output_dir, [])
@@ -164,7 +146,7 @@ def get_package_review(*, state_root: Path, job_id: str) -> dict[str, Any]:
 def validate_package_output(
     *,
     output_dir: Path,
-    package_key: str = PACKAGE_1_KEY,
+    package_key: str = ENGLISH_QR_MENU_KEY,
     delivery_details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate that a package is safe to approve."""
@@ -175,55 +157,34 @@ def validate_package_output(
     if not output_dir or not output_dir.exists():
         return _validation_result(errors=["output_dir_missing"], warnings=warnings)
 
-    _validate_remote_assets(output_dir, errors)
-    _validate_preview_assets(output_dir, errors)
+    _validate_qr_assets(output_dir, errors)
     menu_data = _load_menu_data(output_dir, errors)
     if menu_data:
         _validate_menu_schema(menu_data, errors)
         _validate_rendered_outputs(output_dir=output_dir, menu_data=menu_data, errors=errors)
 
     result: dict[str, Any] = {}
-    if package_key == PACKAGE_2_KEY:
-        print_profile = select_print_profile(menu_data)
-        result["print_profile"] = print_profile
-        if print_profile["custom_quote_required"]:
-            errors.append("custom_quote_required")
-        details = delivery_details or {}
-        if not str(details.get("delivery_contact_name") or "").strip():
-            errors.append("delivery_contact_name_missing")
-        if not str(details.get("delivery_address") or "").strip():
-            errors.append("delivery_address_missing")
 
     return _validation_result(errors=errors, warnings=warnings, **result)
 
 
 def validate_package1_output(*, output_dir: Path) -> dict[str, Any]:
-    """Backward-compatible Package 1 validator."""
-    return validate_package_output(output_dir=output_dir, package_key=PACKAGE_1_KEY)
+    """Backward-compatible validator wrapper for legacy callers."""
+    return validate_package_output(output_dir=output_dir, package_key=ENGLISH_QR_MENU_KEY)
 
 
 def select_print_profile(menu_data: dict[str, Any] | None) -> dict[str, Any]:
-    """Select compact print specs for one food laminate and one drinks laminate."""
+    """Return the optional printable QR sign profile for legacy callers."""
     item_count = _menu_item_count(menu_data or {})
-    if item_count <= 36:
-        paper_size = "A4"
-        reason = "normal_content_density"
-    elif item_count <= 64:
-        paper_size = "B4"
-        reason = "dense_menu_compact_upsize"
-    else:
-        paper_size = "B4"
-        reason = "too_dense_for_one_food_and_one_drinks_laminate"
     return {
-        "paper_size": paper_size,
+        "paper_size": "A4",
         "orientation": "portrait",
-        "duplex": True,
-        "laminated": True,
-        "copy_count": 10,
-        "physical_scope": "one food laminate and one drinks laminate, front/back allowed",
+        "duplex": False,
+        "copy_count": 1,
+        "physical_scope": "printable QR sign",
         "item_count": item_count,
-        "reason": reason,
-        "custom_quote_required": item_count > 64,
+        "reason": "english_qr_menu_printable_sign",
+        "custom_quote_required": False,
     }
 
 
@@ -242,7 +203,7 @@ def approve_package_export(
     validation = validate_package_output(
         output_dir=output_dir,
         package_key=selected_key,
-        delivery_details=delivery_details if selected_key == PACKAGE_2_KEY else None,
+        delivery_details=None,
     )
     if not validation["ok"]:
         package_name = PACKAGE_REGISTRY[selected_key]["label"]
@@ -256,15 +217,6 @@ def approve_package_export(
     package = PACKAGE_REGISTRY[selected_key]
     generated_files: list[Path] = []
     generated_files.extend(_write_owner_content_pack(output_dir=output_dir, export_dir=export_dir, job=job))
-    if selected_key == PACKAGE_2_KEY:
-        generated_files.extend(_write_package2_print_pack(
-            output_dir=output_dir,
-            export_dir=export_dir,
-            job=job,
-            validation=validation,
-            delivery_details=delivery_details or {},
-        ))
-
     now = datetime.now(timezone.utc).isoformat()
     manifest = _final_manifest(
         job=job,
@@ -290,11 +242,6 @@ def approve_package_export(
     html_paths = [output_dir / name for name in _package_files(output_dir, package_key=selected_key) if name.endswith(".html")]
     default_pdf_profile = {"paper_size": "A4", "orientation": "portrait"}
     pdf_print_profiles: dict[str, dict[str, Any]] = {str(path): default_pdf_profile for path in pdf_paths}
-    if selected_key == PACKAGE_2_KEY:
-        package2_print_profile = validation.get("print_profile") or default_pdf_profile
-        for path in generated_files:
-            if path.suffix.lower() == ".pdf":
-                pdf_print_profiles[str(path)] = package2_print_profile
     export_qa = write_export_qa_report(
         state_root=state_root,
         job_id=job_id,
@@ -321,9 +268,6 @@ def approve_package_export(
     job["export_qa_report_path"] = export_qa["report_path"]
     job["package_validation"] = validation
     job["paid_operations"] = paid_operations
-    if selected_key == PACKAGE_2_KEY:
-        job["delivery_details"] = delivery_details or {}
-        job["print_profile"] = validation.get("print_profile")
     _append_history(job, f"{selected_key}_approved", now, reviewer)
     _write_job(state_root=state_root, job=job)
 
@@ -414,7 +358,7 @@ def package_paid_operations_status(*, state_root: Path, job: dict[str, Any]) -> 
         for key in (
             "full_menu_photos",
             "price_confirmation",
-            "delivery_details",
+            "qr_sign_confirmation",
             "business_contact_confirmed",
         )
     )
@@ -447,42 +391,26 @@ def package_paid_operations_status(*, state_root: Path, job: dict[str, Any]) -> 
 
 
 def approve_package1_export(*, state_root: Path, job_id: str, reviewer: str = "operator") -> dict[str, Any]:
-    """Backward-compatible Package 1 approval wrapper."""
+    """Backward-compatible approval wrapper for legacy callers."""
     return approve_package_export(
         state_root=state_root,
         job_id=job_id,
-        package_key=PACKAGE_1_KEY,
+        package_key=ENGLISH_QR_MENU_KEY,
         reviewer=reviewer,
     )
 
 
-def _validate_remote_assets(output_dir: Path, errors: list[str]) -> None:
-    # Core files (always required)
-    for name in PACKAGE_1_CORE_FILES:
+def _validate_qr_assets(output_dir: Path, errors: list[str]) -> None:
+    for name in QR_MENU_FILES:
         path = output_dir / name
         if not path.exists():
             errors.append(f"{name}_missing")
             continue
         if path.stat().st_size == 0:
             errors.append(f"{name}_empty")
-        if path.suffix.lower() == ".pdf" and not is_valid_pdf(path):
-            errors.append(f"{name}_not_pdf")
-    # Drinks files (required only if drinks_menu.html exists — some shops have no drinks)
-    drinks_html = output_dir / "drinks_menu.html"
-    if drinks_html.exists():
-        for name in PACKAGE_1_OPTIONAL_DRINKS_FILES:
-            path = output_dir / name
-            if not path.exists():
-                errors.append(f"{name}_missing")
-                continue
-            if path.stat().st_size == 0:
-                errors.append(f"{name}_empty")
-            if path.suffix.lower() == ".pdf" and not is_valid_pdf(path):
-                errors.append(f"{name}_not_pdf")
-    for name in OPTIONAL_PACKAGE_FILES:
-        path = output_dir / name
-        if path.exists() and path.suffix.lower() == ".pdf" and not is_valid_pdf(path):
-            errors.append(f"{name}_not_pdf")
+    sign_pdf = output_dir / "qr_sign_print_ready.pdf"
+    if sign_pdf.exists() and not is_valid_pdf(sign_pdf):
+        errors.append("qr_sign_print_ready.pdf_not_pdf")
 
 
 def _validate_preview_assets(output_dir: Path, errors: list[str]) -> None:
@@ -497,18 +425,16 @@ def _validate_preview_assets(output_dir: Path, errors: list[str]) -> None:
 
 
 def _load_menu_data(output_dir: Path, errors: list[str]) -> dict[str, Any] | None:
-    menu_json = output_dir / "menu_data.json"
+    menu_json = output_dir / "menu.json"
     if not menu_json.exists():
         return None
     try:
         data = json.loads(menu_json.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        errors.append("menu_data_invalid_json")
+        errors.append("menu_json_invalid")
         return None
-    sections = data.get("sections") or []
-    if not sections:
-        errors.append("menu_sections_missing")
-    elif not any(section.get("items") for section in sections if isinstance(section, dict)):
+    items = data.get("items") or []
+    if not items:
         errors.append("menu_items_missing")
     if data.get("approval_blockers"):
         errors.append("approval_blockers_present")
@@ -516,6 +442,16 @@ def _load_menu_data(output_dir: Path, errors: list[str]) -> dict[str, Any] | Non
 
 
 def _validate_menu_schema(menu_data: dict[str, Any], errors: list[str]) -> None:
+    if isinstance(menu_data.get("items"), list):
+        for index, item in enumerate(menu_data.get("items") or []):
+            if not isinstance(item, dict):
+                errors.append(f"item_{index}_invalid")
+                return
+            if not str(item.get("japanese_name") or "").strip():
+                errors.append(f"item_{index}_japanese_name_missing")
+            if not str(item.get("english_name") or "").strip():
+                errors.append(f"item_{index}_english_name_missing")
+        return
     for panel_key in ("food", "drinks"):
         panel = menu_data.get(panel_key) or {}
         for section in panel.get("sections") or []:
@@ -553,6 +489,8 @@ def _validate_menu_schema(menu_data: dict[str, Any], errors: list[str]) -> None:
 
 
 def _validate_rendered_outputs(*, output_dir: Path, menu_data: dict[str, Any], errors: list[str]) -> None:
+    if isinstance(menu_data.get("items"), list):
+        return
     show_prices = bool(menu_data.get("show_prices"))
     for panel_key, file_name in (("food", "food_menu.html"), ("drinks", "drinks_menu.html")):
         html_path = output_dir / file_name
@@ -617,132 +555,31 @@ def _validate_preview_html_links(*, output_dir: Path, menu_data: dict[str, Any],
     pass
 
 
-def _write_package2_print_pack(
-    *,
-    output_dir: Path,
-    export_dir: Path,
-    job: dict[str, Any],
-    validation: dict[str, Any],
-    delivery_details: dict[str, Any],
-) -> list[Path]:
-    profile = validation["print_profile"]
-    pdf_profile = PrintProfile(paper_size=profile["paper_size"], orientation=profile["orientation"])
-    generated: list[Path] = []
-    for html_name, pdf_name in (
-        ("food_menu.html", f"food_menu_print_{profile['paper_size'].lower()}.pdf"),
-        ("drinks_menu.html", f"drinks_menu_print_{profile['paper_size'].lower()}.pdf"),
-    ):
-        source = output_dir / html_name
-        if source.exists():
-            target = export_dir / pdf_name
-            html_to_pdf_sync(source, target, print_profile=pdf_profile)
-            generated.append(target)
-
-    print_order = {
-        "package_key": PACKAGE_2_KEY,
-        "package_label": PACKAGE_2_LABEL,
-        "price_yen": PACKAGE_2_PRICE_YEN,
-        "job_id": job.get("job_id", ""),
-        "restaurant_name": job.get("restaurant_name", ""),
-        "print_profile": profile,
-        "line_items": [
-            {
-                "name": "Food menu laminate",
-                "file": f"food_menu_print_{profile['paper_size'].lower()}.pdf",
-                "copies": profile["copy_count"],
-                "laminated": True,
-                "duplex": True,
-            },
-            {
-                "name": "Drinks menu laminate",
-                "file": f"drinks_menu_print_{profile['paper_size'].lower()}.pdf",
-                "copies": profile["copy_count"],
-                "laminated": True,
-                "duplex": True,
-            },
-        ],
-        "delivery": {
-            "contact_name": str(delivery_details.get("delivery_contact_name") or "").strip(),
-            "address": str(delivery_details.get("delivery_address") or "").strip(),
-            "phone": str(delivery_details.get("delivery_phone") or "").strip(),
-            "notes": str(delivery_details.get("delivery_notes") or "").strip(),
-        },
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    print_order_path = export_dir / "PRINT_ORDER.json"
-    write_json(print_order_path, print_order)
-    generated.append(print_order_path)
-
-    print_checklist = export_dir / "PRINT_CHECKLIST.md"
-    write_text(print_checklist, _print_checklist(print_order))
-    generated.append(print_checklist)
-
-    delivery_checklist = export_dir / "DELIVERY_CHECKLIST.md"
-    write_text(delivery_checklist, _delivery_checklist(print_order))
-    generated.append(delivery_checklist)
-    return generated
-
-
 def _write_owner_content_pack(*, output_dir: Path, export_dir: Path, job: dict[str, Any]) -> list[Path]:
-    menu_data_path = output_dir / "menu_data.json"
+    menu_data_path = output_dir / "menu.json"
     menu_data: dict[str, Any] = {}
     if menu_data_path.exists():
         try:
             menu_data = json.loads(menu_data_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             menu_data = {}
-    content_path = export_dir / "OWNER_APPROVED_CONTENT.json"
+    content_path = export_dir / "CONFIRMATION_SUMMARY.json"
     write_json(content_path, {
         "job_id": job.get("job_id", ""),
         "restaurant_name": job.get("restaurant_name", ""),
         "owner_approved": True,
         "source_output_dir": str(output_dir),
-        "menu_data_checksum": sha256_file(menu_data_path) if menu_data_path.exists() else "",
-        "sections": menu_data.get("sections") or [],
+        "menu_json_checksum": sha256_file(menu_data_path) if menu_data_path.exists() else "",
+        "item_count": len(menu_data.get("items") or []),
+        "confirmation_policy": "prices_descriptions_ingredients_allergens_owner_confirmed_before_publish",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    note_path = export_dir / "PRINT_YOURSELF_NOTE.md"
-    write_text(
-        note_path,
-        "# Print-Yourself Note\n\n"
-        "Use the included print-ready PDF files. Confirm the current menu content, prices, and layout before printing additional copies.\n",
-    )
-    return [content_path, note_path]
-
-
-def _print_checklist(print_order: dict[str, Any]) -> str:
-    profile = print_order["print_profile"]
-    return (
-        "# Print Checklist\n\n"
-        f"- Package: {PACKAGE_2_LABEL} (¥{PACKAGE_2_PRICE_YEN:,})\n"
-        f"- Paper: {profile['paper_size']} {profile['orientation']}\n"
-        "- Scope: one food laminate and one drinks laminate\n"
-        f"- Copies: {profile['copy_count']} each\n"
-        "- Duplex: yes\n"
-        "- Lamination: yes\n"
-        "- Confirm PDFs open and text is legible before printing\n"
-    )
-
-
-def _delivery_checklist(print_order: dict[str, Any]) -> str:
-    delivery = print_order["delivery"]
-    return (
-        "# Delivery Checklist\n\n"
-        f"- Contact: {delivery['contact_name']}\n"
-        f"- Address: {delivery['address']}\n"
-        f"- Phone: {delivery['phone'] or 'Not provided'}\n"
-        f"- Notes: {delivery['notes'] or 'None'}\n"
-        "- Confirm food and drinks laminates are included\n"
-        "- Confirm delivery completed with restaurant staff\n"
-    )
+    return [content_path]
 
 
 def _package_files(output_dir: Path, *, package_key: str) -> list[str]:
-    files = [name for name in PACKAGE_1_CORE_FILES if (output_dir / name).exists()]
-    for name in PACKAGE_1_OPTIONAL_DRINKS_FILES:
-        if (output_dir / name).exists():
-            files.append(name)
-    for name in OPTIONAL_PACKAGE_FILES:
+    files = [name for name in QR_MENU_FILES if (output_dir / name).exists()]
+    for name in QR_MENU_OPTIONAL_FILES:
         if (output_dir / name).exists():
             files.append(name)
     return files
@@ -763,18 +600,14 @@ def _artifact_report(output_dir: Path, *, package_key: str) -> list[dict[str, An
     artifacts: list[dict[str, Any]] = []
     if not output_dir or not output_dir.exists():
         return artifacts
-    names = list(PACKAGE_1_CORE_FILES) + list(PACKAGE_1_OPTIONAL_DRINKS_FILES) + list(OPTIONAL_PACKAGE_FILES) + list(PREVIEW_FILES)
-    if package_key == PACKAGE_2_KEY:
-        names += list(PACKAGE_2_PRINT_FILES)
+    names = list(QR_MENU_FILES) + list(QR_MENU_OPTIONAL_FILES)
     seen: set[str] = set()
     for name in names:
         if name in seen:
             continue
         seen.add(name)
         path = output_dir / name
-        required = name in PACKAGE_1_CORE_FILES
-        if name in PACKAGE_1_OPTIONAL_DRINKS_FILES:
-            required = (output_dir / "drinks_menu.html").exists()
+        required = name in QR_MENU_FILES
         artifacts.append({
             "name": name,
             "exists": path.exists(),
@@ -861,17 +694,8 @@ def _template_item_texts(path: Path) -> set[str]:
 
 
 def _load_template_placeholder_items() -> set[str]:
-    """Load placeholder item text from v4c HTML templates."""
-    items: set[str] = set()
-    for template_name in (
-        "ramen_food_menu.html", "izakaya_food_menu.html", "izakaya_food_drinks_menu.html",
-        "ramen_drinks_menu.html", "izakaya_drinks_menu.html",
-    ):
-        template_path = TEMPLATE_PACKAGE_MENU / template_name
-        if template_path.exists():
-            report = _html_text_report(template_path)
-            items.update(report["all"])
-    return items
+    """Legacy print templates are retired; no placeholder whitelist is active."""
+    return set()
 
 
 TEMPLATE_PLACEHOLDER_ITEMS: set[str] = _load_template_placeholder_items()
@@ -975,10 +799,10 @@ def _final_manifest(
     package = PACKAGE_REGISTRY[package_key]
     artifacts: list[dict[str, Any]] = []
     for name in _package_files(output_dir, package_key=package_key):
-        role = "print_pdf" if name.endswith(".pdf") else "source_html" if name.endswith(".html") else "source_data"
+        role = "qr_sign_pdf" if name.endswith(".pdf") else "hosted_menu_html" if name.endswith(".html") else "menu_asset"
         artifacts.append(artifact_entry(output_dir / name, arcname=name, role=role))
     for path in generated_files or []:
-        role = "print_handoff" if path.name.startswith(("PRINT", "DELIVERY")) else "owner_approved_content"
+        role = "confirmation_summary"
         artifacts.append(artifact_entry(path, arcname=path.name, role=role))
     return package_manifest(
         package_key=package_key,
@@ -993,7 +817,6 @@ def _final_manifest(
             "order_id": job.get("order_id", ""),
             "output_dir": str(output_dir),
             "photo_paths": list(job.get("photo_paths") or []),
-            "ticket_path": job.get("ticket_path", ""),
         },
         validation=validation,
     )
@@ -1010,15 +833,13 @@ def _append_history(job: dict[str, Any], status: str, timestamp: str, reviewer: 
 
 
 def _normalise_build_package(package_key: Any) -> str:
-    value = str(package_key or PACKAGE_1_KEY)
-    if value in {PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY}:
+    from .constants import LEGACY_PACKAGE_KEY_MAP
+
+    value = str(package_key or ENGLISH_QR_MENU_KEY)
+    if value in PACKAGE_REGISTRY:
         return value
-    if value in {"package_B_remote_30k", "package_1"}:
-        return PACKAGE_1_KEY
-    if value in {"package_A_printed_delivered_45k", "package_2"}:
-        return PACKAGE_2_KEY
-    if value in {"package_3"}:
-        return PACKAGE_3_KEY
+    if value in LEGACY_PACKAGE_KEY_MAP:
+        return LEGACY_PACKAGE_KEY_MAP[value]
     raise PackageExportError(f"Unsupported build package: {value}")
 
 

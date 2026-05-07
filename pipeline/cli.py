@@ -57,7 +57,7 @@ def main() -> None:
         action="append",
         choices=["ラーメン", "居酒屋", "ramen", "izakaya"],
         default=[],
-        help="Category to discover; repeat for both ramen and izakaya",
+        help="Category to discover; repeat for ramen and izakaya",
     )
     contact_cmd.add_argument("--places-api-key", default=None, help="Google Places API key; defaults to GOOGLE_PLACES_API_KEY")
     contact_cmd.add_argument("--directory-url", action="append", default=[], help="Tabelog/HotPepper category URL to crawl")
@@ -86,6 +86,14 @@ def main() -> None:
     audit_cmd = sub.add_parser("audit-state", help="Audit persisted lead state for stale assets and name drift")
     audit_cmd.add_argument("--state-root", default=None, help="Override state root")
     audit_cmd.add_argument("--repair", action="store_true", help="Repair deterministic state drift before auditing")
+
+    reclassify_cmd = sub.add_parser("reclassify", help="Reclassify all leads to 2-category model (ramen / izakaya)")
+    reclassify_cmd.add_argument("--state-root", default=None, help="Override state root")
+    reclassify_cmd.add_argument("--apply", action="store_true", help="Persist changes; default is dry-run")
+
+    validate_emails_cmd = sub.add_parser("validate-emails", help="MX-validate all lead email addresses")
+    validate_emails_cmd.add_argument("--state-root", default=None, help="Override state root")
+    validate_emails_cmd.add_argument("--apply", action="store_true", help="Persist results; default is dry-run")
 
     verify_restaurant_cmd = sub.add_parser("verify-restaurant-leads", help="Run the no-send restaurant email lead verification pass")
     verify_restaurant_cmd.add_argument("--state-root", default=None, help="Override state root")
@@ -454,6 +462,44 @@ def main() -> None:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         if not result["ok"]:
             sys.exit(1)
+
+    elif args.command == "reclassify":
+        from pathlib import Path as _P
+
+        from .lead_dossier import reclassify_state_leads
+
+        state_root = _P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state"
+        result = reclassify_state_leads(
+            state_root=state_root,
+            dry_run=not args.apply,
+        )
+        print(json.dumps({
+            "dry_run": result["dry_run"],
+            "no_send": result["no_send"],
+            "reclassified_count": result["reclassified_count"],
+            "skipped": result["skipped"],
+            "unchanged": result["unchanged"],
+        }, indent=2, ensure_ascii=False))
+
+    elif args.command == "validate-emails":
+        from pathlib import Path as _P
+
+        from .lead_dossier import validate_lead_emails
+
+        state_root = _P(args.state_root) if args.state_root else _P(__file__).resolve().parent.parent / "state"
+        result = validate_lead_emails(
+            state_root=state_root,
+            dry_run=not args.apply,
+        )
+        print(json.dumps({
+            "dry_run": result["dry_run"],
+            "no_send": result["no_send"],
+            "validated_count": result["validated_count"],
+            "valid_count": result["valid_count"],
+            "invalid_count": result["invalid_count"],
+            "no_email_count": result["no_email_count"],
+            "skipped_sent": result["skipped_sent"],
+        }, indent=2, ensure_ascii=False))
 
     elif args.command == "verify-restaurant-leads":
         from pathlib import Path as _P

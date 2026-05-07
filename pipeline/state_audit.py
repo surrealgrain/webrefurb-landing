@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .business_name import business_name_is_suspicious
-from .constants import OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE, PACKAGE_1_KEY, PROJECT_ROOT
+from .constants import ENGLISH_QR_MENU_KEY, OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE, PROJECT_ROOT
 from .lead_dossier import migrate_lead_record, record_explicitly_not_japan
 from .operator_state import apply_operator_state
 from .record import authoritative_business_name
@@ -46,6 +46,9 @@ CUSTOMER_TEXT_FIELDS = (
     "shop_preview_html",
     "preview_html",
 )
+LEGACY_CUSTOMER_TEXT_FIELDS = (
+    "outreach_english_body",
+)
 DNC_STATUSES = {"do_not_contact", "disqualified"}
 ATTACHED_SAMPLE_MARKERS = (
     "添付のサンプル",
@@ -61,6 +64,23 @@ STALE_FIRST_CONTACT_MARKERS = (
     "添付ファイル",
     "ラミネート加工",
     "店舗へのお届け",
+    "30,000",
+    "45,000",
+    "package_1_remote_30k",
+    "package_2_printed_delivered_45k",
+    "package_3_qr_menu_65k",
+    "we made a sample",
+    "made from your menu",
+    "custom english menu",
+    "print-ready",
+    "lamination",
+    "qr ordering system",
+    "ordering system",
+    "online ordering",
+    "pos",
+    "checkout",
+    "place order",
+    "submit order",
     "attached sample",
     "attached file",
     "reference file",
@@ -80,6 +100,7 @@ PACKAGE_DEFAULT_REASONS = (
     "Directory pitch-card review candidate.",
     "Organic email pitch-card review candidate.",
 )
+APPROVED_FALSE_ALLOWED_REJECTION_REASONS = {"no_verified_business_email_route"}
 ENTITY_TITLE_TOKENS = (
     "検索結果",
     "旧Twitter",
@@ -153,6 +174,7 @@ def audit_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any]
         _audit_draft_asset_consistency(record, path, lead_id, findings)
         _audit_saved_outreach_copy(record, path, lead_id, findings)
         _audit_current_ready_safety(record, path, lead_id, findings)
+        _audit_approved_scope_integrity(record, path, lead_id, findings)
 
     checked += _audit_launch_proof_assets(root / "launch_smoke_tests", lead_records, findings)
     checked += _audit_launch_proof_assets(root / "launch_batches", lead_records, findings)
@@ -192,21 +214,6 @@ def repair_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any
         new_status = str(record.get("launch_readiness_status") or "")
         newly_disqualified = original_status != "disqualified" and new_status == "disqualified"
 
-        quarantine_reasons = _ready_quarantine_reasons(record)
-        if quarantine_reasons:
-            changes.extend(_quarantine_ready_record(record, quarantine_reasons))
-            changes.extend(_invalidate_final_check(root, lead_id, record, "ready_record_requires_regeneration"))
-
-        if _record_contains_stale_first_contact_copy(record):
-            _clear_saved_outreach_draft(record)
-            changes.append("stale_saved_outreach_copy")
-            changes.extend(_invalidate_final_check(root, lead_id, record, "stale_outreach_copy"))
-        expected_assets = expected_dark_assets(record)
-        if (record.get("outreach_assets_selected") or []) != expected_assets:
-            record["outreach_assets_selected"] = expected_assets
-            record["outreach_asset_template_family"] = "dark_v4c" if expected_assets else "no_first_contact_attachments"
-            changes.append("outreach_assets_selected")
-
         package_rescored = False
         if _should_rescore_package(record):
             package_details = recommend_package_details_for_record(record)
@@ -232,6 +239,32 @@ def repair_state_leads(*, state_root: str | Path | None = None) -> dict[str, Any
                 changes.append("launch_readiness_reasons")
             record, package_migration_changes = migrate_lead_record(record)
             changes.extend(package_migration_changes)
+
+        resolved_package_quarantine_changes = _clear_resolved_package_quarantine(record)
+        if resolved_package_quarantine_changes:
+            changes.extend(resolved_package_quarantine_changes)
+            record, package_migration_changes = migrate_lead_record(record)
+            changes.extend(package_migration_changes)
+
+        quarantine_reasons = _ready_quarantine_reasons(record)
+        if quarantine_reasons:
+            changes.extend(_quarantine_ready_record(record, quarantine_reasons))
+            changes.extend(_invalidate_final_check(root, lead_id, record, "ready_record_requires_regeneration"))
+
+        for legacy_field in LEGACY_CUSTOMER_TEXT_FIELDS:
+            if record.get(legacy_field):
+                record[legacy_field] = None
+                changes.append(legacy_field)
+
+        if _record_contains_stale_first_contact_copy(record):
+            _clear_saved_outreach_draft(record)
+            changes.append("stale_saved_outreach_copy")
+            changes.extend(_invalidate_final_check(root, lead_id, record, "stale_outreach_copy"))
+        expected_assets = expected_dark_assets(record)
+        if (record.get("outreach_assets_selected") or []) != expected_assets:
+            record["outreach_assets_selected"] = expected_assets
+            record["outreach_asset_template_family"] = "dark_v4c" if expected_assets else "no_first_contact_attachments"
+            changes.append("outreach_assets_selected")
 
         if newly_disqualified:
             _clear_saved_outreach_draft(record)
@@ -324,6 +357,7 @@ def _replace_text_value(value: Any, old: str, new: str) -> Any:
 def _clear_saved_outreach_draft(record: dict[str, Any]) -> None:
     record["outreach_draft_body"] = None
     record["outreach_draft_english_body"] = None
+    record["outreach_english_body"] = None
     record["outreach_draft_subject"] = None
     record["outreach_draft_manually_edited"] = False
     record["outreach_draft_edited_at"] = None
@@ -389,6 +423,33 @@ def _quarantine_ready_record(record: dict[str, Any], reasons: list[str]) -> list
         if dossier.get("readiness_reasons") != merged:
             dossier["readiness_reasons"] = merged
             changes.append("lead_evidence_dossier")
+    return changes
+
+
+def _clear_resolved_package_quarantine(record: dict[str, Any]) -> list[str]:
+    if record.get("lead") is not True:
+        return []
+    reasons = _normalise_reasons(record.get("launch_readiness_reasons"))
+    reason_set = set(reasons)
+    package_only_quarantine = reason_set and reason_set <= {
+        "manual_review_required",
+        "production_readiness_regeneration_required",
+    }
+    if not package_only_quarantine or "production_readiness_regeneration_required" not in reason_set:
+        return []
+    if _package_rescore_reasons(record):
+        return []
+
+    changes: list[str] = []
+    if record.get("manual_review_required") is not False:
+        record["manual_review_required"] = False
+        changes.append("manual_review_required")
+    if record.get("launch_readiness_reasons") != []:
+        record["launch_readiness_reasons"] = []
+        changes.append("launch_readiness_reasons")
+    if str(record.get("outreach_status") or "") == "needs_review":
+        record["outreach_status"] = "draft"
+        changes.append("outreach_status")
     return changes
 
 
@@ -657,6 +718,93 @@ def _audit_current_ready_safety(record: dict[str, Any], path: Path, lead_id: str
         findings.append(_finding(path, lead_id, "ready_package_requires_rescore", f"reasons={package_reasons}"))
 
 
+def _audit_approved_scope_integrity(record: dict[str, Any], path: Path, lead_id: str, findings: list[dict[str, Any]]) -> None:
+    """Guard the approved set against non-shop false positives.
+
+    Approved records are allowed to be launch-ready true leads, already-contacted
+    true leads, or retained contact-only candidates. Entity/scope/source rejects
+    must not stay in the approved universe where they can be confused with
+    sendable inventory.
+    """
+    if str(record.get("review_status") or "") != "approved":
+        return
+
+    if record.get("lead") is True:
+        if str(record.get("outreach_status") or "") in {"sent", "replied", "converted"}:
+            return
+        reasons = set(_normalise_reasons(record.get("launch_readiness_reasons")))
+        if (
+            str(record.get("launch_readiness_status") or "") == "manual_review"
+            and "production_readiness_regeneration_required" in reasons
+        ):
+            return
+        if str(record.get("launch_readiness_status") or "") != "ready_for_outreach":
+            findings.append(_finding(
+                path,
+                lead_id,
+                "approved_true_lead_not_ready",
+                "approved lead=true records must be ready_for_outreach or removed from approved scope",
+            ))
+        return
+
+    rejection_reason = str(record.get("rejection_reason") or "").strip()
+    if rejection_reason not in APPROVED_FALSE_ALLOWED_REJECTION_REASONS:
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_false_lead_not_contact_only",
+            f"approved lead=false record has non-contact blocker rejection_reason={rejection_reason or 'missing'}",
+        ))
+        return
+
+    entity_flags = _entity_quality_flags(record)
+    if entity_flags:
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_contact_only_entity_quality_flag",
+            f"flags={entity_flags}",
+        ))
+
+    if str(record.get("launch_readiness_status") or "") != "disqualified":
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_contact_only_not_disqualified",
+            "contact-only approved false leads must stay disqualified until a real owner route is verified",
+        ))
+    if str(record.get("outreach_status") or "") != "do_not_contact":
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_contact_only_outreach_not_blocked",
+            "contact-only approved false leads must stay do_not_contact until route verification",
+        ))
+    if str(record.get("operator_state") or "") != "skip":
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_contact_only_operator_not_skip",
+            "contact-only approved false leads must stay skipped until route verification",
+        ))
+    if record.get("send_ready_checked") is not False:
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_contact_only_marked_send_ready",
+            "contact-only approved false leads must not carry send_ready_checked=true",
+        ))
+
+    stale_fields = [field for field in (*CUSTOMER_TEXT_FIELDS, *LEGACY_CUSTOMER_TEXT_FIELDS) if record.get(field)]
+    if stale_fields:
+        findings.append(_finding(
+            path,
+            lead_id,
+            "approved_contact_only_has_saved_copy",
+            f"fields={stale_fields}",
+        ))
+
+
 def _record_mentions_attached_sample(record: dict[str, Any]) -> bool:
     text = "\n".join(str(record.get(field) or "") for field in CUSTOMER_TEXT_FIELDS).lower()
     return any(marker in text for marker in ATTACHED_SAMPLE_MARKERS)
@@ -680,6 +828,10 @@ def _stale_first_contact_markers(record: dict[str, Any]) -> list[str]:
     markers = [marker for marker in STALE_FIRST_CONTACT_MARKERS if marker.lower() in lowered]
     if FIRST_CONTACT_PRICE_RE.search(text):
         markers.append("first_contact_pricing_dump")
+    if text and "qr" not in lowered:
+        markers.append("qr_first_copy_missing")
+    if text and "show staff" not in lowered and "スタッフ" not in text:
+        markers.append("show_staff_list_missing")
     return sorted(set(markers))
 
 
@@ -692,6 +844,8 @@ def _stringify_customer_value(value: Any) -> str:
     if isinstance(value, str):
         return value
     if isinstance(value, (list, dict)):
+        if not value:
+            return ""
         return json.dumps(value, ensure_ascii=False)
     return str(value or "")
 
@@ -737,7 +891,7 @@ def _has_restaurant_name_context(record: dict[str, Any]) -> bool:
         " ".join(str(item) for item in record.get("evidence_snippets") or []),
         " ".join(str(item) for item in record.get("lead_signals") or []),
     ]).lower()
-    return any(token in text for token in ("ramen", "ラーメン", "居酒屋", "izakaya", "酒場", "焼鳥", "焼き鳥"))
+    return any(token in text for token in ("ramen", "ラーメン", "soba", "そば", "蕎麦", "居酒屋", "izakaya", "酒場", "焼鳥", "焼き鳥"))
 
 
 def _placeholder_email_reasons(record: dict[str, Any]) -> list[str]:
@@ -773,8 +927,8 @@ def _package_rescore_reasons(record: dict[str, Any]) -> list[str]:
         reasons.append("missing_package_recommendation")
     if not package_reason:
         reasons.append("missing_package_recommendation_reason")
-    if package == PACKAGE_1_KEY and package_reason in PACKAGE_DEFAULT_REASONS:
-        reasons.append("import_or_directory_default_package_1")
+    if package != ENGLISH_QR_MENU_KEY:
+        reasons.append("non_active_product_recommendation")
     return reasons
 
 

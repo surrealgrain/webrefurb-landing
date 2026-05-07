@@ -9,8 +9,9 @@ from typing import Any
 from lxml import etree, html as lxml_html
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "assets" / "templates"
-MASTER_TEMPLATE = TEMPLATES_DIR / "izakaya_food_menu.html"
+MASTER_TEMPLATE = TEMPLATES_DIR / "izakaya_food_drinks_menu.html"
 DEFAULT_CONTENT = TEMPLATES_DIR / "menu_content.json"
+SAMPLE_SEAL_TEXT = "見本"
 ALLOWED_PRICE_STATUSES = {
     "unknown",
     "detected_in_source",
@@ -278,7 +279,7 @@ def _replace_panel_title(html: str, panel_id: str, title: str) -> str:
 
 
 def replace_seal_text(html: str, business_name: str) -> str:
-    """Replace the seal stamp placeholder with the locked business name."""
+    """Normalize seal stamp text to the generic sample mark."""
     doc = _parse_document(html)
     _mutate_seal(doc, business_name)
     return _serialize_document(doc)
@@ -422,11 +423,11 @@ def _apply_layout_metadata(doc: etree._Element, content: dict[str, Any]) -> None
 
 
 def _mutate_seal(doc: etree._Element, business_name: str) -> None:
-    length = str(min(max(len(business_name), 1), 12))
+    length = str(len(SAMPLE_SEAL_TEXT))
     for seal in doc.xpath('//*[@data-slot="seal" or contains(concat(" ", normalize-space(@class), " "), " seal-stamp ")]'):
         seal.set("data-length", length)
     for seal_text in doc.xpath('//*[@data-slot="seal-text"]'):
-        _set_text_preserving_tail(seal_text, business_name)
+        _set_text_preserving_tail(seal_text, SAMPLE_SEAL_TEXT)
 
 
 def _render_panel_content(doc: etree._Element, content: dict[str, Any]) -> None:

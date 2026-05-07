@@ -120,7 +120,12 @@ JP_PREFECTURE_PREFIXES = (
     "山口県", "徳島県", "香川県", "愛媛県", "高知県",
     "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
 )
-RAMEN_TOKENS = ("ラーメン", "らーめん", "らぁめん", "拉麺", "ramen", "中華そば", "つけ麺")
+RAMEN_TOKENS = (
+    "ラーメン", "らーめん", "らぁめん", "拉麺", "ramen",
+    "中華そば", "中華蕎麦", "つけ麺", "油そば", "まぜそば",
+    "abura soba", "mazesoba", "chuka soba",
+)
+SOBA_TOKENS = ("そば", "蕎麦", "手打ちそば", "手打ち蕎麦", "soba")
 IZAKAYA_TOKENS = ("居酒屋", "izakaya", "飲み放題", "お品書き", "コース", "焼鳥", "焼き鳥")
 MEDIA_PATH_RE = re.compile(r"(?i)\.(?:avif|gif|jpe?g|png|svg|webp)(?:$|[?#])")
 CITY_ALIASES = {
@@ -1012,11 +1017,11 @@ def _directory_extraction_queries(query: str) -> list[str]:
             queries.append(f"ラーメンデータベース {place} ラーメン 公式")
     if "tabelog" in lowered:
         for place in _place_terms_from_query(query):
-            category = "ラーメン" if _query_targets_ramen(query) else "居酒屋"
+            category = "ラーメン" if _query_targets_ramen(query) else "そば" if _query_targets_soba(query) else "居酒屋"
             queries.append(f"食べログ {place} {category} メニュー 公式")
     if "hotpepper" in lowered:
         for place in _place_terms_from_query(query):
-            category = "ラーメン" if _query_targets_ramen(query) else "居酒屋"
+            category = "ラーメン" if _query_targets_ramen(query) else "そば" if _query_targets_soba(query) else "居酒屋"
             queries.append(f"ホットペッパー {place} {category} メニュー 公式")
     if "gnavi" in lowered or "gurunavi" in lowered:
         for place in _place_terms_from_query(query):
@@ -1033,6 +1038,12 @@ def _official_discovery_queries(query: str) -> list[str]:
                 " ".join(part for part in [place, "ラーメン", "公式", "お問い合わせ", area] if part),
                 " ".join(part for part in [place, "ラーメン", "公式", "メール", area] if part),
                 " ".join(part for part in [place, "ラーメン", "公式", "contact", area] if part),
+            ])
+        if _query_targets_soba(query):
+            variants.extend([
+                " ".join(part for part in [place, "そば", "公式", "お問い合わせ", area] if part),
+                " ".join(part for part in [place, "そば", "公式", "メール", area] if part),
+                " ".join(part for part in [place, "そば", "公式", "contact", area] if part),
             ])
         if _query_targets_izakaya(query):
             variants.extend([
@@ -1175,6 +1186,10 @@ def _query_targets_ramen(query: str) -> bool:
     return any(token.lower() in lowered for token in RAMEN_TOKENS)
 
 
+def _query_targets_soba(query: str) -> bool:
+    return False
+
+
 def _query_targets_izakaya(query: str) -> bool:
     lowered = str(query or "").lower()
     return any(token.lower() in lowered for token in IZAKAYA_TOKENS)
@@ -1250,6 +1265,8 @@ def _organic_result_score(result: dict[str, Any], query: str) -> int:
         score += 10
     query_lower = str(query or "").lower()
     if _query_targets_ramen(query_lower) and any(token.lower() in haystack for token in RAMEN_TOKENS):
+        score += 10
+    if _query_targets_soba(query_lower) and any(token.lower() in haystack for token in SOBA_TOKENS):
         score += 10
     if _query_targets_izakaya(query_lower) and any(token.lower() in haystack for token in IZAKAYA_TOKENS):
         score += 10

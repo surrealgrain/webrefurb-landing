@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .constants import (
+    ENGLISH_QR_MENU_KEY,
     PACKAGE_REGISTRY,
     DEFAULT_REVISION_LIMIT,
     QUOTE_EXPIRY_DAYS,
@@ -70,38 +71,21 @@ def can_transition(current: str, target: str) -> bool:
 # Quote generation
 # ---------------------------------------------------------------------------
 
-# Scope descriptions for each package
+# Scope descriptions for the active product
 _SCOPE_DESCRIPTIONS = {
-    "package_1_remote_30k": (
-        "English Ordering Files: menu structure, ordering copy, and print-ready "
-        "PDF/image files delivered online. Includes a ticket-machine guide when applicable. "
-        "Owner approval is required before final delivery; prices, ingredients, and allergens "
-        "are only shown when confirmed by the restaurant."
-    ),
-    "package_2_printed_delivered_45k": (
-        "Counter-Ready Ordering Kit: everything in English Ordering Files, plus "
-        "professional printing, lamination, and courier delivery to your restaurant. "
-        "Materials are prepared to match the current menu and order flow after owner approval. "
-        "Prices, ingredients, and allergens are only shown when confirmed by the restaurant."
-    ),
-    "package_3_qr_menu_65k": (
-        "Live QR English Menu: hosted English ordering menu accessible by QR code. "
-        "Includes QR code generation, printable QR sign, 12-month hosting, one bundled "
-        "update round in the first 30 days, and owner confirmation before publish. "
-        "Prices, ingredients, and allergens are only shown when confirmed by the restaurant."
+    ENGLISH_QR_MENU_KEY: (
+        "English QR Menu: hosted mobile English menu page, QR code, printable QR sign, "
+        "Show Staff List, 12 months hosting, one pre-launch revision, and owner "
+        "confirmation before publishing prices, descriptions, ingredients, or allergy details."
     ),
 }
 
 _DELIVERY_TERMS = {
-    "package_1_remote_30k": "Print-ready ordering files delivered by email or download link within 5 business days of intake completion and owner approval.",
-    "package_2_printed_delivered_45k": "Printed and laminated ordering materials delivered by domestic courier within 7 business days of intake completion and owner approval.",
-    "package_3_qr_menu_65k": "QR ordering menu published within 5 business days of intake completion and owner approval. QR sign PDF delivered with Package 2 if bundled, or by email.",
+    ENGLISH_QR_MENU_KEY: "Hosted English QR menu published after owner review and confirmation. QR code and printable QR sign are included in the final export.",
 }
 
 _UPDATE_TERMS = {
-    "package_1_remote_30k": "One correction window is included after owner review. Menu changes after approval are quoted separately.",
-    "package_2_printed_delivered_45k": "One correction window is included before print approval. Reprints after approval are quoted separately.",
-    "package_3_qr_menu_65k": "One bundled update round is included within 30 days of publish. Later updates are quoted separately.",
+    ENGLISH_QR_MENU_KEY: "One pre-launch revision is included. After launch, updates are available on request and quoted separately unless manually agreed.",
 }
 
 
@@ -123,11 +107,6 @@ def generate_quote(
     expiry = now + timedelta(days=QUOTE_EXPIRY_DAYS)
     price = custom_price_yen if is_custom and custom_price_yen else pkg["price_yen"]
     cost_assumptions: dict[str, Any] = {}
-    if package_key == "package_2_printed_delivered_45k":
-        cost_assumptions = {
-            "print_cost_estimate_yen": PACKAGE_2_PRINT_COST_ESTIMATE_YEN,
-            "delivery_cost_estimate_yen": PACKAGE_2_DELIVERY_COST_ESTIMATE_YEN,
-        }
 
     return QuoteDetails(
         restaurant_name=business_name,

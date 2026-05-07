@@ -13,12 +13,18 @@ from pipeline.render import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES_ROOT = PROJECT_ROOT / "assets" / "templates"
+ACTIVE_HTML_TEMPLATES = [
+    TEMPLATES_ROOT / "ramen_food_menu.html",
+    TEMPLATES_ROOT / "izakaya_food_drinks_menu.html",
+    TEMPLATES_ROOT / "ticket_machine_guide.html",
+    TEMPLATES_ROOT / "qr_code_sign.html",
+]
 
 
 def test_active_html_templates_pass_run5_contract():
     errors = {
         path.name: validate_template_contract(path)
-        for path in sorted(TEMPLATES_ROOT.glob("*.html"))
+        for path in ACTIVE_HTML_TEMPLATES
     }
 
     assert errors
@@ -26,7 +32,7 @@ def test_active_html_templates_pass_run5_contract():
 
 
 def test_active_html_templates_show_customer_sample_caveat():
-    for path in sorted(TEMPLATES_ROOT.glob("*.html")):
+    for path in ACTIVE_HTML_TEMPLATES:
         text = path.read_text(encoding="utf-8")
         assert "Illustrative sample only" in text, path.name
         assert "owner-confirmed menu content" in text, path.name
@@ -103,7 +109,8 @@ def test_populate_menu_html_uses_structured_slots_and_removes_unprovided_section
     )
 
     html = output_path.read_text(encoding="utf-8")
-    assert "Hinode Ramen" in html
+    assert "見本" in html
+    assert "Hinode Ramen" not in html
     assert "Shoyu Ramen" in html
     assert "Miso Ramen" not in html
     assert 'data-section="sides-add-ons"' not in html
@@ -159,5 +166,6 @@ def test_ticket_machine_and_qr_templates_render_from_structured_content():
         business_name="Hinode Ramen",
     )
     assert "<svg" in qr_html
-    assert "Hinode Ramen" in qr_html
+    assert "見本" in qr_html
+    assert "Hinode Ramen" not in qr_html
     assert validate_rendered_html(qr_html, template_path=TEMPLATES_ROOT / "qr_code_sign.html") == []

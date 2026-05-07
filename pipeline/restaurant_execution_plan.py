@@ -19,11 +19,7 @@ from .utils import ensure_dir, slugify, utc_now, write_json, write_text
 
 
 GLM_PRIORITY_PROFILES = (
-    "izakaya_yakitori_kushiyaki",
-    "izakaya_kushiage",
-    "izakaya_seafood_sake_oden",
-    "izakaya_tachinomi",
-    "izakaya_robatayaki",
+    "izakaya_food_and_drinks",
 )
 GLM_INITIAL_THRESHOLD = 5
 GLM_HIGH_PRIORITY_THRESHOLD = 10

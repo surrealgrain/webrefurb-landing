@@ -17,14 +17,6 @@ import yaml
 DEFAULT_ALLOWED_GENRES = [
     "ramen", "ラーメン", "らーめん", "中華そば", "担々麺", "つけ麺",
     "izakaya", "居酒屋", "大衆酒場", "大衆割烹",
-    "yakitori", "焼鳥", "焼き鳥",
-    "kushikatsu", "串カツ",
-    "tachinomi", "立ち飲み",
-    "robatayaki", "炉端焼き",
-    "motsuyaki", "もつ焼き", "もつ焼",
-    "seafood izakaya", "海鮮居酒屋",
-    "sake bar", "日本酒バー", "立ち呑み",
-    "Japanese pub",
 ]
 
 DEFAULT_REFUSAL_PHRASES = [

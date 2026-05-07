@@ -36,16 +36,8 @@ SUPPORTED_MENU_TYPES = {
     "tantanmen",
     "chuka_soba",
     "izakaya",
-    "yakitori",
     "kushiyaki",
     "yakiton",
-    "kushikatsu",
-    "kushiage",
-    "seafood_izakaya",
-    "oden",
-    "tachinomi",
-    "robatayaki",
-    "sakaba",
 }
 
 DIRECTORY_HOST_TOKENS = (
