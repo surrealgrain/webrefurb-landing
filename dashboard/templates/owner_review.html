@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メニュー確認 — {{ restaurant_name_ja }}</title>
+<style>
+:root {
+  --accent: #0E7490;
+  --accent-hover: #0B5E73;
+  --accent-light: #E6F5F8;
+  --success: #16A34A;
+  --success-light: #F0FDF4;
+  --warning: #D97706;
+  --warning-light: #FFFBEB;
+  --warning-border: #F59E0B;
+  --error: #DC2626;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555;
+  --text-tertiary: #888;
+  --border: #E5E7EB;
+  --bg: #ffffff;
+  --bg-muted: #F9FAFB;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-badge: 9999px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.page-wrap {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ── Header ── */
+.page-header {
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.restaurant-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.restaurant-name-en {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.review-deadline {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.review-deadline .label { color: var(--text-tertiary); }
+
+/* ── Banner ── */
+.review-banner {
+  background: var(--accent-light);
+  border: 1px solid rgba(14,116,144,0.15);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+/* ── Status messages ── */
+.status-message {
+  text-align: center;
+  padding: 48px 20px;
+}
+.status-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 28px;
+}
+.status-icon.success { background: var(--success-light); color: var(--success); }
+.status-icon.warning { background: var(--warning-light); color: var(--warning); }
+.status-icon.error { background: #FEF2F2; color: var(--error); }
+.status-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.status-body {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+/* ── Menu sections ── */
+.menu-section {
+  margin-bottom: 20px;
+}
+.menu-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: 12px;
+}
+
+/* ── Menu items ── */
+.menu-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 14px 14px 16px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+.menu-item.needs-confirmation {
+  border-color: var(--warning-border);
+  border-left: 3px solid var(--warning-border);
+  background: var(--warning-light);
+}
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.item-name-ja {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.item-name-en {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.item-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.item-price.no-price {
+  color: var(--text-tertiary);
+  font-weight: 400;
+  font-size: 12px;
+}
+.item-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.item-meta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-badge);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+/* ── Confirmation badge ── */
+.confirm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-badge);
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #F59E0B;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
+/* ── Sticky bottom bar ── */
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+}
+.sticky-bottom-inner {
+  max-width: 430px;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
+  font-family: inherit;
+  line-height: 1.3;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  flex: 1;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-secondary {
+  background: var(--bg);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  flex: 1;
+}
+.btn-secondary:hover:not(:disabled) { background: var(--accent-light); }
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+}
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+.btn-secondary.btn-loading::after {
+  border-color: rgba(14,116,144,0.3);
+  border-top-color: var(--accent);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Modal overlay ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+.modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+.modal-content {
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 430px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px 20px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-overlay.open .modal-content {
+  transform: translateY(0);
+}
+.modal-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #D1D5DB;
+  margin: 0 auto 16px;
+}
+.modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+.modal-body {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 20px;
+  white-space: pre-line;
+}
+.modal-textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 15px;
+  font-family: var(--font-sans);
+  resize: vertical;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.modal-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14,116,144,0.1);
+}
+.modal-textarea::placeholder { color: var(--text-tertiary); }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.modal-actions .btn { flex: 1; }
+
+/* ── Footer spacing for sticky bar ── */
+.bottom-spacer { height: 90px; }
+
+/* ── WebRefurb branding ── */
+.page-footer {
+  text-align: center;
+  padding: 20px 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.page-footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  {# ── Header (all states) ── #}
+  <header class="page-header">
+    <div class="restaurant-name">{{ restaurant_name_ja }}</div>
+    <div class="restaurant-name-en">{{ restaurant_name }}</div>
+    {% if status == "pending" %}
+    <div class="review-deadline">
+      <span class="label">確認期限：</span>{{ expires_at }}
+    </div>
+    {% endif %}
+  </header>
+
+  {# ════════════════════════════════════════════════
+     STATE: PENDING
+     ════════════════════════════════════════════════ #}
+  {% if status == "pending" %}
+
+  <div class="review-banner">
+    以下のメニュー内容をご確認ください<br>
+    <span style="font-weight:400; font-size:13px; color: var(--text-secondary);">Please review the menu content below</span>
+  </div>
+
+  <div id="menu-preview">
+    {# ── Flat items list (menu_data["items"]) ── #}
+    {% set flat_items = menu_data.get("items", []) %}
+    {% if flat_items %}
+      {% set ns = namespace(current_section = "") %}
+      {% for item in flat_items %}
+        {% set section_name = item.get("section", "") or item.get("category", "") or "" %}
+        {% if section_name != ns.current_section %}
+          {% if ns.current_section %}</div>{% endif %}
+          <div class="menu-section">
+            <div class="menu-section-title">{{ section_name }}</div>
+          {% set ns.current_section = section_name %}
+        {% endif %}
+        <div class="menu-item{% if item.get('field_name', '') in (fields_needing_confirmation or []) or (fields_needing_confirmation and loop.index0|string in (fields_needing_confirmation or [])) %} needs-confirmation{% endif %}">
+          <div class="item-header">
+            <div>
+              <div class="item-name-ja">{{ item.get("japanese_name", "") or item.get("japanese_item_name", "") or "" }}</div>
+              <div class="item-name-en">{{ item.get("english_name", "") or item.get("tentative_english_label", "") or "" }}</div>
+            </div>
+            {% set item_price = item.get("price", "") %}
+            {% if item_price %}
+            <div class="item-price">{{ item_price }}</div>
+            {% else %}
+            <div class="item-price no-price">ー</div>
+            {% endif %}
+          </div>
+          {% if item.get("description") %}
+          <div class="item-description">{{ item.get("description") }}</div>
+          {% endif %}
+          {% if item.get("ingredients") or item.get("allergens") or item.get("allergy_notes") %}
+          <div class="item-meta">
+            {% if item.get("ingredients") %}
+            <span class="meta-tag">食材：{{ item.get("ingredients") | join(", ") if item.get("ingredients") is iterable and item.get("ingredients") is not string else item.get("ingredients") }}</span>
+            {% endif %}
+            {% if item.get("allergens") %}
+            <span class="meta-tag">アレルギー：{{ item.get("allergens") | join(", ") if item.get("allergens") is iterable and item.get("allergens") is not string else item.get("allergens") }}</span>
+            {% elif item.get("allergy_notes") %}
+            <span class="meta-tag">アレルギー：{{ item.get("allergy_notes") }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+      {% if ns.current_section %}</div>{% endif %}
+
+    {# ── Panel structure (menu_data.food / menu_data.drinks with sections) ── #}
+    {% elif menu_data.get("food") or menu_data.get("drinks") %}
+      {% for panel_key in ["food", "drinks"] %}
+        {% set panel = menu_data.get(panel_key, {}) %}
+        {% if panel and panel.get("sections") %}
+          {% for section in panel.get("sections", []) %}
+          <div class="menu-section">
+            <div class="menu-section-title">{{ section.get("title", "") or section.get("section", "") }}</div>
+            {% for item in section.get("items", []) %}
+            <div class="menu-item{% if item.get("field_name", "") in (fields_needing_confirmation or []) or item.get("section", "") in (fields_needing_confirmation or []) %} needs-confirmation{% endif %}">
+              <div class="item-header">
+                <div>
+                  <div class="item-name-ja">{{ item.get("japanese_name", "") or item.get("source_text", "") or "" }}</div>
+                  <div class="item-name-en">{{ item.get("english_name", "") or item.get("name", "") or "" }}</div>
+                </div>
+                {% set item_price = item.get("price", "") %}
+                {% if item_price %}
+                <div class="item-price">{{ item_price }}</div>
+                {% else %}
+                <div class="item-price no-price">ー</div>
+                {% endif %}
+              </div>
+              {% if item.get("description") %}
+              <div class="item-description">{{ item.get("description") }}</div>
+              {% endif %}
+              {% if item.get("ingredients") or item.get("allergens") or item.get("allergy_notes") %}
+              <div class="item-meta">
+                {% if item.get("ingredients") %}
+                <span class="meta-tag">食材：{{ item.get("ingredients") | join(", ") if item.get("ingredients") is iterable and item.get("ingredients") is not string else item.get("ingredients") }}</span>
+                {% endif %}
+                {% if item.get("allergens") %}
+                <span class="meta-tag">アレルギー：{{ item.get("allergens") | join(", ") if item.get("allergens") is iterable and item.get("allergens") is not string else item.get("allergens") }}</span>
+                {% elif item.get("allergy_notes") %}
+                <span class="meta-tag">アレルギー：{{ item.get("allergy_notes") }}</span>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+
+    {# ── Sections-based (menu_data.sections with items) ── #}
+    {% elif menu_data.get("sections") %}
+      {% for section in menu_data.sections %}
+      <div class="menu-section">
+        <div class="menu-section-title">{{ section.get("section", "") or section.get("title", "") }}</div>
+        {% for item in section.get("items", []) %}
+        <div class="menu-item{% if item.get("field_name", "") in (fields_needing_confirmation or []) %} needs-confirmation{% endif %}">
+          <div class="item-header">
+            <div>
+              <div class="item-name-ja">{{ item.get("japanese_name", "") or item.get("japanese_item_name", "") or "" }}</div>
+              <div class="item-name-en">{{ item.get("english_name", "") or item.get("tentative_english_label", "") or item.get("name", "") or "" }}</div>
+            </div>
+            {% set item_price = item.get("price", "") %}
+            {% if item_price %}
+            <div class="item-price">{{ item_price }}</div>
+            {% else %}
+            <div class="item-price no-price">ー</div>
+            {% endif %}
+          </div>
+          {% if item.get("description") %}
+          <div class="item-description">{{ item.get("description") }}</div>
+          {% endif %}
+          {% if item.get("ingredients") or item.get("allergens") or item.get("allergy_notes") %}
+          <div class="item-meta">
+            {% if item.get("ingredients") %}
+            <span class="meta-tag">食材：{{ item.get("ingredients") | join(", ") if item.get("ingredients") is iterable and item.get("ingredients") is not string else item.get("ingredients") }}</span>
+            {% endif %}
+            {% if item.get("allergens") %}
+            <span class="meta-tag">アレルギー：{{ item.get("allergens") | join(", ") if item.get("allergens") is iterable and item.get("allergens") is not string else item.get("allergens") }}</span>
+            {% elif item.get("allergy_notes") %}
+            <span class="meta-tag">アレルギー：{{ item.get("allergy_notes") }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="status-message">
+        <div class="status-body">メニューデータがありません</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="bottom-spacer"></div>
+
+  {# ── Sticky action bar ── #}
+  <div class="sticky-bottom">
+    <div class="sticky-bottom-inner">
+      <button class="btn btn-primary" id="btn-confirm" type="button">
+        内容を確認しました
+      </button>
+      <button class="btn btn-secondary" id="btn-request-changes" type="button">
+        修正をお願いします
+      </button>
+    </div>
+  </div>
+
+  {# ── Confirm dialog ── #}
+  <div class="modal-overlay" id="modal-confirm">
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <div class="modal-title">メニュー内容の確認</div>
+      <div class="modal-body">メニュー内容を確認しました。WebRefurbが公開の準備を進めます。
+
+Thank you for confirming the menu content. WebRefurb will prepare the menu for publishing.</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" type="button" onclick="closeModal('modal-confirm')">戻る</button>
+        <button class="btn btn-primary" id="btn-confirm-submit" type="button">確認する</button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Request corrections dialog ── #}
+  <div class="modal-overlay" id="modal-changes">
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <div class="modal-title">修正依頼</div>
+      <textarea class="modal-textarea" id="corrections-note" placeholder="修正したい点をご記入ください&#10;Please describe what needs correction"></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" type="button" onclick="closeModal('modal-changes')">キャンセル</button>
+        <button class="btn btn-primary" id="btn-changes-submit" type="button">送信する</button>
+      </div>
+    </div>
+  </div>
+
+  {# ════════════════════════════════════════════════
+     STATE: APPROVED
+     ════════════════════════════════════════════════ #}
+  {% elif status == "approved" %}
+
+  <div class="status-message">
+    <div class="status-icon success">
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="status-title">ありがとうございます。<br>メニュー内容を確認いたしました。</div>
+    <div class="status-body">
+      WebRefurbがメニュー公開の準備を進めます。<br>
+      <span style="color: var(--text-tertiary); font-size: 13px;">WebRefurb will prepare the menu for publishing.</span>
+    </div>
+  </div>
+
+  {# ════════════════════════════════════════════════
+     STATE: CHANGES REQUESTED
+     ════════════════════════════════════════════════ #}
+  {% elif status == "changes_requested" %}
+
+  <div class="status-message">
+    <div class="status-icon warning">
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M3 20h18L12 4 3 20z"/></svg>
+    </div>
+    <div class="status-title">修正依頼を受け付けました</div>
+    <div class="status-body">
+      担当者が対応いたします。<br>
+      <span style="color: var(--text-tertiary); font-size: 13px;">Our team will follow up on your correction request.</span>
+    </div>
+  </div>
+
+  {# ════════════════════════════════════════════════
+     STATE: EXPIRED
+     ════════════════════════════════════════════════ #}
+  {% elif status == "expired" %}
+
+  <div class="status-message">
+    <div class="status-icon error">
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="11"/><line x1="14" y1="9" x2="14" y2="15"/><line x1="14" y1="19" x2="14.01" y2="19"/></svg>
+    </div>
+    <div class="status-title">確認リンクの有効期限切れ</div>
+    <div class="status-body">
+      この確認リンクは有効期限が切れています。<br>
+      新しいリンクをご希望の場合はご連絡ください。<br>
+      <span style="color: var(--text-tertiary); font-size: 13px; margin-top: 8px; display: inline-block;">This review link has expired. Please contact us for a new link.</span>
+    </div>
+  </div>
+
+  {% endif %}
+
+  <div class="page-footer">WebRefurb</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TOKEN = {{ review_token | tojson }};
+
+  function $(sel) { return document.querySelector(sel); }
+  function $$(sel) { return document.querySelectorAll(sel); }
+
+  // ── Modals ──
+  function openModal(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.add("open");
+  }
+  function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove("open");
+  }
+  window.closeModal = closeModal;
+
+  // Close on overlay click
+  $$(".modal-overlay").forEach(function (overlay) {
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) overlay.classList.remove("open");
+    });
+  });
+
+  // ── Buttons ──
+  var btnConfirm = $("#btn-confirm");
+  var btnRequestChanges = $("#btn-request-changes");
+  var btnConfirmSubmit = $("#btn-confirm-submit");
+  var btnChangesSubmit = $("#btn-changes-submit");
+
+  if (btnConfirm) {
+    btnConfirm.addEventListener("click", function () {
+      openModal("modal-confirm");
+    });
+  }
+
+  if (btnRequestChanges) {
+    btnRequestChanges.addEventListener("click", function () {
+      openModal("modal-changes");
+      var ta = $("#corrections-note");
+      if (ta) setTimeout(function () { ta.focus(); }, 350);
+    });
+  }
+
+  if (btnConfirmSubmit) {
+    btnConfirmSubmit.addEventListener("click", function () {
+      submitAction(
+        "/api/review/" + encodeURIComponent(TOKEN) + "/approve",
+        {},
+        btnConfirmSubmit
+      );
+    });
+  }
+
+  if (btnChangesSubmit) {
+    btnChangesSubmit.addEventListener("click", function () {
+      var note = ($("#corrections-note") || {}).value || "";
+      if (!note.trim()) {
+        ($("#corrections-note") || {}).focus();
+        return;
+      }
+      submitAction(
+        "/api/review/" + encodeURIComponent(TOKEN) + "/request-changes",
+        { note: note.trim() },
+        btnChangesSubmit
+      );
+    });
+  }
+
+  // ── API submit ──
+  function submitAction(url, body, triggerBtn) {
+    if (triggerBtn.disabled) return;
+    triggerBtn.disabled = true;
+    triggerBtn.classList.add("btn-loading");
+
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().then(function (data) {
+            throw new Error((data && data.detail) || "エラーが発生しました");
+          });
+        }
+        return res.json();
+      })
+      .then(function () {
+        window.location.reload();
+      })
+      .catch(function (err) {
+        triggerBtn.disabled = false;
+        triggerBtn.classList.remove("btn-loading");
+        alert(err.message || "通信エラーが発生しました。もう一度お試しください。");
+      });
+  }
+})();
+</script>
+</body>
+</html>

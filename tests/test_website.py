@@ -114,8 +114,11 @@ def test_generic_demo_has_add_to_list_and_show_staff_flow():
 def test_dashboard_single_active_package_option():
     html = (PROJECT_ROOT / "dashboard" / "templates" / "index.html").read_text(encoding="utf-8")
 
-    assert 'value="english_qr_menu_65k"' in html
-    assert "English QR Menu - ¥65,000" in html
+    # New SPA dashboard references the product via API, not form values
+    assert "QR Menu Studio" in html
+    assert "ramen" in html.lower()
+    assert "izakaya" in html.lower()
+    # No old package references
     assert 'value="package_1_remote_30k"' not in html
     assert 'value="package_2_printed_delivered_45k"' not in html
     assert 'value="package_3_qr_menu_65k"' not in html

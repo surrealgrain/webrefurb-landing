@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{{RESTAURANT_NAME}} — English Menu</title>
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #0E7490;
+      --accent-light: #E0F5FA;
+      --accent-dark: #0A5C73;
+      --bg: #FFFFFF;
+      --bg-section: #F9FAFB;
+      --text: #111827;
+      --text-secondary: #6B7280;
+      --text-muted: #9CA3AF;
+      --border: #E5E7EB;
+      --border-light: #F3F4F6;
+      --radius: 8px;
+      --radius-pill: 20px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding-bottom: calc(70px + var(--safe-bottom));
+    }
+
+    /* ===== HEADER ===== */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .restaurant-identity {
+      padding: 16px 16px 12px;
+      text-align: center;
+    }
+
+    .restaurant-name-en {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .restaurant-name-ja {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* ===== CATEGORY TABS ===== */
+    .category-tabs-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .category-tabs-wrap::-webkit-scrollbar { display: none; }
+
+    .category-tabs {
+      display: flex;
+      gap: 0;
+      min-width: max-content;
+      padding: 0 12px;
+    }
+
+    .category-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.2s, border-color 0.2s;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .category-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .category-tab:not(.active):active {
+      background: var(--bg-section);
+    }
+
+    /* ===== MAIN CONTENT ===== */
+    main {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 12px;
+    }
+
+    /* ===== CATEGORY SECTION ===== */
+    .category-section {
+      padding: 20px 0 8px;
+    }
+
+    .category-heading {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      padding: 0 4px 8px;
+      border-bottom: 2px solid var(--accent);
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .category-heading-ja {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ===== MENU ITEM CARD ===== */
+    .menu-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      transition: box-shadow 0.2s;
+    }
+
+    .menu-item:active {
+      box-shadow: var(--shadow-sm);
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .item-name-en {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+      flex: 1;
+    }
+
+    .item-price {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-dark);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .item-name-ja {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .item-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    /* ===== TAGS ===== */
+    .item-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      line-height: 1.4;
+    }
+
+    /* Tag color variants */
+    .tag-popular       { background: #FEF3C7; color: #92400E; }
+    .tag-spicy         { background: #FEE2E2; color: #991B1B; }
+    .tag-vegetarian    { background: #D1FAE5; color: #065F46; }
+    .tag-vegan         { background: #D1FAE5; color: #065F46; }
+    .tag-pork          { background: #FCE7F3; color: #9D174D; }
+    .tag-beef          { background: #FED7AA; color: #9A3412; }
+    .tag-chicken       { background: #FEF3C7; color: #92400E; }
+    .tag-seafood       { background: #DBEAFE; color: #1E40AF; }
+    .tag-alcohol       { background: #E0E7FF; color: #3730A3; }
+    .tag-dairy         { background: #FEF9C3; color: #854D0E; }
+    .tag-egg           { background: #FEF3C7; color: #92400E; }
+    .tag-wheat         { background: #F5F5F4; color: #57534E; }
+    .tag-nuts          { background: #FED7AA; color: #9A3412; }
+    .tag-default       { background: var(--bg-section); color: var(--text-secondary); }
+
+    /* ===== ADD TO LIST BUTTON ===== */
+    .item-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .add-to-list-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-light);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius-pill);
+      padding: 6px 16px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .add-to-list-btn:active {
+      transform: scale(0.96);
+    }
+
+    .add-to-list-btn.in-list {
+      color: var(--bg);
+      background: var(--accent);
+    }
+
+    .add-to-list-btn.in-list:active {
+      background: var(--accent-dark);
+    }
+
+    /* Pulse animation when adding */
+    @keyframes btn-pulse {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+
+    .add-to-list-btn.pulse {
+      animation: btn-pulse 0.25s ease;
+    }
+
+    /* ===== FLOATING BADGE ===== */
+    .staff-list-badge {
+      position: fixed;
+      bottom: calc(20px + var(--safe-bottom));
+      right: 20px;
+      z-index: 200;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      box-shadow: var(--shadow-lg);
+      cursor: pointer;
+      display: none; /* hidden when list empty */
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .staff-list-badge.visible {
+      display: flex;
+    }
+
+    .staff-list-badge:active {
+      transform: scale(0.92);
+    }
+
+    @keyframes badge-bounce {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.2); }
+      60%  { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+
+    .staff-list-badge.bounce {
+      animation: badge-bounce 0.35s ease;
+    }
+
+    /* ===== OVERLAY ===== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: var(--bg);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .overlay.open {
+      display: flex;
+    }
+
+    .overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    }
+
+    .overlay-title {
+      text-align: center;
+      flex: 1;
+    }
+
+    .overlay-title-en {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .overlay-title-ja {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .overlay-close-btn {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .overlay-close-btn:active {
+      background: var(--bg-section);
+    }
+
+    .overlay-spacer {
+      width: 44px;
+      flex-shrink: 0;
+    }
+
+    .overlay-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 16px;
+    }
+
+    /* Staff list items */
+    .staff-list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .staff-list-item:last-child {
+      border-bottom: none;
+    }
+
+    .staff-list-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .staff-list-item-ja {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .staff-list-item-en {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .staff-list-item-qty {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-left: 4px;
+    }
+
+    .staff-list-item-price {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-dark);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .staff-list-remove-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .staff-list-remove-btn:active {
+      color: #DC2626;
+      border-color: #DC2626;
+    }
+
+    /* Overlay empty state */
+    .staff-list-empty {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--text-muted);
+    }
+
+    .staff-list-empty-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+
+    .staff-list-empty p {
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* Overlay footer */
+    .overlay-footer {
+      padding: 16px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+      padding-bottom: calc(16px + var(--safe-bottom));
+    }
+
+    .overlay-footer-en {
+      font-size: 15px;
+      color: var(--text-secondary);
+    }
+
+    .overlay-footer-ja {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ===== UTILITY ===== */
+    .hidden { display: none !important; }
+
+    /* Print-friendly: hide interactive elements */
+    @media print {
+      .add-to-list-btn,
+      .staff-list-badge,
+      .overlay { display: none !important; }
+      body { padding-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="restaurant-identity">
+      <h1 class="restaurant-name-en" id="restaurant-name-en">{{RESTAURANT_NAME}}</h1>
+      <p class="restaurant-name-ja" id="restaurant-name-ja">{{RESTAURANT_NAME_JA}}</p>
+    </div>
+    <nav class="category-tabs-wrap" aria-label="Menu categories">
+      <div class="category-tabs" id="category-tabs">
+        <!-- Tabs injected by JS -->
+      </div>
+    </nav>
+  </header>
+
+  <!-- ===== MENU CONTENT ===== -->
+  <main id="menu-content">
+    <!-- Category sections and items injected by JS -->
+  </main>
+
+  <!-- ===== FLOATING BADGE ===== -->
+  <button
+    class="staff-list-badge"
+    id="staff-list-badge"
+    type="button"
+    aria-label="View staff list"
+  >
+    <span id="badge-count">0</span>
+  </button>
+
+  <!-- ===== STAFF LIST OVERLAY ===== -->
+  <div class="overlay" id="staff-list-overlay" role="dialog" aria-label="Staff list">
+    <div class="overlay-header">
+      <div class="overlay-spacer"></div>
+      <div class="overlay-title">
+        <div class="overlay-title-en">Show to Staff</div>
+        <div class="overlay-title-ja">スタッフに見せる</div>
+      </div>
+      <button class="overlay-close-btn" id="overlay-close-btn" type="button" aria-label="Close">&#215;</button>
+    </div>
+    <div class="overlay-body" id="overlay-body">
+      <!-- List items injected by JS -->
+    </div>
+    <div class="overlay-footer">
+      <p class="overlay-footer-en">Please show this screen to staff.</p>
+      <p class="overlay-footer-ja">スタッフにこの画面をお見せください</p>
+    </div>
+  </div>
+
+  <!-- ===== MENU DATA (server replaces {{}} placeholders) ===== -->
+  <script id="menu-data" type="application/json">
+{
+  "restaurant_name": "{{RESTAURANT_NAME}}",
+  "restaurant_name_ja": "{{RESTAURANT_NAME_JA}}",
+  "categories": [
+    {
+      "id": "cat-1",
+      "name_en": "Ramen",
+      "name_ja": "ラーメン",
+      "items": [
+        {
+          "id": "item-1",
+          "name_en": "Tonkotsu Ramen",
+          "name_ja": "豚骨ラーメン",
+          "price": "¥950",
+          "description": "Rich pork bone broth",
+          "tags": ["pork"],
+          "price_confirmed": true,
+          "desc_confirmed": true,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}
+  </script>
+
+  <!-- ===== APPLICATION LOGIC ===== -->
+  <script>
+  (function() {
+    'use strict';
+
+    /* ---- Constants ---- */
+    var STORAGE_KEY = 'wr_staff_list';
+
+    /* Tag display labels */
+    var TAG_LABELS = {
+      popular: 'Popular', spicy: 'Spicy', vegetarian: 'Vegetarian', vegan: 'Vegan',
+      pork: 'Pork', beef: 'Beef', chicken: 'Chicken', seafood: 'Seafood',
+      alcohol: 'Alcohol', dairy: 'Dairy', egg: 'Egg', wheat: 'Wheat', nuts: 'Nuts'
+    };
+
+    /* ---- Parse menu data ---- */
+    var menuData;
+    try {
+      menuData = JSON.parse(document.getElementById('menu-data').textContent);
+    } catch (e) {
+      console.error('Failed to parse menu data', e);
+      return;
+    }
+
+    /* ---- DOM references ---- */
+    var nameEnEl      = document.getElementById('restaurant-name-en');
+    var nameJaEl      = document.getElementById('restaurant-name-ja');
+    var tabsContainer = document.getElementById('category-tabs');
+    var mainContent   = document.getElementById('menu-content');
+    var badge         = document.getElementById('staff-list-badge');
+    var badgeCount    = document.getElementById('badge-count');
+    var overlay       = document.getElementById('staff-list-overlay');
+    var overlayBody   = document.getElementById('overlay-body');
+    var overlayClose  = document.getElementById('overlay-close-btn');
+
+    /* ---- Staff list state (from localStorage) ---- */
+    var staffList = loadList();
+
+    /* ---- Initialize ---- */
+    function init() {
+      renderIdentity();
+      renderTabs();
+      renderMenu();
+      renderOverlayList();
+      updateBadge();
+      bindGlobalEvents();
+    }
+
+    /* ---- Render restaurant name ---- */
+    function renderIdentity() {
+      if (menuData.restaurant_name && nameEnEl.textContent.indexOf('{{') !== -1) {
+        nameEnEl.textContent = menuData.restaurant_name;
+      }
+      if (menuData.restaurant_name_ja && nameJaEl.textContent.indexOf('{{') !== -1) {
+        nameJaEl.textContent = menuData.restaurant_name_ja;
+      }
+    }
+
+    /* ---- Render category tabs ---- */
+    function renderTabs() {
+      var cats = visibleCategories();
+      tabsContainer.innerHTML = '';
+      cats.forEach(function(cat, i) {
+        var btn = document.createElement('button');
+        btn.className = 'category-tab' + (i === 0 ? ' active' : '');
+        btn.type = 'button';
+        btn.textContent = cat.name_en;
+        btn.setAttribute('data-cat-id', cat.id);
+        btn.addEventListener('click', function() {
+          scrollToSection(cat.id);
+          setActiveTab(btn);
+        });
+        tabsContainer.appendChild(btn);
+      });
+    }
+
+    /* ---- Render full menu ---- */
+    function renderMenu() {
+      var cats = visibleCategories();
+      mainContent.innerHTML = '';
+      cats.forEach(function(cat) {
+        var section = buildCategorySection(cat);
+        mainContent.appendChild(section);
+      });
+    }
+
+    /* ---- Build a single category section ---- */
+    function buildCategorySection(cat) {
+      var section = document.createElement('section');
+      section.className = 'category-section';
+      section.id = 'section-' + cat.id;
+
+      var heading = document.createElement('h2');
+      heading.className = 'category-heading';
+      heading.innerHTML = escHtml(cat.name_en) +
+        '<span class="category-heading-ja">' + escHtml(cat.name_ja) + '</span>';
+      section.appendChild(heading);
+
+      cat.items.filter(function(item) { return item.visible !== false; })
+        .forEach(function(item) {
+          section.appendChild(buildItemCard(item));
+        });
+
+      return section;
+    }
+
+    /* ---- Build a single menu item card ---- */
+    function buildItemCard(item) {
+      var card = document.createElement('div');
+      card.className = 'menu-item';
+      card.setAttribute('data-id', item.id);
+      card.setAttribute('data-ja', item.name_ja || '');
+      card.setAttribute('data-en', item.name_en || '');
+      card.setAttribute('data-price', item.price_confirmed ? (item.price || '') : '');
+
+      /* Header row: name + price */
+      var header = document.createElement('div');
+      header.className = 'item-header';
+
+      var nameEn = document.createElement('h3');
+      nameEn.className = 'item-name-en';
+      nameEn.textContent = item.name_en;
+      header.appendChild(nameEn);
+
+      if (item.price_confirmed && item.price) {
+        var price = document.createElement('span');
+        price.className = 'item-price';
+        price.textContent = item.price;
+        header.appendChild(price);
+      }
+
+      card.appendChild(header);
+
+      /* Japanese name */
+      if (item.name_ja) {
+        var nameJa = document.createElement('p');
+        nameJa.className = 'item-name-ja';
+        nameJa.textContent = item.name_ja;
+        card.appendChild(nameJa);
+      }
+
+      /* Description (only if confirmed) */
+      if (item.desc_confirmed && item.description) {
+        var desc = document.createElement('p');
+        desc.className = 'item-desc';
+        desc.textContent = item.description;
+        card.appendChild(desc);
+      }
+
+      /* Tags */
+      if (item.tags && item.tags.length) {
+        var tagWrap = document.createElement('div');
+        tagWrap.className = 'item-tags';
+        item.tags.forEach(function(t) {
+          var span = document.createElement('span');
+          span.className = 'tag tag-' + (TAG_LABELS[t] ? t : 'default');
+          span.textContent = TAG_LABELS[t] || t;
+          tagWrap.appendChild(span);
+        });
+        card.appendChild(tagWrap);
+      }
+
+      /* Add-to-list button */
+      var actions = document.createElement('div');
+      actions.className = 'item-actions';
+
+      var btn = document.createElement('button');
+      btn.className = 'add-to-list-btn';
+      btn.type = 'button';
+      btn.setAttribute('data-item-id', item.id);
+      updateButtonText(btn, item);
+      btn.addEventListener('click', function() { handleAdd(item, btn); });
+      actions.appendChild(btn);
+
+      card.appendChild(actions);
+      return card;
+    }
+
+    /* ---- Handle "Add to list" tap ---- */
+    function handleAdd(item, btn) {
+      var existing = findByItemId(item.id);
+
+      if (existing) {
+        /* Already in list: increment quantity */
+        existing.qty = (existing.qty || 1) + 1;
+        saveList();
+      } else {
+        /* New entry */
+        staffList.push({
+          itemId: item.id,
+          name_en: item.name_en,
+          name_ja: item.name_ja || '',
+          price: item.price_confirmed ? (item.price || '') : '',
+          qty: 1
+        });
+        saveList();
+      }
+
+      updateButtonText(btn, item);
+      updateBadge();
+      renderOverlayList();
+
+      /* Pulse animation */
+      btn.classList.remove('pulse');
+      void btn.offsetWidth; /* force reflow */
+      btn.classList.add('pulse');
+
+      /* Badge bounce */
+      badge.classList.remove('bounce');
+      void badge.offsetWidth;
+      badge.classList.add('bounce');
+    }
+
+    /* ---- Update button label based on list state ---- */
+    function updateButtonText(btn, item) {
+      var entry = findByItemId(item.id);
+      if (entry && entry.qty >= 1) {
+        btn.textContent = '\u2713 In list' + (entry.qty > 1 ? ' (\u00D7' + entry.qty + ')' : '');
+        btn.classList.add('in-list');
+      } else {
+        btn.textContent = 'Add to list';
+        btn.classList.remove('in-list');
+      }
+    }
+
+    /* ---- Render overlay list ---- */
+    function renderOverlayList() {
+      overlayBody.innerHTML = '';
+
+      if (staffList.length === 0) {
+        overlayBody.innerHTML =
+          '<div class="staff-list-empty">' +
+            '<div class="staff-list-empty-icon">\uD83D\uDCDD</div>' +
+            '<p>Your list is empty.<br>Add items from the menu.</p>' +
+          '</div>';
+        return;
+      }
+
+      staffList.forEach(function(entry, idx) {
+        var row = document.createElement('div');
+        row.className = 'staff-list-item';
+
+        /* Info column */
+        var info = document.createElement('div');
+        info.className = 'staff-list-item-info';
+
+        /* Japanese name (primary, largest) */
+        var jaName = document.createElement('div');
+        jaName.className = 'staff-list-item-ja';
+        jaName.textContent = entry.name_ja || entry.name_en;
+
+        /* Quantity badge inline with Japanese name */
+        if (entry.qty > 1) {
+          var qty = document.createElement('span');
+          qty.className = 'staff-list-item-qty';
+          qty.textContent = '\u00D7' + entry.qty;
+          jaName.appendChild(document.createTextNode(' '));
+          jaName.appendChild(qty);
+        }
+
+        info.appendChild(jaName);
+
+        /* English name (secondary) */
+        if (entry.name_en && entry.name_ja) {
+          var enName = document.createElement('div');
+          enName.className = 'staff-list-item-en';
+          enName.textContent = entry.name_en;
+          info.appendChild(enName);
+        }
+
+        row.appendChild(info);
+
+        /* Price (only if confirmed and present) */
+        if (entry.price) {
+          var priceEl = document.createElement('div');
+          priceEl.className = 'staff-list-item-price';
+          priceEl.textContent = entry.price;
+          row.appendChild(priceEl);
+        }
+
+        /* Remove button */
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'staff-list-remove-btn';
+        removeBtn.type = 'button';
+        removeBtn.setAttribute('aria-label', 'Remove ' + (entry.name_en || entry.name_ja));
+        removeBtn.innerHTML = '&times;';
+        removeBtn.addEventListener('click', function() { removeItem(idx); });
+        row.appendChild(removeBtn);
+
+        overlayBody.appendChild(row);
+      });
+    }
+
+    /* ---- Remove item from list ---- */
+    function removeItem(idx) {
+      var removed = staffList.splice(idx, 1)[0];
+      saveList();
+      renderOverlayList();
+      updateBadge();
+
+      /* Update the card button if visible */
+      if (removed) {
+        var cardBtn = document.querySelector('.add-to-list-btn[data-item-id="' + removed.itemId + '"]');
+        if (cardBtn) {
+          var catItem = findMenuItem(removed.itemId);
+          if (catItem) updateButtonText(cardBtn, catItem);
+        }
+      }
+    }
+
+    /* ---- Badge management ---- */
+    function updateBadge() {
+      var total = staffList.reduce(function(sum, e) { return sum + (e.qty || 1); }, 0);
+      badgeCount.textContent = total;
+      if (total > 0) {
+        badge.classList.add('visible');
+      } else {
+        badge.classList.remove('visible');
+      }
+    }
+
+    /* ---- Tab navigation ---- */
+    function scrollToSection(catId) {
+      var el = document.getElementById('section-' + catId);
+      if (el) {
+        var headerHeight = document.querySelector('.site-header').offsetHeight || 0;
+        var top = el.getBoundingClientRect().top + window.pageYOffset - headerHeight - 8;
+        window.scrollTo({ top: top, behavior: 'smooth' });
+      }
+    }
+
+    function setActiveTab(activeBtn) {
+      var tabs = tabsContainer.querySelectorAll('.category-tab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active');
+      }
+      activeBtn.classList.add('active');
+    }
+
+    /* ---- Global event bindings ---- */
+    function bindGlobalEvents() {
+      /* Badge tap: open overlay */
+      badge.addEventListener('click', function() {
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      });
+
+      /* Close overlay */
+      overlayClose.addEventListener('click', closeOverlay);
+
+      /* Close on Escape key */
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && overlay.classList.contains('open')) {
+          closeOverlay();
+        }
+      });
+    }
+
+    function closeOverlay() {
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    /* ---- Scroll spy: highlight active tab based on scroll position ---- */
+    var scrollSpyTimer;
+    window.addEventListener('scroll', function() {
+      clearTimeout(scrollSpyTimer);
+      scrollSpyTimer = setTimeout(function() {
+        var sections = mainContent.querySelectorAll('.category-section');
+        var headerHeight = document.querySelector('.site-header').offsetHeight || 0;
+        var scrollY = window.pageYOffset + headerHeight + 40;
+
+        for (var i = sections.length - 1; i >= 0; i--) {
+          if (sections[i].offsetTop <= scrollY) {
+            var id = sections[i].id.replace('section-', '');
+            var tab = tabsContainer.querySelector('.category-tab[data-cat-id="' + id + '"]');
+            if (tab && !tab.classList.contains('active')) {
+              setActiveTab(tab);
+              /* Scroll tab into view */
+              tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+            break;
+          }
+        }
+      }, 80);
+    }, { passive: true });
+
+    /* ---- Helpers ---- */
+    function visibleCategories() {
+      return (menuData.categories || []).filter(function(cat) {
+        return cat.items && cat.items.some(function(item) { return item.visible !== false; });
+      });
+    }
+
+    function findByItemId(itemId) {
+      for (var i = 0; i < staffList.length; i++) {
+        if (staffList[i].itemId === itemId) return staffList[i];
+      }
+      return null;
+    }
+
+    function findMenuItem(itemId) {
+      var cats = menuData.categories || [];
+      for (var c = 0; c < cats.length; c++) {
+        var items = cats[c].items || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].id === itemId) return items[i];
+        }
+      }
+      return null;
+    }
+
+    function loadList() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) { /* ignore */ }
+      return [];
+    }
+
+    function saveList() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(staffList));
+      } catch (e) { /* ignore */ }
+    }
+
+    function escHtml(str) {
+      var d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    /* ---- Boot ---- */
+    init();
+  })();
+  </script>
+</body>
+</html>
