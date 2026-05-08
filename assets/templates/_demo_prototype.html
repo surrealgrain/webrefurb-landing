@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>HAKATA RAMEN — English Menu</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #E94560;
+      --accent-soft: #FFF0F2;
+      --accent-dark: #C73550;
+      --bg: #FAFAFA;
+      --card: #FFFFFF;
+      --text: #111111;
+      --text-secondary: #555555;
+      --text-muted: #999999;
+      --border: #EEEEEE;
+      --radius: 12px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 40px;
+      max-width: 430px;
+      margin: 0 auto;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250,250,250,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .header-top {
+      padding: 14px 20px 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .restaurant-logo {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      color: #FFF; font-weight: 800; font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    .restaurant-name h1 {
+      font-size: 19px; font-weight: 700; color: var(--text);
+      letter-spacing: -0.3px; line-height: 1.2;
+    }
+
+    .restaurant-sub {
+      font-size: 12px; color: var(--text-muted); font-weight: 500;
+    }
+
+    /* ===== STAFF BUTTON (header) ===== */
+    .staff-btn {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
+      background: var(--accent); color: #FFF;
+      border: none; border-radius: 20px;
+      padding: 7px 12px 7px 10px;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: transform 0.15s, opacity 0.2s;
+      opacity: 0.45;
+    }
+    .staff-btn:active { transform: scale(0.95); }
+    .staff-btn.has-items { opacity: 1; }
+    .staff-btn svg { flex-shrink: 0; }
+    .staff-label { font-size: 12px; letter-spacing: 0.01em; }
+    .staff-btn .staff-badge {
+      min-width: 18px; height: 18px; border-radius: 9px;
+      background: rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; padding: 0 4px;
+    }
+    .staff-btn.bounce { animation: staffBounce 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes staffBounce {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.2); }
+      60%  { transform: scale(0.9); }
+      100% { transform: scale(1); }
+    }
+
+    /* ===== TABS ===== */
+    .tabs {
+      display: flex; overflow-x: auto; scrollbar-width: none;
+      padding: 0 20px; border-bottom: 1px solid var(--border);
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      padding: 11px 16px; font-size: 14px; font-weight: 500;
+      color: var(--text-muted); background: none; border: none;
+      border-bottom: 2.5px solid transparent; white-space: nowrap;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab.active {
+      color: var(--accent); border-bottom-color: var(--accent); font-weight: 600;
+    }
+
+    /* ===== SECTION ===== */
+    .section { padding: 20px 16px 4px; }
+
+    .section-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; padding: 0 4px;
+    }
+    .section-title {
+      font-size: 15px; font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .section-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* ===== ITEM CARD ===== */
+    .item {
+      background: var(--card); border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 14px;
+      box-shadow: var(--shadow); transition: transform 0.15s;
+    }
+    .item:active { transform: scale(0.985); }
+
+    .item-photo {
+      width: 100%; height: 180px; object-fit: cover; display: block;
+      background: #F0EBE5;
+    }
+
+    .item-body { padding: 14px 16px 6px; }
+
+    .item-top {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; gap: 12px;
+    }
+    .item-name { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.25; }
+    .item-price { font-size: 16px; font-weight: 700; color: var(--accent); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+
+    .item-desc { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.45; }
+
+    .item-ingredients {
+      margin-top: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.4;
+    }
+    .item-ingredients span { font-weight: 600; color: var(--text-secondary); }
+
+    .item-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+    .tag {
+      font-size: 10.5px; font-weight: 700; padding: 3px 8px;
+      border-radius: 5px; letter-spacing: 0.02em;
+    }
+    .tag-popular { background: #FFF0E0; color: #C2660A; }
+    .tag-spicy   { background: #FEE8E8; color: #B91C1C; }
+    .tag-chef    { background: #EDE8FD; color: #5B21B6; }
+
+    /* ===== SPICE METER ===== */
+    .spice-meter { display: flex; gap: 3px; align-items: center; margin-left: 4px; }
+    .spice-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border);
+    }
+    .spice-dot.active { background: #EF4444; }
+
+    /* ===== ALLERGEN BADGES ===== */
+    .allergens { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+    .allergen {
+      font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 4px; border: 1px solid var(--border);
+      color: var(--text-secondary); background: var(--bg);
+      display: flex; align-items: center; gap: 3px;
+    }
+    .allergen-icon { font-size: 12px; }
+
+    /* ===== POPULARITY BAR ===== */
+
+    /* ===== ADD BUTTON ===== */
+    .item-action { padding: 6px 16px 14px; display: flex; justify-content: flex-end; }
+    .add-btn {
+      font-size: 14px; font-weight: 600; color: var(--accent);
+      background: var(--accent-soft); border: none; border-radius: 24px;
+      padding: 9px 22px; min-height: 40px; cursor: pointer; transition: all 0.15s;
+    }
+    .add-btn:active { transform: scale(0.95); }
+    .add-btn.added { color: #FFF; background: var(--accent); }
+
+    /* ===== FLY BALL ===== */
+    .fly-ball {
+      position: fixed; z-index: 450;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 4px 12px rgba(233,69,96,0.4);
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ===== OVERLAY ===== */
+    .overlay {
+      position: fixed; z-index: 500;
+      top: 0; bottom: 0;
+      left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 430px;
+      background: var(--card); display: none; flex-direction: column;
+    }
+    .overlay.open { display: flex; }
+
+    .overlay-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 16px 14px;
+      background: var(--accent);
+    }
+    .overlay-title { text-align: center; flex: 1; }
+    .overlay-title h2 { font-size: 18px; font-weight: 800; color: #FFF; letter-spacing: 0.02em; }
+
+    .overlay-close {
+      width: 32px; height: 32px; border: none; background: rgba(255,255,255,0.2);
+      border-radius: 50%; font-size: 16px; color: #FFF;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .overlay-spacer { width: 32px; }
+
+    .overlay-body { flex: 1; overflow-y: auto; padding: 12px 16px 0; }
+
+    .order-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .order-item:last-of-type { border-bottom: none; }
+    .order-item-info { flex: 1; min-width: 0; }
+    .order-item-ja {
+      font-size: 18px; font-weight: 700; color: var(--text);
+      line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .order-item-en { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .order-qty { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-left: 6px; }
+    .order-item-price {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    .overlay-total {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 14px 0 0; border-top: 2px solid var(--text); margin-top: 8px;
+    }
+    .overlay-total-label { font-size: 14px; font-weight: 700; color: var(--text); }
+    .overlay-total-price { font-size: 28px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+
+    .overlay-footer {
+      padding: 16px 16px 28px; text-align: center;
+      border-top: 1px solid var(--border); background: var(--card);
+      margin-top: auto;
+    }
+    .overlay-footer-en {
+      font-size: 15px; font-weight: 700; color: #FFF;
+      background: var(--accent); border-radius: 10px;
+      padding: 12px 20px; letter-spacing: 0.02em;
+      display: inline-block;
+    }
+
+    /* ===== GHOST TOUCH ===== */
+    .ghost {
+      position: fixed; z-index: 400;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 60%, transparent 100%);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.18), 0 0 0 2px rgba(255,255,255,0.15);
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      transition: left 0.65s cubic-bezier(0.22,1,0.36,1),
+                  top 0.65s cubic-bezier(0.22,1,0.36,1),
+                  opacity 0.35s ease;
+    }
+    .ghost.show { opacity: 1; }
+    .ghost.tap { animation: gtap 0.35s ease; }
+    @keyframes gtap {
+      0%   { transform: translate(-50%,-50%) scale(1); }
+      40%  { transform: translate(-50%,-50%) scale(0.75); background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 60%, transparent 100%); }
+      100% { transform: translate(-50%,-50%) scale(1); }
+    }
+    .ghost-ripple {
+      position: fixed; z-index: 399;
+      width: 60px; height: 60px; border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.12);
+      pointer-events: none; opacity: 0;
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+    .ghost-ripple.fire {
+      animation: ripple 0.5s ease-out forwards;
+    }
+    @keyframes ripple {
+      0%   { opacity: 0.6; transform: translate(-50%,-50%) scale(0.5); }
+      100% { opacity: 0; transform: translate(-50%,-50%) scale(1.8); }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-top">
+      <div class="restaurant-logo">博</div>
+      <div class="restaurant-name">
+        <h1>HAKATA RAMEN</h1>
+        <div class="restaurant-sub">Est. 1998 · Fukuoka</div>
+      </div>
+      <button class="staff-btn" id="staffBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+        </svg>
+        <span class="staff-label">Show Staff</span>
+        <span class="staff-badge">2</span>
+      </button>
+    </div>
+    <nav class="tabs">
+      <button class="tab active">Ramen</button>
+      <button class="tab">Sides</button>
+      <button class="tab">Drinks</button>
+    </nav>
+  </header>
+
+  <!-- RAMEN -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-title">Ramen</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="item">
+      <img class="item-photo" src="https://images.unsplash.com/photo-1635379511574-bc167ca085c8?w=800&h=450&fit=crop" alt="Tonkotsu Ramen">
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Tonkotsu Ramen</h3>
+          <span class="item-price">¥950</span>
+        </div>
+        <p class="item-desc">Rich, creamy pork bone broth simmered for 12 hours with thin straight noodles, tender chashu pork belly, marinated soft-boiled egg, and fresh green onions.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> pork broth, wheat noodles, chashu pork, soft-boiled egg, green onion, nori, sesame
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="allergen"><span class="allergen-icon">🥚</span>Egg</span>
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+          <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
+        </div>
+        <div class="item-tags">
+          <span class="tag tag-popular">Most Popular</span>
+        </div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn added">✓ Added</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <img class="item-photo" src="https://images.unsplash.com/photo-1637024696628-02cb19cc1829?w=800&h=450&fit=crop" alt="Spicy Miso Ramen">
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Spicy Miso Ramen</h3>
+          <span class="item-price">¥1,050</span>
+        </div>
+        <p class="item-desc">Bold miso broth with house-made chili oil, seasoned ground pork, sweet corn, bean sprouts, and thick wavy noodles. Medium spice level.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> miso broth, wheat noodles, ground pork, corn, bean sprouts, chili oil, butter, garlic
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="allergen"><span class="allergen-icon">🥛</span>Dairy</span>
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+        </div>
+        <div class="item-tags">
+          <span class="tag tag-spicy">Spicy</span>
+          <div class="spice-meter">
+            <span class="spice-dot active"></span>
+            <span class="spice-dot active"></span>
+            <span class="spice-dot"></span>
+          </div>
+          <span class="tag tag-chef">Chef's Pick</span>
+        </div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <img class="item-photo" src="https://images.unsplash.com/photo-1526318896980-cf78c088247c?w=800&h=450&fit=crop" alt="Shoyu Ramen">
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Shoyu Ramen</h3>
+          <span class="item-price">¥900</span>
+        </div>
+        <p class="item-desc">Clear soy sauce broth with roast chicken, menma bamboo shoots, nori, and thin curly noodles. Light and classic.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> soy sauce broth, wheat noodles, roast chicken, menma, nori, green onion
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn added">✓ Added</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIDES -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-title">Side Dishes</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="item">
+      <img class="item-photo" src="https://images.unsplash.com/photo-1588182728399-e8f2df121744?w=800&h=450&fit=crop" alt="Gyoza">
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Gyoza (6 pcs)</h3>
+          <span class="item-price">¥550</span>
+        </div>
+        <p class="item-desc">Pan-fried pork dumplings with a crispy golden bottom, served with soy-vinegar dipping sauce and chili oil.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> pork, wheat wrapper, cabbage, garlic, ginger, soy sauce, vinegar
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+        </div>
+        <div class="item-tags">
+          <span class="tag tag-popular">Popular</span>
+        </div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONBOARDING TOUCH -->
+  <div class="ghost" id="ghost"></div>
+  <div class="ghost-ripple" id="ripple"></div>
+
+  <!-- STAFF OVERLAY (hidden) -->
+  <div class="overlay">
+    <div class="overlay-header">
+      <div class="overlay-spacer"></div>
+      <div class="overlay-title">
+        <h2>お客様のご注文</h2>
+      </div>
+      <button class="overlay-close">✕</button>
+    </div>
+    <div class="overlay-body">
+      <div class="order-item">
+        <div class="order-item-info">
+          <div class="order-item-ja">豚骨ラーメン<span class="order-qty">×1</span></div>
+          <div class="order-item-en">Tonkotsu Ramen</div>
+        </div>
+        <div class="order-item-price">¥950</div>
+      </div>
+      <div class="order-item">
+        <div class="order-item-info">
+          <div class="order-item-ja">辛味噌ラーメン<span class="order-qty">×1</span></div>
+          <div class="order-item-en">Spicy Miso Ramen</div>
+        </div>
+        <div class="order-item-price">¥1,050</div>
+      </div>
+      <div class="order-item">
+        <div class="order-item-info">
+          <div class="order-item-ja">餃子（6個）<span class="order-qty">×1</span></div>
+          <div class="order-item-en">Gyoza (6 pcs)</div>
+        </div>
+        <div class="order-item-price">¥550</div>
+      </div>
+      <div class="overlay-total">
+        <span class="overlay-total-label">Total</span>
+        <span class="overlay-total-price">¥2,550</span>
+      </div>
+    </div>
+    <div class="overlay-footer">
+      <p class="overlay-footer-en">Show staff to place your order</p>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var g=document.getElementById('ghost'),
+          rp=document.getElementById('ripple'),
+          btns=document.querySelectorAll('.add-btn'),
+          staffBtn=document.getElementById('staffBtn'),
+          staffBadge=staffBtn.querySelector('.staff-badge'),
+          ov=document.querySelector('.overlay'),
+          ovClose=ov.querySelector('.overlay-close'),
+          isDemo=location.search.indexOf('demo')!==-1;
+
+      // --- Item data ---
+      var items=[
+        {ja:'豚骨ラーメン',en:'Tonkotsu Ramen',price:950},
+        {ja:'辛味噌ラーメン',en:'Spicy Miso Ramen',price:1050},
+        {ja:'醤油ラーメン',en:'Shoyu Ramen',price:900},
+        {ja:'餃子（6個）',en:'Gyoza (6 pcs)',price:550}
+      ];
+      var counts=[0,0,0,0];
+
+      function updateStaffBtn(){
+        var total=counts.reduce(function(a,b){return a+b;},0);
+        staffBadge.textContent=total;
+        if(total>0){staffBtn.classList.add('has-items');}
+        else{staffBtn.classList.remove('has-items');}
+      }
+
+      function bounceStaff(){
+        staffBtn.classList.remove('bounce');
+        void staffBtn.offsetWidth;
+        staffBtn.classList.add('bounce');
+        setTimeout(function(){staffBtn.classList.remove('bounce');},450);
+      }
+
+      // --- Fly-ball animation ---
+      function flyBall(fromEl){
+        var fr=fromEl.getBoundingClientRect();
+        var tr=staffBtn.getBoundingClientRect();
+        var sx=fr.left+fr.width/2, sy=fr.top+fr.height/2;
+        var ex=tr.left+tr.width/2, ey=tr.top+tr.height/2;
+        // Arc peaks above the midpoint
+        var mx=(sx+ex)/2, my=Math.min(sy,ey)-90;
+
+        var ball=document.createElement('div');
+        ball.className='fly-ball';
+        ball.style.left=sx+'px';
+        ball.style.top=sy+'px';
+        document.body.appendChild(ball);
+
+        var dur=400, start=null;
+        function frame(ts){
+          if(!start) start=ts;
+          var t=Math.min((ts-start)/dur,1);
+          var u=1-t;
+          var x=u*u*sx+2*u*t*mx+t*t*ex;
+          var y=u*u*sy+2*u*t*my+t*t*ey;
+          var s=1-t*0.5;
+          ball.style.left=x+'px';
+          ball.style.top=y+'px';
+          ball.style.transform='translate(-50%,-50%) scale('+s+')';
+          if(t<1){requestAnimationFrame(frame);}
+          else{
+            ball.remove();
+            bounceStaff();
+          }
+        }
+        requestAnimationFrame(frame);
+      }
+
+      function updateOverlay(){
+        var body=ov.querySelector('.overlay-body');
+        var html='';
+        for(var i=0;i<items.length;i++){
+          if(counts[i]>0){
+            html+='<div class="order-item"><div class="order-item-info">'
+              +'<div class="order-item-ja">'+items[i].ja+'<span class="order-qty">\u00d7'+counts[i]+'</span></div>'
+              +'<div class="order-item-en">'+items[i].en+'</div>'
+              +'</div><div class="order-item-price">&yen;'+(items[i].price*counts[i]).toLocaleString()+'</div></div>';
+          }
+        }
+        var totalYen=0;
+        for(var i=0;i<items.length;i++) totalYen+=items[i].price*counts[i];
+        html+='<div class="overlay-total"><span class="overlay-total-label">Total</span>'
+          +'<span class="overlay-total-price">&yen;'+totalYen.toLocaleString()+'</span></div>';
+        body.innerHTML=html;
+      }
+
+      // --- Wire up add buttons ---
+      for(var i=0;i<btns.length;i++){
+        (function(idx){
+          btns[idx].addEventListener('click',function(){
+            if(counts[idx]===0){
+              counts[idx]=1;
+              btns[idx].textContent='\u2713 Added';
+              btns[idx].classList.add('added');
+              flyBall(btns[idx]);
+            }else{
+              counts[idx]=0;
+              btns[idx].textContent='+ Add to list';
+              btns[idx].classList.remove('added');
+            }
+            updateStaffBtn();
+          });
+        })(i);
+      }
+
+      // --- Staff button opens overlay ---
+      staffBtn.addEventListener('click',function(){
+        if(counts.reduce(function(a,b){return a+b;},0)===0) return;
+        updateOverlay();
+        ov.classList.add('open');
+      });
+
+      // --- Close overlay ---
+      ovClose.addEventListener('click',function(){
+        ov.classList.remove('open');
+      });
+
+      // --- Init: Tonkotsu (0) and Shoyu (2) pre-added ---
+      counts[0]=1; btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
+      counts[2]=1; btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+      updateStaffBtn();
+
+      // --- Ghost animation (demo mode only) ---
+      if(!isDemo) return;
+
+      function pos(x,y){g.style.left=x+'px';g.style.top=y+'px';rp.style.left=x+'px';rp.style.top=y+'px';}
+      function show(){g.classList.add('show');}
+      function hide(){g.classList.remove('show');}
+      function tap(){
+        g.classList.remove('tap'); void g.offsetWidth; g.classList.add('tap');
+        rp.classList.remove('fire'); void rp.offsetWidth; rp.classList.add('fire');
+      }
+      function center(el){var r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};}
+
+      setTimeout(function(){var c=center(btns[1]);pos(c.x,c.y-320);show();},600);
+      setTimeout(function(){btns[1].scrollIntoView({behavior:'smooth',block:'center'});},900);
+      setTimeout(function(){var c=center(btns[1]);pos(c.x-20,c.y-180);},1800);
+      setTimeout(function(){var c=center(btns[1]);pos(c.x+10,c.y-100);},2600);
+      setTimeout(function(){var c=center(btns[1]);pos(c.x,c.y);},3400);
+      setTimeout(function(){tap();btns[1].click();},4200);
+      setTimeout(function(){hide();},5000);
+      setTimeout(function(){btns[3].scrollIntoView({behavior:'smooth',block:'center'});},5300);
+      setTimeout(function(){var c=center(btns[3]);pos(c.x-10,c.y-160);show();},5800);
+      setTimeout(function(){var c=center(btns[3]);pos(c.x+15,c.y-80);},6500);
+      setTimeout(function(){var c=center(btns[3]);pos(c.x,c.y);},7200);
+      setTimeout(function(){tap();btns[3].click();},7800);
+      setTimeout(function(){hide();setTimeout(function(){var c=center(staffBtn);pos(c.x,c.y);show();},300);},8600);
+      setTimeout(function(){tap();updateOverlay();ov.classList.add('open');},9300);
+      setTimeout(function(){hide();},9800);
+      setTimeout(function(){
+        ov.classList.remove('open');
+        counts=[1,0,1,0];
+        btns[1].textContent='+ Add to list'; btns[1].classList.remove('added');
+        btns[3].textContent='+ Add to list'; btns[3].classList.remove('added');
+        btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
+        btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+        updateStaffBtn();
+      },12000);
+    })();
+  </script>
+</body>
+</html>
