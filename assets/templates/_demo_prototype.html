@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>MENYA HIBIKI — English Menu</title>
+  <title>麺屋響 — メニュー</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -71,9 +71,26 @@
       font-size: 12px; color: var(--text-muted); font-weight: 500;
     }
 
+    /* ===== LANG TOGGLE ===== */
+    .lang-toggle {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; border-radius: 8px; overflow: hidden;
+      border: 1.5px solid var(--border); background: var(--card);
+      height: 32px;
+    }
+    .lang-btn {
+      font-size: 11px; font-weight: 700; border: none;
+      padding: 0 10px; cursor: pointer; color: var(--text-muted);
+      background: transparent; transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .lang-btn.active {
+      color: #FFF; background: var(--accent);
+    }
+
     /* ===== STAFF BUTTON (header) ===== */
     .staff-btn {
-      margin-left: auto; flex-shrink: 0;
+      flex-shrink: 0;
       display: flex; align-items: center; gap: 4px;
       background: var(--accent); color: #FFF;
       border: none; border-radius: 50%;
@@ -185,7 +202,7 @@
       border-top: 1px solid var(--border);
     }
     .item-ingredients::before {
-      content: 'Ingredients';
+      content: var(--label-ingredients, 'Ingredients');
       font-size: 11px; font-weight: 700; color: var(--accent);
       text-transform: uppercase; letter-spacing: 0.5px;
       width: 100%; margin-bottom: 4px;
@@ -415,7 +432,7 @@
     /* ===== ACCESSIBILITY ===== */
     .add-btn:focus-visible, .tab:focus-visible,
     .staff-btn:focus-visible, .topping-pill:focus-visible,
-    .overlay-close:focus-visible {
+    .overlay-close:focus-visible, .lang-btn:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -436,27 +453,31 @@
       <div class="restaurant-logo">響</div>
       <div class="restaurant-name">
         <h1>MENYA HIBIKI</h1>
-        <div class="restaurant-sub">Est. 2012 · Shinjuku, Tokyo</div>
+        <div class="restaurant-sub" data-ja="2012年創業 · 東京都新宿区">Est. 2012 · Shinjuku, Tokyo</div>
+      </div>
+      <div class="lang-toggle">
+        <button class="lang-btn" id="langEn">EN</button>
+        <button class="lang-btn active" id="langJa">JP</button>
       </div>
       <button class="staff-btn" id="staffBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
           <rect x="9" y="3" width="6" height="4" rx="1"/>
         </svg>
-        <span class="staff-badge">2</span>
+        <span class="staff-badge">0</span>
       </button>
     </div>
     <nav class="tabs">
-      <button class="tab active">Ramen</button>
-      <button class="tab">Sides</button>
-      <button class="tab">Drinks</button>
+      <button class="tab active" data-ja="ラーメン">Ramen</button>
+      <button class="tab" data-ja="サイド">Sides</button>
+      <button class="tab" data-ja="ドリンク">Drinks</button>
     </nav>
   </header>
 
   <!-- RAMEN -->
   <section class="section active" data-tab="ramen">
     <div class="section-header">
-      <span class="section-title">Ramen</span>
+      <span class="section-title" data-ja="ラーメン">Ramen</span>
       <div class="section-line"></div>
     </div>
 
@@ -464,27 +485,27 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/tonkotsu_ramen.jpg" alt="Tonkotsu Ramen"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Tonkotsu Ramen</h3>
+          <h3 class="item-name" data-ja="豚骨ラーメン">Tonkotsu Ramen</h3>
           <span class="item-price">¥950</span>
         </div>
-        <p class="item-desc">Rich, creamy pork bone broth simmered for 12 hours with thin straight noodles, tender chashu pork belly, marinated soft-boiled egg, and fresh green onions.</p>
+        <p class="item-desc" data-ja="12時間煮込んだ濃厚な豚骨スープに細ストレート麺、チャーシュー、味付け半熟卵、ネギをトッピング。">Rich, creamy pork bone broth simmered for 12 hours with thin straight noodles, tender chashu pork belly, marinated soft-boiled egg, and fresh green onions.</p>
         <div class="item-ingredients">
-          <span class="ingredient">pork broth</span><span class="ingredient">wheat noodles</span><span class="ingredient">chashu pork</span><span class="ingredient">egg</span><span class="ingredient">green onion</span><span class="ingredient">nori</span><span class="ingredient">sesame</span>
+          <span class="ingredient" data-ja="豚骨スープ">pork broth</span><span class="ingredient" data-ja="麺">wheat noodles</span><span class="ingredient" data-ja="チャーシュー">chashu pork</span><span class="ingredient" data-ja="卵">egg</span><span class="ingredient" data-ja="ネギ">green onion</span><span class="ingredient" data-ja="海苔">nori</span><span class="ingredient" data-ja="ごま">sesame</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-toppings">
-        <div class="toppings-label">Add toppings</div>
+        <div class="toppings-label" data-ja="トッピング追加">Add toppings</div>
         <div class="toppings-row">
-          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150">Chashu <span class="topping-price">+¥150</span></button>
-          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100">Egg <span class="topping-price">+¥100</span></button>
-          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50">Nori <span class="topping-price">+¥50</span></button>
-          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50">Green Onion <span class="topping-price">+¥50</span></button>
-          <button class="topping-pill" data-tp="butter" data-tp-ja="バター" data-tp-en="Butter" data-tp-price="80">Butter <span class="topping-price">+¥80</span></button>
+          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150"><span data-ja="チャーシュー">Chashu</span> <span class="topping-price">+¥150</span></button>
+          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100"><span data-ja="味玉">Egg</span> <span class="topping-price">+¥100</span></button>
+          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50"><span data-ja="海苔">Nori</span> <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50"><span data-ja="ネギ">Green Onion</span> <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="butter" data-tp-ja="バター" data-tp-en="Butter" data-tp-price="80"><span data-ja="バター">Butter</span> <span class="topping-price">+¥80</span></button>
         </div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -492,15 +513,15 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/tantanmen_ramen.png" alt="Tantanmen"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Tantanmen</h3>
+          <h3 class="item-name" data-ja="担々麺">Tantanmen</h3>
           <span class="item-price">¥1,050</span>
         </div>
-        <p class="item-desc">Creamy sesame-chili broth with seasoned ground pork, bok choy, and thin noodles. Rich, nutty, and satisfyingly spicy.</p>
+        <p class="item-desc" data-ja="ごまと唐辛子のクリーミーなスープに味付け豚挽肉、チンゲン菜、細麺。コクのある辛さがクセになります。">Creamy sesame-chili broth with seasoned ground pork, bok choy, and thin noodles. Rich, nutty, and satisfyingly spicy.</p>
         <div class="item-ingredients">
-          <span class="ingredient">sesame chili broth</span><span class="ingredient">wheat noodles</span><span class="ingredient">ground pork</span><span class="ingredient">bok choy</span><span class="ingredient">chili oil</span><span class="ingredient">garlic</span><span class="ingredient">sesame paste</span>
+          <span class="ingredient" data-ja="ごま辛スープ">sesame chili broth</span><span class="ingredient" data-ja="麺">wheat noodles</span><span class="ingredient" data-ja="豚挽肉">ground pork</span><span class="ingredient" data-ja="チンゲン菜">bok choy</span><span class="ingredient" data-ja="ラー油">chili oil</span><span class="ingredient" data-ja="ニンニク">garlic</span><span class="ingredient" data-ja="練りごま">sesame paste</span>
         </div>
         <div class="item-tags">
-          <span class="tag tag-spicy">Spicy</span>
+          <span class="tag tag-spicy" data-ja="辛め">Spicy</span>
           <div class="spice-meter">
             <span class="spice-dot active"></span>
             <span class="spice-dot active"></span>
@@ -509,16 +530,16 @@
         </div>
       </div>
       <div class="item-toppings">
-        <div class="toppings-label">Add toppings</div>
+        <div class="toppings-label" data-ja="トッピング追加">Add toppings</div>
         <div class="toppings-row">
-          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150">Chashu <span class="topping-price">+¥150</span></button>
-          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100">Egg <span class="topping-price">+¥100</span></button>
-          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50">Nori <span class="topping-price">+¥50</span></button>
-          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50">Green Onion <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150"><span data-ja="チャーシュー">Chashu</span> <span class="topping-price">+¥150</span></button>
+          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100"><span data-ja="味玉">Egg</span> <span class="topping-price">+¥100</span></button>
+          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50"><span data-ja="海苔">Nori</span> <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50"><span data-ja="ネギ">Green Onion</span> <span class="topping-price">+¥50</span></button>
         </div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -526,27 +547,27 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/shoyu_ramen.png" alt="Shoyu Ramen"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Shoyu Ramen</h3>
+          <h3 class="item-name" data-ja="醤油ラーメン">Shoyu Ramen</h3>
           <span class="item-price">¥900</span>
         </div>
-        <p class="item-desc">Clear soy sauce broth with roast chicken, menma bamboo shoots, nori, and thin curly noodles. Light and classic.</p>
+        <p class="item-desc" data-ja="透き通った醤油スープに鶏チャーシュー、メンマ、海苔、ちぢれ細麺。あっさり定番の一杯。">Clear soy sauce broth with roast chicken, menma bamboo shoots, nori, and thin curly noodles. Light and classic.</p>
         <div class="item-ingredients">
-          <span class="ingredient">soy sauce broth</span><span class="ingredient">wheat noodles</span><span class="ingredient">roast chicken</span><span class="ingredient">menma</span><span class="ingredient">nori</span><span class="ingredient">green onion</span>
+          <span class="ingredient" data-ja="醤油スープ">soy sauce broth</span><span class="ingredient" data-ja="麺">wheat noodles</span><span class="ingredient" data-ja="鶏チャーシュー">roast chicken</span><span class="ingredient" data-ja="メンマ">menma</span><span class="ingredient" data-ja="海苔">nori</span><span class="ingredient" data-ja="ネギ">green onion</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-toppings">
-        <div class="toppings-label">Add toppings</div>
+        <div class="toppings-label" data-ja="トッピング追加">Add toppings</div>
         <div class="toppings-row">
-          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150">Chashu <span class="topping-price">+¥150</span></button>
-          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100">Egg <span class="topping-price">+¥100</span></button>
-          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50">Nori <span class="topping-price">+¥50</span></button>
-          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50">Green Onion <span class="topping-price">+¥50</span></button>
-          <button class="topping-pill" data-tp="butter" data-tp-ja="バター" data-tp-en="Butter" data-tp-price="80">Butter <span class="topping-price">+¥80</span></button>
+          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150"><span data-ja="チャーシュー">Chashu</span> <span class="topping-price">+¥150</span></button>
+          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100"><span data-ja="味玉">Egg</span> <span class="topping-price">+¥100</span></button>
+          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50"><span data-ja="海苔">Nori</span> <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50"><span data-ja="ネギ">Green Onion</span> <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="butter" data-tp-ja="バター" data-tp-en="Butter" data-tp-price="80"><span data-ja="バター">Butter</span> <span class="topping-price">+¥80</span></button>
         </div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
   </section>
@@ -554,7 +575,7 @@
   <!-- SIDES -->
   <section class="section" data-tab="sides">
     <div class="section-header">
-      <span class="section-title">Side Dishes</span>
+      <span class="section-title" data-ja="サイドメニュー">Side Dishes</span>
       <div class="section-line"></div>
     </div>
 
@@ -562,17 +583,17 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/gyoza_dippingsauce.png" alt="Gyoza"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Gyoza (6 pcs)</h3>
+          <h3 class="item-name" data-ja="餃子（6個）">Gyoza (6 pcs)</h3>
           <span class="item-price">¥550</span>
         </div>
-        <p class="item-desc">Pan-fried pork dumplings with a crispy golden bottom, served with soy-vinegar dipping sauce and chili oil.</p>
+        <p class="item-desc" data-ja="パリッと焼き上げた豚肉餃子（6個）。醤油ダレとラー油付き。">Pan-fried pork dumplings with a crispy golden bottom, served with soy-vinegar dipping sauce and chili oil.</p>
         <div class="item-ingredients">
-          <span class="ingredient">pork</span><span class="ingredient">wheat wrapper</span><span class="ingredient">cabbage</span><span class="ingredient">garlic</span><span class="ingredient">ginger</span><span class="ingredient">soy sauce</span><span class="ingredient">vinegar</span>
+          <span class="ingredient" data-ja="豚肉">pork</span><span class="ingredient" data-ja="皮">wheat wrapper</span><span class="ingredient" data-ja="キャベツ">cabbage</span><span class="ingredient" data-ja="ニンニク">garlic</span><span class="ingredient" data-ja="生姜">ginger</span><span class="ingredient" data-ja="醤油">soy sauce</span><span class="ingredient" data-ja="お酢">vinegar</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -580,17 +601,17 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/chashu_ricebowl.png" alt="Chashu Rice Bowl"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Chashu Rice Bowl</h3>
+          <h3 class="item-name" data-ja="チャーシュー丼">Chashu Rice Bowl</h3>
           <span class="item-price">¥480</span>
         </div>
-        <p class="item-desc">Tender braised pork belly slices over steamed rice, drizzled with chashu sauce and sliced green onion.</p>
+        <p class="item-desc" data-ja="トロトロのチャーシューを白米の上に。特製タレとネギをかけて。">Tender braised pork belly slices over steamed rice, drizzled with chashu sauce and sliced green onion.</p>
         <div class="item-ingredients">
-          <span class="ingredient">chashu pork</span><span class="ingredient">steamed rice</span><span class="ingredient">chashu sauce</span><span class="ingredient">green onion</span><span class="ingredient">sesame</span>
+          <span class="ingredient" data-ja="チャーシュー">chashu pork</span><span class="ingredient" data-ja="白米">steamed rice</span><span class="ingredient" data-ja="チャーシュータレ">chashu sauce</span><span class="ingredient" data-ja="ネギ">green onion</span><span class="ingredient" data-ja="ごま">sesame</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -598,23 +619,23 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/edamame.png" alt="Edamame"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Edamame</h3>
+          <h3 class="item-name" data-ja="枝豆">Edamame</h3>
           <span class="item-price">¥300</span>
         </div>
-        <p class="item-desc">Steamed young soybeans lightly salted. A classic Japanese starter.</p>
+        <p class="item-desc" data-ja="塩ゆで枝豆。定番のおつまみ。">Steamed young soybeans lightly salted. A classic Japanese starter.</p>
         <div class="item-ingredients">
-          <span class="ingredient">soybeans</span><span class="ingredient">salt</span>
+          <span class="ingredient" data-ja="大豆">soybeans</span><span class="ingredient" data-ja="塩">salt</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
   </section>
   <section class="section" data-tab="drinks">
     <div class="section-header">
-      <span class="section-title">Drinks</span>
+      <span class="section-title" data-ja="ドリンク">Drinks</span>
       <div class="section-line"></div>
     </div>
 
@@ -622,17 +643,17 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/draft_beer.png" alt="Draft Beer"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Draft Beer (Asahi)</h3>
+          <h3 class="item-name" data-ja="生ビール（アサヒ）">Draft Beer (Asahi)</h3>
           <span class="item-price">¥580</span>
         </div>
-        <p class="item-desc">Crisp, dry Japanese lager served ice-cold. The perfect pairing for any ramen.</p>
+        <p class="item-desc" data-ja="キンキンに冷えたアサヒスーパードライ。ラーメンとの相性抜群。">Crisp, dry Japanese lager served ice-cold. The perfect pairing for any ramen.</p>
         <div class="item-ingredients">
-          <span class="ingredient">barley malt</span><span class="ingredient">hops</span><span class="ingredient">rice</span>
+          <span class="ingredient" data-ja="麦芽">barley malt</span><span class="ingredient" data-ja="ホップ">hops</span><span class="ingredient" data-ja="米">rice</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -640,17 +661,17 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/whiskey_highball.png" alt="Highball"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Whisky Highball</h3>
+          <h3 class="item-name" data-ja="ハイボール">Whisky Highball</h3>
           <span class="item-price">¥550</span>
         </div>
-        <p class="item-desc">Suntory Kakubin whisky with sparkling water over ice. Light, refreshing, and easy to drink.</p>
+        <p class="item-desc" data-ja="サントリー角瓶のハイボール。氷で割った軽やかな一杯。">Suntory Kakubin whisky with sparkling water over ice. Light, refreshing, and easy to drink.</p>
         <div class="item-ingredients">
-          <span class="ingredient">Japanese whisky</span><span class="ingredient">sparkling water</span>
+          <span class="ingredient" data-ja="国産ウイスキー">Japanese whisky</span><span class="ingredient" data-ja="炭酸水">sparkling water</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -658,17 +679,17 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/iced_greentea.png" alt="Green Tea"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Iced Green Tea</h3>
+          <h3 class="item-name" data-ja="アイス緑茶">Iced Green Tea</h3>
           <span class="item-price">¥250</span>
         </div>
-        <p class="item-desc">Cold-brewed Japanese green tea. Unsweetened and refreshing.</p>
+        <p class="item-desc" data-ja="冷水で抽出した緑茶。甘さなし、スッキリ飲める。">Cold-brewed Japanese green tea. Unsweetened and refreshing.</p>
         <div class="item-ingredients">
-          <span class="ingredient">green tea</span>
+          <span class="ingredient" data-ja="緑茶">green tea</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
 
@@ -676,17 +697,17 @@
       <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/coca_cola.png" alt="Coca Cola"></div>
       <div class="item-body">
         <div class="item-top">
-          <h3 class="item-name">Coca Cola</h3>
+          <h3 class="item-name" data-ja="コカコーラ">Coca Cola</h3>
           <span class="item-price">¥250</span>
         </div>
-        <p class="item-desc">Classic Coca Cola served ice-cold.</p>
+        <p class="item-desc" data-ja="キンキンに冷えたコカ・コーラ。">Classic Coca Cola served ice-cold.</p>
         <div class="item-ingredients">
-          <span class="ingredient">carbonated water</span><span class="ingredient">sugar</span><span class="ingredient">caramel color</span><span class="ingredient">caffeine</span>
+          <span class="ingredient" data-ja="炭酸水">carbonated water</span><span class="ingredient" data-ja="砂糖">sugar</span><span class="ingredient" data-ja="カラメル色素">caramel color</span><span class="ingredient" data-ja="カフェイン">caffeine</span>
         </div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
-        <button class="add-btn">+ Add to list</button>
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
       </div>
     </div>
   </section>
@@ -729,14 +750,14 @@
         <div class="order-item-price">¥550</div>
       </div>
       <div class="overlay-total">
-        <span class="overlay-total-label">Total</span>
+        <span class="overlay-total-label" data-ja="合計">Total</span>
         <span class="overlay-total-price">¥2,550</span>
       </div>
     </div>
     <div class="overlay-footer">
       <div class="overlay-footer-en">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
-        Show staff to place your order
+        <span data-ja="スタッフに注文を見せる">Show staff to place your order</span>
       </div>
     </div>
   </div>
@@ -751,6 +772,72 @@
           ov=document.querySelector('.overlay'),
           ovClose=ov.querySelector('.overlay-close'),
           isDemo=location.search.indexOf('demo')!==-1;
+
+      // --- EN/JP toggle ---
+      var currentLang='ja'; // default JP for restaurant owners
+      var langEn=document.getElementById('langEn');
+      var langJa=document.getElementById('langJa');
+      var L={
+        addBtn:'+ Add to list',
+        addBtnJa:'+ \u8FFD\u52A0\u3059\u308B',
+        addedBtn:'\u2713 Added',
+        addedBtnJa:'\u2713 \u8FFD\u52A0\u6E08\u307F'
+      };
+
+      function setLang(lang){
+        currentLang=lang;
+        // Toggle buttons
+        langEn.classList.toggle('active',lang==='en');
+        langJa.classList.toggle('active',lang==='ja');
+        // CSS variable for ingredients label
+        document.documentElement.style.setProperty('--label-ingredients',lang==='ja'?'"\u539F\u6750\u6599"':'"Ingredients"');
+        // Swap all data-ja elements
+        var els=document.querySelectorAll('[data-ja]');
+        for(var i=0;i<els.length;i++){
+          var el=els[i];
+          if(lang==='ja'){
+            if(!el._enText) el._enText=el.textContent;
+            el.textContent=el.getAttribute('data-ja');
+          }else{
+            if(el._enText) el.textContent=el._enText;
+          }
+        }
+        // Swap item names in JS data for overlay
+        for(var i=0;i<items.length;i++){
+          if(lang==='ja'){
+            if(!items[i]._enName) items[i]._enName=items[i].en;
+            items[i].en=items[i].ja;
+          }else{
+            if(items[i]._enName) items[i].en=items[i]._enName;
+          }
+        }
+        // Swap add button text
+        for(var i=0;i<btns.length;i++){
+          if(counts[i]>0){
+            btns[i].textContent=lang==='ja'?L.addedBtnJa:L.addedBtn;
+          }else{
+            btns[i].textContent=lang==='ja'?L.addBtnJa:L.addBtn;
+          }
+        }
+        // Topping pills - swap name spans
+        var tpNameSpans=document.querySelectorAll('.topping-pill [data-ja]');
+        for(var i=0;i<tpNameSpans.length;i++){
+          var s=tpNameSpans[i];
+          if(lang==='ja'){
+            if(!s._enText) s._enText=s.textContent;
+            s.textContent=s.getAttribute('data-ja');
+          }else{
+            if(s._enText) s.textContent=s._enText;
+          }
+        }
+        // Update overlay if open
+        if(ov.classList.contains('open')) updateOverlay();
+        // Update page title
+        document.title=lang==='ja'?'\u9EBB\u5C4B\u97FF \u2014 \u30E1\u30CB\u30E5\u30FC':'MENYA HIBIKI \u2014 English Menu';
+      }
+
+      langEn.addEventListener('click',function(){setLang('en');});
+      langJa.addEventListener('click',function(){setLang('ja');});
 
       // --- Tab switching ---
       var tabs=document.querySelectorAll('.tab');
@@ -878,7 +965,7 @@
           for(var tk=0;tk<tpKeys.length;tk++) tpTotal+=itemToppings[i][tpKeys[tk]].price;
           totalYen+=(items[i].price+tpTotal)*counts[i];
         }
-        html+='<div class="overlay-total"><span class="overlay-total-label">Total</span>'
+        html+='<div class="overlay-total"><span class="overlay-total-label">'+(currentLang==='ja'?'\u5408\u8A08':'Total')+'</span>'
           +'<span class="overlay-total-price">&yen;'+totalYen.toLocaleString()+'</span></div>';
         body.innerHTML=html;
       }
@@ -889,12 +976,12 @@
           btns[idx].addEventListener('click',function(){
             if(counts[idx]===0){
               counts[idx]=1;
-              btns[idx].textContent='\u2713 Added';
+              btns[idx].textContent=currentLang==='ja'?L.addedBtnJa:L.addedBtn;
               btns[idx].classList.add('added');
               flyBall(btns[idx]);
             }else{
               counts[idx]=0;
-              btns[idx].textContent='+ Add to list';
+              btns[idx].textContent=currentLang==='ja'?L.addBtnJa:L.addBtn;
               btns[idx].classList.remove('added');
               // Clear toppings when removing
               itemToppings[idx]={};
@@ -947,10 +1034,14 @@
       });
 
       // --- Init ---
+      // Apply default language (JP unless ?lang=en in URL)
+      var urlLang=location.search.match(/lang=(en|ja)/);
+      setLang(urlLang?urlLang[1]:'ja');
+
       if(isDemo){
         // Demo mode: pre-add Tonkotsu and Shoyu for the ghost animation
-        counts[0]=1; btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
-        counts[2]=1; btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+        counts[0]=1; btns[0].textContent=L.addedBtn; btns[0].classList.add('added');
+        counts[2]=1; btns[2].textContent=L.addedBtn; btns[2].classList.add('added');
       }
       updateStaffBtn();
 
@@ -983,9 +1074,9 @@
       setTimeout(function(){hide();},9800);
       setTimeout(function(){
         ov.classList.remove('open');
-        for(var ri=0;ri<counts.length;ri++){counts[ri]=0;btns[ri].textContent='+ Add to list';btns[ri].classList.remove('added');}
-        counts[0]=1; btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
-        counts[2]=1; btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+        for(var ri=0;ri<counts.length;ri++){counts[ri]=0;btns[ri].textContent=L.addBtn;btns[ri].classList.remove('added');}
+        counts[0]=1; btns[0].textContent=L.addedBtn; btns[0].classList.add('added');
+        counts[2]=1; btns[2].textContent=L.addedBtn; btns[2].classList.add('added');
         updateStaffBtn();
       },12000);
     })();

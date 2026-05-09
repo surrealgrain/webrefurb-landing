@@ -1,34 +1,101 @@
 #!/usr/bin/env python3
-"""Record the _demo_prototype.html ghost animation as a looping GIF.
+"""Record a professional usage flow GIF of the MENYA HIBIKI prototype.
 
-Captures via Playwright at full viewport resolution (390px × 2x device scale),
-quantizes to a shared 256-color palette, deduplicates identical frames,
-and writes a GIF with per-frame durations for correct playback timing.
+- Small coral tap flash (industry standard for mobile demo recordings)
+- ffmpeg two-pass palette for quality
+- gifsicle lossy compression for email-safe file size
 """
 from __future__ import annotations
 
-import io
-import time
+import subprocess
 from pathlib import Path
-
-from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 PROTOTYPE = ROOT / "assets" / "templates" / "_demo_prototype.html"
-OUT_GIF = ROOT / "assets" / "templates" / "_demo_prototype_demo.gif"
+OUT_GIF = ROOT / "assets" / "templates" / "demo_flow.gif"
+OUT_RAW = Path("/tmp/demo_flow_raw.gif")
+FRAMES_DIR = Path("/tmp/gif_frames")
 
-CAPTURE_FPS = 15
-DURATION_S = 12.0
 VIEWPORT_W, VIEWPORT_H = 390, 844
 DEVICE_SCALE = 2
-TARGET_W = 390
-FRAME_MS = int(1000 / CAPTURE_FPS)
+FPS = 15
+FRAME_MS = int(1000 / FPS)
+GIF_WIDTH = 280
 
 
 def main() -> None:
-    # Phase 1: Capture all frames at full resolution
-    raw_frames: list[Image.Image] = []
+    if FRAMES_DIR.exists():
+        for f in FRAMES_DIR.glob("frame_*.png"):
+            f.unlink()
+    FRAMES_DIR.mkdir(exist_ok=True)
+
+    frame_idx = [0]
+
+    def snap(page, count=1, interval_ms=0):
+        for _ in range(count):
+            path = FRAMES_DIR / f"frame_{frame_idx[0]:05d}.png"
+            page.screenshot(path=str(path))
+            frame_idx[0] += 1
+            if interval_ms > 0:
+                page.wait_for_timeout(interval_ms)
+
+    def scroll_smooth(page, y_start, y_end, steps=35):
+        for i in range(steps + 1):
+            frac = i / steps
+            frac = frac * frac * (3 - 2 * frac)
+            y = y_start + (y_end - y_start) * frac
+            page.evaluate(f"window.scrollTo(0, {y})")
+            snap(page)
+
+    def scroll_to(page, selector, offset=80, steps=25):
+        target_y = page.evaluate(f'''
+            () => {{
+                const el = document.querySelector('{selector}');
+                if (!el) return window.scrollY;
+                const rect = el.getBoundingClientRect();
+                return window.scrollY + rect.top - {offset};
+            }}
+        ''')
+        current_y = page.evaluate("window.scrollY")
+        scroll_smooth(page, current_y, max(0, target_y), steps)
+
+    def tap(page, locator):
+        """Industry-standard tap flash: appear → press → fade."""
+        box = locator.bounding_box()
+        if not box:
+            locator.click()
+            return
+        x = box['x'] + box['width'] / 2
+        y = box['y'] + box['height'] / 2
+
+        # Appear small
+        page.evaluate(f"""
+            var d=document.getElementById('tap-ind');
+            d.style.left='{x}px';d.style.top='{y}px';
+            d.style.opacity='1';
+            d.style.transform='translate(-50%,-50%) scale(0.5)';
+            d.style.background='rgba(233,69,96,0.75)';
+        """)
+        snap(page, count=2, interval_ms=FRAME_MS)
+
+        # Press — scale up
+        page.evaluate("""
+            var d=document.getElementById('tap-ind');
+            d.style.transform='translate(-50%,-50%) scale(1.3)';
+            d.style.background='rgba(233,69,96,0.5)';
+        """)
+        locator.click()
+        snap(page, count=2, interval_ms=FRAME_MS)
+
+        # Fade out, expand
+        page.evaluate("""
+            var d=document.getElementById('tap-ind');
+            d.style.opacity='0';
+            d.style.transform='translate(-50%,-50%) scale(2)';
+            d.style.background='rgba(233,69,96,0.1)';
+        """)
+        snap(page, count=2, interval_ms=FRAME_MS)
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
@@ -37,68 +104,125 @@ def main() -> None:
             device_scale_factor=DEVICE_SCALE,
         )
         page = ctx.new_page()
-        page.goto(PROTOTYPE.as_uri() + "?demo")
+        page.goto(PROTOTYPE.as_uri())
         page.wait_for_timeout(600)
 
-        total = int(DURATION_S * CAPTURE_FPS)
-        for i in range(total):
-            data = page.screenshot(type="png")
-            img = Image.open(io.BytesIO(data)).convert("RGB")
-            raw_frames.append(img)
-            time.sleep(1 / CAPTURE_FPS)
+        # Inject tap indicator
+        page.evaluate("""
+            var td = document.createElement('div');
+            td.id = 'tap-ind';
+            td.style.cssText = 'position:fixed;z-index:9999;width:20px;height:20px;border-radius:50%;background:rgba(233,69,96,0.75);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.5);transition:opacity 0.08s,transform 0.08s,background 0.08s;box-shadow:0 0 14px rgba(233,69,96,0.35)';
+            document.body.appendChild(td);
+        """)
+
+        # ── SCENE 1: Ramen — scroll down, back up ──
+        snap(page, count=12, interval_ms=FRAME_MS)  # look at menu
+
+        scroll_smooth(page, 0, 950, steps=40)
+        snap(page, count=10, interval_ms=FRAME_MS)  # reading at bottom
+
+        scroll_smooth(page, 950, 0, steps=35)
+        snap(page, count=12, interval_ms=FRAME_MS)  # back at tonkotsu
+
+        # ── SCENE 2: Tonkotsu toppings ──
+        tonkotsu = page.locator(".item").nth(0)
+
+        snap(page, count=15, interval_ms=FRAME_MS)  # reading toppings
+
+        tap(page, tonkotsu.locator(".topping-pill").nth(0))  # Chashu
+        snap(page, count=15, interval_ms=FRAME_MS)  # watch animation
+
+        snap(page, count=15, interval_ms=FRAME_MS)  # considering next
+
+        tap(page, tonkotsu.locator(".topping-pill").nth(1))  # Egg
+        snap(page, count=15, interval_ms=FRAME_MS)  # watch animation
+
+        snap(page, count=12, interval_ms=FRAME_MS)  # decide to add
+
+        tap(page, tonkotsu.locator(".add-btn"))  # Add to list
+        snap(page, count=20, interval_ms=FRAME_MS)  # watch fly ball + badge
+
+        # ── SCENE 3: Sides → Edamame ──
+        snap(page, count=12, interval_ms=FRAME_MS)
+        tap(page, page.locator("button.tab:nth-child(2)"))
+        snap(page, count=12, interval_ms=FRAME_MS)  # reading sides
+
+        scroll_to(page, '.section[data-tab="sides"] .item:nth-child(3) .add-btn', offset=120, steps=20)
+        snap(page, count=12, interval_ms=FRAME_MS)  # reading edamame
+
+        edamame = page.locator(".section[data-tab='sides'] .item").nth(2)
+        tap(page, edamame.locator(".add-btn"))
+        snap(page, count=15, interval_ms=FRAME_MS)
+
+        # ── SCENE 4: Drinks → Draft Beer ──
+        snap(page, count=12, interval_ms=FRAME_MS)
+        tap(page, page.locator("button.tab:nth-child(3)"))
+        snap(page, count=12, interval_ms=FRAME_MS)  # reading drinks
+
+        scroll_smooth(page, 0, 450, steps=22)
+        snap(page, count=10, interval_ms=FRAME_MS)  # browsing
+
+        scroll_smooth(page, 450, 0, steps=22)
+        snap(page, count=12, interval_ms=FRAME_MS)  # back at beer
+
+        snap(page, count=10, interval_ms=FRAME_MS)  # deciding
+
+        beer = page.locator(".section[data-tab='drinks'] .item").nth(0)
+        tap(page, beer.locator(".add-btn"))
+        snap(page, count=15, interval_ms=FRAME_MS)
+
+        # ── SCENE 5: Staff overlay ──
+        snap(page, count=10, interval_ms=FRAME_MS)
+        scroll_smooth(page, page.evaluate("window.scrollY"), 0, steps=14)
+        snap(page, count=12, interval_ms=FRAME_MS)  # looking at badge
+
+        tap(page, page.locator("#staffBtn"))
+        snap(page, count=50, interval_ms=FRAME_MS)  # long hold on overlay
 
         browser.close()
 
-    print(f"Captured {len(raw_frames)} frames at {raw_frames[0].size}")
+    total = frame_idx[0]
+    print(f"Captured {total} frames")
 
-    # Phase 2: Resize to target width (390px — native viewport, crisp text)
-    target_h = int(raw_frames[0].height * TARGET_W / raw_frames[0].width)
-    frames = [f.resize((TARGET_W, target_h), Image.LANCZOS) for f in raw_frames]
-    print(f"Resized to {TARGET_W}×{target_h}")
+    # ── Step 1: ffmpeg two-pass high-quality GIF ──
+    palette_path = FRAMES_DIR / "palette.png"
+    print("Step 1: ffmpeg palette generation...")
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-framerate", str(FPS),
+        "-i", str(FRAMES_DIR / "frame_%05d.png"),
+        "-vf", f"scale={GIF_WIDTH}:-1:flags=lanczos,palettegen=max_colors=256:stats_mode=diff",
+        str(palette_path),
+    ], capture_output=True, check=True)
 
-    # Phase 3: Build a shared 256-color palette from multiple sample frames
-    # Sample every 20th frame for a representative palette
-    sample_indices = list(range(0, len(frames), max(1, len(frames) // 8)))
-    sample_images = [frames[i] for i in sample_indices]
-    # Build palette from a representative mid-animation frame
-    palette_src = frames[len(frames) // 3].quantize(colors=256, method=Image.Quantize.MEDIANCUT)
+    print("Step 2: ffmpeg encoding...")
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-framerate", str(FPS),
+        "-i", str(FRAMES_DIR / "frame_%05d.png"),
+        "-i", str(palette_path),
+        "-lavfi", f"scale={GIF_WIDTH}:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+        "-gifflags", "+transdiff",
+        str(OUT_RAW),
+    ], capture_output=True, check=True)
 
-    # Quantize all frames to shared palette with Floyd-Steinberg dithering for smooth gradients
-    quantized = [f.quantize(palette=palette_src, dither=1) for f in frames]
+    raw_mb = OUT_RAW.stat().st_size / (1024 * 1024)
+    print(f"  Raw GIF: {raw_mb:.1f} MB")
 
-    # Phase 4: Deduplicate at the quantized level
-    unique_frames: list[Image.Image] = []
-    durations: list[int] = []
+    # ── Step 2: gifsicle lossy optimization ──
+    print("Step 3: gifsicle lossy optimization...")
+    subprocess.run([
+        "gifsicle",
+        "--lossy=200",
+        "--optimize=3",
+        "-o", str(OUT_GIF),
+        str(OUT_RAW),
+    ], capture_output=True, check=True)
 
-    for qf in quantized:
-        if unique_frames and qf.tobytes() == unique_frames[-1].tobytes():
-            durations[-1] += FRAME_MS
-        else:
-            unique_frames.append(qf)
-            durations.append(FRAME_MS)
-
-    print(f"Unique frames after quantize: {len(unique_frames)} (from {len(raw_frames)} captured)")
-    for i, d in enumerate(durations):
-        print(f"  Frame {i:3d}: {d:5d} ms")
-
-    # Phase 5: Save with per-frame durations
-    OUT_GIF.parent.mkdir(parents=True, exist_ok=True)
-    unique_frames[0].save(
-        OUT_GIF,
-        save_all=True,
-        append_images=unique_frames[1:],
-        duration=durations,
-        loop=0,
-        optimize=False,
-    )
-
-    size_kb = OUT_GIF.stat().st_size / 1024
-    total_ms = sum(durations)
-    print(f"\nSaved {len(unique_frames)} frames, total {total_ms/1000:.1f}s → {size_kb:.0f} KB")
-
-    # Verify
-    result = Image.open(OUT_GIF)
-    print(f"Verification: {result.n_frames} frames, {result.size[0]}×{result.size[1]}")
+    size_mb = OUT_GIF.stat().st_size / (1024 * 1024)
+    duration_s = total / FPS
+    print(f"\nFinal: {OUT_GIF}")
+    print(f"  {total} frames, {duration_s:.1f}s, {FPS}fps, {size_mb:.1f} MB")
 
 
 if __name__ == "__main__":
