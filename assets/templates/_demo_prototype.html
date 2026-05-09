@@ -179,10 +179,32 @@
     .item-desc { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.45; }
 
     .item-ingredients {
-      margin-top: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.4;
+      display: flex; gap: 4px; flex-wrap: wrap;
+      margin: 12px -16px 0;
+      padding: 10px 16px 0;
+      border-top: 1px solid var(--border);
     }
-    .item-ingredients span { font-weight: 600; color: var(--text-secondary); }
+    .item-ingredients::before {
+      content: 'Ingredients';
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      width: 100%; margin-bottom: 4px;
+    }
+    .ingredient {
+      font-size: 10px; font-weight: 500; padding: 1px 5px;
+      border-radius: 3px; border: 1px solid var(--border);
+      color: var(--text-muted); background: transparent;
+      display: inline-flex; align-items: center; gap: 2px;
+    }
+    .ingredient-icon { font-size: 10px; }
+    .spice-meter { display: flex; gap: 3px; align-items: center; margin-left: 4px; }
+    .spice-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border);
+    }
+    .spice-dot.active { background: #EF4444; }
 
+    /* ===== TAGS ===== */
     .item-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
     .tag {
       font-size: 10.5px; font-weight: 700; padding: 3px 8px;
@@ -191,24 +213,6 @@
     .tag-popular { background: #FFF0E0; color: #C2660A; }
     .tag-spicy   { background: #FEE8E8; color: #B91C1C; }
     .tag-chef    { background: #EDE8FD; color: #5B21B6; }
-
-    /* ===== SPICE METER ===== */
-    .spice-meter { display: flex; gap: 3px; align-items: center; margin-left: 4px; }
-    .spice-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--border);
-    }
-    .spice-dot.active { background: #EF4444; }
-
-    /* ===== ALLERGEN BADGES ===== */
-    .allergens { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-    .allergen {
-      font-size: 10px; font-weight: 500; padding: 1px 5px;
-      border-radius: 3px; border: 1px solid var(--border);
-      color: var(--text-muted); background: transparent;
-      display: flex; align-items: center; gap: 2px;
-    }
-    .allergen-icon { font-size: 10px; opacity: 0.6; }
 
     /* ===== POPULARITY BAR ===== */
 
@@ -465,13 +469,7 @@
         </div>
         <p class="item-desc">Rich, creamy pork bone broth simmered for 12 hours with thin straight noodles, tender chashu pork belly, marinated soft-boiled egg, and fresh green onions.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> pork broth, wheat noodles, chashu pork, soft-boiled egg, green onion, nori, sesame
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
-          <span class="allergen"><span class="allergen-icon">🥚</span>Egg</span>
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
-          <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
+          <span class="ingredient">pork broth</span><span class="ingredient">wheat noodles</span><span class="ingredient">chashu pork</span><span class="ingredient">egg</span><span class="ingredient">green onion</span><span class="ingredient">nori</span><span class="ingredient">sesame</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -499,12 +497,7 @@
         </div>
         <p class="item-desc">Creamy sesame-chili broth with seasoned ground pork, bok choy, and thin noodles. Rich, nutty, and satisfyingly spicy.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> sesame chili broth, wheat noodles, ground pork, bok choy, chili oil, garlic, sesame paste
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
-          <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
+          <span class="ingredient">sesame chili broth</span><span class="ingredient">wheat noodles</span><span class="ingredient">ground pork</span><span class="ingredient">bok choy</span><span class="ingredient">chili oil</span><span class="ingredient">garlic</span><span class="ingredient">sesame paste</span>
         </div>
         <div class="item-tags">
           <span class="tag tag-spicy">Spicy</span>
@@ -538,11 +531,7 @@
         </div>
         <p class="item-desc">Clear soy sauce broth with roast chicken, menma bamboo shoots, nori, and thin curly noodles. Light and classic.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> soy sauce broth, wheat noodles, roast chicken, menma, nori, green onion
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+          <span class="ingredient">soy sauce broth</span><span class="ingredient">wheat noodles</span><span class="ingredient">roast chicken</span><span class="ingredient">menma</span><span class="ingredient">nori</span><span class="ingredient">green onion</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -578,11 +567,7 @@
         </div>
         <p class="item-desc">Pan-fried pork dumplings with a crispy golden bottom, served with soy-vinegar dipping sauce and chili oil.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> pork, wheat wrapper, cabbage, garlic, ginger, soy sauce, vinegar
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+          <span class="ingredient">pork</span><span class="ingredient">wheat wrapper</span><span class="ingredient">cabbage</span><span class="ingredient">garlic</span><span class="ingredient">ginger</span><span class="ingredient">soy sauce</span><span class="ingredient">vinegar</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -600,12 +585,7 @@
         </div>
         <p class="item-desc">Tender braised pork belly slices over steamed rice, drizzled with chashu sauce and sliced green onion.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> chashu pork, steamed rice, chashu sauce, green onion, sesame
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
-          <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
+          <span class="ingredient">chashu pork</span><span class="ingredient">steamed rice</span><span class="ingredient">chashu sauce</span><span class="ingredient">green onion</span><span class="ingredient">sesame</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -623,10 +603,7 @@
         </div>
         <p class="item-desc">Steamed young soybeans lightly salted. A classic Japanese starter.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> soybeans, salt
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+          <span class="ingredient">soybeans</span><span class="ingredient">salt</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -650,10 +627,7 @@
         </div>
         <p class="item-desc">Crisp, dry Japanese lager served ice-cold. The perfect pairing for any ramen.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> barley malt, hops, rice, water
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="ingredient">barley malt</span><span class="ingredient">hops</span><span class="ingredient">rice</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -671,10 +645,7 @@
         </div>
         <p class="item-desc">Suntory Kakubin whisky with sparkling water over ice. Light, refreshing, and easy to drink.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> Japanese whisky, sparkling water
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="ingredient">Japanese whisky</span><span class="ingredient">sparkling water</span>
         </div>
         <div class="item-tags"></div>
       </div>
@@ -692,9 +663,8 @@
         </div>
         <p class="item-desc">Cold-brewed Japanese green tea. Unsweetened and refreshing.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> green tea leaves, water
+          <span class="ingredient">green tea</span>
         </div>
-        <div class="allergens"></div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
@@ -711,9 +681,8 @@
         </div>
         <p class="item-desc">Classic Coca Cola served ice-cold.</p>
         <div class="item-ingredients">
-          <span>Ingredients:</span> carbonated water, sugar, caramel color, phosphoric acid, caffeine
+          <span class="ingredient">carbonated water</span><span class="ingredient">sugar</span><span class="ingredient">caramel color</span><span class="ingredient">caffeine</span>
         </div>
-        <div class="allergens"></div>
         <div class="item-tags"></div>
       </div>
       <div class="item-action">
