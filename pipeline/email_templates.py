@@ -4,19 +4,13 @@
 # Universal subject lines
 # ---------------------------------------------------------------------------
 
-SUBJECT_PERSONALIZED = "【WebRefurb】{name}様向け英語QRメニューのご案内"
-SUBJECT_FALLBACK = "【WebRefurb】英語QRメニューのご案内"
-SUBJECT_CONTACT_FORM = "英語QRメニューのご案内"
+SUBJECT = "英語QRメニューのご案内"
 
-# Confidence threshold for personalized subject
-SUBJECT_PERSONALIZED_MIN_CONFIDENCE = 0.90
-
-# Maximum business-name length for personalized subject (avoids awkward wrapping)
-SUBJECT_PERSONALIZED_MAX_NAME_LENGTH = 30
-
-# Legacy aliases for backward compatibility
-SUBJECT_MENU = SUBJECT_FALLBACK
-SUBJECT = SUBJECT_FALLBACK
+# Legacy aliases
+SUBJECT_FALLBACK = SUBJECT
+SUBJECT_PERSONALIZED = SUBJECT
+SUBJECT_CONTACT_FORM = SUBJECT
+SUBJECT_MENU = SUBJECT
 
 # ---------------------------------------------------------------------------
 # Subject selection
@@ -33,35 +27,8 @@ def build_subject(
     business_name_confidence: float = 0.0,
     template: str = "",
 ) -> str:
-    """Return the universal outreach subject line.
-
-    Uses the personalized form when the business name is available,
-    high-confidence, reasonably short, and free of branch/location clutter.
-    Otherwise falls back to the generic form.
-    """
-    # Contact-form templates keep their own subject
-    if template.startswith("contact_form_"):
-        return SUBJECT_CONTACT_FORM
-
-    if _can_personalize(business_name, business_name_confidence):
-        return SUBJECT_PERSONALIZED.format(name=business_name)
-
-    return SUBJECT_FALLBACK
-
-
-def _can_personalize(name: str, confidence: float) -> bool:
-    """Check whether a business name is suitable for the personalized subject."""
-    if not name or name == "テスト":
-        return False
-    if confidence < SUBJECT_PERSONALIZED_MIN_CONFIDENCE:
-        return False
-    if len(name) > SUBJECT_PERSONALIZED_MAX_NAME_LENGTH:
-        return False
-    # Reject names with messy branch/location parentheticals
-    # e.g. "ラーメン店 新宿店（本店）" or "居酒屋 ○○ ＜青山店＞"
-    if any(ch in name for ch in ("（", "＜", "《", "【", "〔")):
-        return False
-    return True
+    """Return the universal outreach subject line."""
+    return SUBJECT
 
 # ---------------------------------------------------------------------------
 # Signature block
@@ -69,7 +36,7 @@ def _can_personalize(name: str, confidence: float) -> bool:
 
 SENDER_NAME = "Chris（クリス）"
 
-SIGNATURE = SENDER_NAME
+SIGNATURE = f"{SENDER_NAME}\nWebRefurb\nhttps://webrefurb.com/"
 
 SIGNATURE_FULL = SIGNATURE
 
@@ -87,15 +54,25 @@ OPT_OUT_EN = "If you do not wish to receive further messages, please reply with 
 CONTACT_FORM_BODY = """\
 お問い合わせフォームより失礼いたします。
 
-WebRefurbのChris（クリス）と申します。日本語メニューはそのまま使える英語QRメニューを制作しています。
+WebRefurbのChris（クリス）と申します。飲食店向けに英語QRメニューを制作しています。
 
-お客様はQRコードから英語メニューを読み、気になる料理をリストに追加して、「Show Staff List」で日本語の商品名のリストをスタッフの方に見せることができます。
+こちらは、現在の日本語メニューやPOSを変更せずに使える仕組みです。
 
-デモはこちらです：
+店内に置いたQRコードを外国人のお客様がスマートフォンで読み取り、英語で料理の説明や写真を確認できます。
+
+気になる料理は「注文リスト」に追加でき、最後に日本語の商品名・数量・選択肢がまとまった画面をスタッフの方に見せられます。
+
+そのため、お客様は注文しやすくなり、スタッフの方も英語で細かく説明する負担を減らせます。
+
+デモページはこちらです：
 https://webrefurb.com/demo/
+
+デモは最初に日本語で表示されますが、画面上部の「EN / JP」切り替えで、外国人のお客様側の英語表示もご確認いただけます。
 
 もし貴店でも役立ちそうでしたら、このフォームからお知らせください。
 
 どうぞよろしくお願いいたします。
 
-Chris（クリス）"""
+Chris（クリス）
+WebRefurb
+https://webrefurb.com/"""

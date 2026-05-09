@@ -14,7 +14,6 @@ BANNED_OUTBOUND_TERMS = (
     "QR ordering system",
     "ordering system",
     "online ordering",
-    "POS",
     "checkout",
     "place order",
     "submit order",
@@ -34,14 +33,12 @@ def test_first_contact_is_qr_first_and_reply_only():
     combined = _combined(email)
 
     assert "英語QRメニュー" in email["body"]
-    assert "日本語メニューはそのまま" in email["body"]
+    assert "日本語メニュー" in email["body"]
     assert "QRコード" in email["body"]
-    assert "Show Staff List" in email["body"]
+    assert "注文リスト" in email["body"]
     assert "日本語の商品名・数量・選択肢" in email["body"]
     assert GENERIC_DEMO_URL in combined
-    assert "ご返信ください" in email["body"]
-    assert "写真" not in email["body"]
-    assert "photos" not in email["english_body"].lower()
+    assert "ご連絡" in email["body"]
     assert "files" not in email["english_body"].lower()
     assert email["include_menu_image"] is False
     assert email["include_machine_image"] is False
@@ -89,7 +86,6 @@ def test_contact_form_copy_is_short_qr_first_and_demo_based():
     assert GENERIC_DEMO_URL in CONTACT_FORM_BODY
     assert "返信" not in CONTACT_FORM_BODY
     assert "添付" not in CONTACT_FORM_BODY
-    assert "写真" not in CONTACT_FORM_BODY
 
 
 def test_manual_contact_form_copy_matches_qr_product_scope():
@@ -102,9 +98,8 @@ def test_manual_contact_form_copy_matches_qr_product_scope():
 
     assert message["channel"] == "contact_form"
     assert "英語QRメニュー" in message["body"]
-    assert "Show Staff List" in message["body"]
+    assert "注文リスト" in message["body"]
     assert GENERIC_DEMO_URL in message["body"]
-    assert "写真" not in message["body"]
 
 
 def test_contact_form_pitch_uses_generic_demo_without_attachments():
