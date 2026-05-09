@@ -70,6 +70,7 @@ def test_public_site_avoids_banned_customer_facing_terms():
         "ordering system",
         "QR ordering system",
         "online ordering",
+        "POS",
         "checkout",
         "place order",
         "submit order",
@@ -88,7 +89,7 @@ def test_public_site_avoids_banned_customer_facing_terms():
         text = _visible_text(_read(name))
         lowered = text.lower()
         for term in banned:
-            if term in {"AI"}:
+            if term in {"AI", "POS"}:
                 assert re.search(rf"\b{re.escape(term.lower())}\b", lowered) is None, f"{term} leaked in {name}"
             else:
                 assert term.lower() not in lowered, f"{term} leaked in {name}"
