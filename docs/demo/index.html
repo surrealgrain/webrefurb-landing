@@ -3,297 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Generic Demo - English QR Menu</title>
-<meta name="description" content="Generic demo of an English QR Menu with Add to list and Show Staff List.">
+<title>Interactive Demo - English QR Menu</title>
+<meta name="description" content="Try the interactive English QR Menu demo. Read the menu, add items to a list, and open the Japanese-first staff screen.">
+<link rel="icon" href="logo.svg">
 <style>
-:root { --ink:#171717; --muted:#62676d; --line:#ded8cd; --paper:#fbfaf6; --panel:#fff; --accent:#b82f2f; --teal:#0f766e; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-* { box-sizing:border-box; }
-body { margin:0; background:var(--paper); color:var(--ink); }
-button { font:inherit; }
-.app { max-width:520px; margin:0 auto; min-height:100vh; background:#fffdf8; border-left:1px solid var(--line); border-right:1px solid var(--line); }
-.top { position:sticky; top:0; z-index:4; background:#fffdf8; border-bottom:1px solid var(--line); padding:14px 16px 12px; }
-.demo-label { color:var(--accent); font-weight:850; text-transform:uppercase; letter-spacing:.11em; font-size:12px; }
-h1 { margin:6px 0 4px; font-size:28px; letter-spacing:0; }
-.top p { margin:0; color:var(--muted); font-size:14px; line-height:1.45; }
-.tabs { display:flex; gap:8px; overflow:auto; padding:12px 16px 4px; }
-.tab { border:1px solid var(--line); background:#fff; border-radius:999px; padding:8px 12px; white-space:nowrap; color:#333; }
-.tab.is-active { background:#171717; color:#fff; border-color:#171717; }
-.menu { padding:10px 16px 120px; display:grid; gap:16px; }
-.section-title { margin:18px 0 0; font-size:13px; text-transform:uppercase; color:var(--muted); letter-spacing:.09em; font-weight:850; }
-.item { border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; }
-.photo { min-height:132px; display:grid; place-items:center; color:#fff; font-weight:850; letter-spacing:.04em; background:#70382f url("../assets/previews/simple-ramen-menu.png") center / cover no-repeat; }
-.photo.izakaya { background:#294746 url("../assets/previews/izakaya-food-drinks.png") center / cover no-repeat; }
-.body { padding:14px; }
-.names { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
-.en { font-size:19px; font-weight:850; line-height:1.2; }
-.ja { color:var(--muted); font-size:13px; margin-top:4px; }
-.price { color:#2f302f; font-weight:800; white-space:nowrap; }
-.desc { color:#4d5258; line-height:1.45; margin:10px 0; font-size:14px; }
-.meta { display:grid; gap:5px; margin:10px 0 12px; color:#596067; font-size:13px; }
-.tags { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
-.tag { border:1px solid var(--line); border-radius:999px; padding:4px 8px; color:#3f4449; background:#fbfaf6; font-size:12px; }
-.option { margin-top:10px; display:grid; gap:7px; }
-.option label { font-size:12px; color:#5d6268; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
-.option select { min-height:38px; border:1px solid var(--line); border-radius:6px; background:#fff; padding:0 10px; color:#242629; }
-.add { width:100%; min-height:42px; border:0; border-radius:6px; background:var(--teal); color:#fff; font-weight:850; margin-top:12px; }
-.bar { position:fixed; left:50%; bottom:0; transform:translateX(-50%); z-index:6; width:min(520px,100%); background:#171717; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; box-shadow:0 -16px 34px rgba(0,0,0,.18); }
-.bar span { font-weight:850; }
-.bar button, .staff-button { min-height:42px; border:0; border-radius:6px; padding:0 14px; background:#fff; color:#171717; font-weight:850; }
-.panel { position:fixed; inset:0; z-index:8; background:#fffdf8; display:none; overflow:auto; }
-.panel.is-open { display:block; }
-.panel-inner { max-width:520px; margin:0 auto; padding:18px 16px 110px; }
-.panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:14px; }
-.panel-head h2 { margin:0; font-size:26px; }
-.close { border:1px solid var(--line); background:#fff; border-radius:6px; min-height:38px; padding:0 12px; }
-.selected { border:1px solid var(--line); border-radius:8px; background:#fff; padding:12px; margin-bottom:10px; }
-.selected-row { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; }
-.qty { display:flex; align-items:center; gap:8px; }
-.qty button { width:34px; height:34px; border:1px solid var(--line); border-radius:6px; background:#fff; font-weight:850; }
-.remove { margin-top:10px; border:0; background:transparent; color:var(--accent); font-weight:800; padding:0; }
-.empty { color:var(--muted); padding:28px 0; line-height:1.5; }
-.staff-list { display:grid; gap:12px; }
-.staff-card { border:2px solid #171717; border-radius:8px; padding:14px; background:#fff; }
-.staff-main { display:grid; grid-template-columns:1fr auto; gap:14px; align-items:start; }
-.staff-ja { font-size:25px; font-weight:900; line-height:1.18; }
-.staff-qty { font-size:24px; font-weight:900; }
-.staff-en { margin-top:5px; color:#62676d; font-size:13px; }
-.staff-options { margin-top:10px; font-weight:800; color:#282a2d; }
-.staff-price { margin-top:6px; color:#62676d; font-size:13px; }
-.notice { padding:10px 12px; border:1px solid var(--line); border-radius:8px; color:#4e545a; background:#fff; line-height:1.45; margin-bottom:14px; font-size:14px; }
-@media (min-width: 700px) { body { padding:24px 0; } .app { min-height:calc(100vh - 48px); border-radius:14px; overflow:hidden; } .bar { bottom:24px; border-radius:10px 10px 0 0; } }
+:root{--coral:#E94560;--coral-dark:#C73550;--coral-glow:rgba(233,69,96,.12);--coral-soft:#FFF0F2;--navy:#1a1f36;--ink:#111827;--body:#374151;--muted:#6b7280;--light:#9ca3af;--border:#e5e7eb;--surface:#f9fafb;--white:#ffffff;--radius:16px;--radius-sm:10px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP",sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);color:var(--ink);background:var(--white);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--coral);outline-offset:2px;border-radius:4px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 5%;height:60px;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.07em;font-size:13px;text-transform:uppercase}
+.brand img{width:26px;height:26px}
+.nav-right{display:flex;align-items:center;gap:14px}
+.nav-links{display:flex;gap:24px;font-size:14px;font-weight:600;color:var(--body)}
+.nav-links a{transition:color .15s}.nav-links a:hover{color:var(--coral)}
+.lang-toggle{display:flex;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);height:30px}
+.lang-btn{display:flex;align-items:center;justify-content:center;padding:0 10px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--light)}
+.lang-btn.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border-radius:var(--radius-sm);font-weight:700;font-size:15px;font-family:var(--font);cursor:pointer;border:none;transition:all .2s}
+.btn-coral{background:var(--coral);color:#fff;box-shadow:0 4px 14px rgba(233,69,96,.25)}
+.btn-coral:hover{background:var(--coral-dark);box-shadow:0 6px 20px rgba(233,69,96,.35);transform:translateY(-1px)}
+.btn-ghost{background:var(--white);color:var(--ink);border:1.5px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.btn-ghost:hover{border-color:var(--coral);color:var(--coral)}
+.btn-sm{min-height:40px;padding:0 20px;font-size:14px;border-radius:8px}
+
+.wrap{max-width:960px;margin:0 auto;padding:72px 5% 80px}
+h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.8px;line-height:1.1;margin-bottom:16px}
+.intro{font-size:18px;color:var(--body);line-height:1.65;max-width:640px;margin-bottom:6px}
+.note{font-size:14px;color:var(--muted);margin-bottom:40px}
+
+.demo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.demo-card{background:var(--white);border-radius:var(--radius);padding:36px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.03);border:1px solid var(--border);transition:all .2s;position:relative;overflow:hidden}
+.demo-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--coral);opacity:0;transition:opacity .2s}
+.demo-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.06),0 12px 36px rgba(0,0,0,.06);transform:translateY(-2px)}
+.demo-card:hover::before{opacity:1}
+.demo-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--coral);background:var(--coral-soft);padding:4px 10px;border-radius:6px;margin-bottom:16px}
+.demo-card h3{font-size:22px;font-weight:800;margin-bottom:8px;letter-spacing:-.2px}
+.demo-card p{font-size:15px;color:var(--body);line-height:1.55;margin-bottom:20px}
+
+.footer{padding:36px 5%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--light)}
+
+@media(max-width:640px){.nav{flex-wrap:wrap;height:auto;padding:10px 5%;gap:8px}.nav-right{width:100%;justify-content:space-between}.demo-grid{grid-template-columns:1fr}.footer{flex-direction:column;gap:8px;text-align:center}}
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="top">
-    <div class="demo-label">Generic demo - example content only</div>
-    <h1>Demo English QR Menu</h1>
-    <p>This demo does not use a real restaurant name, menu, logo, or prices. Sensitive details shown here are example-only.</p>
-  </header>
-  <nav class="tabs" aria-label="Menu categories"></nav>
-  <main class="menu" id="menu"></main>
-</div>
 
-<div class="bar" aria-live="polite">
-  <span id="count">0 items selected</span>
-  <button type="button" id="reviewBtn">Review list</button>
-</div>
-
-<section class="panel" id="reviewPanel" aria-labelledby="reviewTitle">
-  <div class="panel-inner">
-    <div class="panel-head">
-      <div>
-        <div class="demo-label">Review list</div>
-        <h2 id="reviewTitle">Selected items</h2>
-      </div>
-      <button type="button" class="close" data-close>Close</button>
+<nav class="nav" aria-label="Primary">
+  <a class="brand" href="../"><img src="../logo.svg" alt="">WEBREFURB</a>
+  <div class="nav-right">
+    <div class="nav-links">
+      <a href="../">Home</a>
+      <a href="../pricing.html">Pricing</a>
     </div>
-    <div id="reviewList"></div>
-    <button type="button" class="staff-button" id="staffBtn">Show to staff</button>
+    <div class="lang-toggle" aria-label="Language">
+      <a class="lang-btn active" href="./">EN</a>
+      <a class="lang-btn" href="../ja/demo/">JP</a>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="mailto:chris@webrefurb.com">Contact</a>
   </div>
-</section>
+</nav>
 
-<section class="panel" id="staffPanel" aria-labelledby="staffTitle">
-  <div class="panel-inner">
-    <div class="panel-head">
-      <div>
-        <div class="demo-label">Show Staff List</div>
-        <h2 id="staffTitle">Show this list to staff</h2>
-      </div>
-      <button type="button" class="close" data-close>Close</button>
+<main class="wrap">
+  <h1>Interactive demo</h1>
+  <p class="intro">Try the customer flow exactly as a guest would use it. Read the menu, add items to a list, then open the Japanese-first staff screen.</p>
+  <p class="note">The Japanese toggle is included so restaurant owners and staff can test the same flow.</p>
+
+  <div class="demo-grid">
+    <div class="demo-card">
+      <div class="demo-badge">Interactive</div>
+      <h3>Ramen demo</h3>
+      <p>Toppings, quantities, and staff list.</p>
+      <a class="btn btn-coral btn-sm" href="ramen.html">Open demo</a>
     </div>
-    <div class="notice">Staff-facing demo screen. Japanese item names are first, with quantities and selected structured options.</div>
-    <div class="staff-list" id="staffList"></div>
+    <div class="demo-card">
+      <div class="demo-badge">Interactive</div>
+      <h3>Sushi demo</h3>
+      <p>Item counts and Japanese item names.</p>
+      <a class="btn btn-coral btn-sm" href="sushi.html">Open demo</a>
+    </div>
   </div>
-</section>
+</main>
 
-<script>
-const items = [
-  {
-    id: "shoyu",
-    category: "Ramen",
-    japanese_name: "醤油ラーメン",
-    english_name: "Shoyu Ramen",
-    price: "950 yen",
-    price_confirmed: true,
-    description: "Clear soy sauce broth with noodles, chashu, bamboo shoots, and green onion.",
-    description_confirmed: true,
-    ingredients: "Wheat noodles, soy sauce broth, pork chashu, bamboo shoots, green onion.",
-    ingredients_confirmed: true,
-    allergy_notes: "Example allergens: wheat, soy.",
-    allergens_confirmed: true,
-    tags: ["Popular", "Pork broth"],
-    image: "ramen",
-    options: [{ name: "Noodle firmness", values: ["Regular", "Firm"] }]
-  },
-  {
-    id: "miso",
-    category: "Ramen",
-    japanese_name: "味噌ラーメン",
-    english_name: "Miso Ramen",
-    price: "1,050 yen",
-    price_confirmed: true,
-    description: "Rich miso broth with corn, bean sprouts, chashu, and green onion.",
-    description_confirmed: true,
-    ingredients: "Wheat noodles, miso broth, pork chashu, corn, bean sprouts.",
-    ingredients_confirmed: true,
-    allergy_notes: "Example allergens: wheat, soy.",
-    allergens_confirmed: true,
-    tags: ["Rich", "Hot"],
-    image: "ramen",
-    options: [{ name: "Spice level", values: ["None", "Mild", "Spicy"] }]
-  },
-  {
-    id: "karaage",
-    category: "Izakaya",
-    japanese_name: "若鶏の唐揚げ",
-    english_name: "Fried Chicken",
-    price: "780 yen",
-    price_confirmed: true,
-    description: "Crisp fried chicken served with lemon.",
-    description_confirmed: true,
-    ingredients: "Chicken, soy sauce marinade, wheat flour.",
-    ingredients_confirmed: true,
-    allergy_notes: "Example allergens: wheat, soy.",
-    allergens_confirmed: true,
-    tags: ["Share plate"],
-    image: "izakaya",
-    options: [{ name: "Sauce", values: ["Lemon", "Salt", "Spicy mayo"] }]
-  }
-];
-
-const state = new Map();
-const menu = document.getElementById("menu");
-const tabs = document.querySelector(".tabs");
-const count = document.getElementById("count");
-const reviewPanel = document.getElementById("reviewPanel");
-const staffPanel = document.getElementById("staffPanel");
-const reviewList = document.getElementById("reviewList");
-const staffList = document.getElementById("staffList");
-
-function categories() {
-  return [...new Set(items.map(item => item.category))];
-}
-
-function optionKey(id) {
-  const item = items.find(entry => entry.id === id);
-  return (item.options || []).map(option => {
-    const select = document.querySelector(`[data-option="${id}-${option.name}"]`);
-    return option.name + ": " + (select ? select.value : option.values[0]);
-  }).join(" | ");
-}
-
-function renderTabs(active = "All") {
-  const all = ["All", ...categories()];
-  tabs.innerHTML = all.map(name => `<button type="button" class="tab ${name === active ? "is-active" : ""}" data-cat="${name}">${name}</button>`).join("");
-  tabs.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => {
-    renderTabs(button.dataset.cat);
-    renderMenu(button.dataset.cat);
-  }));
-}
-
-function publicField(value, confirmed) {
-  return value && confirmed ? value : "";
-}
-
-function renderMenu(active = "All") {
-  const visible = active === "All" ? items : items.filter(item => item.category === active);
-  menu.innerHTML = visible.map(item => `
-    <article class="item">
-      <div class="photo ${item.image === "izakaya" ? "izakaya" : ""}">Demo photo</div>
-      <div class="body">
-        <div class="names">
-          <div><div class="en">${item.english_name}</div><div class="ja">${item.japanese_name}</div></div>
-          <div class="price">${publicField(item.price, item.price_confirmed)}</div>
-        </div>
-        <div class="desc">${publicField(item.description, item.description_confirmed)}</div>
-        <div class="meta">
-          ${publicField(item.ingredients, item.ingredients_confirmed) ? `<div><b>Ingredients:</b> ${item.ingredients}</div>` : ""}
-          ${publicField(item.allergy_notes, item.allergens_confirmed) ? `<div><b>Allergy notes:</b> ${item.allergy_notes}</div>` : ""}
-        </div>
-        <div class="tags">${(item.tags || []).map(tag => `<span class="tag">${tag}</span>`).join("")}</div>
-        ${(item.options || []).map(option => `
-          <div class="option">
-            <label>${option.name}</label>
-            <select data-option="${item.id}-${option.name}">${option.values.map(value => `<option>${value}</option>`).join("")}</select>
-          </div>`).join("")}
-        <button type="button" class="add" data-add="${item.id}">Add to list</button>
-      </div>
-    </article>
-  `).join("");
-  menu.querySelectorAll("[data-add]").forEach(button => button.addEventListener("click", () => addItem(button.dataset.add)));
-}
-
-function addItem(id) {
-  const item = items.find(entry => entry.id === id);
-  const options = optionKey(id);
-  const key = id + "::" + options;
-  const current = state.get(key) || { item, qty: 0, options };
-  current.qty += 1;
-  state.set(key, current);
-  renderCount();
-}
-
-function renderCount() {
-  const total = [...state.values()].reduce((sum, entry) => sum + entry.qty, 0);
-  count.textContent = total + (total === 1 ? " item selected" : " items selected");
-}
-
-function changeQty(key, delta) {
-  const entry = state.get(key);
-  if (!entry) return;
-  entry.qty += delta;
-  if (entry.qty <= 0) state.delete(key);
-  renderReview();
-  renderCount();
-}
-
-function renderReview() {
-  const entries = [...state.entries()];
-  reviewList.innerHTML = entries.length ? entries.map(([key, entry]) => `
-    <div class="selected">
-      <div class="selected-row">
-        <div><strong>${entry.item.english_name}</strong><div class="ja">${entry.item.japanese_name}</div><div class="ja">${entry.options}</div></div>
-        <div class="qty"><button type="button" data-qty="${key}" data-delta="-1">-</button><strong>${entry.qty}</strong><button type="button" data-qty="${key}" data-delta="1">+</button></div>
-      </div>
-      <button type="button" class="remove" data-remove="${key}">Remove item</button>
-    </div>
-  `).join("") : `<div class="empty">No items selected.</div>`;
-  reviewList.querySelectorAll("[data-qty]").forEach(button => button.addEventListener("click", () => changeQty(button.dataset.qty, Number(button.dataset.delta))));
-  reviewList.querySelectorAll("[data-remove]").forEach(button => button.addEventListener("click", () => {
-    state.delete(button.dataset.remove);
-    renderReview();
-    renderCount();
-  }));
-}
-
-function renderStaff() {
-  const entries = [...state.values()];
-  staffList.innerHTML = entries.length ? entries.map(entry => `
-    <div class="staff-card">
-      <div class="staff-main"><div><div class="staff-ja">${entry.item.japanese_name}</div><div class="staff-en">${entry.item.english_name}</div></div><div class="staff-qty">x${entry.qty}</div></div>
-      <div class="staff-options">${entry.options}</div>
-      <div class="staff-price">${publicField(entry.item.price, entry.item.price_confirmed)}</div>
-    </div>
-  `).join("") : `<div class="empty">No items selected.</div>`;
-}
-
-document.getElementById("reviewBtn").addEventListener("click", () => {
-  renderReview();
-  reviewPanel.classList.add("is-open");
-});
-document.getElementById("staffBtn").addEventListener("click", () => {
-  renderStaff();
-  staffPanel.classList.add("is-open");
-});
-document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => {
-  reviewPanel.classList.remove("is-open");
-  staffPanel.classList.remove("is-open");
-}));
-
-renderTabs();
-renderMenu();
-renderCount();
-</script>
+<footer class="footer">
+  <span>WebRefurb</span>
+  <span>Interactive English QR menus for restaurants in Japan.</span>
+</footer>
 </body>
 </html>

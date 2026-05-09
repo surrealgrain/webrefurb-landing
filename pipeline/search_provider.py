@@ -20,10 +20,13 @@ from .html_parser import extract_page_payload
 
 WEB_SERPER_PROVIDER = "webserper"
 SERPER_DEV_PROVIDER = "serper"
+SEARXNG_PROVIDER = "searxng"
 DEFAULT_SEARCH_PROVIDER = WEB_SERPER_PROVIDER
 SEARCH_PROVIDER_ENV = "WEBREFURB_SEARCH_PROVIDER"
 WEB_SERPER_PROVIDER_ALIASES = {"webserper", "web-serper", "web_serper", "local", "duckduckgo", "ddg", "webrefurb"}
 SERPER_PROVIDER_ALIASES = {"serper", "serper.dev", "google-serper", "google_serper"}
+SEARXNG_PROVIDER_ALIASES = {"searxng", "searx", "sear-x"}
+SEARXNG_BASE_URL = os.environ.get("SEARXNG_BASE_URL", "http://127.0.0.1:8888")
 DIRECTORY_HOST_TOKENS = (
     "tabelog.com",
     "hotpepper.jp",
@@ -185,6 +188,8 @@ def configured_search_provider(provider: str | None = None) -> str:
     value = str(provider or os.environ.get(SEARCH_PROVIDER_ENV) or DEFAULT_SEARCH_PROVIDER).strip().lower()
     if value in SERPER_PROVIDER_ALIASES:
         return SERPER_DEV_PROVIDER
+    if value in SEARXNG_PROVIDER_ALIASES:
+        return SEARXNG_PROVIDER
     if value in WEB_SERPER_PROVIDER_ALIASES:
         return WEB_SERPER_PROVIDER
     raise SearchProviderError(f"unsupported search provider: {value}")
@@ -192,6 +197,16 @@ def configured_search_provider(provider: str | None = None) -> str:
 
 def search_provider_requires_api_key(provider: str | None = None) -> bool:
     return configured_search_provider(provider) == SERPER_DEV_PROVIDER
+
+
+def _searxng_available() -> bool:
+    """Check if the local SearXNG instance is reachable."""
+    try:
+        req = urllib.request.Request(f"{SEARXNG_BASE_URL}/search?q=test&format=json", method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 def run_maps_search(
@@ -205,6 +220,8 @@ def run_maps_search(
     provider_name = configured_search_provider(provider)
     if provider_name == SERPER_DEV_PROVIDER:
         return _serper_maps_search(query=query, api_key=api_key, gl=gl, timeout_seconds=timeout_seconds)
+    if provider_name == SEARXNG_PROVIDER:
+        return _webserper_maps_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
     return _webserper_maps_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
 
 
@@ -219,6 +236,8 @@ def run_organic_search(
     provider_name = configured_search_provider(provider)
     if provider_name == SERPER_DEV_PROVIDER:
         return _serper_organic_search(query=query, api_key=api_key, gl=gl, timeout_seconds=timeout_seconds)
+    if provider_name == SEARXNG_PROVIDER:
+        return _searxng_organic_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
     return _webserper_organic_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
 
 
@@ -254,6 +273,54 @@ def _serper_organic_search(*, query: str, api_key: str, gl: str, timeout_seconds
         body = _http_error_body(exc)
         suffix = f": {body}" if body else ""
         raise SearchProviderError(f"Serper organic search HTTP {exc.code}{suffix}") from exc
+
+
+def _searxng_organic_search(
+    *,
+    query: str,
+    gl: str,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Search via local SearXNG instance (aggregates Google, DDG, Brave, etc.)."""
+    params = urllib.parse.urlencode({
+        "q": query,
+        "format": "json",
+        "language": "ja" if gl == "jp" else "en",
+    })
+    url = f"{SEARXNG_BASE_URL}/search?{params}"
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        raise SearchProviderError(f"SearXNG search failed: {exc}") from exc
+
+    organic: list[dict[str, str]] = []
+    seen_links: set[str] = set()
+    for result in data.get("results", []):
+        link = normalize_website_url(str(result.get("url") or ""))
+        if not link or link in seen_links:
+            continue
+        host = _host(link)
+        if _blocked_place_host(host) or _blocked_candidate_url(link):
+            continue
+        seen_links.add(link)
+        organic.append({
+            "title": str(result.get("title", "")),
+            "snippet": str(result.get("content", "")),
+            "link": link,
+            "sourceEngine": str(result.get("engine", "searxng")),
+        })
+
+    return {
+        "searchParameters": {
+            "q": query,
+            "gl": gl,
+            "engine": "searxng",
+            "provider": SEARXNG_PROVIDER,
+        },
+        "organic": organic,
+    }
 
 
 def _webserper_organic_search(

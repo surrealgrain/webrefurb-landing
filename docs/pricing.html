@@ -3,73 +3,182 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pricing - English QR Menu</title>
-<meta name="description" content="English QR Menu pricing: 65,000 yen for a hosted QR menu, QR code, printable sign, Show Staff List, hosting, and one pre-launch revision.">
+<title>Free Trial - English QR Menu</title>
+<meta name="description" content="Try an English QR Menu in your restaurant for one week. Free trial includes a hosted menu page, QR code, print-ready A4 sign, and Show Staff List. No POS, no app install.">
 <link rel="icon" href="logo.svg">
 <style>
-:root { --ink:#171717; --muted:#62676d; --line:#ded8cd; --paper:#fbfaf6; --panel:#fff; --accent:#b82f2f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-* { box-sizing: border-box; }
-body { margin:0; background:var(--paper); color:var(--ink); }
-.nav { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 6vw; border-bottom:1px solid var(--line); background:#fffdf8; }
-.brand { display:flex; align-items:center; gap:10px; font-weight:850; letter-spacing:.08em; text-decoration:none; color:inherit; }
-.brand img { width:30px; height:30px; }
-.navlinks { display:flex; align-items:center; gap:18px; font-size:14px; color:var(--muted); }
-.button { display:inline-flex; min-height:42px; align-items:center; justify-content:center; padding:0 18px; border-radius:6px; background:var(--ink); color:#fff; text-decoration:none; font-weight:750; }
-.wrap { max-width:1100px; margin:0 auto; padding:72px 6vw; }
-.hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(300px,.8fr); gap:36px; align-items:end; }
-.eyebrow { color:var(--accent); font-weight:850; text-transform:uppercase; letter-spacing:.12em; font-size:13px; }
-h1 { margin:12px 0 18px; font-size:clamp(42px,7vw,78px); line-height:.98; letter-spacing:0; }
-p { color:var(--muted); line-height:1.55; font-size:18px; }
-.price { background:#171717; color:#fff; border-radius:8px; padding:30px; }
-.price strong { display:block; font-size:clamp(40px,6vw,70px); line-height:1; }
-.price span { display:block; color:#ddd5ca; margin-top:10px; }
-.grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:42px; }
-.panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:24px; }
-.panel h2 { margin:0 0 16px; font-size:24px; }
-ul { margin:0; padding:0; list-style:none; display:grid; gap:12px; }
-li { padding-left:24px; position:relative; line-height:1.45; color:#303236; }
-li::before { content:""; position:absolute; left:0; top:.62em; width:9px; height:9px; border-radius:50%; background:var(--accent); }
-.note { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); font-size:15px; color:var(--muted); }
-@media (max-width: 780px) { .nav, .hero { align-items:flex-start; flex-direction:column; display:flex; } .navlinks { flex-wrap:wrap; } .grid { grid-template-columns:1fr; } }
+:root{--coral:#E94560;--coral-dark:#C73550;--coral-glow:rgba(233,69,96,.12);--coral-soft:#FFF0F2;--navy:#1a1f36;--ink:#111827;--body:#374151;--muted:#6b7280;--light:#9ca3af;--border:#e5e7eb;--surface:#f9fafb;--white:#ffffff;--radius:16px;--radius-sm:10px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP",sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);color:var(--ink);background:var(--white);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--coral);outline-offset:2px;border-radius:4px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 5%;height:60px;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.07em;font-size:13px;text-transform:uppercase}
+.brand img{width:26px;height:26px}
+.nav-right{display:flex;align-items:center;gap:14px}
+.lang-toggle{display:flex;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);height:30px}
+.lang-btn{display:flex;align-items:center;justify-content:center;padding:0 10px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--light);transition:all .15s}
+.lang-btn.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border-radius:var(--radius-sm);font-weight:700;font-size:15px;font-family:var(--font);cursor:pointer;border:none;transition:all .2s}
+.btn-coral{background:var(--coral);color:#fff;box-shadow:0 4px 14px rgba(233,69,96,.25)}
+.btn-coral:hover{background:var(--coral-dark);box-shadow:0 6px 20px rgba(233,69,96,.35);transform:translateY(-1px)}
+.btn-ghost{background:var(--white);color:var(--ink);border:1.5px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.btn-ghost:hover{border-color:var(--coral);color:var(--coral)}
+.btn-sm{min-height:40px;padding:0 20px;font-size:14px;border-radius:8px}
+
+.wrap{max-width:960px;margin:0 auto;padding:64px 5% 80px}
+.page-head{margin-bottom:48px}
+.page-head h1{font-size:clamp(36px,5vw,52px);font-weight:900;letter-spacing:-.5px;line-height:1.15;margin-bottom:10px;color:var(--coral)}
+.page-intro{font-size:20px;color:var(--body);line-height:1.7;max-width:600px;font-weight:600}
+
+.trial-body{max-width:640px}
+.trial-body p{font-size:17px;color:var(--body);line-height:1.7;margin-bottom:20px}
+.trial-body h2{font-size:20px;font-weight:800;margin:36px 0 16px;letter-spacing:-.2px}
+
+ul.trial-list{margin:0 0 24px;padding:0;list-style:none;display:grid;gap:12px}
+ul.trial-list li{padding-left:24px;position:relative;font-size:15px;color:var(--body);line-height:1.6}
+ul.trial-list li::before{content:"";position:absolute;left:0;top:.5em;width:8px;height:8px;border-radius:50%;background:var(--coral)}
+
+.trial-note{margin:28px 0;padding:20px 24px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);font-size:15px;color:var(--body);line-height:1.65}
+.trial-note strong{font-weight:700;color:var(--ink)}
+
+.trial-cta{margin-top:36px}
+.trial-disclaimer{margin-top:16px;font-size:14px;color:var(--muted);line-height:1.65}
+
+.divider{border:none;border-top:1px solid var(--border);margin:64px 0}
+
+.pricing-section h2{font-size:clamp(26px,3.5vw,36px);font-weight:900;letter-spacing:-.5px;line-height:1.15;margin-bottom:10px}
+.pricing-section .pricing-sub{font-size:17px;color:var(--body);line-height:1.65;margin-bottom:32px}
+
+.price-card{background:var(--coral-soft);border-radius:var(--radius);padding:44px;text-align:center;margin-bottom:32px}
+.price-amount{font-size:clamp(40px,5vw,56px);font-weight:900;letter-spacing:-1px;color:var(--coral)}
+.price-label{font-size:14px;color:var(--muted);margin-top:6px}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:28px;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.panel h3{font-size:16px;font-weight:800;margin-bottom:14px;letter-spacing:0}
+ul.plain{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+ul.plain li{padding-left:22px;position:relative;font-size:14px;color:var(--body);line-height:1.55}
+ul.plain li::before{content:"";position:absolute;left:0;top:.5em;width:7px;height:7px;border-radius:50%;background:var(--coral)}
+ul.muted li::before{background:var(--light)}
+.panel-note{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);line-height:1.6}
+
+.footer{padding:36px 5%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--light)}
+
+@media(max-width:700px){.nav{flex-wrap:wrap;height:auto;padding:10px 5%;gap:8px}.nav-right{width:100%;justify-content:space-between}.grid{grid-template-columns:1fr}.price-card{padding:32px 20px}.footer{flex-direction:column;gap:8px;text-align:center}}
 </style>
 </head>
 <body>
+
 <nav class="nav" aria-label="Primary">
   <a class="brand" href="./"><img src="logo.svg" alt="">WEBREFURB</a>
-  <div class="navlinks"><a href="demo/">Demo</a><a href="./">Home</a><a href="ja/pricing.html">日本語</a><a class="button" href="mailto:chris@webrefurb.com">Contact</a></div>
+  <div class="nav-right">
+    <div class="lang-toggle" aria-label="Language">
+      <a class="lang-btn active" href="pricing.html">EN</a>
+      <a class="lang-btn" href="ja/pricing.html">JP</a>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="mailto:chris@webrefurb.com">Contact</a>
+  </div>
 </nav>
+
 <main class="wrap">
-  <section class="hero">
-    <div>
-      <div class="eyebrow">One product</div>
-      <h1>English QR Menu</h1>
-      <p>Customers scan, read the English menu, add items to a list, and show Japanese item names to staff. Built for ramen and izakaya restaurants in Japan.</p>
+
+  <!-- Trial section -->
+  <div class="page-head">
+    <h1>Free 1-week trial</h1>
+    <p class="page-intro">Try it in your restaurant before deciding.</p>
+  </div>
+
+  <div class="trial-body">
+    <p>We can prepare a live English QR Menu trial for your restaurant and send you a print-ready A4 QR sign. Print one sheet, place it near the counter or table, and let foreign guests try the menu for one week.</p>
+
+    <h2>The trial includes</h2>
+    <ul class="trial-list">
+      <li>Hosted English QR menu trial page</li>
+      <li>QR code</li>
+      <li>Print-ready A4 QR sign</li>
+      <li>Show Staff List</li>
+      <li>One small correction before the trial starts</li>
+    </ul>
+
+    <div class="trial-note">
+      After one week, you can decide whether to keep it. If it helps your guests and staff.
     </div>
-    <div class="price"><strong>65,000 yen</strong><span>English QR Menu + Show Staff List</span></div>
-  </section>
-  <section class="grid" aria-label="Pricing details">
-    <div class="panel">
-      <h2>Included</h2>
-      <ul>
-        <li>Hosted English QR menu page</li>
-        <li>QR code</li>
-        <li>Printable QR sign</li>
-        <li>Show Staff List feature</li>
-        <li>12 months hosting</li>
-        <li>One pre-launch revision</li>
-      </ul>
+
+    <p>No POS. No payment system. No app install. No change to your normal service flow.</p>
+
+    <div class="trial-cta">
+      <a class="btn btn-coral" href="mailto:chris@webrefurb.com">Start a free trial</a>
     </div>
-    <div class="panel">
-      <h2>Publishing rules</h2>
-      <ul>
-        <li>Owner confirmation is required before publishing prices.</li>
-        <li>Owner confirmation is required before publishing descriptions.</li>
-        <li>Owner confirmation is required before publishing ingredients.</li>
-        <li>Owner confirmation is required before publishing allergy notes.</li>
-      </ul>
-      <div class="note">Updates after launch are available on request and quoted separately unless manually agreed.</div>
+    <p class="trial-disclaimer">Send a message with your restaurant name and I'll reply with the next step.</p>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Full pricing section -->
+  <div class="pricing-section">
+    <h2>Full setup pricing</h2>
+    <p class="pricing-sub">If you decide to keep the menu after the trial, the full setup is a one-time cost. Hosting is included.</p>
+
+    <div class="price-card">
+      <div class="price-amount">65,000 yen</div>
+      <p class="price-label">One-time setup for the first published menu</p>
     </div>
-  </section>
+
+    <div class="grid" aria-label="Pricing details">
+      <div class="panel">
+        <h3>Included</h3>
+        <ul class="plain">
+          <li>Hosted English QR menu page</li>
+          <li>Interactive Add to list flow</li>
+          <li>Japanese-first Show Staff List</li>
+          <li>QR code</li>
+          <li>Printable QR sign</li>
+          <li>Hosting included</li>
+          <li>One pre-launch revision</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Best fit</h3>
+        <ul class="plain">
+          <li>Ramen, sushi, yakitori, and yakiniku restaurants</li>
+          <li>Stable regular menu items</li>
+          <li>Tourist-facing locations</li>
+          <li>Staff who want fewer menu explanations at the table</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Publishing rules</h3>
+        <ul class="plain">
+          <li>Owner confirmation is required before publishing prices.</li>
+          <li>Owner confirmation is required before publishing descriptions.</li>
+          <li>Owner confirmation is required before publishing ingredients.</li>
+          <li>Owner confirmation is required before publishing allergy notes.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Not included by default</h3>
+        <ul class="plain muted">
+          <li>Daily menu updates</li>
+          <li>Seasonal special updates</li>
+          <li>Custom integrations</li>
+          <li>Multiple location menus</li>
+          <li>Photography</li>
+        </ul>
+        <div class="panel-note">Updates after launch are available on request and quoted separately unless manually agreed.</div>
+      </div>
+    </div>
+  </div>
+
 </main>
+
+<footer class="footer">
+  <span>WebRefurb</span>
+  <span>Interactive English QR menus for restaurants in Japan.</span>
+</footer>
 </body>
 </html>

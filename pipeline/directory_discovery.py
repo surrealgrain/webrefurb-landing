@@ -192,6 +192,8 @@ class DirectoryCandidate:
     source_url: str = ""
     category: str = ""
     city: str = ""
+    has_english_menu: bool = False
+    has_qr_menu: bool = False
 
 
 @dataclass
@@ -347,6 +349,58 @@ def _extract_rating_from_dtlmenu(html: str) -> tuple[float | None, int | None]:
     return rating, review_count
 
 
+def _detect_english_menu_from_dtlmenu(html: str) -> bool:
+    """Detect if Tabelog reports an English menu for this restaurant.
+
+    Tabelog detail pages include text like:
+      複数言語メニューあり（英語、中国語繁体字...）
+    or:
+      英語メニューあり
+    When present, the restaurant already has an English menu and should
+    be disqualified from outreach.
+    """
+    if "英語" in html and "メニュー" in html:
+        # Look for the specific "multi-language menu available" or "English menu" patterns
+        if re.search(r"言語メニューあり[^）]*英語", html):
+            return True
+        if re.search(r"英語メニューあり", html):
+            return True
+        # Broader: if 英語 and メニュー appear close together in the features section
+        if re.search(r"英語.{0,10}メニュー", html):
+            return True
+    return False
+
+
+def _detect_qr_menu_from_dtlmenu(html: str) -> bool:
+    """Detect if a restaurant uses QR code menus.
+
+    Looks for QR-related patterns in Tabelog detail pages and
+    restaurant descriptions:
+      - QRコード / QRメニュー (QR code / QR menu)
+      - 二次元コード (2D barcode)
+      - スマホメニュー (smartphone menu)
+      - オンライン注文 / オーダー (online ordering)
+
+    Restaurants with QR menus may already have digital ordering
+    and could be disqualified or flagged as tech-forward targets.
+    """
+    qr_patterns = (
+        r"QRコード.{0,15}メニュー",
+        r"QRメニュー",
+        r"二次元コード.{0,10}メニュー",
+        r"スマホメニュー",
+        r"スマートフォン.{0,10}メニュー",
+    )
+    for pat in qr_patterns:
+        if re.search(pat, html):
+            return True
+    # Also check for QRコード mentioned alongside ordering keywords
+    if re.search(r"QR.{0,5}コード", html):
+        if re.search(r"(注文|オーダー|注文|注文|会計)", html):
+            return True
+    return False
+
+
 def _get_sub_areas_for_city(city: str) -> list[str]:
     """Return Tabelog sub-area paths for a city."""
     city_slug = TABELOG_CITY_AREAS.get(city, city.lower())
@@ -473,6 +527,8 @@ def crawl_tabelog_area(
                     address = _extract_address_from_dtlmenu(detail_html)
                     phone = _extract_phone_from_dtlmenu(detail_html)
                     rating, review_count = _extract_rating_from_dtlmenu(detail_html)
+                    has_english_menu = _detect_english_menu_from_dtlmenu(detail_html)
+                    has_qr_menu = _detect_qr_menu_from_dtlmenu(detail_html)
 
                     candidates.append(DirectoryCandidate(
                         name=name,
@@ -485,6 +541,8 @@ def crawl_tabelog_area(
                         source_url=detail_url,
                         category=matched_category,
                         city=city,
+                        has_english_menu=has_english_menu,
+                        has_qr_menu=has_qr_menu,
                     ))
 
     return candidates
@@ -568,6 +626,8 @@ def crawl_tabelog_listing_page(
             source_url=detail_url,
             category=matched_category,
             city=city,
+            has_english_menu=_detect_english_menu_from_dtlmenu(detail_html),
+            has_qr_menu=_detect_qr_menu_from_dtlmenu(detail_html),
         ))
 
     return TabelogPageResult(city, category, page, listing_url, len(listings), detail_fetches, False, candidates, area_path or "")

@@ -202,7 +202,10 @@ tr:hover td { background: #fafbfc; }
               <p style="font-size:12px;margin-top:8px">or <a href="#" onclick="document.getElementById('file-input').click()">browse files</a></p>
               <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.png,.pdf,.heic" style="display:none" onchange="handleFileUpload(this.files)">
             </div>
-            <div style="margin-top:16px"><button class="btn btn-secondary" onclick="openPasteText()">Paste menu text</button></div>
+            <div style="margin-top:16px;display:flex;gap:8px">
+              <button class="btn btn-secondary" onclick="openPasteText()">Paste menu text</button>
+              <button class="btn btn-secondary" onclick="openScrapeUrl()">Scrape menu URL</button>
+            </div>
             <div id="materials-list" style="margin-top:16px"></div>
           </div>
         </div>
@@ -316,6 +319,18 @@ tr:hover td { background: #fafbfc; }
     </div>
   </div>
   <div class="modal-footer"><button class="btn btn-secondary" onclick="document.getElementById('translate-modal').classList.remove('open')">Close</button></div>
+</div></div>
+
+<!-- Scrape URL Modal -->
+<div class="modal-backdrop" id="scrape-modal"><div class="modal" style="width:480px">
+  <div class="modal-header"><h3>Scrape Menu URL</h3><button class="btn-ghost" onclick="document.getElementById('scrape-modal').classList.remove('open')">&times;</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label class="form-label">Restaurant or menu page URL</label>
+      <input class="form-input" id="scrape-url" placeholder="https://example.com/menu">
+    </div>
+    <span id="scrape-status" style="font-size:13px;color:var(--text-secondary)"></span>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="document.getElementById('scrape-modal').classList.remove('open')">Cancel</button><button class="btn btn-primary" onclick="submitScrapeUrl()">Scrape</button></div>
 </div></div>
 
 <div class="toast-container" id="toast-container"></div>
@@ -654,6 +669,22 @@ async function submitPasteText() {
 }
 
 async function deleteMaterial(matId){await api(`/api/studio/${activeWs}/materials/${matId}`,{method:'DELETE'});await refreshWs();renderMaterials();}
+
+function openScrapeUrl(){document.getElementById('scrape-modal').classList.add('open');document.getElementById('scrape-url').value='';document.getElementById('scrape-status').textContent='';}
+
+async function submitScrapeUrl() {
+  const url=document.getElementById('scrape-url').value.trim();
+  if(!url)return toast('URL required','error');
+  document.getElementById('scrape-status').textContent='Scraping...';
+  try {
+    const result = await api(`/api/studio/${activeWs}/materials/scrape`,{method:'POST',body:JSON.stringify({url})});
+    document.getElementById('scrape-modal').classList.remove('open');
+    toast(`Scraped ${result.chars.toLocaleString()} chars`, 'success');
+    await refreshWs();renderMaterials();
+  } catch(e) {
+    document.getElementById('scrape-status').textContent='Failed — check URL';
+  }
+}
 
 function renderItems() {
   if(!activeWsData)return;const items=activeWsData.items||[];const c=document.getElementById('items-list');

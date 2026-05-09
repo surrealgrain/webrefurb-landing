@@ -482,6 +482,69 @@ async def api_delete_material(workspace_id: str, material_id: str):
     return {"ok": True}
 
 
+@app.post("/api/studio/{workspace_id}/materials/scrape")
+async def api_scrape_url(workspace_id: str, request: Request):
+    """Scrape a URL via Firecrawl and save the content as a text material."""
+    import urllib.request
+    import urllib.error
+
+    body = await request.json()
+    url = str(body.get("url", "")).strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="URL required")
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    api_key = os.environ.get("FIRECRAWL_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="FIRECRAWL_API_KEY not configured")
+
+    # Call Firecrawl REST API
+    payload = json.dumps({"url": url}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.firecrawl.dev/v2/scrape",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = f"Firecrawl error: {exc.code}"
+        try:
+            detail += f" — {exc.read().decode()[:200]}"
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail=detail)
+
+    markdown = data.get("data", {}).get("markdown", "")
+    title = data.get("data", {}).get("metadata", {}).get("title", url)
+
+    if not markdown.strip():
+        raise HTTPException(status_code=422, detail="No content extracted from URL")
+
+    # Save as text material
+    ws = _load_workspace(workspace_id)
+    if not ws:
+        raise HTTPException(status_code=404)
+    ws["materials"].append({
+        "id": f"mat-{uuid.uuid4().hex[:8]}",
+        "filename": f"Scraped: {title[:60]}",
+        "type": "text",
+        "content": markdown[:50000],  # cap at 50KB
+        "source_url": url,
+        "uploaded_at": _now_iso(),
+    })
+    if ws["status"] == "intake":
+        ws["status"] = "materials_received"
+    _save_workspace(ws)
+    _log("materials_scraped", f"ws={workspace_id} url={url[:80]} chars={len(markdown)}")
+    return {"materials": ws["materials"], "status": ws["status"], "chars": len(markdown)}
+
+
 # ===================================================================
 # API — Menu Items
 # ===================================================================

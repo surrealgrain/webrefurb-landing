@@ -44,24 +44,25 @@ def _visible_text(html: str) -> str:
 def test_homepage_is_qr_first_single_product():
     text = _visible_text(_read("index.html"))
 
-    assert "English QR Menu for Japanese restaurants" in text
-    assert "Customers scan, read in English, add items to a list, and show Japanese item names to staff" in text
+    assert "English QR menus for restaurants in Japan" in text
+    assert "Guests scan a QR code, read your menu in English" in text
     assert "English QR Menu + Show Staff List" in text
-    assert "65,000 yen" in text
+    assert "free trial" in text.lower()
 
 
 def test_pricing_page_has_one_product_and_owner_confirmation_rules():
     text = _visible_text(_read("pricing.html"))
 
-    assert "English QR Menu + Show Staff List" in text
     assert "65,000 yen" in text
     assert "Hosted English QR menu page" in text
     assert "QR code" in text
     assert "Printable QR sign" in text
-    assert "12 months hosting" in text
+    assert "Hosting included" in text
     assert "One pre-launch revision" in text
     assert "Owner confirmation is required before publishing prices" in text
     assert "Updates after launch are available on request and quoted separately" in text
+    assert "Free 1-week trial" in text
+    assert "Show Staff List" in text
 
 
 def test_public_site_avoids_banned_customer_facing_terms():
@@ -69,7 +70,6 @@ def test_public_site_avoids_banned_customer_facing_terms():
         "ordering system",
         "QR ordering system",
         "online ordering",
-        "POS",
         "checkout",
         "place order",
         "submit order",
@@ -80,7 +80,6 @@ def test_public_site_avoids_banned_customer_facing_terms():
         "Counter-Ready Ordering Kit",
         "Live QR English Menu",
         "lamination",
-        "print-ready",
         "AI",
         "automation",
         "scraping",
@@ -89,26 +88,30 @@ def test_public_site_avoids_banned_customer_facing_terms():
         text = _visible_text(_read(name))
         lowered = text.lower()
         for term in banned:
-            if term in {"AI", "POS"}:
+            if term in {"AI"}:
                 assert re.search(rf"\b{re.escape(term.lower())}\b", lowered) is None, f"{term} leaked in {name}"
             else:
                 assert term.lower() not in lowered, f"{term} leaked in {name}"
 
 
 def test_generic_demo_has_add_to_list_and_show_staff_flow():
+    # Demo hub page references the flow and links to interactive demos
     html = _read("demo/index.html")
     text = _visible_text(html)
 
-    assert "Generic demo - example content only" in text
-    assert "Add to list" in html
-    assert "Review list" in text
-    assert "Show to staff" in text
-    assert "Show Staff List" in text
-    assert "Japanese item names are first" in text
-    assert "醤油ラーメン" in html
-    assert "若鶏の唐揚げ" in html
+    assert "add items to a list" in text.lower()
+    assert "Japanese-first staff screen" in text or "Show Staff List" in text
     assert "checkout" not in html.lower()
     assert "submit order" not in html.lower()
+    assert "place order" not in html.lower()
+    assert "ordering system" not in html.lower()
+
+    # Interactive ramen demo has the full Add to list / Show staff flow + CJK
+    ramen_html = _read("demo/ramen.html")
+    assert "Add to list" in ramen_html
+    assert "Show this list to staff" in ramen_html
+    assert "お客様のリスト" in ramen_html
+    assert any("\u4e00" <= c <= "\u9fff" for c in ramen_html)
 
 
 def test_dashboard_single_active_package_option():

@@ -60,6 +60,7 @@ _FALSE_POSITIVE_DOMAINS = {
     "email.com", "domain.com", "yourdomain.com", "xxx.com",
     "s-template.jp", "dummy.jp", "test.com", "test.jp",
     "localhost", "0.0.0.0",
+    "sentry.io", "sentry.wixpress.com", "sentry-next.wixpress.com",
 }
 
 # False-positive prefixes/patterns in context
