@@ -37,7 +37,7 @@ def main() -> None:
             device_scale_factor=DEVICE_SCALE,
         )
         page = ctx.new_page()
-        page.goto(PROTOTYPE.as_uri())
+        page.goto(PROTOTYPE.as_uri() + "?demo")
         page.wait_for_timeout(600)
 
         total = int(DURATION_S * CAPTURE_FPS)

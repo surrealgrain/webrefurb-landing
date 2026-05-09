@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>HAKATA RAMEN — English Menu</title>
+  <title>MENYA HIBIKI — English Menu</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -74,23 +74,31 @@
     /* ===== STAFF BUTTON (header) ===== */
     .staff-btn {
       margin-left: auto; flex-shrink: 0;
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 4px;
       background: var(--accent); color: #FFF;
-      border: none; border-radius: 20px;
-      padding: 7px 12px 7px 10px;
+      border: none; border-radius: 50%;
+      width: 44px; height: 44px;
+      padding: 0;
       font-size: 12px; font-weight: 700;
-      cursor: pointer; transition: transform 0.15s, opacity 0.2s;
-      opacity: 0.45;
+      cursor: pointer; transition: transform 0.15s, opacity 0.2s, box-shadow 0.3s;
+      opacity: 0.4;
+      position: relative;
+      justify-content: center;
     }
-    .staff-btn:active { transform: scale(0.95); }
-    .staff-btn.has-items { opacity: 1; }
+    .staff-btn:active { transform: scale(0.92); }
+    .staff-btn.has-items {
+      opacity: 1;
+      animation: staffPulse 2.2s ease-in-out infinite;
+    }
     .staff-btn svg { flex-shrink: 0; }
-    .staff-label { font-size: 12px; letter-spacing: 0.01em; }
     .staff-btn .staff-badge {
+      position: absolute;
+      top: -4px; right: -4px;
       min-width: 18px; height: 18px; border-radius: 9px;
-      background: rgba(255,255,255,0.3);
+      background: #FFF; color: var(--accent);
       display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 800; padding: 0 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
     }
     .staff-btn.bounce { animation: staffBounce 0.4s cubic-bezier(0.34,1.56,0.64,1); }
     @keyframes staffBounce {
@@ -98,6 +106,10 @@
       30%  { transform: scale(1.2); }
       60%  { transform: scale(0.9); }
       100% { transform: scale(1); }
+    }
+    @keyframes staffPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.45); }
+      50%      { box-shadow: 0 0 0 8px rgba(233,69,96,0); }
     }
 
     /* ===== TABS ===== */
@@ -108,7 +120,7 @@
     .tabs::-webkit-scrollbar { display: none; }
 
     .tab {
-      padding: 11px 16px; font-size: 14px; font-weight: 500;
+      padding: 11px 16px; min-height: 44px; font-size: 14px; font-weight: 500;
       color: var(--text-muted); background: none; border: none;
       border-bottom: 2.5px solid transparent; white-space: nowrap;
       cursor: pointer; transition: all 0.2s;
@@ -118,7 +130,8 @@
     }
 
     /* ===== SECTION ===== */
-    .section { padding: 20px 16px 4px; }
+    .section { padding: 20px 16px 4px; display: none; }
+    .section.active { display: block; }
 
     .section-header {
       display: flex; align-items: center; gap: 10px;
@@ -139,8 +152,19 @@
     .item:active { transform: scale(0.985); }
 
     .item-photo {
-      width: 100%; height: 180px; object-fit: cover; display: block;
-      background: #F0EBE5;
+      width: 100%; display: block;
+      background: #F0EBE5; /* warm placeholder behind food photos */
+    }
+    .item-photo-wrap {
+      position: relative; overflow: hidden;
+    }
+    .item-photo-wrap::after {
+      content: ''; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 150px;
+      opacity: 0.035;
+      mix-blend-mode: overlay;
+      pointer-events: none;
     }
 
     .item-body { padding: 14px 16px 6px; }
@@ -177,16 +201,48 @@
     .spice-dot.active { background: #EF4444; }
 
     /* ===== ALLERGEN BADGES ===== */
-    .allergens { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+    .allergens { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
     .allergen {
-      font-size: 11px; font-weight: 600; padding: 2px 7px;
-      border-radius: 4px; border: 1px solid var(--border);
-      color: var(--text-secondary); background: var(--bg);
-      display: flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 500; padding: 1px 5px;
+      border-radius: 3px; border: 1px solid var(--border);
+      color: var(--text-muted); background: transparent;
+      display: flex; align-items: center; gap: 2px;
     }
-    .allergen-icon { font-size: 12px; }
+    .allergen-icon { font-size: 10px; opacity: 0.6; }
 
     /* ===== POPULARITY BAR ===== */
+
+    /* ===== TOPPINGS ROW ===== */
+    .item-toppings {
+      padding: 0 16px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .toppings-label {
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 10px 0 6px;
+    }
+    .toppings-row {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding-bottom: 10px;
+    }
+    .topping-pill {
+      font-size: 12px; font-weight: 600;
+      color: var(--text-secondary); background: var(--bg);
+      border: 1.5px solid var(--border); border-radius: 20px;
+      padding: 5px 12px; min-height: 36px; cursor: pointer;
+      transition: all 0.15s; display: flex; align-items: center; gap: 4px;
+      position: relative;
+    }
+    .topping-pill:active { transform: scale(0.93); }
+    .topping-pill.selected {
+      color: var(--accent); background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+    .topping-price {
+      font-size: 10px; font-weight: 500; opacity: 0.7;
+    }
 
     /* ===== ADD BUTTON ===== */
     .item-action { padding: 6px 16px 14px; display: flex; justify-content: flex-end; }
@@ -196,7 +252,13 @@
       padding: 9px 22px; min-height: 40px; cursor: pointer; transition: all 0.15s;
     }
     .add-btn:active { transform: scale(0.95); }
-    .add-btn.added { color: #FFF; background: var(--accent); }
+    .add-btn.added { color: var(--card); background: var(--accent); }
+    .add-btn.bounce { animation: addBtnBounce 0.35s ease; }
+    @keyframes addBtnBounce {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
 
     /* ===== FLY BALL ===== */
     .fly-ball {
@@ -214,62 +276,102 @@
       top: 0; bottom: 0;
       left: 50%; transform: translateX(-50%);
       width: 100%; max-width: 430px;
-      background: var(--card); display: none; flex-direction: column;
+      background: #FEFCF9; display: none; flex-direction: column;
     }
     .overlay.open { display: flex; }
 
     .overlay-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 16px 14px;
+      padding: 18px 16px 14px;
       background: var(--accent);
     }
     .overlay-title { text-align: center; flex: 1; }
-    .overlay-title h2 { font-size: 18px; font-weight: 800; color: #FFF; letter-spacing: 0.02em; }
+    .overlay-title h2 {
+      font-size: 20px; font-weight: 800; color: #FFF;
+      letter-spacing: 0.08em;
+    }
+    .overlay-subtitle {
+      font-size: 11px; color: rgba(255,255,255,0.65);
+      font-weight: 500; letter-spacing: 0.03em; margin-top: 2px;
+    }
 
     .overlay-close {
-      width: 32px; height: 32px; border: none; background: rgba(255,255,255,0.2);
-      border-radius: 50%; font-size: 16px; color: #FFF;
+      width: 36px; height: 36px; border: none; background: rgba(255,255,255,0.2);
+      border-radius: 50%; font-size: 18px; color: #FFF;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
-    .overlay-spacer { width: 32px; }
+    .overlay-spacer { width: 36px; }
 
-    .overlay-body { flex: 1; overflow-y: auto; padding: 12px 16px 0; }
+    .overlay-body { flex: 1; overflow-y: auto; padding: 0 20px; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; justify-content: center; }
 
     .order-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 0; border-bottom: 1px solid var(--border);
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 16px 0; border-bottom: 1px dashed var(--border);
     }
     .order-item:last-of-type { border-bottom: none; }
     .order-item-info { flex: 1; min-width: 0; }
     .order-item-ja {
-      font-size: 18px; font-weight: 700; color: var(--text);
-      line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-size: 20px; font-weight: 800; color: var(--text);
+      line-height: 1.3;
     }
-    .order-item-en { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-    .order-qty { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-left: 6px; }
+    .order-item-en { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
+    .order-qty { font-size: 17px; font-weight: 800; color: var(--accent); margin-left: 8px; }
     .order-item-price {
-      font-size: 15px; font-weight: 700; color: var(--text);
-      white-space: nowrap; flex-shrink: 0;
+      font-size: 14px; font-weight: 600; color: var(--text-muted);
+      white-space: nowrap; flex-shrink: 0; margin-top: 3px;
     }
+
+    .order-toppings {
+      margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;
+    }
+    .order-topping {
+      font-size: 12px; color: var(--accent); font-weight: 700;
+      background: var(--accent-soft); padding: 3px 8px 2px; border-radius: 4px;
+      display: inline-flex; flex-direction: column; align-items: flex-start;
+    }
+    .order-topping-en {
+      font-size: 10px; font-weight: 500; color: var(--text-muted); margin-top: 1px;
+    }
+
+    /* Compact mode: 1-2 items — scale up, center vertically */
+    .overlay-body.compact .order-item { padding: 22px 0; }
+    .overlay-body.compact .order-item-ja { font-size: 32px; }
+    .overlay-body.compact .order-item-en { font-size: 15px; margin-top: 4px; }
+    .overlay-body.compact .order-qty { font-size: 24px; }
+    .overlay-body.compact .order-item-price { font-size: 17px; margin-top: 4px; }
+    .overlay-body.compact .order-topping { font-size: 14px; padding: 3px 10px; }
 
     .overlay-total {
       display: flex; justify-content: space-between; align-items: baseline;
-      padding: 14px 0 0; border-top: 2px solid var(--text); margin-top: 8px;
+      padding: 16px 0 0; border-top: 2px solid var(--text); margin-top: 4px;
     }
-    .overlay-total-label { font-size: 14px; font-weight: 700; color: var(--text); }
-    .overlay-total-price { font-size: 28px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+    .overlay-total-label { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .overlay-total-price { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+
+    .overlay-body.compact .overlay-total { padding: 22px 0 0; margin-top: 8px; }
+    .overlay-body.compact .overlay-total-label { font-size: 14px; }
+    .overlay-body.compact .overlay-total-price { font-size: 30px; }
 
     .overlay-footer {
-      padding: 16px 16px 28px; text-align: center;
-      border-top: 1px solid var(--border); background: var(--card);
+      padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+      text-align: center;
+      background: #FEFCF9;
       margin-top: auto;
     }
     .overlay-footer-en {
-      font-size: 15px; font-weight: 700; color: #FFF;
-      background: var(--accent); border-radius: 10px;
-      padding: 12px 20px; letter-spacing: 0.02em;
-      display: inline-block;
+      font-size: 17px; font-weight: 800; color: #FFF;
+      background: var(--accent); border-radius: 14px;
+      padding: 18px 24px; letter-spacing: 0.02em;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%;
+      box-shadow: 0 6px 24px rgba(233,69,96,0.35);
+      animation: ctaPulse 2.5s ease-in-out infinite;
     }
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: 0 6px 24px rgba(233,69,96,0.35); transform: scale(1); }
+      50%      { box-shadow: 0 8px 36px rgba(233,69,96,0.55); transform: scale(1.015); }
+    }
+    .overlay-footer-en svg { flex-shrink: 0; }
 
     /* ===== GHOST TOUCH ===== */
     .ghost {
@@ -305,23 +407,38 @@
       0%   { opacity: 0.6; transform: translate(-50%,-50%) scale(0.5); }
       100% { opacity: 0; transform: translate(-50%,-50%) scale(1.8); }
     }
+
+    /* ===== ACCESSIBILITY ===== */
+    .add-btn:focus-visible, .tab:focus-visible,
+    .staff-btn:focus-visible, .topping-pill:focus-visible,
+    .overlay-close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
 
   <header class="header">
     <div class="header-top">
-      <div class="restaurant-logo">博</div>
+      <div class="restaurant-logo">響</div>
       <div class="restaurant-name">
-        <h1>HAKATA RAMEN</h1>
-        <div class="restaurant-sub">Est. 1998 · Fukuoka</div>
+        <h1>MENYA HIBIKI</h1>
+        <div class="restaurant-sub">Est. 2012 · Shinjuku, Tokyo</div>
       </div>
       <button class="staff-btn" id="staffBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
           <rect x="9" y="3" width="6" height="4" rx="1"/>
         </svg>
-        <span class="staff-label">Show Staff</span>
         <span class="staff-badge">2</span>
       </button>
     </div>
@@ -333,14 +450,14 @@
   </header>
 
   <!-- RAMEN -->
-  <section class="section">
+  <section class="section active" data-tab="ramen">
     <div class="section-header">
       <span class="section-title">Ramen</span>
       <div class="section-line"></div>
     </div>
 
     <div class="item">
-      <img class="item-photo" src="https://images.unsplash.com/photo-1635379511574-bc167ca085c8?w=800&h=450&fit=crop" alt="Tonkotsu Ramen">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/tonkotsu_ramen.jpg" alt="Tonkotsu Ramen"></div>
       <div class="item-body">
         <div class="item-top">
           <h3 class="item-name">Tonkotsu Ramen</h3>
@@ -356,39 +473,16 @@
           <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
           <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
         </div>
-        <div class="item-tags">
-          <span class="tag tag-popular">Most Popular</span>
-        </div>
+        <div class="item-tags"></div>
       </div>
-      <div class="item-action">
-        <button class="add-btn added">✓ Added</button>
-      </div>
-    </div>
-
-    <div class="item">
-      <img class="item-photo" src="https://images.unsplash.com/photo-1637024696628-02cb19cc1829?w=800&h=450&fit=crop" alt="Spicy Miso Ramen">
-      <div class="item-body">
-        <div class="item-top">
-          <h3 class="item-name">Spicy Miso Ramen</h3>
-          <span class="item-price">¥1,050</span>
-        </div>
-        <p class="item-desc">Bold miso broth with house-made chili oil, seasoned ground pork, sweet corn, bean sprouts, and thick wavy noodles. Medium spice level.</p>
-        <div class="item-ingredients">
-          <span>Ingredients:</span> miso broth, wheat noodles, ground pork, corn, bean sprouts, chili oil, butter, garlic
-        </div>
-        <div class="allergens">
-          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
-          <span class="allergen"><span class="allergen-icon">🥛</span>Dairy</span>
-          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
-        </div>
-        <div class="item-tags">
-          <span class="tag tag-spicy">Spicy</span>
-          <div class="spice-meter">
-            <span class="spice-dot active"></span>
-            <span class="spice-dot active"></span>
-            <span class="spice-dot"></span>
-          </div>
-          <span class="tag tag-chef">Chef's Pick</span>
+      <div class="item-toppings">
+        <div class="toppings-label">Add toppings</div>
+        <div class="toppings-row">
+          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150">Chashu <span class="topping-price">+¥150</span></button>
+          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100">Egg <span class="topping-price">+¥100</span></button>
+          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50">Nori <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50">Green Onion <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="butter" data-tp-ja="バター" data-tp-en="Butter" data-tp-price="80">Butter <span class="topping-price">+¥80</span></button>
         </div>
       </div>
       <div class="item-action">
@@ -397,7 +491,46 @@
     </div>
 
     <div class="item">
-      <img class="item-photo" src="https://images.unsplash.com/photo-1526318896980-cf78c088247c?w=800&h=450&fit=crop" alt="Shoyu Ramen">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/tantanmen_ramen.png" alt="Tantanmen"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Tantanmen</h3>
+          <span class="item-price">¥1,050</span>
+        </div>
+        <p class="item-desc">Creamy sesame-chili broth with seasoned ground pork, bok choy, and thin noodles. Rich, nutty, and satisfyingly spicy.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> sesame chili broth, wheat noodles, ground pork, bok choy, chili oil, garlic, sesame paste
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+          <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
+        </div>
+        <div class="item-tags">
+          <span class="tag tag-spicy">Spicy</span>
+          <div class="spice-meter">
+            <span class="spice-dot active"></span>
+            <span class="spice-dot active"></span>
+            <span class="spice-dot"></span>
+          </div>
+        </div>
+      </div>
+      <div class="item-toppings">
+        <div class="toppings-label">Add toppings</div>
+        <div class="toppings-row">
+          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150">Chashu <span class="topping-price">+¥150</span></button>
+          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100">Egg <span class="topping-price">+¥100</span></button>
+          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50">Nori <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50">Green Onion <span class="topping-price">+¥50</span></button>
+        </div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/shoyu_ramen.png" alt="Shoyu Ramen"></div>
       <div class="item-body">
         <div class="item-top">
           <h3 class="item-name">Shoyu Ramen</h3>
@@ -413,21 +546,31 @@
         </div>
         <div class="item-tags"></div>
       </div>
+      <div class="item-toppings">
+        <div class="toppings-label">Add toppings</div>
+        <div class="toppings-row">
+          <button class="topping-pill" data-tp="extra_chashu" data-tp-ja="チャーシュー増し" data-tp-en="Extra Chashu" data-tp-price="150">Chashu <span class="topping-price">+¥150</span></button>
+          <button class="topping-pill" data-tp="extra_egg" data-tp-ja="味玉追加" data-tp-en="Extra Egg" data-tp-price="100">Egg <span class="topping-price">+¥100</span></button>
+          <button class="topping-pill" data-tp="nori" data-tp-ja="海苔追加" data-tp-en="Extra Nori" data-tp-price="50">Nori <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="negi" data-tp-ja="ネギ増し" data-tp-en="Extra Green Onion" data-tp-price="50">Green Onion <span class="topping-price">+¥50</span></button>
+          <button class="topping-pill" data-tp="butter" data-tp-ja="バター" data-tp-en="Butter" data-tp-price="80">Butter <span class="topping-price">+¥80</span></button>
+        </div>
+      </div>
       <div class="item-action">
-        <button class="add-btn added">✓ Added</button>
+        <button class="add-btn">+ Add to list</button>
       </div>
     </div>
   </section>
 
   <!-- SIDES -->
-  <section class="section">
+  <section class="section" data-tab="sides">
     <div class="section-header">
       <span class="section-title">Side Dishes</span>
       <div class="section-line"></div>
     </div>
 
     <div class="item">
-      <img class="item-photo" src="https://images.unsplash.com/photo-1588182728399-e8f2df121744?w=800&h=450&fit=crop" alt="Gyoza">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/gyoza_dippingsauce.png" alt="Gyoza"></div>
       <div class="item-body">
         <div class="item-top">
           <h3 class="item-name">Gyoza (6 pcs)</h3>
@@ -441,9 +584,137 @@
           <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
           <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
         </div>
-        <div class="item-tags">
-          <span class="tag tag-popular">Popular</span>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/chashu_ricebowl.png" alt="Chashu Rice Bowl"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Chashu Rice Bowl</h3>
+          <span class="item-price">¥480</span>
         </div>
+        <p class="item-desc">Tender braised pork belly slices over steamed rice, drizzled with chashu sauce and sliced green onion.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> chashu pork, steamed rice, chashu sauce, green onion, sesame
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+          <span class="allergen"><span class="allergen-icon">🥜</span>Sesame</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/edamame.png" alt="Edamame"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Edamame</h3>
+          <span class="item-price">¥300</span>
+        </div>
+        <p class="item-desc">Steamed young soybeans lightly salted. A classic Japanese starter.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> soybeans, salt
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🫘</span>Soy</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+  </section>
+  <section class="section" data-tab="drinks">
+    <div class="section-header">
+      <span class="section-title">Drinks</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/draft_beer.png" alt="Draft Beer"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Draft Beer (Asahi)</h3>
+          <span class="item-price">¥580</span>
+        </div>
+        <p class="item-desc">Crisp, dry Japanese lager served ice-cold. The perfect pairing for any ramen.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> barley malt, hops, rice, water
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/whiskey_highball.png" alt="Highball"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Whisky Highball</h3>
+          <span class="item-price">¥550</span>
+        </div>
+        <p class="item-desc">Suntory Kakubin whisky with sparkling water over ice. Light, refreshing, and easy to drink.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> Japanese whisky, sparkling water
+        </div>
+        <div class="allergens">
+          <span class="allergen"><span class="allergen-icon">🌾</span>Wheat</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/iced_greentea.png" alt="Green Tea"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Iced Green Tea</h3>
+          <span class="item-price">¥250</span>
+        </div>
+        <p class="item-desc">Cold-brewed Japanese green tea. Unsweetened and refreshing.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> green tea leaves, water
+        </div>
+        <div class="allergens"></div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn">+ Add to list</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/coca_cola.png" alt="Coca Cola"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name">Coca Cola</h3>
+          <span class="item-price">¥250</span>
+        </div>
+        <p class="item-desc">Classic Coca Cola served ice-cold.</p>
+        <div class="item-ingredients">
+          <span>Ingredients:</span> carbonated water, sugar, caramel color, phosphoric acid, caffeine
+        </div>
+        <div class="allergens"></div>
+        <div class="item-tags"></div>
       </div>
       <div class="item-action">
         <button class="add-btn">+ Add to list</button>
@@ -492,7 +763,10 @@
       </div>
     </div>
     <div class="overlay-footer">
-      <p class="overlay-footer-en">Show staff to place your order</p>
+      <div class="overlay-footer-en">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+        Show staff to place your order
+      </div>
     </div>
   </div>
 
@@ -507,14 +781,44 @@
           ovClose=ov.querySelector('.overlay-close'),
           isDemo=location.search.indexOf('demo')!==-1;
 
-      // --- Item data ---
+      // --- Tab switching ---
+      var tabs=document.querySelectorAll('.tab');
+      var sections=document.querySelectorAll('.section[data-tab]');
+      for(var ti=0;ti<tabs.length;ti++){
+        (function(tab, idx){
+          tab.addEventListener('click',function(){
+            for(var j=0;j<tabs.length;j++){tabs[j].classList.remove('active');}
+            tab.classList.add('active');
+            for(var j=0;j<sections.length;j++){sections[j].classList.remove('active');}
+            sections[idx].classList.add('active');
+            window.scrollTo({top:0,behavior:'smooth'});
+          });
+        })(tabs[ti], ti);
+      }
+
+      // --- Item data (index matches .add-btn order) ---
       var items=[
+        // Ramen
         {ja:'豚骨ラーメン',en:'Tonkotsu Ramen',price:950},
-        {ja:'辛味噌ラーメン',en:'Spicy Miso Ramen',price:1050},
+        {ja:'担々麺',en:'Tantanmen',price:1050},
         {ja:'醤油ラーメン',en:'Shoyu Ramen',price:900},
-        {ja:'餃子（6個）',en:'Gyoza (6 pcs)',price:550}
+        // Sides
+        {ja:'餃子（6個）',en:'Gyoza (6 pcs)',price:550},
+        {ja:'チャーシュー丼',en:'Chashu Rice Bowl',price:480},
+        {ja:'枝豆',en:'Edamame',price:300},
+        // Drinks
+        {ja:'生ビール（アサヒ）',en:'Draft Beer (Asahi)',price:580},
+        {ja:'ハイボール',en:'Whisky Highball',price:550},
+        {ja:'アイス緑茶',en:'Iced Green Tea',price:250},
+        {ja:'コカコーラ',en:'Coca Cola',price:250}
       ];
-      var counts=[0,0,0,0];
+      var counts=new Array(items.length);
+      for(var ci=0;ci<counts.length;ci++) counts[ci]=0;
+
+      // --- Toppings per item (keyed by item index) ---
+      // itemToppings[i] = { 'extra_chashu': true, ... }
+      var itemToppings=[];
+      for(var ti=0;ti<items.length;ti++) itemToppings[ti]={};
 
       function updateStaffBtn(){
         var total=counts.reduce(function(a,b){return a+b;},0);
@@ -531,12 +835,12 @@
       }
 
       // --- Fly-ball animation ---
-      function flyBall(fromEl){
+      function flyBall(fromEl, toEl){
+        if(!toEl) toEl=staffBtn;
         var fr=fromEl.getBoundingClientRect();
-        var tr=staffBtn.getBoundingClientRect();
+        var tr=toEl.getBoundingClientRect();
         var sx=fr.left+fr.width/2, sy=fr.top+fr.height/2;
         var ex=tr.left+tr.width/2, ey=tr.top+tr.height/2;
-        // Arc peaks above the midpoint
         var mx=(sx+ex)/2, my=Math.min(sy,ey)-90;
 
         var ball=document.createElement('div');
@@ -545,21 +849,22 @@
         ball.style.top=sy+'px';
         document.body.appendChild(ball);
 
-        var dur=400, start=null;
+        var dur=350, start=null;
         function frame(ts){
           if(!start) start=ts;
           var t=Math.min((ts-start)/dur,1);
           var u=1-t;
           var x=u*u*sx+2*u*t*mx+t*t*ex;
           var y=u*u*sy+2*u*t*my+t*t*ey;
-          var s=1-t*0.5;
+          var s=toEl===staffBtn?(1-t*0.5):(1-t*0.3);
           ball.style.left=x+'px';
           ball.style.top=y+'px';
           ball.style.transform='translate(-50%,-50%) scale('+s+')';
           if(t<1){requestAnimationFrame(frame);}
           else{
             ball.remove();
-            bounceStaff();
+            if(toEl===staffBtn) bounceStaff();
+            else{toEl.classList.remove('bounce');void toEl.offsetWidth;toEl.classList.add('bounce');setTimeout(function(){toEl.classList.remove('bounce');},400);}
           }
         }
         requestAnimationFrame(frame);
@@ -568,16 +873,40 @@
       function updateOverlay(){
         var body=ov.querySelector('.overlay-body');
         var html='';
+        var itemCount=0;
+        for(var i=0;i<items.length;i++){
+          if(counts[i]>0) itemCount+=counts[i];
+        }
+        if(itemCount<=2){body.classList.add('compact');}
+        else{body.classList.remove('compact');}
         for(var i=0;i<items.length;i++){
           if(counts[i]>0){
+            var tpKeys=Object.keys(itemToppings[i]);
+            var tpPrice=0;
+            var tpHtml='';
+            if(tpKeys.length>0){
+              tpHtml+='<div class="order-toppings">';
+              for(var tk=0;tk<tpKeys.length;tk++){
+                var tp=itemToppings[i][tpKeys[tk]];
+                tpPrice+=tp.price;
+                tpHtml+='<span class="order-topping"><span class="order-topping-ja">+ '+tp.ja+'</span><span class="order-topping-en">'+tp.en+'</span></span>';
+              }
+              tpHtml+='</div>';
+            }
             html+='<div class="order-item"><div class="order-item-info">'
               +'<div class="order-item-ja">'+items[i].ja+'<span class="order-qty">\u00d7'+counts[i]+'</span></div>'
               +'<div class="order-item-en">'+items[i].en+'</div>'
-              +'</div><div class="order-item-price">&yen;'+(items[i].price*counts[i]).toLocaleString()+'</div></div>';
+              +tpHtml
+              +'</div><div class="order-item-price">&yen;'+((items[i].price+tpPrice)*counts[i]).toLocaleString()+'</div></div>';
           }
         }
         var totalYen=0;
-        for(var i=0;i<items.length;i++) totalYen+=items[i].price*counts[i];
+        for(var i=0;i<items.length;i++){
+          var tpKeys=Object.keys(itemToppings[i]);
+          var tpTotal=0;
+          for(var tk=0;tk<tpKeys.length;tk++) tpTotal+=itemToppings[i][tpKeys[tk]].price;
+          totalYen+=(items[i].price+tpTotal)*counts[i];
+        }
         html+='<div class="overlay-total"><span class="overlay-total-label">Total</span>'
           +'<span class="overlay-total-price">&yen;'+totalYen.toLocaleString()+'</span></div>';
         body.innerHTML=html;
@@ -596,10 +925,42 @@
               counts[idx]=0;
               btns[idx].textContent='+ Add to list';
               btns[idx].classList.remove('added');
+              // Clear toppings when removing
+              itemToppings[idx]={};
+              var pills=btns[idx].closest('.item').querySelectorAll('.topping-pill');
+              for(var pi=0;pi<pills.length;pi++) pills[pi].classList.remove('selected');
             }
             updateStaffBtn();
           });
         })(i);
+      }
+
+      // --- Wire up topping pills ---
+      var allPills=document.querySelectorAll('.topping-pill');
+      for(var pi=0;pi<allPills.length;pi++){
+        (function(pill){
+          pill.addEventListener('click',function(){
+            var item=pill.closest('.item');
+            var addBtn=item.querySelector('.add-btn');
+            // Find item index
+            var idx=-1;
+            for(var bi=0;bi<btns.length;bi++){if(btns[bi]===addBtn){idx=bi;break;}}
+            if(idx<0) return;
+            var tpKey=pill.getAttribute('data-tp');
+            if(pill.classList.contains('selected')){
+              pill.classList.remove('selected');
+              delete itemToppings[idx][tpKey];
+            }else{
+              pill.classList.add('selected');
+              itemToppings[idx][tpKey]={
+                ja:pill.getAttribute('data-tp-ja'),
+                en:pill.getAttribute('data-tp-en'),
+                price:parseInt(pill.getAttribute('data-tp-price'),10)
+              };
+              flyBall(pill, addBtn);
+            }
+          });
+        })(allPills[pi]);
       }
 
       // --- Staff button opens overlay ---
@@ -614,9 +975,12 @@
         ov.classList.remove('open');
       });
 
-      // --- Init: Tonkotsu (0) and Shoyu (2) pre-added ---
-      counts[0]=1; btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
-      counts[2]=1; btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+      // --- Init ---
+      if(isDemo){
+        // Demo mode: pre-add Tonkotsu and Shoyu for the ghost animation
+        counts[0]=1; btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
+        counts[2]=1; btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+      }
       updateStaffBtn();
 
       // --- Ghost animation (demo mode only) ---
@@ -648,11 +1012,9 @@
       setTimeout(function(){hide();},9800);
       setTimeout(function(){
         ov.classList.remove('open');
-        counts=[1,0,1,0];
-        btns[1].textContent='+ Add to list'; btns[1].classList.remove('added');
-        btns[3].textContent='+ Add to list'; btns[3].classList.remove('added');
-        btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
-        btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
+        for(var ri=0;ri<counts.length;ri++){counts[ri]=0;btns[ri].textContent='+ Add to list';btns[ri].classList.remove('added');}
+        counts[0]=1; btns[0].textContent='\u2713 Added'; btns[0].classList.add('added');
+        counts[2]=1; btns[2].textContent='\u2713 Added'; btns[2].classList.add('added');
         updateStaffBtn();
       },12000);
     })();
