@@ -36,64 +36,93 @@ EXCLUDED_BUSINESS_TOKENS = (
 )
 
 # ---------------------------------------------------------------------------
-# Packages
+# Product model
 # ---------------------------------------------------------------------------
-PACKAGE_1_KEY = "package_1_remote_30k"
-PACKAGE_2_KEY = "package_2_printed_delivered_45k"
-PACKAGE_3_KEY = "package_3_qr_menu_65k"
+ENGLISH_QR_MENU_KEY = "english_qr_menu_65k"
+ENGLISH_QR_MENU_LABEL = "English QR Menu"
+ENGLISH_QR_MENU_PRICE_YEN = 65000
+GENERIC_DEMO_PATH = "/demo/"
+GENERIC_DEMO_URL = "https://webrefurb.com/demo/"
+TRIAL_DURATION_DAYS = 7
+TRIAL_LABEL = "Free 1-week trial"
+TRIAL_LABEL_JA = "1週間の無料トライアル"
 
-PACKAGE_1_PRICE_YEN = 30000
-PACKAGE_2_PRICE_YEN = 45000
-PACKAGE_3_PRICE_YEN = 65000
-
-PACKAGE_1_LABEL = "English Ordering Files"
-PACKAGE_2_LABEL = "Counter-Ready Ordering Kit"
-PACKAGE_3_LABEL = "Live QR English Menu"
+ENGLISH_QR_MENU_INCLUDES = (
+    "hosted English QR menu page",
+    "QR code",
+    "printable QR sign",
+    "Show Staff List feature",
+    "Hosting included",
+    "one pre-launch revision",
+    "owner confirmation before publishing prices/descriptions/ingredients/allergens",
+)
 
 PACKAGE_REGISTRY: dict[str, dict[str, Any]] = {
-    PACKAGE_1_KEY: {
-        "key": PACKAGE_1_KEY,
+    ENGLISH_QR_MENU_KEY: {
+        "key": ENGLISH_QR_MENU_KEY,
         "number": 1,
-        "label": PACKAGE_1_LABEL,
-        "price_yen": PACKAGE_1_PRICE_YEN,
-        "workflow": "remote_delivery",
-        "description": "Print-ready English ordering files for the shop to print or use digitally.",
-    },
-    PACKAGE_2_KEY: {
-        "key": PACKAGE_2_KEY,
-        "number": 2,
-        "label": PACKAGE_2_LABEL,
-        "price_yen": PACKAGE_2_PRICE_YEN,
-        "workflow": "printed_delivered",
-        "description": "Printed, laminated ordering materials delivered counter-ready to the restaurant.",
-    },
-    PACKAGE_3_KEY: {
-        "key": PACKAGE_3_KEY,
-        "number": 3,
-        "label": PACKAGE_3_LABEL,
-        "price_yen": PACKAGE_3_PRICE_YEN,
-        "workflow": "qr_menu",
-        "description": "Hosted live English ordering menu with QR code and printable QR sign.",
+        "label": ENGLISH_QR_MENU_LABEL,
+        "price_yen": ENGLISH_QR_MENU_PRICE_YEN,
+        "workflow": "english_qr_menu",
+        "description": (
+            "Hosted mobile English QR menu with Add to list and Show Staff List. "
+            "The customer list stays on the customer's phone for showing staff."
+        ),
+        "includes": list(ENGLISH_QR_MENU_INCLUDES),
+        "update_policy": "After launch, updates are supported on request and quoted separately unless manually agreed.",
     },
 }
 
-# Backward-compatible aliases for older scoring/outreach modules.
-PACKAGE_A_KEY = PACKAGE_2_KEY
-PACKAGE_B_KEY = PACKAGE_1_KEY
-PACKAGE_A_PRICE_YEN = PACKAGE_2_PRICE_YEN
-PACKAGE_B_PRICE_YEN = PACKAGE_1_PRICE_YEN
-PACKAGE_A_LABEL = PACKAGE_2_LABEL
-PACKAGE_B_LABEL = PACKAGE_1_LABEL
+# Legacy adapter keys accepted only for old imports/data migration.
+PACKAGE_1_KEY = "package_1_remote_30k"
+PACKAGE_2_KEY = "package_2_printed_delivered_45k"
+PACKAGE_3_KEY = ENGLISH_QR_MENU_KEY
+LEGACY_PACKAGE_3_KEY = "package_3_qr_menu_65k"
+
+PACKAGE_1_PRICE_YEN = 30000
+PACKAGE_2_PRICE_YEN = 45000
+PACKAGE_3_PRICE_YEN = ENGLISH_QR_MENU_PRICE_YEN
+
+PACKAGE_1_LABEL = "Legacy English files"
+PACKAGE_2_LABEL = "Legacy printed kit"
+PACKAGE_3_LABEL = ENGLISH_QR_MENU_LABEL
+
+LEGACY_PACKAGE_KEY_MAP = {
+    PACKAGE_1_KEY: ENGLISH_QR_MENU_KEY,
+    PACKAGE_2_KEY: ENGLISH_QR_MENU_KEY,
+    LEGACY_PACKAGE_3_KEY: ENGLISH_QR_MENU_KEY,
+    "package_A_in_person_48k": ENGLISH_QR_MENU_KEY,
+    "package_A_in_person_45k": ENGLISH_QR_MENU_KEY,
+    "package_A_printed_delivered_45k": ENGLISH_QR_MENU_KEY,
+    "package_B_online_30k": ENGLISH_QR_MENU_KEY,
+    "package_B_remote_30k": ENGLISH_QR_MENU_KEY,
+    "package_C_qr_menu_65k": ENGLISH_QR_MENU_KEY,
+    "package_1": ENGLISH_QR_MENU_KEY,
+    "package_2": ENGLISH_QR_MENU_KEY,
+    "package_3": ENGLISH_QR_MENU_KEY,
+}
+
+PACKAGE_A_KEY = ENGLISH_QR_MENU_KEY
+PACKAGE_B_KEY = ENGLISH_QR_MENU_KEY
+PACKAGE_A_PRICE_YEN = ENGLISH_QR_MENU_PRICE_YEN
+PACKAGE_B_PRICE_YEN = ENGLISH_QR_MENU_PRICE_YEN
+PACKAGE_A_LABEL = ENGLISH_QR_MENU_LABEL
+PACKAGE_B_LABEL = ENGLISH_QR_MENU_LABEL
 
 # ---------------------------------------------------------------------------
-# Lead categories (ramen + izakaya only)
+# Lead categories (active values only)
 # ---------------------------------------------------------------------------
-LEAD_CATEGORY_RAMEN_MACHINE_MAPPING = "ramen_machine_mapping"
-LEAD_CATEGORY_RAMEN_MENU_TRANSLATION = "ramen_menu_translation"
-LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE = "ramen_menu_and_machine"
-LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION = "izakaya_menu_translation"
-LEAD_CATEGORY_IZAKAYA_DRINK_COURSE_GUIDE = "izakaya_drink_course_guide"
-LEAD_CATEGORY_NONE = "none"
+LEAD_CATEGORY_RAMEN = "ramen"
+LEAD_CATEGORY_IZAKAYA = "izakaya"
+LEAD_CATEGORY_SKIP = "skip"
+ACTIVE_LEAD_CATEGORIES = (LEAD_CATEGORY_RAMEN, LEAD_CATEGORY_IZAKAYA, LEAD_CATEGORY_SKIP)
+
+LEAD_CATEGORY_RAMEN_MACHINE_MAPPING = LEAD_CATEGORY_RAMEN
+LEAD_CATEGORY_RAMEN_MENU_TRANSLATION = LEAD_CATEGORY_RAMEN
+LEAD_CATEGORY_RAMEN_MENU_AND_MACHINE = LEAD_CATEGORY_RAMEN
+LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION = LEAD_CATEGORY_IZAKAYA
+LEAD_CATEGORY_IZAKAYA_DRINK_COURSE_GUIDE = LEAD_CATEGORY_IZAKAYA
+LEAD_CATEGORY_NONE = LEAD_CATEGORY_SKIP
 
 # ---------------------------------------------------------------------------
 # Menu term tokens (JP only, no TW/cafe tokens)
@@ -260,47 +289,6 @@ PRICE_RE = __import__("re").compile(
     r"(?:¥\s?\d[\d,]*|\d{2,5}\s?円|\$\s?\d[\d,.]*)"
 )
 
-# ---------------------------------------------------------------------------
-# Template package paths (v4c dark templates)
-# ---------------------------------------------------------------------------
-TEMPLATE_PACKAGE_MENU = PROJECT_ROOT / "assets" / "templates"
-TEMPLATE_PACKAGE_MACHINE = PROJECT_ROOT / "assets" / "templates"
-GENERIC_MENU_PDF = TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
-GENERIC_MACHINE_PDF = TEMPLATE_PACKAGE_MACHINE / "ticket_machine_guide.html"
-OUTREACH_SAMPLE_RAMEN_ONE_PAGE_PDF = (
-    TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
-)
-OUTREACH_SAMPLE_RAMEN_SIDES_PDF = (
-    TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
-)
-OUTREACH_SAMPLE_RAMEN_DRINKS_PDF = (
-    TEMPLATE_PACKAGE_MENU / "ramen_food_menu.html"
-)
-OUTREACH_SAMPLE_IZAKAYA_FOOD_DRINKS_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_food_drinks_menu.html"
-)
-OUTREACH_SAMPLE_IZAKAYA_YAKITORI_KUSHIYAKI_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_yakitori_kushiyaki_menu.html"
-)
-OUTREACH_SAMPLE_IZAKAYA_KUSHIAGE_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_kushiage_menu.html"
-)
-OUTREACH_SAMPLE_IZAKAYA_SEAFOOD_SAKE_ODEN_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_seafood_sake_oden_menu.html"
-)
-OUTREACH_SAMPLE_IZAKAYA_TACHINOMI_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_tachinomi_menu.html"
-)
-OUTREACH_SAMPLE_IZAKAYA_ROBATAYAKI_PDF = (
-    TEMPLATE_PACKAGE_MENU / "izakaya_robatayaki_menu.html"
-)
-OUTREACH_SAMPLE_BY_ESTABLISHMENT_PROFILE = {
-    "izakaya_yakitori_kushiyaki": OUTREACH_SAMPLE_IZAKAYA_YAKITORI_KUSHIYAKI_PDF,
-    "izakaya_kushiage": OUTREACH_SAMPLE_IZAKAYA_KUSHIAGE_PDF,
-    "izakaya_seafood_sake_oden": OUTREACH_SAMPLE_IZAKAYA_SEAFOOD_SAKE_ODEN_PDF,
-    "izakaya_tachinomi": OUTREACH_SAMPLE_IZAKAYA_TACHINOMI_PDF,
-    "izakaya_robatayaki": OUTREACH_SAMPLE_IZAKAYA_ROBATAYAKI_PDF,
-}
 
 # ---------------------------------------------------------------------------
 # Contact details for email signatures

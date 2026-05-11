@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .constants import PACKAGE_3_KEY, PACKAGE_3_LABEL, PACKAGE_3_PRICE_YEN
-from .export import PrintProfile, html_to_pdf_sync, is_valid_pdf
+from .constants import ENGLISH_QR_MENU_KEY, ENGLISH_QR_MENU_LABEL, ENGLISH_QR_MENU_PRICE_YEN
+from .pdf_export import PrintProfile, html_to_pdf_sync, is_valid_pdf
 from .final_export_qa import artifact_entry, package_manifest, write_export_qa_report
 from .utils import ensure_dir, slugify, write_json, write_text
 
@@ -61,14 +61,14 @@ _CONTENT_CONFIRMATION_STATUSES = {
     "not_required",
 }
 _DEFAULT_CONTENT_REQUIREMENTS = {
-    "descriptions_required": True,
-    "ingredient_allergen_required": True,
+    "descriptions_required": False,
+    "ingredient_allergen_required": False,
 }
 _QR_PACKAGE_PROMISE = {
-    "hosting_term": "12 months of hosting from the publish date",
-    "update_policy": "One bundled content update round in the first 30 days; later updates are handled as paid update work.",
-    "support": "Basic support during the hosting term covers QR link issues, page-loading failures, and minor approved text fixes.",
-    "after_term": "After 12 months the restaurant can renew hosting or let the page retire after export handoff and notice.",
+    "hosting_term": "Hosting included",
+    "update_policy": "One pre-launch revision is included. Post-launch updates are supported on request and quoted separately unless manually agreed.",
+    "support": "Basic support covers QR link issues and page-loading failures.",
+    "after_term": "If WebRefurb ever needs to change hosting arrangements, the restaurant receives export handoff and notice.",
 }
 
 
@@ -189,9 +189,9 @@ def get_qr_review(*, state_root: Path, docs_root: Path, job_id: str) -> dict[str
     _write_qr_job(state_root, job)
     return {
         **job,
-        "package_key": PACKAGE_3_KEY,
-        "package_label": PACKAGE_3_LABEL,
-        "price_yen": PACKAGE_3_PRICE_YEN,
+        "package_key": ENGLISH_QR_MENU_KEY,
+        "package_label": ENGLISH_QR_MENU_LABEL,
+        "price_yen": ENGLISH_QR_MENU_PRICE_YEN,
         "review_status": job.get("review_status", "pending_review"),
         "final_export_status": job.get("final_export_status", ""),
         "download_url": f"/api/qr/{job_id}/download" if job.get("final_export_path") else "",
@@ -309,7 +309,7 @@ def approve_qr_package(
     job_id: str,
     reviewer: str = "operator",
 ) -> dict[str, Any]:
-    """Approve, publish, health-check, and package the paid Live QR English Menu."""
+    """Approve, publish, health-check, and package the paid English QR Menu."""
     job = get_qr_job(state_root=state_root, job_id=job_id)
     if not job:
         raise QRMenuError("QR job not found")
@@ -346,8 +346,8 @@ def approve_qr_package(
         "# QR Support Record\n\n"
         f"- Restaurant: {job.get('restaurant_name', '')}\n"
         f"- Live URL: {job.get('live_url', '')}\n"
-        "- Hosting term: 12 months from publish date\n"
-        "- Support: QR link issues, page-loading failures, and minor approved text fixes during the hosting term\n",
+        "- Hosting: included\n"
+        "- Support: QR link issues, page-loading failures, and minor approved text fixes\n",
     )
 
     state_source = state_root / "qr_menus" / menu_id / "versions" / version_id / "source.json"
@@ -368,7 +368,7 @@ def approve_qr_package(
     manifest_path = export_dir / "PACKAGE_MANIFEST.json"
     write_json(manifest_path, manifest)
 
-    zip_path = export_dir / f"{job_id}-{PACKAGE_3_KEY}.zip"
+    zip_path = export_dir / f"{job_id}-{ENGLISH_QR_MENU_KEY}.zip"
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for filename in ("index.html", "menu.json", "qr.svg", "qr_sign.html", "qr_sign.svg"):
             path = version_dir / filename
@@ -385,7 +385,7 @@ def approve_qr_package(
     export_qa = write_export_qa_report(
         state_root=state_root,
         job_id=job_id,
-        package_key=PACKAGE_3_KEY,
+        package_key=ENGLISH_QR_MENU_KEY,
         zip_path=zip_path,
         manifest=manifest,
         pdf_paths=[sign_pdf],
@@ -398,9 +398,9 @@ def approve_qr_package(
     if not export_qa["ok"]:
         raise QRMenuError("QR package approval blocked: export_qa_failed")
 
-    job["package_key"] = PACKAGE_3_KEY
-    job["package_label"] = PACKAGE_3_LABEL
-    job["price_yen"] = PACKAGE_3_PRICE_YEN
+    job["package_key"] = ENGLISH_QR_MENU_KEY
+    job["package_label"] = ENGLISH_QR_MENU_LABEL
+    job["price_yen"] = ENGLISH_QR_MENU_PRICE_YEN
     job["review_status"] = "approved"
     job["reviewed_by"] = reviewer
     job["reviewed_at"] = now
@@ -473,6 +473,7 @@ def confirm_qr_content(
         raise QRMenuError("QR content cannot be confirmed before structured extraction is complete")
 
     source = _read_state_source(state_root, job["menu_id"], job["version_id"])
+    confirm_prices = bool(payload.get("confirm_prices", True))
     confirm_descriptions = bool(payload.get("confirm_descriptions", True))
     confirm_ingredient_allergen = bool(payload.get("confirm_ingredient_allergen", True))
     confirmed_by = str(payload.get("confirmed_by") or "operator")
@@ -484,6 +485,16 @@ def confirm_qr_content(
     any_changes = False
     for item in source.get("items") or []:
         updated_item = dict(item)
+        if confirm_prices and str(item.get("price") or "").strip():
+            updated_item["price_confirmation"] = _confirmed_content_record(
+                kind="price",
+                source=confirmation_source,
+                confirmed_by=confirmed_by,
+                confirmed_at=confirmed_at,
+                notes=notes,
+            )
+            updated_item["price_confirmed"] = True
+            any_changes = True
         if confirm_descriptions and str(item.get("description") or "").strip():
             updated_item["description_confirmation"] = _confirmed_content_record(
                 kind="description",
@@ -505,7 +516,7 @@ def confirm_qr_content(
         updated_items.append(updated_item)
 
     if not any_changes:
-        raise QRMenuError("No owner-provided description or ingredient/allergen content was available to confirm")
+        raise QRMenuError("No owner-provided price, description, ingredient, or allergy content was available to confirm")
 
     updated_source = {
         **source,
@@ -527,6 +538,7 @@ def confirm_qr_content(
             "version_id": job["version_id"],
             "confirmed_by": confirmed_by,
             "confirmation_source": confirmation_source,
+            "confirm_prices": confirm_prices,
             "confirm_descriptions": confirm_descriptions,
             "confirm_ingredient_allergen": confirm_ingredient_allergen,
         },
@@ -681,19 +693,19 @@ def validate_source_for_publish(*, source: dict[str, Any], public_dir: Path | No
     if not items:
         errors.append("menu_items_missing")
     for idx, item in enumerate(items):
-        if not item.get("name"):
+        if not item.get("english_name"):
             errors.append(f"item_{idx}_english_name_missing")
         if not item.get("japanese_name"):
             errors.append(f"item_{idx}_japanese_name_missing")
-        if requirements["descriptions_required"] and not item.get("description"):
-            (warnings if draft else errors).append(f"item_{idx}_description_missing")
-        if item.get("description") and not _content_is_owner_confirmed(item.get("description_confirmation")):
+        if str(item.get("price") or "").strip() and not _content_field_confirmed(item, "price"):
+            (warnings if draft else errors).append(f"item_{idx}_price_owner_confirmation_required")
+        if item.get("description") and not _content_field_confirmed(item, "description"):
             (warnings if draft else errors).append(f"item_{idx}_description_owner_confirmation_required")
-        if requirements["ingredient_allergen_required"] and not _item_has_ingredient_allergen_content(item):
-            (warnings if draft else errors).append(f"item_{idx}_ingredient_allergen_missing")
-        if _item_has_ingredient_allergen_content(item) and not _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation")):
-            (warnings if draft else errors).append(f"item_{idx}_ingredient_allergen_owner_confirmation_required")
-        if str(item.get("name") or "").startswith("["):
+        if (item.get("ingredients") or []) and not _content_field_confirmed(item, "ingredients"):
+            (warnings if draft else errors).append(f"item_{idx}_ingredients_owner_confirmation_required")
+        if ((item.get("allergens") or []) or str(item.get("allergy_notes") or "").strip()) and not _content_field_confirmed(item, "allergens"):
+            (warnings if draft else errors).append(f"item_{idx}_allergens_owner_confirmation_required")
+        if str(item.get("english_name") or "").startswith("["):
             errors.append(f"item_{idx}_unresolved_translation")
     if public_dir:
         for filename in ("index.html", "menu.json", "qr.svg"):
@@ -728,7 +740,7 @@ def _source_from_reply(
         "reply_id": str(reply.get("reply_id") or ""),
         "items": items,
         "photo_assets": _stored_photo_assets(reply),
-        "ticket_machine": payload.get("ticket_machine") or None,
+        "structured_options": payload.get("structured_options") or payload.get("options") or None,
         "content_requirements": _content_requirements_from_payload(payload),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -834,18 +846,38 @@ def _normalise_qr_item(item: dict[str, Any], *, section_title: str = "") -> dict
     if isinstance(allergens, str):
         allergens = [part.strip() for part in re.split(r"[,、]", allergens) if part.strip()]
     description = str(item.get("description") or "")
+    english_name = str(item.get("english_name") or item.get("name") or "")
+    japanese_name = str(item.get("japanese_name") or item.get("ja") or "")
+    price = str(item.get("price") or "")
     return {
-        "name": str(item.get("name") or ""),
-        "japanese_name": str(item.get("japanese_name") or item.get("ja") or ""),
-        "price": str(item.get("price") or ""),
+        "category": str(item.get("category") or item.get("section") or section_title or "Menu"),
+        "english_name": english_name,
+        "name": english_name,
+        "japanese_name": japanese_name,
+        "price": price,
         "description": description,
         "ingredients": ingredients,
         "allergens": allergens,
-        "section": str(item.get("section") or section_title or "Menu"),
-        "photo": str(item.get("photo") or ""),
-        "source_text": str(item.get("source_text") or item.get("japanese_name") or item.get("name") or ""),
+        "allergy_notes": str(item.get("allergy_notes") or item.get("allergen_notes") or ""),
+        "section": str(item.get("section") or item.get("category") or section_title or "Menu"),
+        "image_url": str(item.get("image_url") or item.get("photo") or ""),
+        "photo": str(item.get("photo") or item.get("image_url") or ""),
+        "tags": list(item.get("tags") or []),
+        "options": list(item.get("options") or []),
+        "visible": item.get("visible") is not False,
+        "price_confirmed": bool(item.get("price_confirmed")) or _content_is_owner_confirmed(item.get("price_confirmation")),
+        "description_confirmed": bool(item.get("description_confirmed")) or _content_is_owner_confirmed(item.get("description_confirmation")),
+        "ingredients_confirmed": bool(item.get("ingredients_confirmed")) or _content_is_owner_confirmed(item.get("ingredients_confirmation")) or _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation")),
+        "allergens_confirmed": bool(item.get("allergens_confirmed")) or _content_is_owner_confirmed(item.get("allergens_confirmation")) or _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation")),
+        "source_text": str(item.get("source_text") or japanese_name or english_name),
         "source_provenance": str(item.get("source_provenance") or ""),
         "approval_status": str(item.get("approval_status") or "pending_review"),
+        "price_confirmation": _normalise_content_confirmation(
+            item.get("price_confirmation"),
+            content_present=bool(price.strip()),
+            content_kind="price",
+            default_source=str(item.get("source_provenance") or ""),
+        ),
         "description_confirmation": _normalise_content_confirmation(
             item.get("description_confirmation"),
             content_present=bool(description.strip()),
@@ -951,60 +983,59 @@ def _copy_public_photo_assets(public_dir: Path, source: dict[str, Any]) -> None:
 
 
 def _public_menu_json(source: dict[str, Any], *, public_url: str, draft: bool) -> dict[str, Any]:
+    items = [_public_menu_item(item) for item in source.get("items") or [] if item.get("visible") is not False]
     return {
         "restaurant_name": source.get("restaurant_name", ""),
         "menu_id": source.get("menu_id", ""),
         "version_id": source.get("version_id", ""),
         "public_url": public_url,
         "draft": draft,
-        "items": source.get("items") or [],
-        "ticket_machine": source.get("ticket_machine"),
+        "items": items,
         "content_requirements": _content_requirements(source),
     }
 
 
 def _render_mobile_menu_html(source: dict[str, Any], *, public_url: str, draft: bool) -> str:
     restaurant = html.escape(str(source.get("restaurant_name") or "English Menu"))
-    items = source.get("items") or []
+    items = [_public_menu_item(item) for item in source.get("items") or [] if item.get("visible") is not False]
+    items_json = json.dumps(items, ensure_ascii=False).replace("</", "<\\/")
     sections: dict[str, list[dict[str, Any]]] = {}
     for item in items:
-        sections.setdefault(str(item.get("section") or "Menu"), []).append(item)
+        sections.setdefault(str(item.get("category") or "Menu"), []).append(item)
 
     section_nav = "".join(f'<a href="#sec-{slugify(name)}">{html.escape(name)}</a>' for name in sections)
     cards = []
     for section, section_items in sections.items():
         cards.append(f'<section id="sec-{slugify(section)}"><h2>{html.escape(section)}</h2>')
-        for item in section_items:
+        for index, item in enumerate(section_items):
+            item_id = html.escape(str(item.get("id") or f"{slugify(section)}-{index}"))
             desc = html.escape(str(item.get("description") or ""))
             ingredients = item.get("ingredients") or []
-            allergens = item.get("allergens") or []
-            gaps = []
-            if not desc:
-                gaps.append("Missing description")
-            if not ingredients and not allergens:
-                gaps.append("Missing ingredients or allergens")
-            gap_html = ""
-            if draft and gaps:
-                gap_html = f'<div class="review-gap" data-review-gap="true">{" · ".join(gaps)}</div>'
+            allergy_notes = str(item.get("allergy_notes") or "")
+            image_url = str(item.get("image_url") or "")
+            image_html = f'<img class="dish-photo" src="{html.escape(image_url, quote=True)}" alt="">' if image_url else ""
             ingredient_html = ""
             if ingredients:
                 ingredient_html = '<p class="ingredients">Ingredients: ' + html.escape(", ".join(map(str, ingredients))) + "</p>"
-            allergen_html = ""
-            if allergens:
-                allergen_html = '<p class="ingredients">Allergens: ' + html.escape(", ".join(map(str, allergens))) + "</p>"
+            allergen_html = f'<p class="ingredients">Allergy notes: {html.escape(allergy_notes)}</p>' if allergy_notes else ""
+            tags = "".join(f'<span>{html.escape(str(tag))}</span>' for tag in item.get("tags") or [])
+            options_html = _render_option_controls(item)
+            price_html = f'<span class="price">{html.escape(str(item.get("price") or ""))}</span>' if item.get("price") else ""
+            desc_html = f'<p class="desc">{desc}</p>' if desc else ""
+            tags_html = f'<div class="tags">{tags}</div>' if tags else ""
             cards.append(
-                '<article class="dish-card">'
-                f'<div><h3>{html.escape(str(item.get("name") or ""))}</h3>'
+                f'<article class="dish-card" data-item-id="{item_id}">'
+                f'{image_html}'
+                f'<div class="dish-top"><div><h3>{html.escape(str(item.get("english_name") or ""))}</h3>'
                 f'<p class="jp">{html.escape(str(item.get("japanese_name") or ""))}</p></div>'
-                f'<span class="price">{html.escape(str(item.get("price") or ""))}</span>'
-                f'{f"<p>{desc}</p>" if desc else ""}{ingredient_html}{allergen_html}{gap_html}'
+                f'{price_html}</div>'
+                f'{desc_html}{ingredient_html}{allergen_html}'
+                f'{tags_html}'
+                f'{options_html}'
+                f'<button type="button" class="add-btn" data-id="{item_id}">Add to list</button>'
                 '</article>'
             )
         cards.append("</section>")
-
-    ticket_html = ""
-    if source.get("ticket_machine"):
-        ticket_html = '<section id="ticket"><h2>Ordering Guide</h2><p>Use this guide at the ticket machine before handing your ticket to staff.</p></section>'
 
     draft_banner = '<div class="draft-banner">WRM_REVIEW_ONLY · Draft menu pending review</div>' if draft else ""
     return f"""<!doctype html>
@@ -1015,36 +1046,219 @@ def _render_mobile_menu_html(source: dict[str, Any], *, public_url: str, draft: 
 <meta name="robots" content="noindex,nofollow">
 <title>{restaurant} English Menu</title>
 <style>
-:root {{ color-scheme: light; --ink:#151515; --muted:#687076; --line:#E6E2D8; --accent:#0E7A8A; --paper:#FFFEFA; }}
+:root {{ color-scheme: light; --ink:#151515; --muted:#5D666D; --line:#D9DED8; --accent:#0B6B5C; --paper:#FFFEFA; --field:#F3F6F1; }}
 * {{ box-sizing: border-box; }}
-body {{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#F7F4EC; }}
-header {{ padding:28px 18px 14px; background:var(--paper); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:2; }}
+body {{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#F7F4EC; padding-bottom:88px; }}
+button,select {{ font:inherit; }}
+header {{ padding:22px 18px 12px; background:var(--paper); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:2; }}
 h1 {{ margin:0; font-size:28px; letter-spacing:0; }}
 .sub {{ margin-top:8px; color:var(--muted); line-height:1.45; }}
-nav {{ display:flex; gap:8px; overflow-x:auto; padding:12px 18px; background:rgba(255,254,250,.92); position:sticky; top:102px; z-index:2; border-bottom:1px solid var(--line); }}
-nav a {{ flex:0 0 auto; color:var(--accent); text-decoration:none; border:1px solid #BFE5EA; border-radius:999px; padding:8px 12px; font-weight:700; font-size:13px; background:#ECFEFF; }}
+nav {{ display:flex; gap:8px; overflow-x:auto; padding:10px 18px; background:rgba(255,254,250,.94); position:sticky; top:88px; z-index:2; border-bottom:1px solid var(--line); }}
+nav a {{ flex:0 0 auto; color:var(--accent); text-decoration:none; border:1px solid #B8D8D1; border-radius:999px; padding:8px 12px; font-weight:700; font-size:13px; background:#F1FFFC; }}
 main {{ padding:18px; max-width:760px; margin:0 auto; }}
 section {{ margin:0 0 28px; }}
-h2 {{ font-size:13px; text-transform:uppercase; color:var(--muted); letter-spacing:.12em; margin:0 0 10px; }}
-.dish-card {{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:10px; box-shadow:0 6px 18px rgba(0,0,0,.04); }}
+h2 {{ font-size:13px; text-transform:uppercase; color:var(--muted); letter-spacing:.08em; margin:0 0 10px; }}
+.dish-card {{ background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; box-shadow:0 5px 14px rgba(0,0,0,.04); }}
+.dish-photo {{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:6px; margin-bottom:12px; background:#E8ECE5; }}
+.dish-top {{ display:flex; align-items:start; justify-content:space-between; gap:14px; }}
 .dish-card h3 {{ margin:0; font-size:20px; }}
 .jp {{ margin:4px 0 0; color:var(--muted); }}
-.price {{ display:inline-block; margin-top:10px; font-weight:800; }}
+.price {{ flex:0 0 auto; font-weight:800; }}
+.desc {{ line-height:1.52; }}
 .ingredients {{ color:#39434A; font-size:14px; line-height:1.5; }}
-.review-gap,.draft-banner {{ background:#FFF7ED; color:#9A3412; border:1px solid #FDBA74; border-radius:10px; padding:9px 10px; font-size:13px; margin-top:10px; }}
+.tags {{ display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }}
+.tags span {{ border:1px solid var(--line); background:var(--field); border-radius:999px; padding:5px 8px; font-size:12px; color:#32413D; }}
+.option-grid {{ display:grid; gap:8px; margin-top:10px; }}
+.option-grid label {{ display:grid; gap:5px; font-size:13px; font-weight:700; color:#33413E; }}
+.option-grid select {{ min-height:38px; border:1px solid var(--line); border-radius:6px; background:white; padding:7px 9px; }}
+.add-btn,.show-btn,.quiet-btn {{ border:0; border-radius:8px; min-height:44px; padding:10px 14px; font-weight:800; cursor:pointer; }}
+.add-btn {{ width:100%; margin-top:12px; background:#0B6B5C; color:white; }}
+.show-btn {{ background:#151515; color:#fff; }}
+.quiet-btn {{ background:#EFF2ED; color:#1F2926; }}
+.list-bar {{ position:fixed; left:0; right:0; bottom:0; z-index:5; background:rgba(255,254,250,.98); border-top:1px solid var(--line); padding:10px 14px; box-shadow:0 -8px 22px rgba(0,0,0,.08); }}
+.list-inner {{ max-width:760px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; }}
+.list-count {{ font-weight:900; }}
+.panel {{ position:fixed; inset:0; background:var(--paper); z-index:10; transform:translateY(100%); transition:transform .2s ease; overflow:auto; padding:18px; }}
+.panel.is-open {{ transform:translateY(0); }}
+.panel-head {{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:760px; margin:0 auto 14px; }}
+.panel-body {{ max-width:760px; margin:0 auto; display:grid; gap:10px; }}
+.review-row,.staff-row {{ border:1px solid var(--line); border-radius:8px; padding:12px; background:#fff; }}
+.review-row-top {{ display:flex; align-items:start; justify-content:space-between; gap:10px; }}
+.qty {{ display:inline-flex; align-items:center; gap:8px; }}
+.qty button {{ width:34px; height:34px; border:1px solid var(--line); border-radius:6px; background:#F7F8F5; font-weight:900; }}
+.staff-ja {{ font-size:24px; font-weight:900; line-height:1.18; }}
+.staff-meta {{ margin-top:5px; color:var(--muted); }}
+.staff-options {{ margin-top:8px; font-weight:800; }}
+.empty {{ color:var(--muted); text-align:center; padding:34px 12px; border:1px dashed var(--line); border-radius:8px; }}
+.review-gap,.draft-banner {{ background:#FFF7ED; color:#9A3412; border:1px solid #FDBA74; border-radius:8px; padding:9px 10px; font-size:13px; margin-top:10px; }}
 .draft-banner {{ margin:12px 18px 0; }}
 footer {{ padding:28px 18px 40px; color:var(--muted); text-align:center; }}
 </style>
 </head>
 <body>
 {draft_banner}
-<header><h1>{restaurant}</h1><p class="sub">English menu for easy ordering. Please confirm availability and prices with staff.</p></header>
-<nav>{section_nav}{'<a href="#ticket">Ordering Guide</a>' if ticket_html else ''}</nav>
-<main>{"".join(cards)}{ticket_html}</main>
+<script id="menu-data" type="application/json">{items_json}</script>
+<header><h1>{restaurant}</h1><p class="sub">Scan for English Menu. Add items to a list, then show Japanese item names to staff.</p></header>
+<nav>{section_nav}</nav>
+<main>{"".join(cards)}</main>
+<div class="list-bar">
+  <div class="list-inner">
+    <div><div class="list-count"><span id="selected-count">0</span> selected</div><div class="sub">Show this list to staff when ready.</div></div>
+    <button type="button" class="show-btn" id="open-review">Review list</button>
+  </div>
+</div>
+<section class="panel" id="review-panel" aria-label="Review list">
+  <div class="panel-head"><h2>Review List</h2><button type="button" class="quiet-btn" data-close="review-panel">Close</button></div>
+  <div class="panel-body" id="review-list"></div>
+  <div class="panel-body"><button type="button" class="show-btn" id="show-staff">Show to staff</button></div>
+</section>
+<section class="panel" id="staff-panel" aria-label="Show Staff List">
+  <div class="panel-head"><h2>Show this list to staff</h2><button type="button" class="quiet-btn" data-close="staff-panel">Back</button></div>
+  <div class="panel-body" id="staff-list"></div>
+</section>
 <footer>Hosted by WebRefurb · {html.escape(public_url)}</footer>
+<script>
+const menuItems = JSON.parse(document.getElementById('menu-data').textContent || '[]');
+const list = new Map();
+function itemById(id) {{ return menuItems.find(item => item.id === id); }}
+function selectedOptions(card) {{
+  const out = {{}};
+  card.querySelectorAll('select[data-option-name]').forEach(select => {{ out[select.dataset.optionName] = select.value; }});
+  return out;
+}}
+function optionKey(options) {{ return Object.keys(options).sort().map(k => k + ':' + options[k]).join('|'); }}
+function rowKey(id, options) {{ return id + '::' + optionKey(options); }}
+function updateCount() {{
+  let count = 0;
+  list.forEach(row => count += row.qty);
+  document.getElementById('selected-count').textContent = String(count);
+}}
+function renderReview() {{
+  const root = document.getElementById('review-list');
+  const rows = Array.from(list.values());
+  if (!rows.length) {{ root.innerHTML = '<div class="empty">No items selected.</div>'; return; }}
+  root.innerHTML = rows.map(row => {{
+    const options = Object.entries(row.options).filter(([,v]) => v).map(([k,v]) => `${{k}}: ${{v}}`).join(' / ');
+    return `<div class="review-row">
+      <div class="review-row-top"><div><strong>${{row.item.english_name}}</strong><div class="jp">${{row.item.japanese_name}}</div>${{options ? `<div class="staff-options">${{options}}</div>` : ''}}</div>
+      <div class="qty"><button type="button" data-dec="${{row.key}}">-</button><strong>${{row.qty}}</strong><button type="button" data-inc="${{row.key}}">+</button></div></div>
+      <button type="button" class="quiet-btn" data-remove="${{row.key}}">Remove</button>
+    </div>`;
+  }}).join('');
+}}
+function renderStaff() {{
+  const root = document.getElementById('staff-list');
+  const rows = Array.from(list.values());
+  if (!rows.length) {{ root.innerHTML = '<div class="empty">No items selected.</div>'; return; }}
+  root.innerHTML = rows.map(row => {{
+    const options = Object.entries(row.options).filter(([,v]) => v).map(([k,v]) => `${{k}}: ${{v}}`).join(' / ');
+    return `<div class="staff-row">
+      <div class="staff-ja">${{row.item.japanese_name}}</div>
+      <div class="staff-options">Quantity: ${{row.qty}}${{options ? ' / ' + options : ''}}</div>
+      <div class="staff-meta">${{row.item.english_name}}${{row.item.price ? ' · ' + row.item.price : ''}}</div>
+    </div>`;
+  }}).join('');
+}}
+document.addEventListener('click', event => {{
+  const add = event.target.closest('.add-btn');
+  if (add) {{
+    const card = add.closest('.dish-card');
+    const item = itemById(add.dataset.id);
+    if (!item || !card) return;
+    const options = selectedOptions(card);
+    const key = rowKey(item.id, options);
+    const existing = list.get(key);
+    list.set(key, existing ? {{...existing, qty: existing.qty + 1}} : {{key, item, options, qty: 1}});
+    updateCount();
+    return;
+  }}
+  const inc = event.target.closest('[data-inc]');
+  if (inc && list.has(inc.dataset.inc)) {{ const row = list.get(inc.dataset.inc); row.qty += 1; renderReview(); updateCount(); return; }}
+  const dec = event.target.closest('[data-dec]');
+  if (dec && list.has(dec.dataset.dec)) {{ const row = list.get(dec.dataset.dec); row.qty -= 1; if (row.qty <= 0) list.delete(dec.dataset.dec); renderReview(); updateCount(); return; }}
+  const rem = event.target.closest('[data-remove]');
+  if (rem) {{ list.delete(rem.dataset.remove); renderReview(); updateCount(); return; }}
+  const close = event.target.closest('[data-close]');
+  if (close) {{ document.getElementById(close.dataset.close).classList.remove('is-open'); return; }}
+}});
+document.getElementById('open-review').addEventListener('click', () => {{ renderReview(); document.getElementById('review-panel').classList.add('is-open'); }});
+document.getElementById('show-staff').addEventListener('click', () => {{ renderStaff(); document.getElementById('staff-panel').classList.add('is-open'); }});
+</script>
 </body>
 </html>
 """
+
+
+def _render_option_controls(item: dict[str, Any]) -> str:
+    options = item.get("options") or []
+    rows: list[str] = []
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        name = str(option.get("name") or option.get("label") or "").strip()
+        values = option.get("values") or option.get("choices") or []
+        if isinstance(values, str):
+            values = [part.strip() for part in re.split(r"[,、/]", values) if part.strip()]
+        values = [str(value).strip() for value in values if str(value).strip()]
+        if not name or not values:
+            continue
+        choices = "".join(f'<option value="{html.escape(value, quote=True)}">{html.escape(value)}</option>' for value in values)
+        rows.append(
+            '<label>'
+            f'{html.escape(name)}'
+            f'<select data-option-name="{html.escape(name, quote=True)}">{choices}</select>'
+            '</label>'
+        )
+    return f'<div class="option-grid">{"".join(rows)}</div>' if rows else ""
+
+
+def _public_menu_item(item: dict[str, Any]) -> dict[str, Any]:
+    public: dict[str, Any] = {
+        "id": str(item.get("id") or _item_public_id(item)),
+        "category": str(item.get("category") or item.get("section") or "Menu"),
+        "japanese_name": str(item.get("japanese_name") or ""),
+        "english_name": str(item.get("english_name") or item.get("name") or ""),
+        "tags": list(item.get("tags") or []),
+        "options": _public_options(item.get("options") or []),
+    }
+    if item.get("image_url") or item.get("photo"):
+        public["image_url"] = str(item.get("image_url") or item.get("photo") or "")
+    if str(item.get("price") or "").strip() and _content_field_confirmed(item, "price"):
+        public["price"] = str(item.get("price") or "")
+    if str(item.get("description") or "").strip() and _content_field_confirmed(item, "description"):
+        public["description"] = str(item.get("description") or "")
+    if (item.get("ingredients") or []) and _content_field_confirmed(item, "ingredients"):
+        public["ingredients"] = list(item.get("ingredients") or [])
+    allergy_notes = str(item.get("allergy_notes") or "")
+    allergens = item.get("allergens") or []
+    if (allergy_notes or allergens) and _content_field_confirmed(item, "allergens"):
+        public["allergy_notes"] = allergy_notes or ", ".join(map(str, allergens))
+    return public
+
+
+def _public_options(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    options: list[dict[str, Any]] = []
+    for option in value:
+        if not isinstance(option, dict):
+            continue
+        name = str(option.get("name") or option.get("label") or "").strip()
+        values = option.get("values") or option.get("choices") or []
+        if isinstance(values, str):
+            values = [part.strip() for part in re.split(r"[,、/]", values) if part.strip()]
+        values = [str(item).strip() for item in values if str(item).strip()]
+        if name and values:
+            options.append({"name": name, "values": values})
+    return options
+
+
+def _item_public_id(item: dict[str, Any]) -> str:
+    return slugify("-".join([
+        str(item.get("category") or item.get("section") or "menu"),
+        str(item.get("japanese_name") or ""),
+        str(item.get("english_name") or item.get("name") or ""),
+    ])) or uuid.uuid4().hex[:8]
 
 
 def _render_qr_sign_html(source: dict[str, Any], *, public_url: str, draft: bool) -> str:
@@ -1123,8 +1337,8 @@ def _render_qr_svg(url: str) -> str:
 
 def _qr_package_manifest(*, job: dict[str, Any], health: dict[str, Any], artifacts: list[dict[str, Any]]) -> dict[str, Any]:
     manifest = package_manifest(
-        package_key=PACKAGE_3_KEY,
-        package_label=PACKAGE_3_LABEL,
+        package_key=ENGLISH_QR_MENU_KEY,
+        package_label=ENGLISH_QR_MENU_LABEL,
         restaurant_name=str(job.get("restaurant_name") or ""),
         job_id=str(job.get("job_id") or ""),
         approval_timestamp=str(job.get("reviewed_at") or datetime.now(timezone.utc).isoformat()),
@@ -1142,7 +1356,7 @@ def _qr_package_manifest(*, job: dict[str, Any], health: dict[str, Any], artifac
     manifest["published_version_id"] = job.get("published_version_id", "")
     manifest["live_url"] = job.get("live_url", "")
     manifest["health"] = health
-    manifest["price_yen"] = PACKAGE_3_PRICE_YEN
+    manifest["price_yen"] = ENGLISH_QR_MENU_PRICE_YEN
     return manifest
 
 
@@ -1369,6 +1583,28 @@ def _content_is_owner_confirmed(value: Any) -> bool:
     return isinstance(value, dict) and str(value.get("status") or "") == "confirmed_by_owner"
 
 
+def _content_field_confirmed(item: dict[str, Any], field: str) -> bool:
+    if field == "price":
+        return bool(item.get("price_confirmed")) or _content_is_owner_confirmed(item.get("price_confirmation"))
+    if field == "description":
+        return bool(item.get("description_confirmed")) or _content_is_owner_confirmed(item.get("description_confirmation"))
+    if field == "ingredients":
+        return (
+            bool(item.get("ingredients_confirmed"))
+            or _content_is_owner_confirmed(item.get("ingredients_confirmation"))
+            or _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation"))
+        )
+    if field == "allergens":
+        return (
+            bool(item.get("allergens_confirmed"))
+            or _content_is_owner_confirmed(item.get("allergens_confirmation"))
+            or _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation"))
+        )
+    if field == "ingredient_allergen":
+        return _content_field_confirmed(item, "ingredients") and _content_field_confirmed(item, "allergens")
+    return False
+
+
 def _default_confirmation_source(source: dict[str, Any]) -> str:
     reply_id = str(source.get("reply_id") or "")
     if reply_id:
@@ -1379,24 +1615,35 @@ def _default_confirmation_source(source: dict[str, Any]) -> str:
 
 
 def _item_has_ingredient_allergen_content(item: dict[str, Any]) -> bool:
-    return bool((item.get("ingredients") or []) or (item.get("allergens") or []))
+    return bool((item.get("ingredients") or []) or (item.get("allergens") or []) or str(item.get("allergy_notes") or "").strip())
 
 
 def _owner_confirmation_summary(source: dict[str, Any]) -> dict[str, Any]:
+    price_required = 0
+    price_confirmed = 0
     description_required = 0
     description_confirmed = 0
     ingredient_allergen_required = 0
     ingredient_allergen_confirmed = 0
     for item in source.get("items") or []:
+        if item.get("price"):
+            price_required += 1
+            if _content_field_confirmed(item, "price"):
+                price_confirmed += 1
         if item.get("description"):
             description_required += 1
-            if _content_is_owner_confirmed(item.get("description_confirmation")):
+            if _content_field_confirmed(item, "description"):
                 description_confirmed += 1
         if _item_has_ingredient_allergen_content(item):
             ingredient_allergen_required += 1
-            if _content_is_owner_confirmed(item.get("ingredient_allergen_confirmation")):
+            ingredients_ok = not (item.get("ingredients") or []) or _content_field_confirmed(item, "ingredients")
+            allergens_ok = not ((item.get("allergens") or []) or str(item.get("allergy_notes") or "").strip()) or _content_field_confirmed(item, "allergens")
+            if ingredients_ok and allergens_ok:
                 ingredient_allergen_confirmed += 1
     return {
+        "price_required_count": price_required,
+        "price_confirmed_count": price_confirmed,
+        "price_pending_count": max(price_required - price_confirmed, 0),
         "description_required_count": description_required,
         "description_confirmed_count": description_confirmed,
         "description_pending_count": max(description_required - description_confirmed, 0),

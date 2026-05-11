@@ -85,6 +85,16 @@ ENGLISH_MENU_TOKENS = (
     "多言語",
     "multilingual",
 )
+QR_MENU_TOKENS = (
+    "QRメニュー",
+    "QRコードメニュー",
+    "QRコード",
+    "qr menu",
+    "qr code menu",
+    "二次元コード",
+    "スマホメニュー",
+    "スマートフォンメニュー",
+)
 RAMEN_TOKENS = ("ラーメン", "らーめん", "らぁめん", "ramen", "中華そば", "つけ麺")
 IZAKAYA_TOKENS = ("居酒屋", "izakaya", "飲み放題", "お品書き", "焼鳥", "焼き鳥")
 JP_PREFECTURE_PREFIXES = (
@@ -111,6 +121,7 @@ class SourceEvidence:
     social_links: list[str] = field(default_factory=list)
     menu_evidence_found: bool = False
     english_menu_signal: bool = False
+    qr_menu_signal: bool = False
     category_signal: str = ""
     match_strength: str = "weak"
     title: str = ""
@@ -427,6 +438,7 @@ def _build_intel(
             for item in evidence
         ),
         "has_english_menu_signal": any(item.english_menu_signal for item in evidence),
+        "has_qr_menu_signal": any(item.qr_menu_signal for item in evidence),
         "operator_found": bool(operator_item),
         "contact_found": False,
         "portal_only": bool(portal_urls and not official_candidates),
@@ -497,6 +509,7 @@ def _evidence_from_search_result(
             social_links=[link],
             menu_evidence_found=_has_menu_signal(_result_text(result)),
             english_menu_signal=_has_english_signal(_result_text(result)),
+            qr_menu_signal=_has_qr_signal(_result_text(result)),
             match_strength="name",
             title=str(result.get("title") or ""),
             snippet=str(result.get("snippet") or ""),
@@ -825,6 +838,11 @@ def _has_menu_signal(text: str) -> bool:
 def _has_english_signal(text: str) -> bool:
     lowered = str(text or "").lower()
     return any(token.lower() in lowered for token in ENGLISH_MENU_TOKENS)
+
+
+def _has_qr_signal(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(token.lower() in lowered for token in QR_MENU_TOKENS)
 
 
 def _category_from_text(text: str) -> str:

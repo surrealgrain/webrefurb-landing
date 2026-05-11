@@ -216,7 +216,7 @@ def is_opportunistic_pitch_candidate(record: dict[str, Any]) -> bool:
     if _hard_block_reasons(record):
         return False
     category = str(record.get("primary_category_v1") or record.get("category") or record.get("type_of_restaurant") or "").strip()
-    if category not in {"ramen", "izakaya"}:
+    if category not in {"ramen", "soba", "izakaya"}:
         return False
     if not _has_supported_route(record):
         return False

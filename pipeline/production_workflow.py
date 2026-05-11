@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .constants import PACKAGE_1_KEY, PACKAGE_2_KEY, PACKAGE_3_KEY
+from .constants import ENGLISH_QR_MENU_KEY
 from .extract import extract_from_file, extract_from_text
 from .ocr import extract_ocr_hints
 from .utils import write_json
@@ -20,7 +20,6 @@ REPLY_INTENTS = {
     "interested",
     "price_question",
     "menu_photos_sent",
-    "ticket_machine_photos_sent",
     "other_question",
     "not_interested",
     "unsubscribe",
@@ -31,7 +30,7 @@ NEXT_ACTIONS = {
     "review_uploaded_photos",
     "answer_question",
     "send_quote",
-    "build_sample",
+    "build_trial",
     "close",
 }
 
@@ -54,8 +53,6 @@ ORDER_STAGE_SEQUENCE = (
 OWNER_ASSET_TYPES = {
     "food_menu_photo",
     "drink_menu_photo",
-    "course_nomihodai_rules",
-    "ticket_machine_photo",
     "wall_menu_signage",
     "shop_logo",
     "food_item_photo",
@@ -95,7 +92,7 @@ PRODUCTION_QA_KEYS = (
     "english_labels_reviewed",
     "prices_hidden_or_owner_confirmed",
     "allergens_ingredients_hidden_or_owner_confirmed",
-    "ticket_machine_buttons_mapped_or_unresolved",
+    "structured_options_reviewed",
     "pdf_mobile_previews_rendered",
     "visual_overflow_checks_passed",
     "forbidden_customer_language_scan_passed",
@@ -150,8 +147,6 @@ def classify_reply_intent(body: str, attachments: Any = None) -> dict[str, Any]:
         token in text for token in ("不要", "必要ありません", "結構です", "お断り")
     ):
         return _intent("not_interested", signals, positive=False)
-    if (has_image or mentions_photo) and mentions_ticket:
-        return _intent("ticket_machine_photos_sent", signals, positive=True)
     if has_image or mentions_photo:
         return _intent("menu_photos_sent", signals, positive=True)
     if mentions_price:
@@ -190,9 +185,9 @@ def next_action_for_reply(
         return _next("review_uploaded_photos", "Review uploaded photos", "Classify each received owner asset as usable, needs better photo, or not needed.")
     if usable:
         if order and str((order.get("payment") or {}).get("status") or "") == "confirmed":
-            return _next("build_sample", "Build sample", "Paid order has usable production assets.")
+            return _next("build_trial", "Build trial", "Paid order has usable production assets.")
         return _next("send_quote", "Send quote", "Usable assets are ready; confirm package and quote before production.")
-    return _next("ask_for_photos", "Ask for photos", "Positive reply needs current menu or ticket-machine photos.")
+    return _next("ask_for_photos", "Ask for photos", "Positive reply needs current menu photos, files, or text.")
 
 
 def build_order_intake_record(
@@ -324,9 +319,9 @@ def ingest_owner_assets(reply: dict[str, Any], *, state_root: Path) -> dict[str,
 def classify_owner_asset_type(*, filename: str, body: str = "", content_type: str = "") -> str:
     text = f"{filename} {body} {content_type}".lower()
     if _contains_any(text, _TICKET_WORDS):
-        return "ticket_machine_photo"
+        return "food_menu_photo"
     if _contains_any(text, _COURSE_WORDS):
-        return "course_nomihodai_rules"
+        return "food_menu_photo"
     if _contains_any(text, _DRINK_WORDS):
         return "drink_menu_photo"
     if _contains_any(text, _LOGO_WORDS):
@@ -384,7 +379,7 @@ def extract_structured_menu_content(*, raw_text: str = "", assets: list[dict[str
         for asset in assets or []:
             if asset.get("operator_status") != "usable":
                 continue
-            if asset.get("asset_type") not in {"food_menu_photo", "drink_menu_photo", "course_nomihodai_rules", "wall_menu_signage"}:
+            if asset.get("asset_type") not in {"food_menu_photo", "drink_menu_photo", "wall_menu_signage"}:
                 continue
             extracted.extend(extract_from_file(str(asset.get("original_path") or "")))
             if extracted:
@@ -420,52 +415,17 @@ def extract_structured_menu_content(*, raw_text: str = "", assets: list[dict[str
 
 
 def build_ticket_machine_mapping(*, assets: list[dict[str, Any]] | None = None, raw_text: str = "") -> dict[str, Any]:
-    """Create a visual ticket-machine mapping model suitable for UI rows."""
-    candidate_assets = [asset for asset in assets or [] if asset.get("asset_type") == "ticket_machine_photo"]
-    lines = [line.strip() for line in str(raw_text or "").splitlines() if line.strip()]
+    """Legacy adapter: ticket-machine mapping is retired for the QR menu reset."""
     rows: list[dict[str, Any]] = []
-    duplicate_labels: set[str] = set()
-    seen_labels: set[str] = set()
-    if lines:
-        for row_index, line in enumerate(lines[:8], start=1):
-            labels = [part.strip() for part in re.split(r"[,、\t|/]+", line) if part.strip()]
-            buttons = []
-            for col_index, label in enumerate(labels[:8], start=1):
-                if label in seen_labels:
-                    duplicate_labels.add(label)
-                seen_labels.add(label)
-                buttons.append({
-                    "row": row_index,
-                    "column": col_index,
-                    "group": _normalise_section(label),
-                    "color": "",
-                    "button_label": label,
-                    "linked_menu_item": "",
-                    "status": "unmapped",
-                })
-            rows.append({"row": row_index, "buttons": buttons})
-    elif candidate_assets:
-        rows.append({
-            "row": 1,
-            "buttons": [{
-                "row": 1,
-                "column": 1,
-                "group": "ramen",
-                "color": "",
-                "button_label": "unread_ticket_machine_button",
-                "linked_menu_item": "",
-                "status": "unmapped",
-            }],
-        })
     return {
-        "source_asset_ids": [str(asset.get("asset_id") or "") for asset in candidate_assets],
+        "source_asset_ids": [],
         "rows": rows,
         "columns": max((len(row["buttons"]) for row in rows), default=0),
         "groups": sorted({button["group"] for row in rows for button in row["buttons"]}),
         "unmapped_buttons": [button for row in rows for button in row["buttons"] if not button.get("linked_menu_item")],
-        "duplicate_labels": sorted(duplicate_labels),
+        "duplicate_labels": [],
         "ui": {
-            "type": "ticket_machine_grid",
+            "type": "structured_options",
             "row_count": len(rows),
             "button_count": sum(len(row["buttons"]) for row in rows),
         },
@@ -481,44 +441,37 @@ def recheck_package_fit(
 ) -> dict[str, Any]:
     """Re-score package fit after owner assets arrive."""
     if override_package_key:
+        if override_package_key != ENGLISH_QR_MENU_KEY:
+            return {
+                "package_key": ENGLISH_QR_MENU_KEY,
+                "requires_custom_quote": False,
+                "reason": "old_package_override_retired",
+                "blockers": ["active_product_required"],
+            }
         if not str(override_reason or "").strip():
             return {
-                "package_key": current_package_key or PACKAGE_1_KEY,
+                "package_key": ENGLISH_QR_MENU_KEY,
                 "requires_custom_quote": False,
                 "reason": "operator_override_requires_reason",
                 "blockers": ["operator_package_override_reason_missing"],
             }
         return {
             "package_key": override_package_key,
-            "requires_custom_quote": override_package_key == "custom_quote",
+            "requires_custom_quote": False,
             "reason": str(override_reason),
             "blockers": [],
         }
     usable_assets = [asset for asset in assets if asset.get("operator_status") == "usable"]
     types = {str(asset.get("asset_type") or "") for asset in usable_assets}
     if len(usable_assets) > 8:
-        return {"package_key": "custom_quote", "requires_custom_quote": True, "reason": "huge_or_unclear_asset_set_requires_custom_quote", "blockers": []}
+        return {"package_key": ENGLISH_QR_MENU_KEY, "requires_custom_quote": False, "reason": "large_asset_set_needs_manual_scope_review", "blockers": ["manual_scope_review_required"]}
     pending_asset_review = bool(assets) and not usable_assets
-    menu_rule_types = {"drink_menu_photo", "course_nomihodai_rules", "wall_menu_signage"}
-    if current_package_key == PACKAGE_3_KEY and assets:
-        return {
-            "package_key": PACKAGE_3_KEY,
-            "requires_custom_quote": False,
-            "reason": "current_qr_menu_package_preserved_for_owner_assets",
-            "blockers": ["owner_assets_need_review"] if pending_asset_review else [],
-        }
-    if len(types & menu_rule_types) >= 2:
-        return {"package_key": PACKAGE_3_KEY, "requires_custom_quote": False, "reason": "multiple_drink_course_rule_assets_fit_qr_menu", "blockers": []}
-    if current_package_key == PACKAGE_2_KEY and assets:
-        return {
-            "package_key": PACKAGE_2_KEY,
-            "requires_custom_quote": False,
-            "reason": "current_printed_delivery_package_preserved_for_owner_assets",
-            "blockers": ["owner_assets_need_review"] if pending_asset_review else [],
-        }
-    if "ticket_machine_photo" in types:
-        return {"package_key": PACKAGE_1_KEY, "requires_custom_quote": False, "reason": "ticket_machine_guide_fits_english_ordering_files", "blockers": []}
-    return {"package_key": PACKAGE_1_KEY, "requires_custom_quote": False, "reason": "simple_one_page_menu_fits_english_ordering_files", "blockers": []}
+    return {
+        "package_key": ENGLISH_QR_MENU_KEY,
+        "requires_custom_quote": False,
+        "reason": "english_qr_menu_show_staff_list_active_product",
+        "blockers": ["owner_assets_need_review"] if pending_asset_review else [],
+    }
 
 
 def build_production_workspace(
@@ -558,9 +511,9 @@ def build_production_workspace(
                 "photo_usage": "owner_photos_only",
                 "price_visibility": "owner_confirmed_only",
                 "outputs": {
-                    "qr": package_fit.get("package_key") == PACKAGE_3_KEY,
-                    "print": package_fit.get("package_key") in {PACKAGE_1_KEY, PACKAGE_2_KEY},
-                    "ticket": bool(ticket_mapping.get("rows")),
+                    "qr": package_fit.get("package_key") == ENGLISH_QR_MENU_KEY,
+                    "print_qr_sign": package_fit.get("package_key") == ENGLISH_QR_MENU_KEY,
+                    "show_staff_list": package_fit.get("package_key") == ENGLISH_QR_MENU_KEY,
                 },
                 "notes": "",
             }

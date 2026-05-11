@@ -9,7 +9,6 @@ from typing import Any
 
 from .contact_crawler import is_usable_business_email
 from .constants import (
-    LEAD_CATEGORY_IZAKAYA_DRINK_COURSE_GUIDE,
     LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION,
     LEAD_CATEGORY_RAMEN_MENU_TRANSLATION,
 )
@@ -84,7 +83,6 @@ RAMEN_MENU_TYPES = {
 }
 
 MENU_TYPE_TOKENS = (
-    ("yakitori", ("yakitori", "焼き鳥", "焼鳥", "やきとり")),
     ("kushiyaki", ("kushiyaki", "串焼き")),
     ("yakiton", ("yakiton", "やきとん")),
     ("kushikatsu", ("kushikatsu", "串カツ", "串かつ")),
@@ -102,15 +100,14 @@ MENU_TYPE_TOKENS = (
 )
 
 IZAKAYA_PROFILE_BY_MENU_TYPE = {
-    "yakitori": "izakaya_yakitori_kushiyaki",
-    "kushiyaki": "izakaya_yakitori_kushiyaki",
-    "yakiton": "izakaya_yakitori_kushiyaki",
-    "kushikatsu": "izakaya_kushiage",
-    "kushiage": "izakaya_kushiage",
-    "seafood_izakaya": "izakaya_seafood_sake_oden",
-    "oden": "izakaya_seafood_sake_oden",
-    "tachinomi": "izakaya_tachinomi",
-    "robatayaki": "izakaya_robatayaki",
+    "kushiyaki": "izakaya_food_and_drinks",
+    "yakiton": "izakaya_food_and_drinks",
+    "kushikatsu": "izakaya_food_and_drinks",
+    "kushiage": "izakaya_food_and_drinks",
+    "seafood_izakaya": "izakaya_food_and_drinks",
+    "oden": "izakaya_food_and_drinks",
+    "tachinomi": "izakaya_food_and_drinks",
+    "robatayaki": "izakaya_food_and_drinks",
     "sakaba": "izakaya_food_and_drinks",
     "izakaya": "izakaya_food_and_drinks",
 }
@@ -118,11 +115,6 @@ IZAKAYA_PROFILE_BY_MENU_TYPE = {
 PROFILE_LABELS = {
     "ramen_only": "Ramen Only",
     "izakaya_food_and_drinks": "Izakaya Food And Drinks",
-    "izakaya_yakitori_kushiyaki": "Yakitori / Kushiyaki",
-    "izakaya_kushiage": "Kushikatsu / Kushiage",
-    "izakaya_seafood_sake_oden": "Seafood / Sake / Oden",
-    "izakaya_tachinomi": "Tachinomi",
-    "izakaya_robatayaki": "Robatayaki",
 }
 
 
@@ -260,7 +252,13 @@ def establishment_profile_for(email_lead: dict[str, Any]) -> str:
 
 def template_assignment(email_lead: dict[str, Any]) -> dict[str, Any]:
     profile = establishment_profile_for(email_lead)
-    family = "izakaya" if profile.startswith("izakaya") else "ramen" if profile.startswith("ramen") else "manual_review"
+    family = (
+        "izakaya"
+        if profile.startswith("izakaya")
+        else "ramen"
+        if profile.startswith("ramen")
+        else "manual_review"
+    )
     assets = select_outreach_assets("menu_machine_unconfirmed", establishment_profile=profile)
     return {
         "template_locked": True,
@@ -361,8 +359,6 @@ def queue_record_from_email_lead(email_lead: dict[str, Any]) -> dict[str, Any]:
     lead_category = (
         LEAD_CATEGORY_RAMEN_MENU_TRANSLATION
         if top_level_category == "ramen"
-        else LEAD_CATEGORY_IZAKAYA_DRINK_COURSE_GUIDE
-        if profile in {"izakaya_seafood_sake_oden", "izakaya_tachinomi", "izakaya_robatayaki"}
         else LEAD_CATEGORY_IZAKAYA_MENU_TRANSLATION
     )
 

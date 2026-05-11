@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>鮨凪 — メニュー</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #E94560;
+      --accent-soft: #FFF0F2;
+      --accent-dark: #C73550;
+      --bg: #FAFAFA;
+      --card: #FFFFFF;
+      --text: #111111;
+      --text-secondary: #555555;
+      --text-muted: #999999;
+      --border: #EEEEEE;
+      --radius: 12px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 40px;
+      max-width: 430px;
+      margin: 0 auto;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250,250,250,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .header-top {
+      padding: 14px 20px 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .restaurant-logo {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      color: #FFF; font-weight: 800; font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    .restaurant-name h1 {
+      font-size: 19px; font-weight: 700; color: var(--text);
+      letter-spacing: -0.3px; line-height: 1.2;
+    }
+
+    .restaurant-sub {
+      font-size: 12px; color: var(--text-muted); font-weight: 500;
+    }
+
+    /* ===== LANG TOGGLE ===== */
+    .lang-toggle {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; border-radius: 8px; overflow: hidden;
+      border: 1.5px solid var(--border); background: var(--card);
+      height: 32px;
+    }
+    .lang-btn {
+      font-size: 11px; font-weight: 700; border: none;
+      padding: 0 10px; cursor: pointer; color: var(--text-muted);
+      background: transparent; transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .lang-btn.active {
+      color: #FFF; background: var(--accent);
+    }
+
+    /* ===== STAFF BUTTON (header) ===== */
+    .staff-btn {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 4px;
+      background: var(--accent); color: #FFF;
+      border: none; border-radius: 50%;
+      width: 44px; height: 44px;
+      padding: 0;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: transform 0.15s, opacity 0.2s, box-shadow 0.3s;
+      opacity: 0.4;
+      position: relative;
+      justify-content: center;
+    }
+    .staff-btn:active { transform: scale(0.92); }
+    .staff-btn.has-items {
+      opacity: 1;
+      animation: staffPulse 2.2s ease-in-out infinite;
+    }
+    .staff-btn svg { flex-shrink: 0; }
+    .staff-btn .staff-badge {
+      position: absolute;
+      top: -4px; right: -4px;
+      min-width: 18px; height: 18px; border-radius: 9px;
+      background: #FFF; color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; padding: 0 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+    .staff-btn.bounce { animation: staffBounce 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes staffBounce {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.2); }
+      60%  { transform: scale(0.9); }
+      100% { transform: scale(1); }
+    }
+    @keyframes staffPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.45); }
+      50%      { box-shadow: 0 0 0 8px rgba(233,69,96,0); }
+    }
+
+    /* ===== TABS ===== */
+    .tabs {
+      display: flex; overflow-x: auto; scrollbar-width: none;
+      padding: 0 20px; border-bottom: 1px solid var(--border);
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      padding: 11px 16px; min-height: 44px; font-size: 14px; font-weight: 500;
+      color: var(--text-muted); background: none; border: none;
+      border-bottom: 2.5px solid transparent; white-space: nowrap;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab.active {
+      color: var(--accent); border-bottom-color: var(--accent); font-weight: 600;
+    }
+
+    /* ===== SECTION ===== */
+    .section { padding: 20px 16px 4px; display: none; }
+    .section.active { display: block; }
+
+    .section-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; padding: 0 4px;
+    }
+    .section-title {
+      font-size: 15px; font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .section-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* ===== ITEM CARD ===== */
+    .item {
+      background: var(--card); border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 14px;
+      box-shadow: var(--shadow); transition: transform 0.15s;
+    }
+    .item:active { transform: scale(0.985); }
+
+    .item-photo {
+      width: 100%; display: block;
+      background: #F0EBE5; /* warm placeholder behind food photos */
+    }
+    .item-photo-wrap {
+      position: relative; overflow: hidden;
+    }
+    .item-photo-wrap::after {
+      content: ''; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 150px;
+      opacity: 0.035;
+      mix-blend-mode: overlay;
+      pointer-events: none;
+    }
+
+    .item-body { padding: 14px 16px 6px; }
+
+    .item-top {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; gap: 12px;
+    }
+    .item-name { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.25; }
+    .item-price { font-size: 16px; font-weight: 700; color: var(--accent); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+
+    .item-desc { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.45; }
+
+    .item-ingredients {
+      display: flex; gap: 4px; flex-wrap: wrap;
+      margin: 12px -16px 0;
+      padding: 10px 16px 0;
+      border-top: 1px solid var(--border);
+    }
+    .item-ingredients::before {
+      content: var(--label-ingredients, 'Ingredients');
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      width: 100%; margin-bottom: 4px;
+    }
+    .ingredient {
+      font-size: 10px; font-weight: 500; padding: 1px 5px;
+      border-radius: 3px; border: 1px solid var(--border);
+      color: var(--text-muted); background: transparent;
+      display: inline-flex; align-items: center; gap: 2px;
+    }
+
+    /* ===== TAGS ===== */
+    .item-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+    .tag {
+      font-size: 10.5px; font-weight: 700; padding: 3px 8px;
+      border-radius: 5px; letter-spacing: 0.02em;
+    }
+    .tag-popular { background: #FFF0E0; color: #C2660A; }
+    .tag-chef    { background: #EDE8FD; color: #5B21B6; }
+
+    /* ===== ADD BUTTON ===== */
+    .item-action { padding: 6px 16px 14px; display: flex; justify-content: flex-end; }
+    .add-btn {
+      font-size: 14px; font-weight: 600; color: var(--accent);
+      background: var(--accent-soft); border: none; border-radius: 24px;
+      padding: 9px 22px; min-height: 40px; cursor: pointer; transition: all 0.15s;
+    }
+    .add-btn:active { transform: scale(0.95); }
+    .add-btn.added { color: var(--card); background: var(--accent); }
+    .add-btn.bounce { animation: addBtnBounce 0.35s ease; }
+    @keyframes addBtnBounce {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+
+    /* ===== STEPPER (replaces add-btn after first tap) ===== */
+    .stepper {
+      display: none; align-items: center; gap: 0;
+      background: var(--accent); border-radius: 24px;
+      overflow: hidden; min-height: 40px;
+    }
+    .stepper.active { display: flex; }
+    .stepper-btn {
+      width: 40px; height: 40px; border: none; background: transparent;
+      color: #FFF; font-size: 18px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .stepper-btn:active { background: rgba(255,255,255,0.2); }
+    .stepper-btn.minus { font-size: 22px; }
+    .stepper-count {
+      font-size: 15px; font-weight: 800; color: #FFF;
+      min-width: 28px; text-align: center;
+    }
+
+    /* ===== FLOW STRIP (Japanese signage style) ===== */
+    .flow-strip {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 14px 16px 16px;
+      background: #F5F0EB;
+      border-bottom: 2px solid #E8E0D8;
+      overflow: hidden;
+      animation: flowExit 0.6s ease forwards;
+      animation-delay: 6s;
+    }
+    @keyframes flowExit {
+      0%   { max-height: 140px; opacity: 1; transform: translateY(0); padding: 14px 16px 16px; margin-bottom: 0; }
+      50%  { opacity: 0; transform: translateY(-12px); }
+      100% { max-height: 0; opacity: 0; transform: translateY(-12px); padding: 0 16px; margin-bottom: 0; border-bottom-width: 0; }
+    }
+    .flow-heading {
+      font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #8C7E72; margin-bottom: 10px;
+    }
+    .flow-row {
+      display: flex; align-items: flex-start; justify-content: center; width: 100%;
+    }
+    .flow-step {
+      display: flex; flex-direction: column; align-items: center;
+      flex: 1; max-width: 105px; text-align: center; gap: 6px;
+    }
+    .flow-icon {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #FFF; border: 2.5px solid #2D2926;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      animation: flowPulse 0.7s ease;
+      animation-fill-mode: both;
+    }
+    .flow-step:nth-child(1) .flow-icon { animation-delay: 0.8s; }
+    .flow-step:nth-child(3) .flow-icon { animation-delay: 2s; }
+    .flow-step:nth-child(5) .flow-icon { animation-delay: 3.2s; }
+    @keyframes flowPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(233,69,96,0); }
+      40%  { transform: scale(1.18); box-shadow: 0 0 0 10px rgba(233,69,96,0.15); }
+      70%  { transform: scale(0.95); }
+    }
+    .flow-icon svg { flex-shrink: 0; }
+    .flow-num {
+      position: absolute; top: -5px; right: -5px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent); color: #FFF;
+      font-size: 10px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #F5F0EB;
+      line-height: 1;
+    }
+    .flow-label {
+      font-size: 10px; font-weight: 700; color: #2D2926;
+      line-height: 1.35; letter-spacing: 0.01em;
+    }
+    .flow-arrow {
+      display: flex; align-items: center; flex-shrink: 0;
+      width: 22px; justify-content: center; padding-bottom: 24px;
+      color: #C4B8AE;
+    }
+    .flow-arrow svg { flex-shrink: 0; }
+
+    /* ===== FLY BALL ===== */
+    .fly-ball {
+      position: fixed; z-index: 450;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 4px 12px rgba(233,69,96,0.4);
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ===== OVERLAY ===== */
+    .overlay {
+      position: fixed; z-index: 500;
+      top: 0; bottom: 0;
+      left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 430px;
+      background: #FEFCF9; display: none; flex-direction: column;
+    }
+    .overlay.open { display: flex; }
+
+    .overlay-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 16px 14px;
+      background: var(--accent);
+    }
+    .overlay-title { text-align: center; flex: 1; }
+    .overlay-title h2 {
+      font-size: 20px; font-weight: 800; color: #FFF;
+      letter-spacing: 0.08em;
+    }
+    .overlay-subtitle {
+      font-size: 11px; color: rgba(255,255,255,0.65);
+      font-weight: 500; letter-spacing: 0.03em; margin-top: 2px;
+    }
+
+    .overlay-close {
+      width: 36px; height: 36px; border: none; background: rgba(255,255,255,0.2);
+      border-radius: 50%; font-size: 18px; color: #FFF;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .overlay-spacer { width: 36px; }
+
+    .overlay-body { flex: 1; overflow-y: auto; padding: 0 20px; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; justify-content: center; }
+
+    .order-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 16px 0; border-bottom: 1px dashed var(--border);
+    }
+    .order-item:last-of-type { border-bottom: none; }
+    .order-item-info { flex: 1; min-width: 0; }
+    .order-item-ja {
+      font-size: 20px; font-weight: 800; color: var(--text);
+      line-height: 1.3;
+    }
+    .order-item-en { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
+    .order-qty { font-size: 17px; font-weight: 800; color: var(--accent); margin-left: 8px; }
+    .order-item-price {
+      font-size: 14px; font-weight: 600; color: var(--text-muted);
+      white-space: nowrap; flex-shrink: 0; margin-top: 3px;
+    }
+
+    /* Compact mode: 1-2 items — scale up, center vertically */
+    .overlay-body.compact .order-item { padding: 22px 0; }
+    .overlay-body.compact .order-item-ja { font-size: 32px; }
+    .overlay-body.compact .order-item-en { font-size: 15px; margin-top: 4px; }
+    .overlay-body.compact .order-qty { font-size: 24px; }
+    .overlay-body.compact .order-item-price { font-size: 17px; margin-top: 4px; }
+
+    .overlay-total {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 16px 0 0; border-top: 2px solid var(--text); margin-top: 4px;
+    }
+    .overlay-total-label { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .overlay-total-price { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+
+    .overlay-body.compact .overlay-total { padding: 22px 0 0; margin-top: 8px; }
+    .overlay-body.compact .overlay-total-label { font-size: 14px; }
+    .overlay-body.compact .overlay-total-price { font-size: 30px; }
+
+    .overlay-footer {
+      padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+      text-align: center;
+      background: #FEFCF9;
+      margin-top: auto;
+    }
+    .overlay-footer-en {
+      font-size: 17px; font-weight: 800; color: #FFF;
+      background: var(--accent); border-radius: 14px;
+      padding: 18px 24px; letter-spacing: 0.02em;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%;
+      box-shadow: 0 6px 24px rgba(233,69,96,0.35);
+      animation: ctaPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: 0 6px 24px rgba(233,69,96,0.35); transform: scale(1); }
+      50%      { box-shadow: 0 8px 36px rgba(233,69,96,0.55); transform: scale(1.015); }
+    }
+    .overlay-footer-en svg { flex-shrink: 0; }
+
+    /* ===== ACCESSIBILITY ===== */
+    .add-btn:focus-visible, .tab:focus-visible,
+    .staff-btn:focus-visible, .overlay-close:focus-visible, .lang-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- FLOW STRIP: how the QR menu works (auto-dismisses after animation) -->
+  <div class="flow-strip" id="flowStrip">
+    <div class="flow-heading" data-ja="ご利用の流れ">How it works</div>
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="flow-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#E94560" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="8" height="8" rx="1"/>
+            <rect x="4" y="4" width="4" height="4" rx="0.5" fill="#FFF"/>
+            <rect x="5" y="5" width="2" height="2" rx="0.25" fill="#E94560"/>
+            <rect x="14" y="2" width="8" height="8" rx="1"/>
+            <rect x="16" y="4" width="4" height="4" rx="0.5" fill="#FFF"/>
+            <rect x="17" y="5" width="2" height="2" rx="0.25" fill="#E94560"/>
+            <rect x="2" y="14" width="8" height="8" rx="1"/>
+            <rect x="4" y="16" width="4" height="4" rx="0.5" fill="#FFF"/>
+            <rect x="5" y="17" width="2" height="2" rx="0.25" fill="#E94560"/>
+            <rect x="14" y="14" width="3" height="3" rx="0.5"/>
+            <rect x="18" y="14" width="3" height="3" rx="0.5"/>
+            <rect x="14" y="18" width="3" height="3" rx="0.5"/>
+            <rect x="18" y="18" width="3" height="3" rx="0.5"/>
+          </svg>
+          <span class="flow-num">1</span>
+        </div>
+        <div class="flow-label" data-ja="QRコードをスキャン">Scan QR code</div>
+      </div>
+      <div class="flow-arrow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+      </div>
+      <div class="flow-step">
+        <div class="flow-icon">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="2" width="16" height="26" rx="3" fill="#2D2926"/>
+            <rect x="12.5" y="5.5" width="11" height="18" rx="1" fill="#FFF"/>
+            <rect x="15" y="25" width="6" height="1.5" rx="0.75" fill="#FFF"/>
+            <rect x="14" y="8" width="8" height="2.5" rx="0.8" fill="#EDEBE8"/>
+            <rect x="14" y="12" width="8" height="2.5" rx="0.8" fill="#E94560"/>
+            <rect x="14" y="16" width="8" height="2.5" rx="0.8" fill="#EDEBE8"/>
+            <path d="M15.5 13.2 L17 14.8 L20.5 11.5" stroke="#FFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <ellipse cx="5" cy="14" rx="3" ry="2.5" fill="#2D2926"/>
+            <rect x="2.5" y="14" width="5" height="8" rx="2" fill="#2D2926"/>
+            <rect x="1.5" y="20" width="7" height="4" rx="1.5" fill="#2D2926"/>
+          </svg>
+          <span class="flow-num">2</span>
+        </div>
+        <div class="flow-label" data-ja="商品を追加">Add items</div>
+      </div>
+      <div class="flow-arrow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+      </div>
+      <div class="flow-step">
+        <div class="flow-icon">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="7" cy="8" r="3.5" fill="#2D2926"/>
+            <path d="M1 16 Q7 12 13 16 L12 26 L2 26 Z" fill="#2D2926"/>
+            <circle cx="25" cy="8" r="3.5" fill="#2D2926"/>
+            <path d="M19 16 Q25 12 31 16 L30 26 L20 26 Z" fill="#2D2926"/>
+            <rect x="11" y="11" width="10" height="14" rx="2" fill="#E94560"/>
+            <rect x="13" y="13.5" width="6" height="9" rx="1" fill="#FFF"/>
+            <line x1="14.5" y1="16" x2="17" y2="16" stroke="#2D2926" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="14.5" y1="18.5" x2="16" y2="18.5" stroke="#2D2926" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M17 17 L18 18.5 L20 16" stroke="#E94560" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="flow-num">3</span>
+        </div>
+        <div class="flow-label" data-ja="スタッフに見せる">Show staff</div>
+      </div>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="header-top">
+      <div class="restaurant-logo">凪</div>
+      <div class="restaurant-name">
+        <h1>SUSHI NAGI</h1>
+        <div class="restaurant-sub" data-ja="2018年創業 · 東京都銀座">Est. 2018 · Ginza, Tokyo</div>
+      </div>
+      <div class="lang-toggle">
+        <button class="lang-btn" id="langEn">EN</button>
+        <button class="lang-btn active" id="langJa">JP</button>
+      </div>
+      <button class="staff-btn" id="staffBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+        </svg>
+        <span class="staff-badge">0</span>
+      </button>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-ja="握り">Nigiri</button>
+      <button class="tab" data-ja="サイド">Sides</button>
+      <button class="tab" data-ja="ドリンク">Drinks</button>
+    </nav>
+  </header>
+
+  <!-- NIGIRI -->
+  <section class="section active" data-tab="nigiri">
+    <div class="section-header">
+      <span class="section-title" data-ja="握り寿司">Nigiri</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/tuna_nigiri.jpg" alt="Tuna Nigiri"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="まぐろ握り（2貫）">Tuna Nigiri (2pc)</h3>
+          <span class="item-price">¥600</span>
+        </div>
+        <p class="item-desc" data-ja="赤身のまぐろを、酢飯に少量のわさびをのせて握った一貫。">Lean red tuna, hand-pressed on seasoned sushi rice with a touch of wasabi.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="まぐろ">tuna</span><span class="ingredient" data-ja="酢飯">sushi rice</span><span class="ingredient" data-ja="わさび">wasabi</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/salmon_nigiri.jpg" alt="Salmon Nigiri"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="サーモン握り（2貫）">Salmon Nigiri (2pc)</h3>
+          <span class="item-price">¥500</span>
+        </div>
+        <p class="item-desc" data-ja="なめらかな口どけのサーモンを、しゃりにのせて握りました。">Fresh Atlantic salmon with a silky, buttery texture over warm sushi rice.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="サーモン">salmon</span><span class="ingredient" data-ja="酢飯">sushi rice</span><span class="ingredient" data-ja="わさび">wasabi</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/yellowtail_nigiri.jpg" alt="Yellowtail Nigiri"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="はまち握り（2貫）">Yellowtail Nigiri (2pc)</h3>
+          <span class="item-price">¥600</span>
+        </div>
+        <p class="item-desc" data-ja="脂ののったはまちを、わさびとともに握った定番の一貫。">Rich, fatty yellowtail with a clean finish. A sushi counter staple.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="はまち">yellowtail</span><span class="ingredient" data-ja="酢飯">sushi rice</span><span class="ingredient" data-ja="わさび">wasabi</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/prawn_nigiri.jpg" alt="Prawn Nigiri"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="えび握り（2貫）">Prawn Nigiri (2pc)</h3>
+          <span class="item-price">¥500</span>
+        </div>
+        <p class="item-desc" data-ja="ゆでた甘えびのプリッとした食感と、しゃりのハーモニー。">Sweet, lightly poached prawn with a gentle snap, pressed on sushi rice.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="えび">prawn</span><span class="ingredient" data-ja="酢飯">sushi rice</span><span class="ingredient" data-ja="わさび">wasabi</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/salmon_roe_nigiri.jpg" alt="Salmon Roe Nigiri"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="いくら握り（2貫）">Salmon Roe Nigiri (2pc)</h3>
+          <span class="item-price">¥800</span>
+        </div>
+        <p class="item-desc" data-ja="一粒一粒弾けるいくらの濃厚な甘み。のりで巻いた一品。">Bright orange salmon roe bursting with briny sweetness, wrapped in a nori band.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="いくら">salmon roe</span><span class="ingredient" data-ja="酢飯">sushi rice</span><span class="ingredient" data-ja="海苔">nori</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/eel_nigiri.jpg" alt="Eel Nigiri"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="うなぎ握り（2貫）">Eel Nigiri (2pc)</h3>
+          <span class="item-price">¥800</span>
+        </div>
+        <p class="item-desc" data-ja="炭火で香ばしく焼き上げたうなぎに、甘いたれをぬった一貫。">Charbroiled freshwater eel glazed with sweet soy-based tare sauce.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="うなぎ">eel</span><span class="ingredient" data-ja="酢飯">sushi rice</span><span class="ingredient" data-ja="たれ">eel sauce</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIDES -->
+  <section class="section" data-tab="sides">
+    <div class="section-header">
+      <span class="section-title" data-ja="サイドメニュー">Side Dishes</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/miso_soup.jpg" alt="Miso Soup"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="お味噌汁">Miso Soup</h3>
+          <span class="item-price">¥300</span>
+        </div>
+        <p class="item-desc" data-ja="昆布とかつおのだしに味噌を溶いた、豆腐とわかめの定番汁。">Traditional dashi-based miso soup with silken tofu, wakame, and scallion.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="味噌">miso</span><span class="ingredient" data-ja="だし">dashi</span><span class="ingredient" data-ja="豆腐">tofu</span><span class="ingredient" data-ja="わかめ">wakame</span><span class="ingredient" data-ja="ネギ">green onion</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/agedashi_tofu.jpg" alt="Agedashi Tofu"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="揚げ出し豆腐">Agedashi Tofu</h3>
+          <span class="item-price">¥480</span>
+        </div>
+        <p class="item-desc" data-ja="外はカリッと、中はなめらかな豆腐を揚げ、熱々のだし汁でどうぞ。">Crispy deep-fried silky tofu served in hot dashi broth with grated daikon and ginger.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="豆腐">tofu</span><span class="ingredient" data-ja="だし">dashi</span><span class="ingredient" data-ja="片栗粉">potato starch</span><span class="ingredient" data-ja="大根おろし">daikon</span><span class="ingredient" data-ja="生姜">ginger</span><span class="ingredient" data-ja="ネギ">green onion</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DRINKS -->
+  <section class="section" data-tab="drinks">
+    <div class="section-header">
+      <span class="section-title" data-ja="ドリンク">Drinks</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/draft_beer.png" alt="Draft Beer"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="生ビール（アサヒ）">Draft Beer (Asahi)</h3>
+          <span class="item-price">¥580</span>
+        </div>
+        <p class="item-desc" data-ja="キンキンに冷えたアサヒスーパードライ。寿司との相性抜群。">Crisp, dry Japanese lager served ice-cold. The perfect pairing for sushi.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="麦芽">barley malt</span><span class="ingredient" data-ja="ホップ">hops</span><span class="ingredient" data-ja="米">rice</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="item-photo-wrap"><img loading="lazy" class="item-photo" src="_demo_images/sushi/green_tea.png" alt="Green Tea"></div>
+      <div class="item-body">
+        <div class="item-top">
+          <h3 class="item-name" data-ja="アイス緑茶">Iced Green Tea</h3>
+          <span class="item-price">¥250</span>
+        </div>
+        <p class="item-desc" data-ja="冷水で抽出した緑茶。甘さなし、スッキリ飲める。">Cold-brewed Japanese green tea. Unsweetened and refreshing.</p>
+        <div class="item-ingredients">
+          <span class="ingredient" data-ja="緑茶">green tea</span>
+        </div>
+        <div class="item-tags"></div>
+      </div>
+      <div class="item-action">
+        <button class="add-btn" data-ja="+ 追加する">+ Add to list</button>
+        <div class="stepper">
+          <button class="stepper-btn minus">−</button>
+          <span class="stepper-count">1</span>
+          <button class="stepper-btn plus">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STAFF OVERLAY (hidden) -->
+  <div class="overlay">
+    <div class="overlay-header">
+      <div class="overlay-spacer"></div>
+      <div class="overlay-title">
+        <h2>お客様のリスト</h2>
+      </div>
+      <button class="overlay-close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      </button>
+    </div>
+    <div class="overlay-body"></div>
+    <div class="overlay-footer">
+      <div class="overlay-footer-en">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+        <span data-ja="このリストをスタッフに見せる">Show this list to staff</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var btns=document.querySelectorAll('.add-btn'),
+          staffBtn=document.getElementById('staffBtn'),
+          staffBadge=staffBtn.querySelector('.staff-badge'),
+          ov=document.querySelector('.overlay'),
+          ovClose=ov.querySelector('.overlay-close');
+
+      // --- EN/JP toggle ---
+      var currentLang='ja';
+      var langEn=document.getElementById('langEn');
+      var langJa=document.getElementById('langJa');
+      var L={
+        addBtn:'+ Add to list',
+        addBtnJa:'+ \u8FFD\u52A0\u3059\u308B',
+        addedBtn:'\u2713 Added',
+        addedBtnJa:'\u2713 \u8FFD\u52A0\u6E08\u307F'
+      };
+
+      function setLang(lang){
+        currentLang=lang;
+        langEn.classList.toggle('active',lang==='en');
+        langJa.classList.toggle('active',lang==='ja');
+        document.documentElement.style.setProperty('--label-ingredients',lang==='ja'?'"\u539F\u6750\u6599"':'"Ingredients"');
+        var els=document.querySelectorAll('[data-ja]');
+        for(var i=0;i<els.length;i++){
+          var el=els[i];
+          if(lang==='ja'){
+            if(!el._enText) el._enText=el.textContent;
+            el.textContent=el.getAttribute('data-ja');
+          }else{
+            if(el._enText) el.textContent=el._enText;
+          }
+        }
+        for(var i=0;i<items.length;i++){
+          if(lang==='ja'){
+            if(!items[i]._enName) items[i]._enName=items[i].en;
+            items[i].en=items[i].ja;
+          }else{
+            if(items[i]._enName) items[i].en=items[i]._enName;
+          }
+        }
+        for(var i=0;i<btns.length;i++){
+          if(counts[i]>0){
+            btns[i].textContent=lang==='ja'?L.addedBtnJa:L.addedBtn;
+          }else{
+            btns[i].textContent=lang==='ja'?L.addBtnJa:L.addBtn;
+          }
+        }
+        if(ov.classList.contains('open')) updateOverlay();
+        document.title=lang==='ja'?'\u9BAD\u51AA \u2014 \u30E1\u30CB\u30E5\u30FC':'SUSHI NAGI \u2014 English Menu';
+      }
+
+      langEn.addEventListener('click',function(){setLang('en');});
+      langJa.addEventListener('click',function(){setLang('ja');});
+
+      // --- Tab switching ---
+      var tabs=document.querySelectorAll('.tab');
+      var sections=document.querySelectorAll('.section[data-tab]');
+      for(var ti=0;ti<tabs.length;ti++){
+        (function(tab, idx){
+          tab.addEventListener('click',function(){
+            for(var j=0;j<tabs.length;j++){tabs[j].classList.remove('active');}
+            tab.classList.add('active');
+            for(var j=0;j<sections.length;j++){sections[j].classList.remove('active');}
+            sections[idx].classList.add('active');
+            window.scrollTo({top:0,behavior:'smooth'});
+          });
+        })(tabs[ti], ti);
+      }
+
+      // --- Item data (index matches .add-btn order) ---
+      var items=[
+        // Nigiri
+        {ja:'まぐろ握り（2貫）',en:'Tuna Nigiri (2pc)',price:600},
+        {ja:'サーモン握り（2貫）',en:'Salmon Nigiri (2pc)',price:500},
+        {ja:'はまち握り（2貫）',en:'Yellowtail Nigiri (2pc)',price:600},
+        {ja:'えび握り（2貫）',en:'Prawn Nigiri (2pc)',price:500},
+        {ja:'いくら握り（2貫）',en:'Salmon Roe Nigiri (2pc)',price:800},
+        {ja:'うなぎ握り（2貫）',en:'Eel Nigiri (2pc)',price:800},
+        // Sides
+        {ja:'お味噌汁',en:'Miso Soup',price:300},
+        {ja:'揚げ出し豆腐',en:'Agedashi Tofu',price:480},
+        // Drinks
+        {ja:'生ビール（アサヒ）',en:'Draft Beer (Asahi)',price:580},
+        {ja:'アイス緑茶',en:'Iced Green Tea',price:250}
+      ];
+      var counts=new Array(items.length);
+      for(var ci=0;ci<counts.length;ci++) counts[ci]=0;
+
+      function updateStaffBtn(){
+        var total=counts.reduce(function(a,b){return a+b;},0);
+        staffBadge.textContent=total;
+        if(total>0){staffBtn.classList.add('has-items');}
+        else{staffBtn.classList.remove('has-items');}
+      }
+
+      function bounceStaff(){
+        staffBtn.classList.remove('bounce');
+        void staffBtn.offsetWidth;
+        staffBtn.classList.add('bounce');
+        setTimeout(function(){staffBtn.classList.remove('bounce');},450);
+      }
+
+      // --- Fly-ball animation ---
+      function flyBall(fromEl, toEl){
+        if(!toEl) toEl=staffBtn;
+        var fr=fromEl.getBoundingClientRect();
+        var tr=toEl.getBoundingClientRect();
+        var sx=fr.left+fr.width/2, sy=fr.top+fr.height/2;
+        var ex=tr.left+tr.width/2, ey=tr.top+tr.height/2;
+        var mx=(sx+ex)/2, my=Math.min(sy,ey)-90;
+
+        var ball=document.createElement('div');
+        ball.className='fly-ball';
+        ball.style.left=sx+'px';
+        ball.style.top=sy+'px';
+        document.body.appendChild(ball);
+
+        var dur=350, start=null;
+        function frame(ts){
+          if(!start) start=ts;
+          var t=Math.min((ts-start)/dur,1);
+          var u=1-t;
+          var x=u*u*sx+2*u*t*mx+t*t*ex;
+          var y=u*u*sy+2*u*t*my+t*t*ey;
+          var s=1-t*0.5;
+          ball.style.left=x+'px';
+          ball.style.top=y+'px';
+          ball.style.transform='translate(-50%,-50%) scale('+s+')';
+          if(t<1){requestAnimationFrame(frame);}
+          else{
+            ball.remove();
+            bounceStaff();
+          }
+        }
+        requestAnimationFrame(frame);
+      }
+
+      function updateOverlay(){
+        var body=ov.querySelector('.overlay-body');
+        var html='';
+        var itemCount=0;
+        for(var i=0;i<items.length;i++){
+          if(counts[i]>0) itemCount+=counts[i];
+        }
+        if(itemCount<=2){body.classList.add('compact');}
+        else{body.classList.remove('compact');}
+        var totalYen=0;
+        for(var i=0;i<items.length;i++){
+          if(counts[i]>0){
+            var lineTotal=items[i].price*counts[i];
+            totalYen+=lineTotal;
+            html+='<div class="order-item"><div class="order-item-info">'
+              +'<div class="order-item-ja">'+items[i].ja+'<span class="order-qty">\u00d7'+counts[i]+'</span></div>'
+              +'<div class="order-item-en">'+items[i].en+'</div>'
+              +'</div><div class="order-item-price">&yen;'+lineTotal.toLocaleString()+'</div></div>';
+          }
+        }
+        html+='<div class="overlay-total"><span class="overlay-total-label">'+(currentLang==='ja'?'\u5408\u8A08':'Total')+'</span>'
+          +'<span class="overlay-total-price">&yen;'+totalYen.toLocaleString()+'</span></div>';
+        body.innerHTML=html;
+      }
+
+      // --- Wire up add buttons + steppers ---
+      var steppers=document.querySelectorAll('.stepper');
+      for(var i=0;i<btns.length;i++){
+        (function(idx){
+          var stepper=steppers[idx];
+          var countEl=stepper.querySelector('.stepper-count');
+          var plusBtn=stepper.querySelector('.plus');
+          var minusBtn=stepper.querySelector('.minus');
+
+          function showStepper(){
+            stepper.classList.add('active');
+            countEl.textContent=counts[idx];
+          }
+          function hideStepper(){
+            stepper.classList.remove('active');
+            btns[idx].classList.remove('added','fade-out');
+            btns[idx].style.display='';
+            btns[idx].textContent=currentLang==='ja'?L.addBtnJa:L.addBtn;
+          }
+
+          // Initial add — straight to stepper
+          btns[idx].addEventListener('click',function(){
+            counts[idx]=1;
+            btns[idx].style.display='none';
+            showStepper();
+            flyBall(stepper);
+            updateStaffBtn();
+          });
+
+          // Plus — fly ball on every increase
+          plusBtn.addEventListener('click',function(){
+            counts[idx]++;
+            countEl.textContent=counts[idx];
+            flyBall(stepper);
+            updateStaffBtn();
+          });
+
+          // Minus
+          minusBtn.addEventListener('click',function(){
+            counts[idx]--;
+            if(counts[idx]<=0){
+              counts[idx]=0;
+              hideStepper();
+            }else{
+              countEl.textContent=counts[idx];
+            }
+            updateStaffBtn();
+          });
+        })(i);
+      }
+
+      // --- Staff button opens overlay ---
+      staffBtn.addEventListener('click',function(){
+        if(counts.reduce(function(a,b){return a+b;},0)===0) return;
+        updateOverlay();
+        ov.classList.add('open');
+      });
+
+      // --- Close overlay ---
+      ovClose.addEventListener('click',function(){
+        ov.classList.remove('open');
+      });
+
+      // --- Init ---
+      var urlLang=location.search.match(/lang=(en|ja)/);
+      setLang(urlLang?urlLang[1]:'ja');
+      updateStaffBtn();
+    })();
+  </script>
+</body>
+</html>

@@ -65,6 +65,7 @@ def _complete_payload() -> dict:
                 "price": "¥900",
                 "description": "Classic soy sauce ramen with a clear, savory broth.",
                 "ingredients": ["noodles", "soy sauce broth", "pork chashu", "green onion"],
+                "price_confirmation": True,
                 "description_confirmation": True,
                 "ingredient_allergen_confirmation": True,
                 "section": "Ramen",
@@ -246,7 +247,7 @@ def test_publish_blocks_incomplete_draft_and_leaves_live_pointer(tmp_path):
         reply=_reply(tmp_path),
         state_root=state_root,
         docs_root=docs_root,
-        payload={"items": [{"name": "Miso Ramen", "japanese_name": "味噌ラーメン", "section": "Ramen"}]},
+        payload={"items": [{"name": "Miso Ramen", "japanese_name": "味噌ラーメン", "price": "¥1000", "section": "Ramen"}]},
     )
     with pytest.raises(QRMenuError):
         publish_qr_job(state_root=state_root, docs_root=docs_root, job_id=incomplete["job_id"])

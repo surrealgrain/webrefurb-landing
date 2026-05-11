@@ -44,6 +44,44 @@ def _codes(result):
     return {finding["code"] for finding in result["findings"]}
 
 
+def _write_approved_contact_only_candidate(tmp_path: Path, **overrides):
+    lead = _write_lead(tmp_path)
+    path = tmp_path / "leads" / f"{lead['lead_id']}.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.update({
+        "lead": False,
+        "review_status": "approved",
+        "verification_status": "verified",
+        "rejection_reason": "no_verified_business_email_route",
+        "launch_readiness_status": "disqualified",
+        "launch_readiness_reasons": ["not_a_binary_true_lead"],
+        "outreach_status": "do_not_contact",
+        "operator_state": "skip",
+        "send_ready_checked": False,
+        "send_ready_checked_at": "",
+        "send_ready_checklist": [],
+        "outreach_draft_subject": None,
+        "outreach_draft_body": None,
+        "outreach_draft_english_body": None,
+        "outreach_english_body": None,
+    })
+    record.update(overrides)
+    record, _ = migrate_lead_record(record)
+    record.update({
+        "review_status": "approved",
+        "rejection_reason": str(record.get("rejection_reason") or "no_verified_business_email_route"),
+        "send_ready_checked": record.get("send_ready_checked") is True,
+        "send_ready_checked_at": str(record.get("send_ready_checked_at") or ""),
+        "send_ready_checklist": list(record.get("send_ready_checklist") or []),
+        "outreach_draft_subject": record.get("outreach_draft_subject"),
+        "outreach_draft_body": record.get("outreach_draft_body"),
+        "outreach_draft_english_body": record.get("outreach_draft_english_body"),
+        "outreach_english_body": record.get("outreach_english_body"),
+    })
+    path.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+    return record
+
+
 def test_state_audit_accepts_correct_dark_assets(tmp_path):
     _write_lead(tmp_path)
     result = audit_state_leads(state_root=tmp_path)
@@ -51,6 +89,85 @@ def test_state_audit_accepts_correct_dark_assets(tmp_path):
     assert result["checked"] == 1
     assert result["state_counts"]["launch_readiness_status"] == {"ready_for_outreach": 1}
     assert result["state_counts"]["operator_state"] == {"ready": 1}
+
+
+def test_state_audit_allows_approved_false_contact_only_candidate(tmp_path):
+    _write_approved_contact_only_candidate(tmp_path)
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is True
+
+
+def test_state_audit_rejects_approved_false_non_shop_source_candidate(tmp_path):
+    _write_approved_contact_only_candidate(
+        tmp_path,
+        business_name="東京、定番つけ麺20選 - タイムアウト東京",
+        locked_business_name="東京、定番つけ麺20選 - タイムアウト東京",
+        rejection_reason="source_not_exact_single_shop_article",
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "approved_false_lead_not_contact_only" in _codes(result)
+
+
+def test_state_audit_rejects_approved_contact_only_with_poisoned_entity_name(tmp_path):
+    _write_approved_contact_only_candidate(
+        tmp_path,
+        business_name="(silve856)",
+        locked_business_name="(silve856)",
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "approved_contact_only_entity_quality_flag" in _codes(result)
+
+
+def test_state_audit_rejects_approved_true_lead_not_ready(tmp_path):
+    _write_lead(
+        tmp_path,
+        review_status="approved",
+        launch_readiness_status="manual_review",
+        launch_readiness_reasons=["manual_review_required"],
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is False
+    assert "approved_true_lead_not_ready" in _codes(result)
+
+
+def test_state_audit_allows_approved_sent_lead_not_ready(tmp_path):
+    _write_lead(
+        tmp_path,
+        review_status="approved",
+        outreach_status="sent",
+        operator_state="done",
+        operator_reason="Done because the first outreach was sent.",
+        launch_readiness_status="manual_review",
+        launch_readiness_reasons=["no_customer_safe_proof_item"],
+        evidence_urls=[],
+        evidence_snippets=[],
+        proof_items=[],
+        lead_evidence_dossier={
+            "proof_items": [],
+            "proof_strength": "none",
+            "readiness_reasons": ["no_customer_safe_proof_item"],
+            "ready_to_contact": False,
+            "ticket_machine_state": "absent",
+            "english_menu_state": "unknown",
+            "izakaya_rules_state": "unknown",
+            "menu_complexity_state": "medium",
+        },
+    )
+
+    result = audit_state_leads(state_root=tmp_path)
+
+    assert result["ok"] is True
+    assert "approved_true_lead_not_ready" not in _codes(result)
 
 
 def test_state_audit_rejects_ready_non_japan_lead(tmp_path):
@@ -124,29 +241,31 @@ def test_repair_state_leads_migrates_stale_ready_branch_and_clears_samples(tmp_p
     )
 
 
-def test_state_audit_rejects_legacy_cream_assets(tmp_path):
+def test_state_audit_rejects_retired_first_contact_assets(tmp_path):
+    attachment = tmp_path / "retired-first-contact-sample.pdf"
+    attachment.write_text("retired", encoding="utf-8")
     _write_lead(
         tmp_path,
-        outreach_assets_selected=[
-            str(PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf")
-        ],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
 
     assert result["ok"] is False
-    assert "legacy_or_cream_asset_reference" in _codes(result)
     assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
+    assert "first_contact_attachments_not_supported" in _codes(result)
 
 
-def test_state_audit_rejects_wrong_profile_template(tmp_path):
+def test_state_audit_rejects_any_first_contact_attachment_for_qualified_lead(tmp_path):
+    attachment = tmp_path / "wrong-first-contact-sample.pdf"
+    attachment.write_text("retired", encoding="utf-8")
     _write_lead(
         tmp_path,
         primary_category_v1="izakaya",
         establishment_profile="izakaya_drink_heavy",
         outreach_classification="menu_only",
         machine_evidence_found=False,
-        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html")],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
@@ -156,11 +275,13 @@ def test_state_audit_rejects_wrong_profile_template(tmp_path):
 
 
 def test_state_audit_rejects_dnc_records_with_assets(tmp_path):
+    attachment = tmp_path / "blocked-contact-sample.pdf"
+    attachment.write_text("retired", encoding="utf-8")
     _write_lead(
         tmp_path,
         outreach_status="do_not_contact",
         launch_readiness_status="disqualified",
-        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "ramen_food_menu.html")],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
@@ -235,42 +356,19 @@ def test_expected_dark_assets_maps_profiles():
     }) == []
 
 
-def test_izakaya_dark_template_does_not_show_ramen_menu_items():
-    html = (PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html").read_text(encoding="utf-8")
-
-    assert "Signature Dishes" in html
-    assert "名物料理" in html
-    assert "Soy Sauce Ramen" not in html
-    assert "Creamy Chicken Broth Ramen" not in html
-    assert "醤油ラーメン" not in html
-
-
-def test_izakaya_food_drinks_template_contains_drinks_and_rules():
-    html = (PROJECT_ROOT / "assets" / "templates" / "izakaya_food_drinks_menu.html").read_text(encoding="utf-8")
-
-    assert "Food Menu" in html
-    assert "Drinks Menu" in html
-    assert "Nomihodai" in html
-    assert "Course Flow" in html
-    assert "data-slot=\"seal-text\"" in html
-    assert "Creamy Chicken Broth Ramen" not in html
-
-
-def test_state_audit_rejects_izakaya_food_only_template_when_claiming_food_drinks(tmp_path):
+def test_state_audit_rejects_first_contact_attachments(tmp_path):
+    attachment = tmp_path / "first-contact-sample.pdf"
+    attachment.write_text("not used by QR-first outreach", encoding="utf-8")
     _write_lead(
         tmp_path,
-        primary_category_v1="izakaya",
-        establishment_profile="izakaya_drink_heavy",
-        outreach_classification="menu_only",
-        machine_evidence_found=False,
-        outreach_assets_selected=[str(PROJECT_ROOT / "assets" / "templates" / "izakaya_food_menu.html")],
+        outreach_assets_selected=[str(attachment)],
     )
 
     result = audit_state_leads(state_root=tmp_path)
 
     assert result["ok"] is False
     assert "outreach_assets_do_not_match_dark_profile" in _codes(result)
-    assert "izakaya_food_drinks_claim_uses_food_only_template" in _codes(result)
+    assert "first_contact_attachments_not_supported" in _codes(result)
 
 
 def test_state_audit_rejects_saved_draft_claiming_attachment_without_assets(tmp_path):
@@ -363,7 +461,7 @@ def test_repair_state_leads_quarantines_ready_placeholder_email(tmp_path):
     assert any(reason.startswith("placeholder_email:") for reason in repaired["launch_readiness_reasons"])
 
 
-def test_repair_state_leads_quarantines_import_default_package(tmp_path):
+def test_repair_state_leads_rescores_import_default_package_without_quarantine(tmp_path):
     lead = _write_lead(
         tmp_path,
         primary_category_v1="izakaya",
@@ -379,10 +477,34 @@ def test_repair_state_leads_quarantines_import_default_package(tmp_path):
     repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
 
     assert result["ok"] is True
-    assert repaired["launch_readiness_status"] == "manual_review"
-    assert repaired["recommended_primary_package"] == "package_3_qr_menu_65k"
-    assert repaired["package_recommendation_reason"] == "izakaya_drink_course_rules_likely_need_live_updates"
+    assert repaired["launch_readiness_status"] == "ready_for_outreach"
+    assert repaired["recommended_primary_package"] == "english_qr_menu_65k"
+    assert repaired["package_recommendation_reason"] == "izakaya_english_qr_menu_show_staff_list_fit"
     assert not any(reason.startswith("package_rescore:") for reason in repaired["launch_readiness_reasons"])
+
+
+def test_repair_state_leads_restores_resolved_package_only_quarantine(tmp_path):
+    lead = _write_lead(
+        tmp_path,
+        primary_category_v1="izakaya",
+        category="izakaya",
+        evidence_snippets=["居酒屋 メニュー 焼き鳥 生ビール"],
+        recommended_primary_package="package_2_printed_delivered_45k",
+        package_recommendation_reason="izakaya_menu_needs_ordering_materials_without_live_update_signal",
+        launch_readiness_status="manual_review",
+        launch_readiness_reasons=["manual_review_required", "production_readiness_regeneration_required"],
+        manual_review_required=True,
+        outreach_status="needs_review",
+    )
+
+    result = repair_state_leads(state_root=tmp_path)
+    repaired = json.loads((tmp_path / "leads" / f"{lead['lead_id']}.json").read_text(encoding="utf-8"))
+
+    assert result["ok"] is True
+    assert repaired["launch_readiness_status"] == "ready_for_outreach"
+    assert repaired["launch_readiness_reasons"] == ["qualified_with_safe_proof_and_contact_route"]
+    assert repaired["manual_review_required"] is False
+    assert repaired["outreach_status"] == "draft"
 
 
 def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
@@ -392,9 +514,7 @@ def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
         locked_business_name="青空ラーメン",
         business_name_locked=True,
         outreach_draft_body="QA Phase10 Ramen ご担当者様\n\n本文",
-        outreach_assets_selected=[
-            str(PROJECT_ROOT / "state" / "builds" / "p1-single-section-layout" / "food_menu_print_ready.pdf")
-        ],
+        outreach_assets_selected=[str(tmp_path / "retired-first-contact-sample.pdf")],
     )
 
     result = repair_state_leads(state_root=tmp_path)
@@ -403,47 +523,9 @@ def test_repair_state_leads_normalizes_assets_and_locked_name(tmp_path):
     assert result["ok"] is True
     assert result["repaired"][0]["lead_id"] == "wrm-audit"
     assert repaired["business_name"] == "青空ラーメン"
-    assert "青空ラーメン ご担当者様" in repaired["outreach_draft_body"]
-    assert repaired["outreach_assets_selected"] == expected_dark_assets(repaired)
-
-
-def test_state_audit_rejects_legacy_launch_smoke_proof_asset(tmp_path):
-    lead = _write_lead(tmp_path)
-    smoke_dir = tmp_path / "launch_smoke_tests"
-    smoke_dir.mkdir()
-    (smoke_dir / "smoke-test.json").write_text(json.dumps({
-        "smoke_test_id": "smoke-test",
-        "leads": [{
-            "lead_id": lead["lead_id"],
-            "proof_asset": str(PROJECT_ROOT / "state" / "qa-screenshots" / "phase10-sample-ramen-preview-desktop.png"),
-        }],
-    }), encoding="utf-8")
-
-    result = audit_state_leads(state_root=tmp_path)
-
-    assert result["ok"] is False
-    assert "launch_proof_asset_does_not_match_dark_profile" in _codes(result)
-    assert "legacy_or_cream_asset_reference" in _codes(result)
-
-
-def test_repair_state_leads_updates_launch_smoke_proof_asset(tmp_path):
-    lead = _write_lead(tmp_path)
-    smoke_dir = tmp_path / "launch_smoke_tests"
-    smoke_dir.mkdir()
-    smoke_path = smoke_dir / "smoke-test.json"
-    smoke_path.write_text(json.dumps({
-        "smoke_test_id": "smoke-test",
-        "leads": [{
-            "lead_id": lead["lead_id"],
-            "proof_asset": str(PROJECT_ROOT / "state" / "qa-screenshots" / "phase10-sample-ramen-preview-desktop.png"),
-        }],
-    }), encoding="utf-8")
-
-    result = repair_state_leads(state_root=tmp_path)
-    repaired_smoke = json.loads(smoke_path.read_text(encoding="utf-8"))
-
-    assert result["ok"] is True
-    assert repaired_smoke["leads"][0]["proof_asset"] == ""
+    assert repaired["outreach_draft_body"] in {"", None}
+    assert repaired["outreach_status"] == "needs_review"
+    assert repaired["outreach_assets_selected"] == []
 
 
 def test_repository_state_audit_has_no_findings():

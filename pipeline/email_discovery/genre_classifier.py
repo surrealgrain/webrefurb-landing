@@ -5,8 +5,7 @@ Determines if a restaurant fits our target genres:
   - Izakaya (居酒屋) and approved adjacent formats
 
 Adjacent formats (allowed only if clearly relevant):
-  yakitori, kushikatsu, tachinomi, robatayaki, motsuyaki,
-  seafood izakaya, sake bar, Japanese pub
+  kushikatsu, motsuyaki
 """
 
 from __future__ import annotations
@@ -35,32 +34,12 @@ CORE_GENRES = {
 
 # Adjacent genres — approved if clearly relevant
 ADJACENT_GENRES = {
-    "yakitori": {
-        "terms": ["焼鳥", "焼き鳥", "やきとり", "yakitori", "torishige"],
-        "confidence": 0.85,
-    },
     "kushikatsu": {
         "terms": ["串カツ", "串揚げ", "くしカツ", "kushikatsu"],
         "confidence": 0.80,
     },
-    "tachinomi": {
-        "terms": ["立ち飲み", "立ち呑み", "立呑み", "tachinomi", "stand bar"],
-        "confidence": 0.85,
-    },
-    "robatayaki": {
-        "terms": ["炉端焼き", "ろばた焼き", "炉端", "robatayaki", "robata"],
-        "confidence": 0.80,
-    },
     "motsuyaki": {
         "terms": ["もつ焼き", "もつ焼", "ホルモン焼き", "motsuyaki", "motsu"],
-        "confidence": 0.80,
-    },
-    "seafood_izakaya": {
-        "terms": ["海鮮居酒屋", "海鮮酒場", "魚料理", "seafood izakaya"],
-        "confidence": 0.85,
-    },
-    "sake_bar": {
-        "terms": ["日本酒バー", "酒バー", "sake bar", "日本酒処", "地酒"],
         "confidence": 0.80,
     },
 }
@@ -72,6 +51,7 @@ EXCLUDED_TERMS = [
     "韓国料理", "korean", "インド", "indian", "タイ料理", "thai",
     "パン", "ベーカリー", "bakery", "喫茶", "カフェ", "cafe",
     "美容室", "理容", "ホテル", "hotel", "クリーニング",
+    "そば", "soba", "蕎麦",
 ]
 
 

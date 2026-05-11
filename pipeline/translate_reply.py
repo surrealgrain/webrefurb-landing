@@ -13,6 +13,7 @@ Pass 5: Full email — no English leaks, proper formatting, consistent sign-off
 from __future__ import annotations
 
 import os
+import re
 
 from .llm_client import call_llm, LLMClientError
 
@@ -97,3 +98,116 @@ def translate_reply(
         max_tokens=2048,
         timeout_seconds=30,
     ).strip()
+
+
+def validate_translated_reply(japanese_text: str) -> list[str]:
+    """Return deterministic 5-pass quality issues for Japanese reply drafts."""
+    text = str(japanese_text or "").strip()
+    issues: list[str] = []
+    if not text:
+        return ["empty_text"]
+
+    _validate_grammar(text, issues)
+    _validate_naturalness(text, issues)
+    _validate_politeness(text, issues)
+    _validate_tone(text, issues)
+    _validate_full_email(text, issues)
+    return issues
+
+
+def _non_empty_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _validate_grammar(text: str, issues: list[str]) -> None:
+    for line in _non_empty_lines(text):
+        if _is_structural_line(line):
+            continue
+        if line.endswith(("る", "だ", "である")):
+            issues.append(f"grammar_plain_ending:{line[-12:]}")
+        if line.endswith(("。", "！", "？", "ます", "します", "いたします", "です")):
+            continue
+        if "。" not in line and len(line) <= 28:
+            continue
+        issues.append(f"grammar_sentence_ending:{line[-12:]}")
+
+
+def _is_structural_line(line: str) -> bool:
+    return (
+        line == "Chris（クリス）"
+        or line.endswith("ご担当者様")
+        or "@" in line
+        or line.startswith("http://")
+        or line.startswith("https://")
+    )
+
+
+def _validate_naturalness(text: str, issues: list[str]) -> None:
+    translated_phrases = {
+        "分かる": "use_伝わる_or_ご確認いただける",
+        "分かります": "use_伝わる_or_ご確認いただける",
+        "問題": "avoid_problem_framing",
+    }
+    for phrase, code in translated_phrases.items():
+        if phrase in text:
+            issues.append(f"naturalness:{code}:{phrase}")
+
+
+def _validate_politeness(text: str, issues: list[str]) -> None:
+    for casual in ("だね", "してる", "だよ", "じゃ"):
+        if casual in text:
+            issues.append(f"casual_form:{casual}")
+    for stiff in ("謹んで", "拝察", "伏して"):
+        if stiff in text:
+            issues.append(f"stiff_form:{stiff}")
+    for plain_sender_action in ("作ります", "提案する"):
+        if plain_sender_action in text:
+            issues.append(f"sender_action_not_humble:{plain_sender_action}")
+
+    for term in ("案内", "担当者様", "興味", "検討", "連絡", "自身", "希望", "返信"):
+        for match in re.finditer(term, text):
+            start = match.start()
+            before = text[max(0, start - 1):start]
+            quoted = start > 0 and text[start - 1:start] == "「"
+            if before not in {"ご", "御"} and not quoted:
+                issues.append(f"missing_go_prefix:{term}")
+                break
+
+
+def _validate_tone(text: str, issues: list[str]) -> None:
+    for phrase in (
+        "売上",
+        "収入",
+        "売上高",
+        "利益",
+        "お客様を逃す",
+        "機会損失",
+        "ロス",
+        "問題があります",
+        "課題がある",
+        "困っている",
+        "悩み",
+    ):
+        if phrase in text:
+            issues.append(f"negative_or_revenue_framing:{phrase}")
+    if "AI" in text or "自動化" in text or "automation" in text.lower():
+        issues.append("internal_tool_or_ai_mention")
+
+
+def _validate_full_email(text: str, issues: list[str]) -> None:
+    lines = _non_empty_lines(text)
+    if not lines or lines[-1] != "Chris（クリス）":
+        issues.append("signoff_must_be_chris_with_katakana")
+    if "Chris\n" in text or text.endswith("\nChris") or lines[-1:] == ["Chris"]:
+        issues.append("plain_chris_signoff")
+    if len(lines) > 2 and "\n\n" not in text:
+        issues.append("missing_paragraph_breaks")
+    if "今後このようなご案内が不要でしたら" in text and "どうぞよろしくお願いいたします。" not in text:
+        issues.append("missing_standard_closing")
+
+    scrubbed = text
+    for allowed in ("Chris", "WebRefurb", "webrefurb.com", "chris@webrefurb.com"):
+        scrubbed = scrubbed.replace(allowed, "")
+    leaked = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9._%+-]*", scrubbed)))
+    if leaked:
+        issues.append("english_leak:" + ",".join(leaked[:5]))

@@ -7,9 +7,7 @@ from typing import Any
 from pathlib import Path
 
 from .constants import (
-    PACKAGE_1_KEY,
-    PACKAGE_2_KEY,
-    PACKAGE_3_KEY,
+    LEGACY_PACKAGE_KEY_MAP,
     OUTREACH_STATUS_DO_NOT_CONTACT,
     SOLVED_ENGLISH_SUPPORT_TERMS,
     TICKET_MACHINE_ABSENCE_TERMS,
@@ -22,7 +20,7 @@ from .contact_policy import (
 )
 from .evidence import has_chain_or_franchise_infrastructure, is_chain_business
 from .operator_state import apply_operator_state, build_contact_policy_evidence
-from .utils import read_json, write_json
+from .utils import read_json, write_json, utc_now
 
 
 TICKET_MACHINE_STATES = {
@@ -73,12 +71,7 @@ _NON_JP_ADDRESS_RE = re.compile(
 
 
 _LEGACY_PACKAGE_KEYS = {
-    "package_A_in_person_48k": PACKAGE_2_KEY,
-    "package_A_in_person_45k": PACKAGE_2_KEY,
-    "package_A_printed_delivered_45k": PACKAGE_2_KEY,
-    "package_B_online_30k": PACKAGE_1_KEY,
-    "package_B_remote_30k": PACKAGE_1_KEY,
-    "package_C_qr_menu_65k": PACKAGE_3_KEY,
+    **LEGACY_PACKAGE_KEY_MAP,
 }
 
 _BOILERPLATE_TOKENS = (
@@ -282,11 +275,6 @@ def assess_launch_readiness(record: dict[str, Any]) -> tuple[str, list[str]]:
 
     if not _has_supported_contact(record):
         reasons.append("no_supported_contact_route")
-    if (
-        _primary_supported_contact_type(record) == "contact_form"
-        and str(record.get("hosted_menu_sample_status") or "") == "publish_failed"
-    ):
-        reasons.append("hosted_sample_publish_failed")
     if not any(item.get("customer_preview_eligible") for item in proof_items):
         reasons.append("no_customer_safe_proof_item")
     if _record_contains_bad_preview(record) or record.get("legacy_pitch_blocked_reason"):
@@ -454,6 +442,257 @@ def migrate_lead_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[st
     return after, changes
 
 
+# ---------------------------------------------------------------------------
+# 2-Category Reclassification (ramen / izakaya only)
+# ---------------------------------------------------------------------------
+
+_RAMEN_PROFILES = {
+    "ramen_only", "ramen_with_sides_add_ons", "ramen_with_drinks",
+    "ramen_menu_plus_ticket_machine",
+}
+_IZAKAYA_PROFILES = {
+    "izakaya_food_and_drinks", "izakaya_seafood_sake_oden",
+    "izakaya_yakitori_kushiyaki", "izakaya_kushiage",
+    "izakaya_tachinomi", "izakaya_course_heavy",
+    "izakaya_robatayaki",
+}
+
+_PROFILE_MAP: dict[str, tuple[str, str, str, str]] = {}
+for _p in _RAMEN_PROFILES:
+    _PROFILE_MAP[_p] = ("ramen", "ramen", "ramen", "Ramen")
+for _p in _IZAKAYA_PROFILES:
+    _PROFILE_MAP[_p] = (
+        "izakaya", "izakaya",
+        "izakaya", "Izakaya",
+    )
+
+
+def reclassify_lead(record: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Reclassify a lead to the 2-category model (ramen / izakaya).
+
+    Returns the updated record and a list of changed field names.
+    Soba leads are disqualified.
+    """
+    before = deepcopy(record)
+    updated = deepcopy(record)
+    changes: list[str] = []
+
+    profile = str(updated.get("establishment_profile") or "").strip()
+    category = str(updated.get("primary_category_v1") or "").strip()
+
+    # Determine target from profile or category
+    target = _PROFILE_MAP.get(profile)
+    if not target:
+        if category == "ramen":
+            target = ("ramen", "ramen", "ramen", "Ramen")
+        elif category == "izakaya":
+            target = ("izakaya", "izakaya", "izakaya", "Izakaya")
+        elif category == "soba" or profile == "soba_only":
+            # Disqualify soba leads
+            updated["lead"] = False
+            updated["primary_category_v1"] = "other"
+            updated["establishment_profile"] = "unknown"
+            updated["lead_category"] = "skip"
+            updated["template_family"] = ""
+            updated["template_profile_id"] = ""
+            updated["template_profile_label"] = ""
+            updated["launch_readiness_status"] = "disqualified"
+            updated["launch_readiness_reasons"] = updated.get("launch_readiness_reasons", []) + ["outside_v1_category"]
+            updated["outreach_status"] = "do_not_contact"
+            after = ensure_lead_dossier(updated)
+            for key in (
+                "lead", "primary_category_v1", "establishment_profile",
+                "lead_category", "template_family", "template_profile_id",
+                "template_profile_label", "launch_readiness_status",
+                "outreach_status", "operator_state", "operator_reason",
+            ):
+                if before.get(key) != after.get(key):
+                    changes.append(key)
+            return after, changes
+        else:
+            # Unknown — skip reclassification
+            return updated, changes
+
+    new_profile, new_family, new_lead_cat, new_label = target
+
+    # Update fields
+    if updated.get("establishment_profile") != new_profile:
+        updated["establishment_profile"] = new_profile
+        changes.append("establishment_profile")
+    if updated.get("template_family") != new_family:
+        updated["template_family"] = new_family
+        changes.append("template_family")
+    if updated.get("template_profile_id") != new_profile:
+        updated["template_profile_id"] = new_profile
+        changes.append("template_profile_id")
+    if updated.get("template_profile_label") != new_label:
+        updated["template_profile_label"] = new_label
+        changes.append("template_profile_label")
+    if updated.get("lead_category") != new_lead_cat:
+        updated["lead_category"] = new_lead_cat
+        changes.append("lead_category")
+    if updated.get("primary_category_v1") != new_family:
+        updated["primary_category_v1"] = new_family
+        changes.append("primary_category_v1")
+
+    # Re-run dossier to refresh derived fields
+    after = ensure_lead_dossier(updated)
+    for key in (
+        "launch_readiness_status", "launch_readiness_reasons",
+        "outreach_status", "operator_state", "operator_reason",
+        "contact_policy_evidence", "has_supported_contact_route",
+        "lead_evidence_dossier", "proof_items",
+    ):
+        if before.get(key) != after.get(key):
+            changes.append(key)
+
+    return after, changes
+
+
+def reclassify_state_leads(*, state_root: Path, dry_run: bool = False) -> dict[str, Any]:
+    """Reclassify all leads to the 2-category model."""
+    leads_dir = state_root / "leads"
+    reclassified: list[dict[str, Any]] = []
+    skipped = 0
+    unchanged = 0
+
+    if not leads_dir.exists():
+        return {"reclassified": reclassified, "skipped": skipped, "unchanged": unchanged}
+
+    for path in sorted(leads_dir.glob("wrm-*.json")):
+        record = read_json(path)
+        if not record:
+            continue
+
+        # Don't touch already-sent leads
+        if record.get("outreach_status") == "sent":
+            skipped += 1
+            continue
+
+        migrated, changes = reclassify_lead(record)
+        if changes:
+            if not dry_run:
+                write_json(path, migrated)
+            reclassified.append({
+                "lead_id": migrated.get("lead_id"),
+                "business_name": migrated.get("business_name", ""),
+                "changes": changes,
+                "profile_after": migrated.get("establishment_profile"),
+                "operator_state_after": migrated.get("operator_state"),
+            })
+        else:
+            unchanged += 1
+
+    return {
+        "dry_run": dry_run,
+        "reclassified": reclassified,
+        "reclassified_count": len(reclassified),
+        "skipped": skipped,
+        "unchanged": unchanged,
+        "no_send": True,
+        "real_outreach_performed": False,
+    }
+
+
+# ---------------------------------------------------------------------------
+# MX Validation
+# ---------------------------------------------------------------------------
+
+def validate_mx_record(email_address: str) -> dict[str, Any]:
+    """Check if the domain in an email address has valid MX records."""
+    result: dict[str, Any] = {"email": email_address, "mx_valid": None, "error": ""}
+    try:
+        local, domain = email_address.strip().rsplit("@", 1)
+    except ValueError:
+        result["error"] = "invalid_format"
+        return result
+
+    try:
+        import dns.resolver
+        answers = dns.resolver.resolve(domain, "MX")
+        if answers:
+            result["mx_valid"] = True
+        else:
+            result["mx_valid"] = False
+    except dns.resolver.NXDOMAIN:
+        result["mx_valid"] = False
+        result["error"] = "nxdomain"
+    except dns.resolver.NoAnswer:
+        # Try A record fallback — some small domains accept mail without MX
+        try:
+            dns.resolver.resolve(domain, "A")
+            result["mx_valid"] = True
+        except Exception:
+            result["mx_valid"] = False
+            result["error"] = "no_mx_no_a"
+    except dns.resolver.NoNameservers:
+        result["mx_valid"] = False
+        result["error"] = "no_nameservers"
+    except Exception as exc:
+        result["mx_valid"] = False
+        result["error"] = str(exc)[:120]
+    return result
+
+
+def validate_lead_emails(*, state_root: Path, dry_run: bool = False) -> dict[str, Any]:
+    """Validate MX records for all lead emails and update records."""
+    leads_dir = state_root / "leads"
+    validated: list[dict[str, Any]] = []
+    skipped = 0
+    no_email = 0
+
+    if not leads_dir.exists():
+        return {"validated": validated, "skipped": skipped, "no_email": no_email}
+
+    for path in sorted(leads_dir.glob("wrm-*.json")):
+        record = read_json(path)
+        if not record:
+            continue
+
+        email = str(record.get("email") or "").strip()
+        if not email or "@" not in email:
+            no_email += 1
+            continue
+
+        # Skip already-sent leads
+        if record.get("outreach_status") == "sent":
+            skipped += 1
+            continue
+
+        mx_result = validate_mx_record(email)
+        updated = deepcopy(record)
+        updated["email_mx_valid"] = mx_result["mx_valid"]
+        updated["email_mx_validated_at"] = utc_now()
+        if mx_result["mx_valid"] is False and updated.get("operator_state") == "ready":
+            # Re-run dossier — invalid MX may change state
+            updated = ensure_lead_dossier(updated)
+
+        if not dry_run:
+            write_json(path, updated)
+
+        validated.append({
+            "lead_id": updated.get("lead_id"),
+            "email": email,
+            "mx_valid": mx_result["mx_valid"],
+            "error": mx_result.get("error", ""),
+            "operator_state_after": updated.get("operator_state"),
+        })
+
+    valid_count = sum(1 for v in validated if v["mx_valid"] is True)
+    invalid_count = sum(1 for v in validated if v["mx_valid"] is False)
+    return {
+        "dry_run": dry_run,
+        "no_send": True,
+        "real_outreach_performed": False,
+        "validated_count": len(validated),
+        "valid_count": valid_count,
+        "invalid_count": invalid_count,
+        "no_email_count": no_email,
+        "skipped_sent": skipped,
+        "validated": validated,
+    }
+
+
 def migrate_state_leads(*, state_root: Path) -> dict[str, Any]:
     leads_dir = state_root / "leads"
     changed: list[dict[str, Any]] = []
@@ -574,8 +813,6 @@ def _izakaya_rules_state(record: dict[str, Any]) -> str:
         return "courses_found"
     if "drink_menu_photo" in classes or any(token in snippets for token in ("生ビール", "ハイボール", "日本酒", "ドリンク")):
         return "drinks_found"
-    if record.get("course_or_drink_plan_evidence_found"):
-        return "courses_found"
     return "unknown"
 
 

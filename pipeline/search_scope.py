@@ -8,103 +8,19 @@ SEARCH_CATEGORY_SPECS: dict[str, dict[str, str]] = {
         "canonical": "ramen",
         "term": "ラーメン",
         "label": "ramen shops",
-        "default_query": "券売機 ラーメン {place}",
-    },
-    "tsukemen": {
-        "canonical": "ramen",
-        "term": "つけ麺",
-        "label": "tsukemen shops",
-        "default_query": "つけ麺 公式 メール {place}",
-    },
-    "abura_soba": {
-        "canonical": "ramen",
-        "term": "油そば",
-        "label": "abura soba shops",
-        "default_query": "油そば 公式 メール {place}",
-    },
-    "mazesoba": {
-        "canonical": "ramen",
-        "term": "まぜそば",
-        "label": "mazesoba shops",
-        "default_query": "まぜそば 公式 メール {place}",
-    },
-    "tantanmen": {
-        "canonical": "ramen",
-        "term": "担々麺",
-        "label": "tantanmen shops",
-        "default_query": "担々麺 公式 メール {place}",
-    },
-    "chuka_soba": {
-        "canonical": "ramen",
-        "term": "中華そば",
-        "label": "chuka soba shops",
-        "default_query": "中華そば 公式 メール {place}",
+        "default_query": "ラーメン 公式 お問い合わせ {place}",
     },
     "izakaya": {
         "canonical": "izakaya",
         "term": "居酒屋",
         "label": "izakayas",
-        "default_query": "飲み放題 コース 居酒屋 {place}",
+        "default_query": "居酒屋 公式 お問い合わせ {place}",
     },
-    "yakitori": {
-        "canonical": "izakaya",
-        "term": "焼き鳥",
-        "label": "yakitori shops",
-        "default_query": "焼き鳥 公式 メール {place}",
-    },
-    "kushiyaki": {
-        "canonical": "izakaya",
-        "term": "串焼き",
-        "label": "kushiyaki shops",
-        "default_query": "串焼き 公式 メール {place}",
-    },
-    "yakiton": {
-        "canonical": "izakaya",
-        "term": "やきとん",
-        "label": "yakiton shops",
-        "default_query": "やきとん 公式 メール {place}",
-    },
-    "tachinomi": {
-        "canonical": "izakaya",
-        "term": "立ち飲み",
-        "label": "tachinomi shops",
-        "default_query": "立ち飲み 公式 メール {place}",
-    },
-    "oden": {
-        "canonical": "izakaya",
-        "term": "おでん",
-        "label": "oden shops",
-        "default_query": "おでん 公式 メール {place}",
-    },
-    "kushikatsu": {
-        "canonical": "izakaya",
-        "term": "串カツ",
-        "label": "kushikatsu shops",
-        "default_query": "串カツ 公式 メール {place}",
-    },
-    "kushiage": {
-        "canonical": "izakaya",
-        "term": "串揚げ",
-        "label": "kushiage shops",
-        "default_query": "串揚げ 公式 メール {place}",
-    },
-    "robatayaki": {
-        "canonical": "izakaya",
-        "term": "炉端焼き",
-        "label": "robatayaki shops",
-        "default_query": "炉端焼き 公式 メール {place}",
-    },
-    "seafood_izakaya": {
-        "canonical": "izakaya",
-        "term": "海鮮居酒屋",
-        "label": "seafood izakayas",
-        "default_query": "海鮮居酒屋 公式 メール {place}",
-    },
-    "sakaba": {
-        "canonical": "izakaya",
-        "term": "酒場",
-        "label": "sakaba",
-        "default_query": "酒場 公式 メール {place}",
+    "skip": {
+        "canonical": "skip",
+        "term": "",
+        "label": "skipped or manual-review restaurants",
+        "default_query": "",
     },
 }
 
@@ -116,10 +32,65 @@ IZAKAYA_FAMILY_CATEGORIES = tuple(
     key for key, spec in SEARCH_CATEGORY_SPECS.items() if spec["canonical"] == "izakaya"
 )
 
+NATIONWIDE_TARGET_CITIES: tuple[dict[str, Any], ...] = (
+    {"romaji": "Chiyoda", "ja": "千代田区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 1},
+    {"romaji": "Chuo", "ja": "中央区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 2},
+    {"romaji": "Minato", "ja": "港区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 3},
+    {"romaji": "Shinjuku", "ja": "新宿区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 4},
+    {"romaji": "Shibuya", "ja": "渋谷区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 5},
+    {"romaji": "Taito", "ja": "台東区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 6},
+    {"romaji": "Toshima", "ja": "豊島区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 7},
+    {"romaji": "Sumida", "ja": "墨田区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_1", "priority": 8},
+    {"romaji": "Bunkyo", "ja": "文京区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_2", "priority": 9},
+    {"romaji": "Koto", "ja": "江東区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_2", "priority": 10},
+    {"romaji": "Shinagawa", "ja": "品川区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_2", "priority": 11},
+    {"romaji": "Meguro", "ja": "目黒区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_2", "priority": 12},
+    {"romaji": "Ota", "ja": "大田区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_2", "priority": 13},
+    {"romaji": "Setagaya", "ja": "世田谷区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_2", "priority": 14},
+    {"romaji": "Nakano", "ja": "中野区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 15},
+    {"romaji": "Suginami", "ja": "杉並区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 16},
+    {"romaji": "Kita", "ja": "北区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 17},
+    {"romaji": "Arakawa", "ja": "荒川区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 18},
+    {"romaji": "Itabashi", "ja": "板橋区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 19},
+    {"romaji": "Nerima", "ja": "練馬区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 20},
+    {"romaji": "Adachi", "ja": "足立区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 21},
+    {"romaji": "Katsushika", "ja": "葛飾区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 22},
+    {"romaji": "Edogawa", "ja": "江戸川区", "prefecture": "Tokyo", "tourist_volume_tier": "tier_3", "priority": 23},
+    {"romaji": "Yokohama", "ja": "横浜市", "prefecture": "Kanagawa", "tourist_volume_tier": "tier_1", "priority": 24},
+    {"romaji": "Kawasaki", "ja": "川崎市", "prefecture": "Kanagawa", "tourist_volume_tier": "tier_2", "priority": 25},
+    {"romaji": "Saitama", "ja": "さいたま市", "prefecture": "Saitama", "tourist_volume_tier": "tier_2", "priority": 26},
+    {"romaji": "Chiba", "ja": "千葉市", "prefecture": "Chiba", "tourist_volume_tier": "tier_2", "priority": 27},
+    {"romaji": "Osaka", "ja": "大阪市", "prefecture": "Osaka", "tourist_volume_tier": "tier_1", "priority": 28},
+    {"romaji": "Sakai", "ja": "堺市", "prefecture": "Osaka", "tourist_volume_tier": "tier_2", "priority": 29},
+    {"romaji": "Toyonaka", "ja": "豊中市", "prefecture": "Osaka", "tourist_volume_tier": "tier_2", "priority": 30},
+    {"romaji": "Kyoto", "ja": "京都市", "prefecture": "Kyoto", "tourist_volume_tier": "tier_1", "priority": 31},
+    {"romaji": "Fukuoka Hakata", "ja": "福岡市博多区", "prefecture": "Fukuoka", "tourist_volume_tier": "tier_1", "priority": 32},
+    {"romaji": "Fukuoka Tenjin", "ja": "福岡市中央区", "prefecture": "Fukuoka", "tourist_volume_tier": "tier_1", "priority": 33},
+    {"romaji": "Sapporo", "ja": "札幌市", "prefecture": "Hokkaido", "tourist_volume_tier": "tier_1", "priority": 34},
+    {"romaji": "Nagoya", "ja": "名古屋市", "prefecture": "Aichi", "tourist_volume_tier": "tier_1", "priority": 35},
+    {"romaji": "Hiroshima", "ja": "広島市", "prefecture": "Hiroshima", "tourist_volume_tier": "tier_2", "priority": 36},
+    {"romaji": "Naha", "ja": "那覇市", "prefecture": "Okinawa", "tourist_volume_tier": "tier_1", "priority": 37},
+    {"romaji": "Kobe", "ja": "神戸市", "prefecture": "Hyogo", "tourist_volume_tier": "tier_1", "priority": 38},
+    {"romaji": "Sendai", "ja": "仙台市", "prefecture": "Miyagi", "tourist_volume_tier": "tier_2", "priority": 39},
+    {"romaji": "Nara", "ja": "奈良市", "prefecture": "Nara", "tourist_volume_tier": "tier_2", "priority": 40},
+    {"romaji": "Kanazawa", "ja": "金沢市", "prefecture": "Ishikawa", "tourist_volume_tier": "tier_2", "priority": 41},
+    {"romaji": "Kamakura", "ja": "鎌倉市", "prefecture": "Kanagawa", "tourist_volume_tier": "tier_3", "priority": 42},
+)
+
+NATIONWIDE_RESULT_LIMIT_PER_QUERY = 20
+NATIONWIDE_PREFILTER_RULES = (
+    "supported_category_only",
+    "physical_address_required",
+    "minimum_10_google_reviews",
+    "exclude_50_plus_location_chains",
+    "dedupe_existing_place_id",
+    "evidence_classifier_must_not_skip",
+)
+
 
 def normalise_search_category(category: str) -> str:
     value = (category or "ramen").strip().lower()
-    return value if value in VALID_SEARCH_CATEGORIES else "ramen"
+    return value if value in VALID_SEARCH_CATEGORIES else "skip"
 
 
 def canonical_search_category(category: str) -> str:
@@ -137,7 +108,7 @@ def normalise_search_city(city: str) -> str:
 def search_category_label(category: str) -> str:
     value = normalise_search_category(category)
     if value == "all":
-        return "supported ramen and izakaya-family shops"
+        return "supported ramen and izakaya shops"
     return SEARCH_CATEGORY_SPECS[value]["label"]
 
 
@@ -145,8 +116,46 @@ def search_query_for_scope(*, category: str, city: str) -> str:
     value = normalise_search_category(category)
     place = normalise_search_city(city)
     if value == "all":
-        return f"ordering-friction ramen izakaya yakitori tachinomi oden {place}"
+        return f"English QR menu ramen izakaya {place}"
+    if value == "skip":
+        return ""
     return SEARCH_CATEGORY_SPECS[value]["default_query"].format(place=place)
+
+
+def nationwide_target_cities() -> list[dict[str, Any]]:
+    return [dict(city) for city in sorted(NATIONWIDE_TARGET_CITIES, key=lambda item: int(item["priority"]))]
+
+
+def nationwide_search_queries_for_city(city: dict[str, Any]) -> list[str]:
+    ja = str(city["ja"])
+    romaji = str(city["romaji"])
+    return [
+        f"ラーメン店 {ja}",
+        f"居酒屋 {ja}",
+        f"ramen shop {romaji}",
+        f"izakaya {romaji}",
+        f"English menu ramen {romaji}",
+        f"English menu izakaya {romaji}",
+    ]
+
+
+def nationwide_search_jobs() -> list[dict[str, Any]]:
+    jobs: list[dict[str, Any]] = []
+    for city in nationwide_target_cities():
+        for index, query in enumerate(nationwide_search_queries_for_city(city), start=1):
+            jobs.append({
+                "job_id": f"nationwide_{int(city['priority']):03d}_{index:02d}",
+                "query": query,
+                "city_ja": city["ja"],
+                "city_romaji": city["romaji"],
+                "prefecture": city["prefecture"],
+                "tourist_volume_tier": city["tourist_volume_tier"],
+                "priority": city["priority"],
+                "max_results": NATIONWIDE_RESULT_LIMIT_PER_QUERY,
+                "prefilter_rules": list(NATIONWIDE_PREFILTER_RULES),
+                "external_send_allowed": False,
+            })
+    return jobs
 
 
 def search_category_metadata() -> dict[str, dict[str, str]]:
@@ -156,7 +165,7 @@ def search_category_metadata() -> dict[str, dict[str, str]]:
             "canonical": "all",
             "term": "",
             "label": search_category_label("all"),
-            "default_query": "ordering-friction ramen izakaya yakitori tachinomi oden {place}",
+            "default_query": "English QR menu ramen izakaya {place}",
         },
         **{
             key: {
@@ -205,6 +214,8 @@ def _is_old_generic_restaurant_query(query: str, *, category: str, city: str) ->
 def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[dict[str, str]]:
     value = normalise_search_category(category)
     place = normalise_search_city(city)
+    if value == "skip":
+        return []
     if query and query != search_query_for_scope(category=value, city=place) and not _is_old_generic_restaurant_query(query, category=value, city=place):
         job_category = "ramen" if value == "all" else canonical_search_category(value)
         return [_job(
@@ -215,10 +226,7 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
             expected_friction="operator_supplied",
         )]
     ramen_jobs = [
-        _job(job_id="ramen_ticket_machine", query=f"券売機 ラーメン {place}", category="ramen", purpose="ticket_machine_lookup", expected_friction="ticket_machine"),
-        _job(job_id="ramen_meal_ticket", query=f"食券 ラーメン {place}", category="ramen", purpose="ticket_machine_lookup", expected_friction="meal_ticket"),
         _job(job_id="ramen_menu_photo", query=f"ラーメン メニュー 写真 {place}", category="ramen", purpose="menu_photo_lookup", expected_friction="menu_photo"),
-        _job(job_id="ramen_ramendb_area", query=f"site:ramendb.supleks.jp ラーメン {place}", category="ramen", purpose="ramendb_area_check", expected_friction="ramendb_area_evidence"),
         _job(job_id="ramen_official_contact", query=f"ラーメン 公式 お問い合わせ {place}", category="ramen", purpose="official_contact_lookup", expected_friction="official_contact"),
         _job(job_id="ramen_official_email", query=f"ラーメン 公式 メール {place}", category="ramen", purpose="official_email_lookup", expected_friction="official_email"),
         _job(job_id="ramen_area_discovery", query=f"ラーメン 店 {place}", category="ramen", purpose="area_discovery", expected_friction="area_search"),
@@ -226,8 +234,7 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="ramen_official_menu_photo", query=f"ラーメン 公式 メニュー 写真 {place}", category="ramen", purpose="official_menu_photo_lookup", expected_friction="official_menu_photo"),
     ]
     izakaya_jobs = [
-        _job(job_id="izakaya_nomihodai_course", query=f"飲み放題 コース 居酒屋 {place}", category="izakaya", purpose="drink_course_lookup", expected_friction="nomihodai_or_course"),
-        _job(job_id="izakaya_oshinagaki", query=f"お品書き 居酒屋 {place}", category="izakaya", purpose="menu_lookup", expected_friction="printed_menu"),
+        _job(job_id="izakaya_oshinagaki", query=f"お品書き 居酒屋 {place}", category="izakaya", purpose="menu_lookup", expected_friction="menu_source"),
         _job(job_id="izakaya_menu_photo", query=f"居酒屋 メニュー 写真 {place}", category="izakaya", purpose="menu_photo_lookup", expected_friction="menu_photo"),
         _job(job_id="izakaya_hotpepper_menu", query=f"site:hotpepper.jp 居酒屋 メニュー {place}", category="izakaya", purpose="hotpepper_menu_check", expected_friction="directory_menu"),
         _job(job_id="izakaya_tabelog_menu", query=f"site:tabelog.com 居酒屋 メニュー {place}", category="izakaya", purpose="tabelog_menu_check", expected_friction="directory_menu"),
@@ -237,13 +244,7 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
         _job(job_id="izakaya_official_social_menu", query=f"居酒屋 公式 SNS メニュー {place}", category="izakaya", purpose="official_social_menu_check", expected_friction="official_social_menu"),
     ]
     if value == "all":
-        adjacent_jobs: list[dict[str, str]] = []
-        for adjacent in (
-            "tsukemen", "abura_soba", "mazesoba", "yakitori", "tachinomi",
-            "oden", "kushikatsu", "robatayaki", "seafood_izakaya",
-        ):
-            adjacent_jobs.extend(_category_family_jobs(category=adjacent, city=place))
-        return [*ramen_jobs, *izakaya_jobs, *adjacent_jobs]
+        return [*ramen_jobs, *izakaya_jobs]
     if value == "ramen":
         return ramen_jobs
     if value == "izakaya":
@@ -254,6 +255,8 @@ def search_jobs_for_scope(*, category: str, city: str, query: str = "") -> list[
 def _category_family_jobs(*, category: str, city: str) -> list[dict[str, str]]:
     spec = SEARCH_CATEGORY_SPECS[normalise_search_category(category)]
     canonical = spec["canonical"]
+    if canonical == "skip":
+        return []
     term = spec["term"]
     slug = normalise_search_category(category)
     jobs = [
@@ -263,11 +266,8 @@ def _category_family_jobs(*, category: str, city: str) -> list[dict[str, str]]:
         _job(job_id=f"{slug}_official_menu", query=f"{term} 公式 メニュー {city}", category=canonical, purpose="official_menu_lookup", expected_friction="official_menu"),
         _job(job_id=f"{slug}_area_discovery", query=f"{term} 店 {city}", category=canonical, purpose="area_discovery", expected_friction="area_search"),
     ]
-    if canonical == "ramen":
-        jobs.insert(0, _job(job_id=f"{slug}_ticket_machine", query=f"券売機 {term} {city}", category=canonical, purpose="ticket_machine_lookup", expected_friction="ticket_machine"))
-        jobs.insert(1, _job(job_id=f"{slug}_meal_ticket", query=f"食券 {term} {city}", category=canonical, purpose="ticket_machine_lookup", expected_friction="meal_ticket"))
-    else:
-        jobs.insert(0, _job(job_id=f"{slug}_oshinagaki", query=f"お品書き {term} {city}", category=canonical, purpose="menu_lookup", expected_friction="printed_menu"))
+    if canonical == "izakaya":
+        jobs.insert(0, _job(job_id=f"{slug}_oshinagaki", query=f"お品書き {term} {city}", category=canonical, purpose="menu_lookup", expected_friction="menu_source"))
         jobs.insert(1, _job(job_id=f"{slug}_drinks", query=f"{term} ドリンク メニュー {city}", category=canonical, purpose="drink_menu_lookup", expected_friction="drink_menu"))
     return jobs
 
@@ -345,9 +345,8 @@ def _codex_jobs_for_term(
 def codex_search_jobs_for_scope(*, category: str, city: str) -> list[dict[str, str]]:
     """Generate Codex email-first search jobs for the given category and city.
 
-    Each subcategory's Japanese term is drawn from ``SEARCH_CATEGORY_SPECS`` so
-    that selecting e.g. "yakitori" produces queries with ``焼き鳥`` while the
-    job's ``category`` field is the canonical ``izakaya``.
+    Active categories are intentionally limited to ramen and izakaya. Unknown
+    categories normalize to skip and produce no outbound discovery jobs.
     """
     value = normalise_search_category(category)
     place = normalise_search_city(city)
@@ -355,11 +354,16 @@ def codex_search_jobs_for_scope(*, category: str, city: str) -> list[dict[str, s
     if value == "all":
         jobs: list[dict[str, str]] = []
         for spec_key, spec in SEARCH_CATEGORY_SPECS.items():
+            if spec["canonical"] == "skip":
+                continue
             jobs.extend(_codex_jobs_for_term(
                 term=spec["term"], canonical=spec["canonical"],
                 slug=spec_key, city=place,
             ))
         return jobs
+
+    if value == "skip":
+        return []
 
     spec = SEARCH_CATEGORY_SPECS[value]
     return _codex_jobs_for_term(

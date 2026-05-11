@@ -86,7 +86,6 @@ INTERNAL_REASON_TO_OPERATOR_REASON = {
     "already_has_usable_english_solution": "Skipped because the shop already appears to have usable English ordering support.",
     "multilingual_qr_or_ordering_solution_present": "Skipped because the shop already appears to have multilingual ordering support.",
     "no_supported_contact_route": "Add a usable business email or real contact form.",
-    "hosted_sample_publish_failed": "Publish the hosted sample before using the contact form route.",
     "no_customer_safe_proof_item": "Add one customer-safe proof item from the shop menu or ordering flow.",
     "saved_preview_or_pitch_contains_blocked_content": "Regenerate the pitch because saved customer copy is not safe.",
     "large_menu_requires_custom_quote": "Review the menu scope and decide whether this needs a custom quote.",

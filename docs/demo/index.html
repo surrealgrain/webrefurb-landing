@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive Demo - English QR Menu</title>
+<meta name="description" content="Try the interactive English QR Menu demo. Read the menu, add items to a list, and open the Japanese-first staff screen.">
+<link rel="canonical" href="https://webrefurb.com/demo/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Interactive Demo - English QR Menu">
+<meta property="og:description" content="Try the English QR Menu customer flow and Japanese-first staff screen.">
+<meta property="og:url" content="https://webrefurb.com/demo/">
+<meta property="og:image" content="https://webrefurb.com/logo.svg">
+<link rel="icon" href="../logo.svg">
+<link rel="mask-icon" href="../logo.svg" color="#E94560">
+<style>
+:root{--coral:#E94560;--coral-dark:#C73550;--coral-glow:rgba(233,69,96,.12);--coral-soft:#FFF0F2;--navy:#1a1f36;--ink:#111827;--body:#374151;--muted:#6b7280;--light:#9ca3af;--border:#e5e7eb;--surface:#f9fafb;--white:#ffffff;--radius:16px;--radius-sm:10px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP",sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);color:var(--ink);background:var(--white);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--coral);outline-offset:2px;border-radius:4px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 5%;height:60px;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.07em;font-size:13px;text-transform:uppercase}
+.brand img{width:26px;height:26px}
+.nav-right{display:flex;align-items:center;gap:14px}
+.nav-links{display:flex;gap:24px;font-size:14px;font-weight:600;color:var(--body)}
+.nav-links a{transition:color .15s}.nav-links a:hover{color:var(--coral)}
+.lang-toggle{display:flex;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);height:44px}
+.lang-btn{display:flex;align-items:center;justify-content:center;min-width:44px;padding:0 12px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--light)}
+.lang-btn.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border-radius:var(--radius-sm);font-weight:700;font-size:15px;font-family:var(--font);cursor:pointer;border:none;transition:all .2s}
+.btn-coral{background:var(--coral);color:#fff;box-shadow:0 4px 14px rgba(233,69,96,.25)}
+.btn-coral:hover{background:var(--coral-dark);box-shadow:0 6px 20px rgba(233,69,96,.35);transform:translateY(-1px)}
+.btn-ghost{background:var(--white);color:var(--ink);border:1.5px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.btn-ghost:hover{border-color:var(--coral);color:var(--coral)}
+.btn-sm{min-height:44px;padding:0 20px;font-size:14px;border-radius:8px}
+
+.wrap{max-width:960px;margin:0 auto;padding:72px 5% 80px}
+h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.8px;line-height:1.1;margin-bottom:16px}
+.intro{font-size:18px;color:var(--body);line-height:1.65;max-width:640px;margin-bottom:6px}
+.note{font-size:14px;color:var(--muted);margin-bottom:40px}
+
+.demo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.demo-card{background:var(--white);border-radius:var(--radius);padding:36px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.03);border:1px solid var(--border);transition:all .2s;position:relative;overflow:hidden}
+.demo-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--coral);opacity:0;transition:opacity .2s}
+.demo-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.06),0 12px 36px rgba(0,0,0,.06);transform:translateY(-2px)}
+.demo-card:hover::before{opacity:1}
+.demo-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--coral);background:var(--coral-soft);padding:4px 10px;border-radius:6px;margin-bottom:16px}
+.demo-card h3{font-size:22px;font-weight:800;margin-bottom:8px;letter-spacing:-.2px}
+.demo-card p{font-size:15px;color:var(--body);line-height:1.55;margin-bottom:20px}
+
+.footer{padding:36px 5%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--light)}
+
+@media(max-width:900px){.demo-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.nav{flex-wrap:wrap;height:auto;padding:10px 5%;gap:8px}.nav-right{width:100%;justify-content:space-between}.nav-links{gap:16px}.footer{flex-direction:column;gap:8px;text-align:center}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a class="brand" href="../"><img src="../logo.svg" alt="">WEBREFURB</a>
+  <div class="nav-right">
+    <div class="nav-links">
+      <a href="../">Home</a>
+      <a href="../pricing.html">Pricing</a>
+    </div>
+    <div class="lang-toggle" aria-label="Language">
+      <a class="lang-btn active" href="./">EN</a>
+      <a class="lang-btn" href="../ja/">JP</a>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="mailto:chris@webrefurb.com">Contact</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <h1>Interactive demo</h1>
+  <p class="intro">Try the customer flow exactly as a guest would use it. Read the menu, add items to a list, then open the Japanese-first staff screen.</p>
+  <p class="note">The Japanese toggle is included so restaurant owners and staff can test the same flow.</p>
+
+  <div class="demo-grid">
+    <div class="demo-card">
+      <div class="demo-badge">Interactive</div>
+      <h3>Ramen demo</h3>
+      <p>Toppings, quantities, and staff list.</p>
+      <a class="btn btn-coral btn-sm" href="ramen.html">Open demo</a>
+    </div>
+    <div class="demo-card">
+      <div class="demo-badge">Interactive</div>
+      <h3>Sushi demo</h3>
+      <p>Item counts and Japanese item names.</p>
+      <a class="btn btn-coral btn-sm" href="sushi.html">Open demo</a>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <span>WebRefurb</span>
+  <span>Interactive English QR menus for restaurants in Japan.</span>
+</footer>
+</body>
+</html>

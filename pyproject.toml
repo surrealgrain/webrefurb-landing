@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "webrefurb-menu"
 version = "0.1.0"
-description = "English menu translation pipeline for Japanese ramen and izakaya shops"
+description = "English menu translation pipeline for Japanese ramen, soba, and izakaya shops"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.104.0",

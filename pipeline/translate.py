@@ -46,6 +46,18 @@ TRANSLATION_MAP: dict[str, str] = {
     "つけ麺": "Tsukemen",
     "まぜそば": "Mazesoba",
     "油そば": "Abura Soba",
+    # --- Soba basics ---
+    "そば": "Soba",
+    "蕎麦": "Soba",
+    "ざるそば": "Zaru Soba",
+    "せいろ": "Seiro Soba",
+    "かけそば": "Kake Soba",
+    "鴨南蛮": "Kamo Nanban Soba",
+    "天ざる": "Tempura Zaru Soba",
+    "天ぷらそば": "Tempura Soba",
+    "もりそば": "Mori Soba",
+    "つゆ": "Dipping Sauce",
+    "薬味": "Condiments",
     # --- Ramen with toppings ---
     "味玉ラーメン": "Ajitama Ramen (Marinated Egg)",
     "チャーシューメン": "Chashu Ramen",
@@ -173,7 +185,8 @@ _GLOSSARY = (
     "唐揚げ=Japanese Fried Chicken, "
     "大盛=Large, 小盛=Small, "
     "飲み放題=All-You-Can-Drink, つけ麺=Tsukemen, まぜそば=Mazesoba, "
-    "油そば=Abura Soba, 焼き鳥=Yakitori (Grilled Chicken), "
+    "油そば=Abura Soba, ざるそば=Zaru Soba, 鴨南蛮=Kamo Nanban Soba, "
+    "焼き鳥=Yakitori (Grilled Chicken), "
     "刺身=Sashimi, ハイボール=Highball, 日本酒=Sake, 焼酎=Shochu."
 )
 

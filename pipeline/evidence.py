@@ -509,7 +509,7 @@ def assess_evidence(
                     evidence_classes.append("official_menu_image" if not _is_review_or_directory_url(url) else "review_menu_photo")
                     score += 2 if _is_review_or_directory_url(url) else 3
                 snippets.append(f"Menu image: {image_label[:180]}")
-            elif any(token in image_haystack for token in ("ramen", "ラーメン", "food", "dish", "bowl", "麺", "sashimi", "yakitori", "刺身", "焼き鳥")):
+            elif any(token in image_haystack for token in ("ramen", "ラーメン", "soba", "そば", "蕎麦", "food", "dish", "bowl", "麺", "sashimi", "yakitori", "刺身", "焼き鳥")):
                 evidence_classes.append("food_only_photo")
                 score -= 3
             elif any(token in image_haystack for token in ("storefront", "exterior", "入口", "外観", "front")):
@@ -591,8 +591,8 @@ def _hard_reject_reason(payloads: list[dict[str, Any]]) -> str | None:
 
 
 def _has_substantive_restaurant_content(text: str) -> bool:
-    if _count_japanese_chars(text) >= 40 and any(token in text for token in ("メニュー", "料理", "営業時間", "住所", "電話", "ラーメン", "居酒屋", "飲み放題", "コース")):
+    if _count_japanese_chars(text) >= 40 and any(token in text for token in ("メニュー", "料理", "営業時間", "住所", "電話", "ラーメン", "そば", "蕎麦", "居酒屋", "飲み放題", "コース")):
         return True
-    if PRICE_RE.search(text) and any(token in text for token in ("ラーメン", "餃子", "生ビール", "飲み放題", "コース", "メニュー")):
+    if PRICE_RE.search(text) and any(token in text for token in ("ラーメン", "そば", "蕎麦", "餃子", "生ビール", "飲み放題", "コース", "メニュー")):
         return True
     return False

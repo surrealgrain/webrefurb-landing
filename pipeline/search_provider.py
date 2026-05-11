@@ -20,10 +20,13 @@ from .html_parser import extract_page_payload
 
 WEB_SERPER_PROVIDER = "webserper"
 SERPER_DEV_PROVIDER = "serper"
+SEARXNG_PROVIDER = "searxng"
 DEFAULT_SEARCH_PROVIDER = WEB_SERPER_PROVIDER
 SEARCH_PROVIDER_ENV = "WEBREFURB_SEARCH_PROVIDER"
 WEB_SERPER_PROVIDER_ALIASES = {"webserper", "web-serper", "web_serper", "local", "duckduckgo", "ddg", "webrefurb"}
 SERPER_PROVIDER_ALIASES = {"serper", "serper.dev", "google-serper", "google_serper"}
+SEARXNG_PROVIDER_ALIASES = {"searxng", "searx", "sear-x"}
+SEARXNG_BASE_URL = os.environ.get("SEARXNG_BASE_URL", "http://127.0.0.1:8888")
 DIRECTORY_HOST_TOKENS = (
     "tabelog.com",
     "hotpepper.jp",
@@ -120,7 +123,12 @@ JP_PREFECTURE_PREFIXES = (
     "山口県", "徳島県", "香川県", "愛媛県", "高知県",
     "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
 )
-RAMEN_TOKENS = ("ラーメン", "らーめん", "らぁめん", "拉麺", "ramen", "中華そば", "つけ麺")
+RAMEN_TOKENS = (
+    "ラーメン", "らーめん", "らぁめん", "拉麺", "ramen",
+    "中華そば", "中華蕎麦", "つけ麺", "油そば", "まぜそば",
+    "abura soba", "mazesoba", "chuka soba",
+)
+SOBA_TOKENS = ("そば", "蕎麦", "手打ちそば", "手打ち蕎麦", "soba")
 IZAKAYA_TOKENS = ("居酒屋", "izakaya", "飲み放題", "お品書き", "コース", "焼鳥", "焼き鳥")
 MEDIA_PATH_RE = re.compile(r"(?i)\.(?:avif|gif|jpe?g|png|svg|webp)(?:$|[?#])")
 CITY_ALIASES = {
@@ -180,6 +188,8 @@ def configured_search_provider(provider: str | None = None) -> str:
     value = str(provider or os.environ.get(SEARCH_PROVIDER_ENV) or DEFAULT_SEARCH_PROVIDER).strip().lower()
     if value in SERPER_PROVIDER_ALIASES:
         return SERPER_DEV_PROVIDER
+    if value in SEARXNG_PROVIDER_ALIASES:
+        return SEARXNG_PROVIDER
     if value in WEB_SERPER_PROVIDER_ALIASES:
         return WEB_SERPER_PROVIDER
     raise SearchProviderError(f"unsupported search provider: {value}")
@@ -187,6 +197,16 @@ def configured_search_provider(provider: str | None = None) -> str:
 
 def search_provider_requires_api_key(provider: str | None = None) -> bool:
     return configured_search_provider(provider) == SERPER_DEV_PROVIDER
+
+
+def _searxng_available() -> bool:
+    """Check if the local SearXNG instance is reachable."""
+    try:
+        req = urllib.request.Request(f"{SEARXNG_BASE_URL}/search?q=test&format=json", method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 def run_maps_search(
@@ -200,6 +220,8 @@ def run_maps_search(
     provider_name = configured_search_provider(provider)
     if provider_name == SERPER_DEV_PROVIDER:
         return _serper_maps_search(query=query, api_key=api_key, gl=gl, timeout_seconds=timeout_seconds)
+    if provider_name == SEARXNG_PROVIDER:
+        return _webserper_maps_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
     return _webserper_maps_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
 
 
@@ -214,6 +236,8 @@ def run_organic_search(
     provider_name = configured_search_provider(provider)
     if provider_name == SERPER_DEV_PROVIDER:
         return _serper_organic_search(query=query, api_key=api_key, gl=gl, timeout_seconds=timeout_seconds)
+    if provider_name == SEARXNG_PROVIDER:
+        return _searxng_organic_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
     return _webserper_organic_search(query=query, gl=gl, timeout_seconds=timeout_seconds)
 
 
@@ -249,6 +273,54 @@ def _serper_organic_search(*, query: str, api_key: str, gl: str, timeout_seconds
         body = _http_error_body(exc)
         suffix = f": {body}" if body else ""
         raise SearchProviderError(f"Serper organic search HTTP {exc.code}{suffix}") from exc
+
+
+def _searxng_organic_search(
+    *,
+    query: str,
+    gl: str,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Search via local SearXNG instance (aggregates Google, DDG, Brave, etc.)."""
+    params = urllib.parse.urlencode({
+        "q": query,
+        "format": "json",
+        "language": "ja" if gl == "jp" else "en",
+    })
+    url = f"{SEARXNG_BASE_URL}/search?{params}"
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        raise SearchProviderError(f"SearXNG search failed: {exc}") from exc
+
+    organic: list[dict[str, str]] = []
+    seen_links: set[str] = set()
+    for result in data.get("results", []):
+        link = normalize_website_url(str(result.get("url") or ""))
+        if not link or link in seen_links:
+            continue
+        host = _host(link)
+        if _blocked_place_host(host) or _blocked_candidate_url(link):
+            continue
+        seen_links.add(link)
+        organic.append({
+            "title": str(result.get("title", "")),
+            "snippet": str(result.get("content", "")),
+            "link": link,
+            "sourceEngine": str(result.get("engine", "searxng")),
+        })
+
+    return {
+        "searchParameters": {
+            "q": query,
+            "gl": gl,
+            "engine": "searxng",
+            "provider": SEARXNG_PROVIDER,
+        },
+        "organic": organic,
+    }
 
 
 def _webserper_organic_search(
@@ -1012,11 +1084,11 @@ def _directory_extraction_queries(query: str) -> list[str]:
             queries.append(f"ラーメンデータベース {place} ラーメン 公式")
     if "tabelog" in lowered:
         for place in _place_terms_from_query(query):
-            category = "ラーメン" if _query_targets_ramen(query) else "居酒屋"
+            category = "ラーメン" if _query_targets_ramen(query) else "そば" if _query_targets_soba(query) else "居酒屋"
             queries.append(f"食べログ {place} {category} メニュー 公式")
     if "hotpepper" in lowered:
         for place in _place_terms_from_query(query):
-            category = "ラーメン" if _query_targets_ramen(query) else "居酒屋"
+            category = "ラーメン" if _query_targets_ramen(query) else "そば" if _query_targets_soba(query) else "居酒屋"
             queries.append(f"ホットペッパー {place} {category} メニュー 公式")
     if "gnavi" in lowered or "gurunavi" in lowered:
         for place in _place_terms_from_query(query):
@@ -1033,6 +1105,12 @@ def _official_discovery_queries(query: str) -> list[str]:
                 " ".join(part for part in [place, "ラーメン", "公式", "お問い合わせ", area] if part),
                 " ".join(part for part in [place, "ラーメン", "公式", "メール", area] if part),
                 " ".join(part for part in [place, "ラーメン", "公式", "contact", area] if part),
+            ])
+        if _query_targets_soba(query):
+            variants.extend([
+                " ".join(part for part in [place, "そば", "公式", "お問い合わせ", area] if part),
+                " ".join(part for part in [place, "そば", "公式", "メール", area] if part),
+                " ".join(part for part in [place, "そば", "公式", "contact", area] if part),
             ])
         if _query_targets_izakaya(query):
             variants.extend([
@@ -1175,6 +1253,10 @@ def _query_targets_ramen(query: str) -> bool:
     return any(token.lower() in lowered for token in RAMEN_TOKENS)
 
 
+def _query_targets_soba(query: str) -> bool:
+    return False
+
+
 def _query_targets_izakaya(query: str) -> bool:
     lowered = str(query or "").lower()
     return any(token.lower() in lowered for token in IZAKAYA_TOKENS)
@@ -1250,6 +1332,8 @@ def _organic_result_score(result: dict[str, Any], query: str) -> int:
         score += 10
     query_lower = str(query or "").lower()
     if _query_targets_ramen(query_lower) and any(token.lower() in haystack for token in RAMEN_TOKENS):
+        score += 10
+    if _query_targets_soba(query_lower) and any(token.lower() in haystack for token in SOBA_TOKENS):
         score += 10
     if _query_targets_izakaya(query_lower) and any(token.lower() in haystack for token in IZAKAYA_TOKENS):
         score += 10

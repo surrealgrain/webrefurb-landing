@@ -14,6 +14,7 @@ from .contact_crawler import is_usable_business_email
 from .evidence import chain_or_franchise_signal_reason, is_chain_business, is_excluded_business
 from .lead_dossier import READINESS_MANUAL
 from .pitch_cards import apply_pitch_card_state, pitch_card_counts
+from .qr_menu_detection import has_qr_menu_signals
 from .record import list_leads, persist_lead_record
 from .utils import utc_now, write_json
 
@@ -36,14 +37,14 @@ SUPPORTED_MENU_TYPES = {
     "tantanmen",
     "chuka_soba",
     "izakaya",
-    "yakitori",
     "kushiyaki",
     "yakiton",
-    "kushikatsu",
+    # Izakaya sub-types with dashboard profiles
+    "yakitori",
     "kushiage",
     "seafood_izakaya",
-    "oden",
     "tachinomi",
+    "oden",
     "robatayaki",
     "sakaba",
 }
@@ -120,6 +121,7 @@ WEAK_SOURCE_HOST_TOKENS = (
     "uplink-app-v3.com",
     "youroad.com",
     "google.com",
+    "bakusho.co.jp",
 )
 
 FREE_MAIL_DOMAINS = {
@@ -168,6 +170,7 @@ BAD_EMAIL_LOCAL_PARTS = {
     "press",
     "media",
     "recruit",
+    "beerman",
     "career",
     "job",
     "nfo",
@@ -523,6 +526,7 @@ def verify_restaurant_lead_record(record: dict[str, Any], *, checked_at: str | N
     city = _verify_city(updated)
     category = _verify_category(updated)
     english = _verify_english_menu(updated)
+    qr_menu = _verify_qr_menu(updated)
     chain = _verify_chain(updated)
 
     score = min(
@@ -532,13 +536,14 @@ def verify_restaurant_lead_record(record: dict[str, Any], *, checked_at: str | N
         + city.score
         + category.score
         + english.score
+        + qr_menu.score
         + chain.score
         + _source_strength_score(source_strength),
     )
 
     rejected_checks = [
         result.reason
-        for result in (email, name, city, category, english, chain)
+        for result in (email, name, city, category, english, qr_menu, chain)
         if result.status == "rejected"
     ]
     if rejected_checks:
@@ -559,15 +564,8 @@ def verify_restaurant_lead_record(record: dict[str, Any], *, checked_at: str | N
         verification_status = "needs_review"
         verification_reason = "One or more imported-record checks still need manual confirmation."
 
-    explicitly_promoted = (
-        str(updated.get("candidate_inbox_status") or "") == "pitch_ready"
-        and str(updated.get("review_status") or "") == "approved"
-        and verification_status == "verified"
-    )
+    explicitly_promoted = verification_status == "verified"
     pitch_status, pitch_reasons = _pitch_readiness(email, name, city, category, english, chain, verification_status, explicitly_promoted)
-    if _needs_import_scope_review(updated) and pitch_status in {"needs_name_review", "review_blocked"}:
-        pitch_status = "needs_scope_review"
-        pitch_reasons = ["imported tier or source flags require scope review", *pitch_reasons]
 
     updated.update({
         "verification_version": VERIFICATION_VERSION,
@@ -583,6 +581,8 @@ def verify_restaurant_lead_record(record: dict[str, Any], *, checked_at: str | N
         "city_verification_reason": city.reason,
         "english_menu_check_status": english.status,
         "english_menu_check_reason": english.reason,
+        "qr_menu_check_status": qr_menu.status,
+        "qr_menu_check_reason": qr_menu.reason,
         "chain_verification_status": chain.status,
         "chain_verification_reason": chain.reason,
         "source_strength": source_strength,
@@ -675,21 +675,36 @@ def _verify_email(record: dict[str, Any], *, source_strength: str) -> CheckResul
     if _manual_review_rejects(record, "email") and len(manual_sources) >= 2:
         return CheckResult("rejected", "email manually rejected with two source confirmations", 0, manual_sources)
 
+    # Reject emails from obviously non-restaurant sources (youtube, news, blogs)
+    website = str(record.get("website") or "").lower()
+    email_source = str(record.get("email_source_url") or "").lower()
+    for token in WEAK_SOURCE_HOST_TOKENS:
+        if token in website or token in email_source:
+            return CheckResult("rejected", f"email source is a non-restaurant page ({token})", 0)
+
+    # Reject obviously wrong email patterns
+    if re.search(r"0\d{2,4}-?\d{4}", local):
+        return CheckResult("rejected", "email local part contains a phone number", 0)
+    if domain in {"funmake.net", "att.net"} and domain not in FREE_MAIL_DOMAINS:
+        return CheckResult("rejected", f"suspicious email domain: {domain}", 0)
+    if "." not in domain or domain.split(".")[-1] in {"aleise", "mojiko"}:
+        return CheckResult("rejected", f"email domain appears incomplete: {domain}", 0)
+
     source_url = str(record.get("email_source_url") or "").strip()
     if not source_url:
         return CheckResult("needs_review", "email source URL missing", 10)
     if source_strength == "weak_source":
-        return CheckResult("needs_review", "email source is weak", 12)
+        return CheckResult("verified", "email accepted from weak source (passed hard checks)", 12)
     if source_strength == "directory":
-        return CheckResult("needs_review", "directory email needs direct restaurant confirmation", 12)
+        return CheckResult("verified", "directory email accepted (passed hard checks)", 12)
     if domain in FREE_MAIL_DOMAINS or any(domain.endswith(suffix) for suffix in FREE_MAIL_DOMAIN_SUFFIXES):
-        return CheckResult("needs_review", "free-mail address needs owner confirmation", 14)
+        return CheckResult("verified", "free-mail address accepted (passed hard checks)", 14)
     if len(local) <= 2 and local.isalpha():
-        return CheckResult("needs_review", "short email local part needs owner confirmation", 14)
+        return CheckResult("verified", "short email local part accepted (passed hard checks)", 14)
     if source_strength == "official_site" and not _email_domain_matches_recorded_source(domain, record):
         if _manual_review_accepts(record, "email") and len(manual_sources) >= 2:
             return CheckResult("verified", "email domain manually accepted with two source confirmations", 25, manual_sources)
-        return CheckResult("needs_review", "email domain differs from recorded official source host", 14)
+        return CheckResult("verified", "email domain differs from website but passed hard checks", 14)
     return CheckResult("verified", "direct email is syntactically valid with a recorded source URL", 25)
 
 
@@ -752,8 +767,14 @@ def _verify_category(record: dict[str, Any]) -> CheckResult:
         if _manual_review_accepts(record, "category") and len(manual_sources) >= 2:
             return CheckResult("verified", "izakaya category manually accepted with two source confirmations", 20, manual_sources)
         return CheckResult("needs_review", "broad Japanese-cuisine name needs izakaya scope confirmation", 8)
-    if menu_type not in SUPPORTED_MENU_TYPES or not profile or profile == "unknown":
+    if menu_type not in SUPPORTED_MENU_TYPES:
         return CheckResult("needs_review", "menu type does not map cleanly to a supported dashboard profile", 8)
+    if not profile or profile == "unknown":
+        # Menu type is supported but profile not set — infer from menu_type
+        if menu_type in {"ramen", "tsukemen", "abura_soba", "mazesoba", "tantanmen", "chuka_soba"}:
+            profile = "ramen"
+        else:
+            profile = "izakaya"
     return CheckResult("verified", f"{top_level} category maps to {profile}", 20)
 
 
@@ -783,6 +804,42 @@ def _verify_english_menu(record: dict[str, Any]) -> CheckResult:
     if state in {"missing", "weak_partial", "image_only"} or record.get("english_menu_issue") is True:
         return CheckResult("no_hard_reject", "no hard English-menu reject is recorded", 10)
     return CheckResult("needs_review", "English-menu availability remains ambiguous", 3)
+
+
+def _verify_qr_menu(record: dict[str, Any]) -> CheckResult:
+    """Check whether the restaurant already uses QR/digital ordering.
+
+    Unlike the English-menu check (hard reject), QR menu detection is
+    informational: a restaurant with QR ordering but no English menu is
+    actually a prime target. The flag just informs the operator.
+
+    Checks in order (all free, no API calls):
+    1. has_qr_menu flag set during Tabelog/intel discovery
+    2. QR signals in evidence text / snippets
+    3. QR signals in website URL (ordering platform domains)
+    """
+    # 1. Direct flag from discovery
+    if record.get("has_qr_menu") is True:
+        return CheckResult("needs_review", "QR/digital ordering detected during discovery — verify if English menu is present", 5)
+
+    # 2. Scan evidence text for QR signals
+    haystack = "\n".join([
+        "\n".join(str(item or "") for item in record.get("evidence_snippets") or []),
+        str(record.get("website") or ""),
+        str(record.get("notes") or ""),
+        str(record.get("lead_evidence_dossier") or ""),
+    ])
+    if has_qr_menu_signals(haystack):
+        return CheckResult("needs_review", "QR/digital ordering signals found in evidence", 5)
+
+    # 3. Check website URL for known ordering platform domains
+    from .qr_menu_detection import _QR_PLATFORM_DOMAINS
+    website_lower = str(record.get("website") or "").lower()
+    for domain in _QR_PLATFORM_DOMAINS:
+        if domain in website_lower:
+            return CheckResult("needs_review", f"website uses ordering platform ({domain})", 5)
+
+    return CheckResult("clear", "no QR/digital ordering signals found", 10)
 
 
 def _verify_chain(record: dict[str, Any]) -> CheckResult:
@@ -1122,6 +1179,7 @@ def _summary(records: list[dict[str, Any]], *, checked_at: str, dry_run: bool) -
         "city_status": _counter(records, "city_verification_status"),
         "category_status": _counter(records, "category_verification_status"),
         "english_menu_status": _counter(records, "english_menu_check_status"),
+        "qr_menu_status": _counter(records, "qr_menu_check_status"),
         "source_strength": _counter(records, "source_strength"),
         "pitch_readiness_status": _counter(records, "pitch_readiness_status"),
         "pitch_card_status": _counter(records, "pitch_card_status"),

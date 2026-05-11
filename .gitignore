@@ -13,5 +13,11 @@ node_modules/
 dashboard/.next/
 .env
 .DS_Store
+DESIGN_BRIEF.html
+assets/templates/demo_flow*.gif
+assets/templates/*_demo.gif
 pipeline/_logo_cache.png
 *_browser_preview.jpg
+docs/menus/_drafts/
+glm_menu_template_package_*/
+ticket_machine_guide_template_package_*/

@@ -20,7 +20,6 @@ COPY dashboard ./dashboard
 COPY assets ./assets
 COPY docs ./docs
 COPY email_discovery.yaml ./email_discovery.yaml
-COPY menu.html ./menu.html
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -e .

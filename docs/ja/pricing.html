@@ -1,593 +1,217 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>料金 | WebRefurb</title>
-<meta name="description" content="ラーメン店・居酒屋向けの英語注文システム固定料金プランです。">
-<link rel="canonical" href="https://webrefurb.com/ja/pricing">
-<link rel="alternate" hreflang="en" href="https://webrefurb.com/pricing">
-<link rel="alternate" hreflang="ja" href="https://webrefurb.com/ja/pricing">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<title>無料トライアル - English QR Menu</title>
+<meta name="description" content="English QR Menu の1週間無料トライアル。ホスト型メニューページ、QRコード、印刷用A4サイン、Show Staff List付き。アプリ不要、新しいシステム不要。">
+<link rel="canonical" href="https://webrefurb.com/ja/pricing.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="1週間の無料トライアル - English QR Menu">
+<meta property="og:description" content="日本の飲食店向け English QR Menu を1週間無料でお試しいただけます。">
+<meta property="og:url" content="https://webrefurb.com/ja/pricing.html">
+<meta property="og:image" content="https://webrefurb.com/logo.svg">
+<link rel="icon" href="../logo.svg">
+<link rel="mask-icon" href="../logo.svg" color="#E94560">
 <style>
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-:root {
-  --bg: #F9F8F5;
-  --surface: #F1F0ED;
-  --surface-elevated: #FEFDFB;
-  --text: #0C0C0B;
-  --text-secondary: #3A3935;
-  --text-tertiary: #6E6D68;
-  --text-muted: #9D9C97;
-  --border: rgba(12, 12, 11, 0.06);
-  --border-strong: rgba(12, 12, 11, 0.12);
-  --accent-green: #2D8A4E;
-  --accent-blue: #1A6FB5;
-  --accent-amber: #D4920B;
-  --accent-cyan: #0E7A8A;
-  --accent-red: #C74B3B;
-  --accent-indigo: #6B7BD8;
-  --cta-bg: #0C0C0B;
-  --cta-text: #F9F8F5;
-  --cta-hover: #2C2C2A;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-full: 999px;
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-fast: 150ms var(--ease-out);
-  --transition-med: 300ms var(--ease-out);
-}
-
-html {
-  font-family: 'Noto Sans JP', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  min-height: 100%;
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  scroll-behavior: smooth;
-}
-
-body {
-  min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
-  transition: background var(--transition-med), color var(--transition-med);
-  position: relative;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.015;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
-}
-
-.ambient-blob {
-  position: fixed;
-  z-index: 0;
-  border-radius: 50%;
-  filter: blur(120px);
-  pointer-events: none;
-}
-
-.ambient-blob--1 {
-  width: 500px;
-  height: 500px;
-  top: -100px;
-  right: -100px;
-  background: var(--accent-cyan);
-  opacity: 0.07;
-}
-
-.ambient-blob--2 {
-  width: 400px;
-  height: 400px;
-  bottom: -50px;
-  left: -100px;
-  background: var(--accent-amber);
-  opacity: 0.05;
-}
-
-/* ── Navigation ── */
-
-.nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  padding: 20px 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  opacity: 0;
-  animation: fadeIn 0.6s var(--ease-out) forwards;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(249, 248, 245, 0.7);
-  transition: background var(--transition-med);
-}
-
-.nav__left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.nav__right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.nav__back {
-  font-family: 'Outfit', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--text);
-  text-decoration: none;
-  transition: opacity var(--transition-fast);
-}
-
-.nav__back:hover {
-  opacity: 0.7;
-}
-
-.lang-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.lang-toggle a {
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-.lang-toggle a:hover {
-  color: var(--text);
-}
-
-.lang-toggle a.active {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.lang-toggle__sep {
-  color: var(--text-muted);
-  opacity: 0.4;
-}
-
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 10px 20px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-strong);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.btn-outline:hover {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--text-muted);
-}
-
-/* ── Main Content ── */
-
-.main {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 100px 40px 24px;
-}
-
-/* ── Pricing Section ── */
-
-.pricing-section {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 24px;
-  opacity: 0;
-  animation: slideUp 0.8s var(--ease-out) 0.2s forwards;
-}
-
-.pricing-section__header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pricing-section__title {
-  font-family: 'Noto Sans JP', 'Outfit', sans-serif;
-  font-size: clamp(28px, 4vw, 40px);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.15;
-  color: var(--text);
-}
-
-.pricing-section__sub {
-  font-size: clamp(14px, 1.5vw, 16px);
-  line-height: 1.6;
-  color: var(--text-secondary);
-  max-width: 440px;
-}
-
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  width: 100%;
-}
-
-.pricing-card {
-  position: relative;
-  background: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 28px 24px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: border-color 350ms var(--ease-out);
-}
-
-.pricing-card:hover {
-  border-color: var(--border-strong);
-}
-
-.pricing-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 28px;
-  right: 28px;
-  height: 2px;
-  border-radius: 0 0 2px 2px;
-  background: var(--accent-green);
-  opacity: 0.7;
-  transition: opacity var(--transition-fast);
-}
-
-.pricing-card:hover::before { opacity: 1; }
-
-.pricing-card--online::before { background: var(--accent-green); }
-.pricing-card--printed::before { background: var(--accent-blue); }
-.pricing-card--qr::before { background: var(--accent-cyan); }
-
-.pricing-card__name {
-  font-family: 'Noto Sans JP', 'Outfit', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
-  color: var(--text);
-}
-
-.pricing-card__price {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
-.pricing-card__desc {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-
-.pricing-card__list {
-  margin: 2px 0 0 18px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--text-tertiary);
-}
-
-.pricing-card__list li + li {
-  margin-top: 4px;
-}
-
-.pricing-section__note {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-/* ── Footer ── */
-
-.footer {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 48px 0 0;
-  opacity: 0;
-  animation: fadeIn 0.8s var(--ease-out) 0.5s forwards;
-}
-
-.footer__line {
-  width: 100%;
-  height: 1px;
-  background: var(--border);
-  margin-bottom: 16px;
-}
-
-.footer__content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.footer__copy {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.footer__links {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.footer__link {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-.footer__link:hover {
-  color: var(--text-secondary);
-}
-
-/* ── Animations ── */
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Focus styles ── */
-
-button:focus-visible,
-a:focus-visible {
-  outline: 2px solid var(--accent-cyan);
-  outline-offset: 3px;
-}
-
-/* ── Reduced motion ── */
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  .nav,
-  .pricing-section,
-  .footer {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* ── Tablet ─ */
-
-@media (max-width: 900px) {
-  .nav {
-    padding: 16px 24px;
-  }
-
-  .main {
-    padding: 88px 24px 28px;
-  }
-
-  .pricing-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* ── Mobile ─ */
-
-@media (max-width: 640px) {
-  .nav {
-    padding: 12px 16px;
-    gap: 8px;
-  }
-
-  .nav__left {
-    gap: 12px;
-  }
-
-  .nav__right {
-    gap: 8px;
-  }
-
-  .lang-toggle {
-    gap: 5px;
-    font-size: 12px;
-  }
-
-  .main {
-    padding: 80px 16px 24px;
-  }
-
-  .nav__back {
-    font-size: 16px;
-  }
-
-  .pricing-grid {
-    grid-template-columns: 1fr;
-    max-width: 400px;
-  }
-
-  .pricing-card {
-    padding: 24px 20px 20px;
-  }
-
-  .pricing-card::before {
-    left: 20px;
-    right: 20px;
-  }
-
-  .pricing-card__price {
-    font-size: 24px;
-  }
-
-  .btn-outline {
-    min-height: 44px;
-    padding: 0 14px;
-    font-size: 11px;
-  }
-
-  .footer__content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-}
+:root{--coral:#E94560;--coral-dark:#C73550;--coral-glow:rgba(233,69,96,.12);--coral-soft:#FFF0F2;--navy:#1a1f36;--ink:#111827;--body:#374151;--muted:#6b7280;--light:#9ca3af;--border:#e5e7eb;--surface:#f9fafb;--white:#ffffff;--radius:16px;--radius-sm:10px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP",sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);color:var(--ink);background:var(--white);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--coral);outline-offset:2px;border-radius:4px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 5%;height:60px;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.07em;font-size:13px;text-transform:uppercase}
+.brand img{width:26px;height:26px}
+.nav-right{display:flex;align-items:center;gap:14px}
+.lang-toggle{display:flex;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);height:44px}
+.lang-btn{display:flex;align-items:center;justify-content:center;min-width:44px;padding:0 12px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--light);transition:all .15s}
+.lang-btn.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border-radius:var(--radius-sm);font-weight:700;font-size:15px;font-family:var(--font);cursor:pointer;border:none;transition:all .2s}
+.btn-coral{background:var(--coral);color:#fff;box-shadow:0 4px 14px rgba(233,69,96,.25)}
+.btn-coral:hover{background:var(--coral-dark);box-shadow:0 6px 20px rgba(233,69,96,.35);transform:translateY(-1px)}
+.btn-ghost{background:var(--white);color:var(--ink);border:1.5px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.btn-ghost:hover{border-color:var(--coral);color:var(--coral)}
+.btn-sm{min-height:44px;padding:0 20px;font-size:14px;border-radius:8px}
+
+.wrap{max-width:960px;margin:0 auto;padding:64px 5% 80px}
+.page-head{margin-bottom:48px}
+.page-head h1{font-size:clamp(36px,5vw,52px);font-weight:900;letter-spacing:-.5px;line-height:1.15;margin-bottom:10px;color:var(--coral)}
+.page-intro{font-size:20px;color:var(--body);line-height:1.7;max-width:600px;font-weight:600}
+
+.trial-body{max-width:640px}
+.trial-body p{font-size:17px;color:var(--body);line-height:1.7;margin-bottom:20px}
+.trial-body h2{font-size:20px;font-weight:800;margin:36px 0 16px;letter-spacing:-.2px}
+
+ul.trial-list{margin:0 0 24px;padding:0;list-style:none;display:grid;gap:12px}
+ul.trial-list li{padding-left:24px;position:relative;font-size:15px;color:var(--body);line-height:1.6}
+ul.trial-list li::before{content:"";position:absolute;left:0;top:.5em;width:8px;height:8px;border-radius:50%;background:var(--coral)}
+
+.trial-note{margin:28px 0;padding:20px 24px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);font-size:15px;color:var(--body);line-height:1.65}
+.trial-note strong{font-weight:700;color:var(--ink)}
+
+.trial-cta{margin-top:36px}
+.trial-disclaimer{margin-top:16px;font-size:14px;color:var(--muted);line-height:1.65}
+.faq{margin-top:42px;max-width:760px}
+.faq h2{font-size:20px;font-weight:800;margin-bottom:16px}
+.faq-list{border-top:1px solid var(--border)}
+.faq-item{padding:18px 0;border-bottom:1px solid var(--border)}
+.faq-item h3{font-size:15px;font-weight:800;margin-bottom:6px}
+.faq-item p{font-size:15px;color:var(--body);line-height:1.65;margin:0}
+
+.divider{border:none;border-top:1px solid var(--border);margin:64px 0}
+
+.pricing-section h2{font-size:clamp(26px,3.5vw,36px);font-weight:900;letter-spacing:-.5px;line-height:1.15;margin-bottom:10px}
+.pricing-section .pricing-sub{font-size:17px;color:var(--body);line-height:1.65;margin-bottom:32px}
+
+.price-card{background:var(--coral-soft);border-radius:var(--radius);padding:44px;text-align:center;margin-bottom:32px}
+.price-amount{font-size:clamp(40px,5vw,56px);font-weight:900;letter-spacing:-1px;color:var(--coral)}
+.price-label{font-size:14px;color:var(--muted);margin-top:6px}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:28px;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.panel h3{font-size:16px;font-weight:800;margin-bottom:14px;letter-spacing:0}
+ul.plain{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+ul.plain li{padding-left:22px;position:relative;font-size:14px;color:var(--body);line-height:1.55}
+ul.plain li::before{content:"";position:absolute;left:0;top:.5em;width:7px;height:7px;border-radius:50%;background:var(--coral)}
+ul.muted li::before{background:var(--light)}
+.panel-note{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);line-height:1.6}
+
+.footer{padding:36px 5%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--light)}
+
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+@media(max-width:600px){.nav{flex-wrap:wrap;height:auto;padding:10px 5%;gap:8px}.nav-right{width:100%;justify-content:space-between}.price-card{padding:32px 20px}.footer{flex-direction:column;gap:8px;text-align:center}}
 </style>
 </head>
 <body>
 
-<!-- Navigation -->
-<nav class="nav" aria-label="メインナビゲーション">
-  <div class="nav__left">
-    <a class="nav__back" href="/ja">WebRefurb</a>
-    <div class="lang-toggle">
-      <a href="/pricing.html">English</a>
-      <span class="lang-toggle__sep">|</span>
-      <a href="/ja/pricing.html" class="active">日本語</a>
+<nav class="nav" aria-label="Primary">
+  <a class="brand" href="./"><img src="../logo.svg" alt="">WEBREFURB</a>
+  <div class="nav-right">
+    <div class="lang-toggle" aria-label="Language">
+      <a class="lang-btn" href="../pricing.html">EN</a>
+      <a class="lang-btn active" href="pricing.html">JP</a>
     </div>
-  </div>
-  <div class="nav__right">
-    <button class="theme-toggle" id="themeToggle" aria-label="ダークモード切替">
-      <svg class="icon-sun" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="5"/>
-        <line x1="12" y1="1" x2="12" y2="3"/>
-        <line x1="12" y1="21" x2="12" y2="23"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="1" y1="12" x2="3" y2="12"/>
-        <line x1="21" y1="12" x2="23" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <svg class="icon-moon" viewBox="0 0 24 24">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
-    <a class="btn-outline" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">無料サンプル</a>
+    <a class="btn btn-ghost btn-sm" href="mailto:chris@webrefurb.com">Contact</a>
   </div>
 </nav>
 
-<!-- Main Content -->
-<main class="main">
+<main class="wrap">
 
-  <!-- 料金セクション -->
-  <section class="pricing-section" aria-label="料金">
-    <div class="pricing-section__header">
-      <h1 class="pricing-section__title">料金</h1>
-      <p class="pricing-section__sub">英語の注文資料を、店舗確認後に納品する固定料金プランです。</p>
+  <!-- Trial section -->
+  <div class="page-head">
+    <h1>1週間の無料トライアル</h1>
+    <p class="page-intro">導入前に、実際のお店でお試しいただけます。</p>
+  </div>
+
+  <div class="trial-body">
+    <p>WebRefurb が英語QRメニューのトライアルページを作成し、印刷用A4 QRサインをお送りします。1枚印刷して、カウンターやテーブル付近に置くだけで、訪日客に1週間お試しいただけます。</p>
+
+    <h2>トライアルに含まれるもの</h2>
+    <ul class="trial-list">
+      <li>英語QRメニューのトライアルページ</li>
+      <li>QRコード</li>
+      <li>印刷用A4 QRサイン</li>
+      <li>スタッフに見せるリスト機能</li>
+      <li>トライアル開始前の軽微な修正1回</li>
+    </ul>
+
+    <div class="trial-note">
+      1週間後、継続するかどうかを自由にご判断いただけます。お断りいただいても、一切費用は発生しません。
     </div>
-    <div class="pricing-grid">
-      <div class="pricing-card pricing-card--online">
-        <span class="pricing-card__name">英語注文ファイル</span>
-        <span class="pricing-card__price">30,000円</span>
-        <p class="pricing-card__desc">印刷用のメニュー・注文ガイドデータをオンラインで納品します。</p>
+
+    <p>アプリのインストール不要。新しいシステムの導入不要。通常の接客フローも変わりません。</p>
+    <p>お店の情報は、QRメニューの制作と運用のみに使用します。</p>
+
+    <div class="trial-cta">
+      <a class="btn btn-coral" href="mailto:chris@webrefurb.com?subject=Free%20trial%20request">無料トライアルを相談する</a>
+    </div>
+    <p class="trial-disclaimer">店舗名をお知らせください。次のステップをご案内します。</p>
+  </div>
+
+  <section class="faq" aria-labelledby="faq-heading">
+    <h2 id="faq-heading">よくある質問</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>今のメニューは置き換わりますか？</h3>
+        <p>置き換えません。現在の日本語メニューと通常の接客フローに添えて使えます。</p>
       </div>
-      <div class="pricing-card pricing-card--printed">
-        <span class="pricing-card__name">店頭用注文キット</span>
-        <span class="pricing-card__price">45,000円</span>
-        <p class="pricing-card__desc">印刷・ラミネート加工済みのメニューを、メニューの内容や店舗で扱いやすいサイズに合わせてお届けします。</p>
+      <div class="faq-item">
+        <h3>機材は必要ですか？</h3>
+        <p>アプリや新しいシステムは不要です。A4のQRサインを1枚印刷して設置します。印刷が難しい場合は、次の手順をご相談できます。</p>
       </div>
-      <div class="pricing-card pricing-card--qr">
-        <span class="pricing-card__name">ライブQR英語メニュー</span>
-        <span class="pricing-card__price">65,000円</span>
-        <p class="pricing-card__desc">料理の説明、写真、QRコード、「Scan for English Menu」案内サインを含む英語注文ページをWebRefurb上に作成します。</p>
-        <ul class="pricing-card__list">
-          <li>公開日から12か月間のWeb掲載を含みます。</li>
-          <li>公開後30日以内の内容修正は1回まで基本料金内で対応します。</li>
-          <li>掲載期間中の基本サポートは、QRリンクの不具合、ページ表示不良、承認済み文言の軽微な修正を対象とします。</li>
-          <li>12か月後は更新継続または、データをお渡ししての公開終了をお選びいただけます。</li>
-        </ul>
+      <div class="faq-item">
+        <h3>後から料理を変更したい場合は？</h3>
+        <p>公開後の更新はご依頼ごとに対応し、手動で合意した場合を除き、別途お見積もりです。</p>
       </div>
     </div>
-    <p class="pricing-section__note">納品前の店舗確認と修正1回を含みます。メニューのページ数が多い場合、追加部数、複数プランの組み合わせなどは別途お見積もりいたします。価格・アレルギー表記は店舗確認後のみ掲載します。</p>
-    <p class="pricing-section__note"><a class="footer__link" href="mailto:chris@webrefurb.com?subject=%E7%84%A1%E6%96%99%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%9D%E9%A0%BC&body=WebRefurb%20Chris%E6%A7%98%0A%0A%E7%84%A1%E6%96%99%E3%81%AE%E8%8B%B1%E8%AA%9E%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%92%E5%B8%8C%E6%9C%9B%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E5%BA%97%E8%88%97%E5%90%8D%EF%BC%9A%0A%E6%89%80%E5%9C%A8%E5%9C%B0%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82">無料サンプルをご希望の場合はこちらからご連絡ください。</a></p>
   </section>
 
-  <!-- Footer -->
-  <footer class="footer" aria-label="フッター">
-    <div class="footer__line"></div>
-    <div class="footer__content">
-      <p class="footer__copy">&copy; 2026 WebRefurb. All rights reserved.</p>
-      <div class="footer__links">
-        <a class="footer__link" href="mailto:chris@webrefurb.com">chris@webrefurb.com</a>
+  <hr class="divider">
+
+  <!-- Full pricing section -->
+  <div class="pricing-section">
+    <h2>正式セットアップ料金</h2>
+    <p class="pricing-sub">トライアル後に継続を決めた場合、正式セットアップは1回限りの費用です。ホスティング込み。月額料金はありません。</p>
+
+    <div class="price-card">
+      <div class="price-amount">65,000円</div>
+      <p class="price-label">税別。消費税10%込みで71,500円。</p>
+    </div>
+
+    <div class="grid" aria-label="料金詳細">
+      <div class="panel">
+        <h3>含まれるもの</h3>
+        <ul class="plain">
+          <li>ホスト型 English QR Menu ページ</li>
+          <li>インタラクティブな「リストに追加」フロー</li>
+          <li>日本語優先のスタッフリスト画面</li>
+          <li>QRコード</li>
+          <li>印刷用QRサイン</li>
+          <li>ホスティング込み</li>
+          <li>公開前修正1回</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>最適なお店</h3>
+        <ul class="plain">
+          <li>ラーメン店・居酒屋</li>
+          <li>定番メニューが安定しているお店</li>
+          <li>訪日客が多い立地</li>
+          <li>テーブルでのメニュー説明を減らしたいスタッフ</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>公開ルール</h3>
+        <ul class="plain">
+          <li>価格はオーナー確認後のみ公開します。</li>
+          <li>説明文はオーナー確認後のみ公開します。</li>
+          <li>原材料はオーナー確認後のみ公開します。</li>
+          <li>アレルギー情報はオーナー確認後のみ公開します。</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>デフォルトでは含まれないもの</h3>
+        <ul class="plain muted">
+          <li>日替わりメニューの更新</li>
+          <li>季節限定メニューの更新</li>
+          <li>カスタム連携</li>
+          <li>複数店舗のメニュー</li>
+          <li>写真撮影</li>
+        </ul>
+        <div class="panel-note">公開後の更新はご依頼ごとに対応し、手動で合意した場合を除き、別途お見積もりです。</div>
       </div>
     </div>
-  </footer>
+  </div>
 
 </main>
 
-<script>
-(function() {
-  var html = document.documentElement;
-  html.setAttribute('data-theme', 'light');
-  document.getElementById('themeToggle').addEventListener('click', function() {
-    var current = html.getAttribute('data-theme');
-    var next = current === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-  });
-})();
-</script>
-
+<footer class="footer">
+  <span>WebRefurb</span>
+  <span>日本の飲食店向け インタラクティブ英語QRメニュー</span>
+</footer>
 </body>
 </html>
