@@ -26,6 +26,12 @@ Startup read path: `AGENTS.md` -> `HANDOFF.codex.md` only.
 - Full remaining suite after bloat cleanup: `.venv/bin/python -m pytest tests/ -q` -> 370 passed.
 - State audit passed: `.venv/bin/python -m pipeline.cli audit-state` -> `ok: true`.
 
+## Production Ready Target
+- Release gate: tests, state audit, static/live site health, banned-term scan, and secret scan all pass.
+- Trial lifecycle is tracked from request through live trial, converted/declined, and archive.
+- Publish remains blocked until owner confirms prices, descriptions, ingredients, and allergy notes.
+- Demo coral/white look is treated as locked unless explicitly redesigned.
+
 ## Caveats
 - Legacy product tests, old generated package artifacts, old sample templates, and old simulation/review command modules were removed because they encoded the retired print/design/template system.
 - Existing lead state is QR-reset audited: old drafts/manual-review are blocked; no real-send path is enabled.

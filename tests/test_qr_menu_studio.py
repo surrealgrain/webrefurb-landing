@@ -125,6 +125,15 @@ class TestProductScope:
         assert "ramen" in data["categories"]
         assert "izakaya" in data["categories"]
         assert "skip" in data["categories"]
+        assert "git_commit" in data
+        assert data["environment"] == "local"
+
+    def test_diagnostics_endpoint_exposes_runtime_context(self, client):
+        resp = client.get("/api/diagnostics")
+        data = resp.json()
+        assert resp.status_code == 200
+        assert data["status"] == "ok"
+        assert data["route_count"] > 0
 
 
 # ===========================================================================
@@ -334,7 +343,56 @@ class TestPublishGates:
 
 
 # ===========================================================================
-# E. Dashboard workspace
+# E. Trial lifecycle
+# ===========================================================================
+
+class TestTrialLifecycle:
+
+    def test_workspace_can_create_and_transition_trial(self, client):
+        ws = _create_workspace(client)
+
+        resp = client.post(f"/api/studio/{ws['id']}/trial", json={"requested_by": "operator"})
+        assert resp.status_code == 200
+        trial = resp.json()
+        assert trial["status"] == "requested"
+
+        resp = client.post(f"/api/trials/{trial['trial_id']}/transition", json={"status": "accepted"})
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "accepted"
+
+        ws_data = client.get(f"/api/studio/{ws['id']}").json()
+        assert ws_data["trial"]["status"] == "accepted"
+        assert ws_data["workflow"]["trial_status"] == "accepted"
+
+    def test_invalid_trial_transition_is_rejected(self, client):
+        ws = _create_workspace(client)
+        trial = client.post(f"/api/studio/{ws['id']}/trial", json={}).json()
+
+        resp = client.post(f"/api/trials/{trial['trial_id']}/transition", json={"status": "live_trial"})
+
+        assert resp.status_code == 422
+
+    def test_trials_endpoint_returns_metrics(self, client):
+        ws = _create_workspace(client)
+        client.post(f"/api/studio/{ws['id']}/trial", json={})
+
+        resp = client.get("/api/trials")
+
+        assert resp.status_code == 200
+        assert resp.json()["metrics"]["requested"] == 1
+
+    def test_workspace_archive_sets_archived_state(self, client):
+        ws = _create_workspace(client)
+
+        resp = client.post(f"/api/studio/{ws['id']}/archive", json={"reason": "owner_declined_trial"})
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "archived"
+        assert client.get(f"/api/studio/{ws['id']}").json()["status"] == "archived"
+
+
+# ===========================================================================
+# F. Dashboard workspace
 # ===========================================================================
 
 class TestDashboardWorkspace:
@@ -493,6 +551,23 @@ class TestSendSafety:
         """Verify send safety is mentioned in the dashboard."""
         html = Path("dashboard/templates/index.html").read_text()
         assert "test sends" in html.lower() or "manual approval" in html.lower()
+
+    def test_batch_policy_endpoint_requires_manual_approval(self, client, _isolated_state):
+        lead_path = _isolated_state / "leads" / "wrm-batch.json"
+        lead_path.write_text(json.dumps({
+            "lead_id": "wrm-batch",
+            "email": "owner@example.jp",
+            "outreach_status": "needs_review",
+        }), encoding="utf-8")
+
+        resp = client.post("/api/send-batch/policy-check", json={
+            "lead_ids": ["wrm-batch"],
+            "approved": False,
+        })
+
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is False
+        assert "manual_batch_approval_missing" in resp.json()["reasons"]
 
 
 # ===========================================================================

@@ -9,6 +9,7 @@ import pytest
 
 from pipeline.qr import (
     QRMenuError,
+    archive_qr_menu,
     approve_qr_package,
     assess_reply_qr_readiness,
     check_qr_health,
@@ -230,6 +231,35 @@ def test_create_qr_sign_returns_draft_sign_links(tmp_path):
     assert (docs_root / "menus" / "_drafts" / job["job_id"] / "qr_sign.html").exists()
     assert "Scan QR for English Menu" in (docs_root / "menus" / "_drafts" / job["job_id"] / "qr_sign.html").read_text()
     assert (docs_root / "menus" / "_drafts" / job["job_id"] / "qr_sign.svg").exists()
+
+
+def test_archive_qr_menu_replaces_live_shell_with_noindex_notice(tmp_path):
+    state_root = tmp_path / "state"
+    docs_root = tmp_path / "docs"
+    job = create_qr_draft(
+        reply=_reply(tmp_path),
+        state_root=state_root,
+        docs_root=docs_root,
+        payload=_complete_payload(),
+    )
+    published = publish_qr_job(state_root=state_root, docs_root=docs_root, job_id=job["job_id"])
+
+    archived = archive_qr_menu(
+        state_root=state_root,
+        docs_root=docs_root,
+        menu_id="hinode-ramen",
+        reason="owner_declined_trial",
+    )
+
+    assert archived["status"] == "archived"
+    assert archived["previous_current_version"] == published["published_version_id"]
+    shell = (docs_root / "menus" / "hinode-ramen" / "index.html").read_text()
+    manifest = json.loads((docs_root / "menus" / "hinode-ramen" / "manifest.json").read_text())
+    source = json.loads((state_root / "qr_menus" / "hinode-ramen" / "versions" / published["published_version_id"] / "source.json").read_text())
+    assert 'noindex,nofollow' in shell
+    assert "This menu is no longer available" in shell
+    assert manifest["status"] == "archived"
+    assert source["status"] == "archived"
 
 
 def test_publish_blocks_incomplete_draft_and_leaves_live_pointer(tmp_path):

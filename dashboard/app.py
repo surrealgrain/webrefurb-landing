@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import secrets
+import subprocess
 import uuid
 from datetime import datetime, timezone, timedelta
 from email.utils import parseaddr
@@ -36,6 +37,16 @@ from pipeline.constants import (
     OUTREACH_STATUS_SENT,
 )
 from pipeline.utils import load_project_env
+from pipeline.lead_quality import lead_quality_summary
+from pipeline.send_policy import apply_opt_out, batch_send_policy, record_blocks_send
+from pipeline.trial_workflow import (
+    create_trial_record,
+    list_trial_records,
+    load_trial_record,
+    save_trial_record,
+    transition_trial,
+    trial_metrics,
+)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -74,6 +85,8 @@ REVIEWS_DIR = STATE_ROOT / "reviews"
 REVIEWS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR = STATE_ROOT / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+AUDIT_DIR = STATE_ROOT / "audit"
+AUDIT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # v1 Constants
@@ -179,6 +192,12 @@ def _create_workspace(*, restaurant_name: str, restaurant_name_ja: str = "",
             "changes_requested_at": "",
             "notes": "",
         },
+        "trial": {
+            "status": "not_requested",
+            "trial_id": "",
+            "public_url": "",
+            "trial_ends_at": "",
+        },
         "publish": {
             "ready": False,
             "checks": {},
@@ -192,6 +211,7 @@ def _create_workspace(*, restaurant_name: str, restaurant_name_ja: str = "",
         "updated_at": _now_iso(),
     }
     _save_workspace(workspace)
+    _append_dashboard_audit("workspace_created", workspace_id=ws_id, detail={"restaurant_name": restaurant_name, "category": category})
     _log("workspace_created", f"id={ws_id} name={restaurant_name[:50]}")
     return workspace
 
@@ -244,6 +264,61 @@ def _run_publish_checks(workspace: dict) -> dict[str, bool]:
 
 def _publish_ready(checks: dict[str, bool]) -> bool:
     return all(checks.values())
+
+
+def _append_dashboard_audit(action: str, *, workspace_id: str = "", lead_id: str = "", detail: dict[str, Any] | None = None) -> None:
+    audit_dir = STATE_ROOT / "audit"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    record = {
+        "at": _now_iso(),
+        "action": action,
+        "workspace_id": workspace_id,
+        "lead_id": lead_id,
+        "detail": detail or {},
+    }
+    path = audit_dir / "dashboard.jsonl"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def _workspace_workflow_summary(workspace: dict) -> dict[str, Any]:
+    checks = _run_publish_checks(workspace)
+    failed = [key for key, ok in checks.items() if not ok]
+    owner_fields = _fields_needing_confirmation(workspace)
+    trial = workspace.get("trial") or {}
+    next_actions: list[str] = []
+    if not workspace.get("items"):
+        next_actions.append("add_menu_items")
+    if owner_fields:
+        next_actions.append("owner_confirmation_required")
+    if workspace.get("owner_review", {}).get("status") != "approved":
+        next_actions.append("send_or_complete_owner_review")
+    if not _publish_ready(checks):
+        next_actions.append("resolve_publish_blockers")
+    elif workspace.get("status") != "published":
+        next_actions.append("publish_when_manually_approved")
+    return {
+        "lead_status": "linked" if workspace.get("lead_id") else "manual_workspace",
+        "trial_status": trial.get("status", "not_requested"),
+        "owner_confirmation": {
+            "review_status": workspace.get("owner_review", {}).get("status", "not_sent"),
+            "fields_needing_confirmation": owner_fields,
+        },
+        "publish_status": {
+            "status": workspace.get("status", "intake"),
+            "ready": _publish_ready(checks),
+            "blockers": failed,
+            "published_url": workspace.get("publish", {}).get("published_url", ""),
+        },
+        "next_actions": next_actions,
+    }
+
+
+def _current_git_commit() -> str:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=PROJECT_ROOT, text=True).strip()
+    except Exception:
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +415,7 @@ async def api_leads():
             "category": cat,
             "contact_route": lead.get("email", "") or lead.get("contact_route", ""),
             "recommended_product": ENGLISH_QR_MENU_LABEL,
+            "lead_quality": lead_quality_summary(lead),
             "evidence": {
                 "english": lead.get("english_menu_state", "unknown"),
                 "qr": lead.get("menu_evidence_found", False),
@@ -357,7 +433,7 @@ async def api_lead_detail(lead_id: str):
     leads = _load_leads()
     for lead in leads:
         if lead.get("lead_id") == lead_id:
-            return lead
+            return {**lead, "lead_quality": lead_quality_summary(lead), "send_blockers": record_blocks_send(lead)}
     raise HTTPException(status_code=404, detail="Lead not found")
 
 
@@ -377,9 +453,11 @@ async def api_list_studios():
                 "restaurant_name": ws.get("restaurant_name", ""),
                 "category": ws.get("category", ""),
                 "status": ws.get("status", "intake"),
+                "trial_status": (ws.get("trial") or {}).get("status", "not_requested"),
                 "item_count": len(ws.get("items", [])),
                 "owner_review_status": ws.get("owner_review", {}).get("status", "not_sent"),
                 "published_url": ws.get("publish", {}).get("published_url", ""),
+                "publish_ready": _publish_ready(_run_publish_checks(ws)),
                 "updated_at": ws.get("updated_at", ""),
             })
     return workspaces
@@ -412,6 +490,7 @@ async def api_get_studio(workspace_id: str):
     # Attach computed publish checks
     ws["publish"]["checks"] = _run_publish_checks(ws)
     ws["publish"]["ready"] = _publish_ready(ws["publish"]["checks"])
+    ws["workflow"] = _workspace_workflow_summary(ws)
     return ws
 
 
@@ -978,6 +1057,92 @@ async def api_mark_needs_update(workspace_id: str):
     return {"status": "needs_update"}
 
 
+@app.post("/api/studio/{workspace_id}/archive")
+async def api_archive_studio(workspace_id: str, request: Request):
+    ws = _load_workspace(workspace_id)
+    if not ws:
+        raise HTTPException(status_code=404)
+    body = await request.json()
+    reason = str(body.get("reason") or "manual_archive")[:500]
+    ws["status"] = "archived"
+    ws["archived_at"] = _now_iso()
+    ws["archive_reason"] = reason
+    publish = ws.setdefault("publish", {})
+    publish["health_status"] = "archived"
+    _save_workspace(ws)
+    _append_dashboard_audit("workspace_archived", workspace_id=workspace_id, detail={"reason": reason})
+    return {"status": "archived", "reason": reason}
+
+
+# ===================================================================
+# API — Trial Lifecycle
+# ===================================================================
+
+@app.get("/api/trials")
+async def api_trials():
+    trials = list_trial_records(state_root=STATE_ROOT)
+    return {"trials": trials, "metrics": trial_metrics(trials)}
+
+
+@app.post("/api/studio/{workspace_id}/trial")
+async def api_create_trial(workspace_id: str, request: Request):
+    ws = _load_workspace(workspace_id)
+    if not ws:
+        raise HTTPException(status_code=404)
+    body = await request.json()
+    record = create_trial_record(
+        lead={
+            "lead_id": ws.get("lead_id", ""),
+            "business_name": ws.get("restaurant_name", ""),
+        },
+        requested_by=str(body.get("requested_by") or "operator"),
+        source_channel=str(body.get("source_channel") or "dashboard"),
+    )
+    save_trial_record(state_root=STATE_ROOT, record=record)
+    ws["trial"] = {
+        "status": record["status"],
+        "trial_id": record["trial_id"],
+        "public_url": record.get("public_url", ""),
+        "trial_ends_at": record.get("trial_ends_at", ""),
+    }
+    _save_workspace(ws)
+    _append_dashboard_audit("trial_created", workspace_id=workspace_id, detail={"trial_id": record["trial_id"]})
+    return record
+
+
+@app.post("/api/trials/{trial_id}/transition")
+async def api_transition_trial(trial_id: str, request: Request):
+    record = load_trial_record(state_root=STATE_ROOT, trial_id=trial_id)
+    if not record:
+        raise HTTPException(status_code=404)
+    body = await request.json()
+    try:
+        updated = transition_trial(
+            record,
+            str(body.get("status") or ""),
+            actor=str(body.get("actor") or "operator"),
+            reason=str(body.get("reason") or ""),
+            public_url=str(body.get("public_url") or ""),
+            menu_id=str(body.get("menu_id") or ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    save_trial_record(state_root=STATE_ROOT, record=updated)
+    for path in STUDIO_DIR.glob("*.json"):
+        ws = _load_json(path)
+        if not ws or (ws.get("trial") or {}).get("trial_id") != trial_id:
+            continue
+        ws["trial"] = {
+            "status": updated["status"],
+            "trial_id": trial_id,
+            "public_url": updated.get("public_url", ""),
+            "trial_ends_at": updated.get("trial_ends_at", ""),
+        }
+        _save_workspace(ws)
+    _append_dashboard_audit("trial_transitioned", detail={"trial_id": trial_id, "status": updated["status"]})
+    return updated
+
+
 def _publish_menu_html(workspace: dict, slug: str) -> None:
     """Generate and save the static customer-facing menu HTML."""
     menu_data = _build_menu_data(workspace)
@@ -1142,7 +1307,31 @@ async def api_health():
         "product": ENGLISH_QR_MENU_KEY,
         "categories": list(ALLOWED_CATEGORIES),
         "studio_count": len(list(STUDIO_DIR.glob("*.json"))),
+        "git_commit": _current_git_commit(),
+        "environment": os.environ.get("WEBREFURB_ENV", "local"),
     }
+
+
+@app.get("/api/diagnostics")
+async def api_diagnostics():
+    return {
+        "status": "ok",
+        "git_commit": _current_git_commit(),
+        "environment": os.environ.get("WEBREFURB_ENV", "local"),
+        "state_root": str(STATE_ROOT),
+        "docs_root": str(QR_DOCS_ROOT),
+        "route_count": len(app.routes),
+    }
+
+
+@app.post("/api/send-batch/policy-check")
+async def api_send_batch_policy_check(request: Request):
+    body = await request.json()
+    lead_ids = [str(item) for item in body.get("lead_ids") or []]
+    approved = body.get("approved") is True
+    leads = [lead for lead in _load_leads() if lead.get("lead_id") in lead_ids]
+    sent_history = _load_sent_history()
+    return batch_send_policy(leads, approved=approved, sent_history=sent_history)
 
 
 # ===================================================================
@@ -1312,6 +1501,18 @@ def _save_sent_email(
     path = sent_dir / f"{lead_id}_{ts}.json"
     from pipeline.utils import write_json
     write_json(path, record)
+
+
+def _load_sent_history() -> list[dict[str, Any]]:
+    sent_dir = STATE_ROOT / "sent"
+    if not sent_dir.exists():
+        return []
+    history: list[dict[str, Any]] = []
+    for path in sorted(sent_dir.glob("*.json")):
+        data = _load_json(path)
+        if data:
+            history.append(data)
+    return history
 
 
 async def _send_email_resend(
@@ -1548,15 +1749,7 @@ async def api_send(lead_id: str, request: Request):
 @app.get("/api/sent")
 async def api_sent():
     """Return all sent email records."""
-    sent_dir = STATE_ROOT / "sent"
-    if not sent_dir.exists():
-        return []
-    results = []
-    for path in sorted(sent_dir.glob("*.json")):
-        data = _load_json(path)
-        if data:
-            results.append(data)
-    return results
+    return _load_sent_history()
 
 
 # ===================================================================
@@ -1608,7 +1801,7 @@ async def api_resend_webhook(request: Request):
     if event_type == "email.complained":
         record = _find_lead_by_email(to_email)
         if record:
-            record["outreach_status"] = "do_not_contact"
+            record = apply_opt_out(record, reason="spam_complaint")
             if "status_history" not in record:
                 record["status_history"] = []
             record["status_history"].append({
