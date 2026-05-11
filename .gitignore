@@ -12,6 +12,7 @@ node_modules/
 .next/
 dashboard/.next/
 .env
+.env.*
 .DS_Store
 DESIGN_BRIEF.html
 assets/templates/demo_flow*.gif

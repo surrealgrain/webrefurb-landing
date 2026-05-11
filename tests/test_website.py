@@ -168,6 +168,7 @@ def test_root_public_files_mirror_docs_pages_source():
     # GitHub Pages currently serves the repository root for the custom domain.
     # Keep these mirrored until Pages is explicitly configured to use /docs.
     mirrored = (
+        ".nojekyll",
         "CNAME",
         "email-logo.svg",
         "index.html",

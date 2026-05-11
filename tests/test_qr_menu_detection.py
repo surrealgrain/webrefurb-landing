@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pipeline.qr_menu_detection import QRMenuDetection, has_qr_menu_signals
+from pipeline.qr_menu_detection import QRMenuDetection, classify_qr_menu_text, has_qr_menu_signals
 
 
 def test_has_qr_menu_signals_japanese_qr_order():
@@ -61,3 +61,16 @@ def test_qr_menu_detection_defaults():
     assert d.confidence == ""
     assert d.source == ""
     assert d.evidence == []
+
+
+def test_classify_qr_menu_text_distinguishes_normal_website_menu():
+    normal = classify_qr_menu_text("メニューはこちら menu.pdf")
+    existing = classify_qr_menu_text("QRコードでメニューをご覧いただけます")
+    multilingual = classify_qr_menu_text("多言語QRメニュー / English QR menu available")
+
+    assert normal.normal_website_menu_only is True
+    assert normal.existing_qr_menu is False
+    assert existing.existing_qr_menu is True
+    assert existing.confidence == "medium"
+    assert multilingual.multilingual_qr_menu is True
+    assert multilingual.confidence == "high"

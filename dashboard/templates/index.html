@@ -191,6 +191,7 @@ tr:hover td { background: #fafbfc; }
           <button class="tab active" onclick="showWsTab('materials')">Materials</button>
           <button class="tab" onclick="showWsTab('items')">Menu Items</button>
           <button class="tab" onclick="showWsTab('preview')">Preview</button>
+          <button class="tab" onclick="showWsTab('trial')">Trial</button>
           <button class="tab" onclick="showWsTab('owner')">Owner Review</button>
           <button class="tab" onclick="showWsTab('publish')">Publish</button>
         </div>
@@ -218,6 +219,9 @@ tr:hover td { background: #fafbfc; }
         <div id="ws-preview" style="display:none;margin-top:16px">
           <div class="card"><div class="card-header"><h3>Customer Preview</h3></div>
           <div class="card-body" style="text-align:center"><div class="phone-frame"><iframe id="preview-frame" src="about:blank"></iframe></div></div></div>
+        </div>
+        <div id="ws-trial" style="display:none;margin-top:16px">
+          <div class="card"><div class="card-header"><h3>Trial Lifecycle</h3></div><div class="card-body" id="trial-panel"></div></div>
         </div>
         <div id="ws-owner" style="display:none;margin-top:16px">
           <div class="card"><div class="card-header"><h3>Owner Review</h3></div><div class="card-body" id="owner-panel"></div></div>
@@ -360,14 +364,15 @@ function showTab(tab) {
 function showWsTab(tab) {
   currentWsTab = tab;
   document.querySelectorAll('#ws-tabs .tab').forEach((el, i) => {
-    el.classList.toggle('active', ['materials','items','preview','owner','publish'][i] === tab);
+    el.classList.toggle('active', ['materials','items','preview','trial','owner','publish'][i] === tab);
   });
-  ['materials','items','preview','owner','publish'].forEach(t => {
+  ['materials','items','preview','trial','owner','publish'].forEach(t => {
     const el = document.getElementById('ws-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
   if (tab === 'items') renderItems();
   if (tab === 'preview') loadPreview();
+  if (tab === 'trial') renderTrialPanel();
   if (tab === 'owner') renderOwnerPanel();
   if (tab === 'publish') renderPublishPanel();
 }
@@ -532,7 +537,8 @@ function renderWorkspaceCards() {
     return '<div class="card" style="cursor:pointer" onclick="openWorkspace(\'' + ws.id + '\')">' +
       '<div class="card-body"><div style="display:flex;justify-content:space-between;align-items:start">' +
         '<div><strong style="font-size:15px">' + esc(ws.restaurant_name) + '</strong><br>' +
-          '<span style="font-size:12px;color:var(--text-secondary)">' + esc(ws.category) + ' &middot; ' + ws.item_count + ' items</span></div>' +
+          '<span style="font-size:12px;color:var(--text-secondary)">' + esc(ws.category) + ' &middot; ' + ws.item_count + ' items' +
+          (ws.trial_status && ws.trial_status !== 'not_requested' ? ' &middot; trial: ' + esc(ws.trial_status) : '') + '</span></div>' +
         '<span class="badge ' + statusBadgeClass(ws.status) + '">' + esc(ws.status) + '</span>' +
       '</div>' +
       (isPublished && ws.published_url ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' +
@@ -759,6 +765,41 @@ async function renderOwnerPanel() {
 }
 
 async function generateReviewLink(){await api(`/api/studio/${activeWs}/review-link`,{method:'POST'});await refreshWs();renderOwnerPanel();toast('Review link generated','success');}
+
+function renderTrialPanel() {
+  if(!activeWsData)return;
+  const trial=activeWsData.trial||{status:'not_requested'};
+  const workflow=activeWsData.workflow||{};
+  const panel=document.getElementById('trial-panel');
+  const status=trial.status||'not_requested';
+  const steps=['requested','accepted','intake_needed','build_started','owner_review','live_trial','trial_ending','converted','declined','archived'];
+  let html='<div style="display:grid;gap:12px">';
+  html+='<div><strong>Status:</strong> <span class="badge '+(status==='converted'?'badge-success':status==='declined'||status==='archived'?'badge-error':status==='not_requested'?'badge-neutral':'badge-warning')+'">'+esc(status)+'</span></div>';
+  if(trial.public_url) html+='<div><strong>Trial URL:</strong> <a href="'+esc(trial.public_url)+'" target="_blank">'+esc(trial.public_url)+'</a></div>';
+  if(trial.trial_ends_at) html+='<div><strong>Trial ends:</strong> '+esc(trial.trial_ends_at.slice(0,10))+'</div>';
+  if(workflow.next_actions&&workflow.next_actions.length) html+='<div><strong>Next actions:</strong><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+workflow.next_actions.map(a=>'<span class="badge badge-neutral">'+esc(a)+'</span>').join('')+'</div></div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">';
+  if(status==='not_requested') html+='<button class="btn btn-primary" onclick="createTrial()">Create Trial</button>';
+  else steps.forEach(step=>{ if(step!==status) html+='<button class="btn btn-secondary btn-sm" data-step="'+esc(step)+'" onclick="transitionTrial(this.dataset.step)">'+esc(step)+'</button>'; });
+  if(status!=='archived') html+='<button class="btn btn-danger btn-sm" onclick="archiveWorkspace()">Archive Workspace</button>';
+  html+='</div></div>';
+  panel.innerHTML=html;
+}
+
+async function createTrial(){await api(`/api/studio/${activeWs}/trial`,{method:'POST',body:'{}'});await refreshWs();renderTrialPanel();toast('Trial created','success');}
+
+async function transitionTrial(status){
+  const trial=activeWsData.trial||{};
+  if(!trial.trial_id)return toast('Create trial first','error');
+  await api(`/api/trials/${trial.trial_id}/transition`,{method:'POST',body:JSON.stringify({status})});
+  await refreshWs();renderTrialPanel();toast('Trial updated','success');
+}
+
+async function archiveWorkspace(){
+  if(!confirm('Archive this workspace?'))return;
+  await api(`/api/studio/${activeWs}/archive`,{method:'POST',body:JSON.stringify({reason:'operator_archive'})});
+  await refreshWs();renderTrialPanel();toast('Workspace archived','success');
+}
 
 async function renderPublishPanel() {
   if(!activeWsData)return;

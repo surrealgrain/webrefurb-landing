@@ -120,6 +120,16 @@ class QRMenuDetection:
     evidence: list[str] = field(default_factory=list)
 
 
+@dataclass
+class QRSignalClassification:
+    """Classification for already-fetched QR/menu text."""
+    existing_qr_menu: bool = False
+    multilingual_qr_menu: bool = False
+    normal_website_menu_only: bool = False
+    confidence: str = ""
+    reasons: list[str] = field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # 1. Website scan via Firecrawl
 # ---------------------------------------------------------------------------
@@ -281,3 +291,51 @@ def has_qr_menu_signals(text: str) -> bool:
         if domain in lowered:
             return True
     return False
+
+
+def classify_qr_menu_text(text: str) -> QRSignalClassification:
+    """Separate existing QR menu signals from ordinary website/PDF menus."""
+    value = str(text or "")
+    lowered = value.lower()
+    reasons: list[str] = []
+
+    qr_order_signal = False
+    qr_menu_signal = False
+    for pat in _QR_TEXT_PATTERNS:
+        match = pat.search(value)
+        if not match:
+            continue
+        matched = match.group()
+        reasons.append(f"text:{matched[:60]}")
+        if any(token in matched for token in ("注文", "オーダー")) or "order" in matched.lower():
+            qr_order_signal = True
+        else:
+            qr_menu_signal = True
+    for term in _QR_EN_TERMS:
+        if term in lowered:
+            reasons.append(f"term:{term}")
+            if "order" in term:
+                qr_order_signal = True
+            else:
+                qr_menu_signal = True
+    for domain in _QR_PLATFORM_DOMAINS:
+        if domain in lowered:
+            reasons.append(f"platform:{domain}")
+            qr_order_signal = True
+
+    multilingual = any(token in lowered for token in ("english qr", "multilingual qr", "多言語qr", "英語qr", "多言語メニュー"))
+    normal_menu_only = bool(re.search(r"(?i)\b(menu\.pdf|pdf menu|menu page|food menu|drink menu)\b", value)) or any(
+        token in value for token in ("メニューPDF", "メニューページ", "メニューはこちら")
+    )
+    detected = qr_order_signal or qr_menu_signal or multilingual
+    if detected:
+        confidence = "high" if qr_order_signal or multilingual else "medium"
+    else:
+        confidence = ""
+    return QRSignalClassification(
+        existing_qr_menu=detected,
+        multilingual_qr_menu=multilingual,
+        normal_website_menu_only=normal_menu_only and not detected,
+        confidence=confidence,
+        reasons=reasons[:5],
+    )

@@ -29,10 +29,21 @@ QR_STATES = {
     "needs_extraction",
     "ready_for_review",
     "published",
+    "trial_live",
+    "paid_live",
     "superseded",
     "rollback_active",
     "archived",
 }
+
+PUBLICATION_STATES = (
+    "draft",
+    "owner_review",
+    "trial_live",
+    "paid_live",
+    "archived",
+    "deleted",
+)
 
 _QR_INTENT_RE = re.compile(
     r"(?i)\b(qr|online\s+menu|web\s+menu|hosted\s+menu|digital\s+menu|menu\s+page)\b"
@@ -617,6 +628,64 @@ def rollback_qr_menu(*, state_root: Path, docs_root: Path, menu_id: str, version
     _publish_live_pointer(docs_root=docs_root, menu_id=menu_id, version_id=version_id, publish_manifest=publish_manifest, rollback=True)
     _append_audit(state_root, menu_id, "rollback_active", {"version_id": version_id})
     return check_qr_health(state_root=state_root, docs_root=docs_root, menu_id=menu_id)
+
+
+def archive_qr_menu(
+    *,
+    state_root: Path,
+    docs_root: Path,
+    menu_id: str,
+    actor: str = "operator",
+    reason: str = "",
+) -> dict[str, Any]:
+    """Archive a public QR menu without deleting immutable version history."""
+    live = _read_live_manifest(docs_root, menu_id)
+    menu_root = docs_root / "menus" / menu_id
+    if not live and not menu_root.exists():
+        raise QRMenuError("Live menu not found")
+
+    archived_at = datetime.now(timezone.utc).isoformat()
+    current = str(live.get("current_version") or "")
+    archive_record = {
+        "menu_id": menu_id,
+        "status": "archived",
+        "archived_at": archived_at,
+        "actor": actor,
+        "reason": reason,
+        "previous_current_version": current,
+        "public_url": f"{PUBLIC_BASE_URL}/menus/{menu_id}/",
+    }
+    ensure_dir(menu_root)
+    manifest = {
+        **live,
+        "menu_id": menu_id,
+        "status": "archived",
+        "archived": True,
+        "archived_at": archived_at,
+        "archive_reason": reason,
+        "updated_at": archived_at,
+    }
+    write_json(menu_root / "manifest.json", manifest)
+    write_text(menu_root / "index.html", _archived_shell_html(menu_id))
+    write_json(state_root / "qr_menus" / menu_id / "archive_record.json", archive_record)
+
+    versions_root = state_root / "qr_menus" / menu_id / "versions"
+    if versions_root.exists():
+        for source_path in versions_root.glob("*/source.json"):
+            data = json.loads(source_path.read_text(encoding="utf-8"))
+            if data.get("status") in {"published", "trial_live", "paid_live", "rollback_active"}:
+                data["status"] = "archived"
+                data["archived_at"] = archived_at
+                write_json(source_path, data)
+    for job_path in (state_root / "qr_jobs").glob("*.json") if (state_root / "qr_jobs").exists() else []:
+        data = json.loads(job_path.read_text(encoding="utf-8"))
+        if data.get("menu_id") == menu_id:
+            data["status"] = "archived"
+            data["archived_at"] = archived_at
+            write_json(job_path, data)
+
+    _append_audit(state_root, menu_id, "archived", {"actor": actor, "reason": reason, "previous_version": current})
+    return archive_record
 
 
 def check_qr_health(*, state_root: Path, docs_root: Path, menu_id: str) -> dict[str, Any]:
@@ -1407,6 +1476,27 @@ def _live_shell_html(menu_id: str, version_id: str) -> str:
 <script>location.replace({json.dumps(target)});</script>
 </head>
 <body><p><a href="{html.escape(target)}">Open menu</a></p></body>
+</html>
+"""
+
+
+def _archived_shell_html(menu_id: str) -> str:
+    title = html.escape("Menu unavailable")
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{title}</title>
+<style>
+body {{ margin:0; min-height:100vh; display:grid; place-items:center; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#FFFEFA; color:#151515; }}
+main {{ max-width:440px; padding:24px; text-align:center; }}
+h1 {{ font-size:24px; margin:0 0 10px; }}
+p {{ color:#5D666D; line-height:1.55; }}
+</style>
+</head>
+<body><main><h1>{title}</h1><p>This menu is no longer available.</p><p>{html.escape(menu_id)}</p></main></body>
 </html>
 """
 
