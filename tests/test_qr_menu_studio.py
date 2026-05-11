@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -135,6 +136,20 @@ class TestProductScope:
         assert data["status"] == "ok"
         assert data["route_count"] > 0
 
+    def test_lead_api_uses_active_category_field(self, client, _isolated_state):
+        lead_path = _isolated_state / "leads" / "wrm-category.json"
+        lead_path.write_text(json.dumps({
+            "lead_id": "wrm-category",
+            "business_name": "Category Ramen",
+            "category": "ramen",
+            "recommended_primary_package": "english_qr_menu_65k",
+            "updated_at": "2026-05-11T00:00:00+00:00",
+        }), encoding="utf-8")
+
+        data = client.get("/api/leads").json()
+
+        assert data[0]["category"] == "ramen"
+
 
 # ===========================================================================
 # B. Customer menu — banned terms
@@ -200,6 +215,20 @@ class TestOwnerReview:
         resp = client.post(f"/api/review/{token}/approve")
         assert resp.status_code == 200
         assert resp.json()["status"] == "approved"
+
+    def test_owner_review_page_shows_visible_raw_menu_items(self, client):
+        ws = _create_workspace(client)
+        _add_item(client, ws["id"], price_confirmed=False, desc_confirmed=False)
+
+        resp = client.post(f"/api/studio/{ws['id']}/review-link")
+        token = resp.json()["token"]
+        page = client.get(f"/review/{token}")
+
+        assert page.status_code == 200
+        assert "豚骨ラーメン" in page.text
+        assert "Tonkotsu Ramen" in page.text
+        assert "¥950" in page.text
+        assert "Rich pork bone broth" in page.text
 
     def test_owner_can_request_changes(self, client):
         ws = _create_workspace(client)
@@ -320,6 +349,42 @@ class TestPublishGates:
         assert resp.status_code == 200, f"Publish failed: {resp.text}"
         assert resp.json()["status"] == "published"
 
+    def test_publish_blocks_visible_items_missing_japanese_name(self, client):
+        ws = _create_workspace(client)
+        _add_item(client, ws["id"],
+                  name_ja="",
+                  price_confirmed=True, desc_confirmed=True,
+                  ingredients_confirmed=True, allergens_confirmed=True)
+        client.post(f"/api/studio/{ws['id']}/review-link")
+        ws_data = client.get(f"/api/studio/{ws['id']}").json()
+        client.post(f"/api/review/{ws_data['owner_review']['token']}/approve")
+        client.post(f"/api/studio/{ws['id']}/regenerate-qr")
+
+        resp = client.post(f"/api/studio/{ws['id']}/publish")
+
+        assert resp.status_code == 422
+        assert "all_items_named" in resp.json()["detail"]
+
+    def test_hidden_items_do_not_block_publish_readiness(self, client):
+        ws = _create_workspace(client)
+        _add_item(client, ws["id"],
+                  price_confirmed=True, desc_confirmed=True,
+                  ingredients_confirmed=True, allergens_confirmed=True)
+        _add_item(client, ws["id"],
+                  name_en="Hidden Draft",
+                  name_ja="",
+                  hidden=True,
+                  price="¥999",
+                  price_confirmed=False)
+        client.post(f"/api/studio/{ws['id']}/review-link")
+        ws_data = client.get(f"/api/studio/{ws['id']}").json()
+        client.post(f"/api/review/{ws_data['owner_review']['token']}/approve")
+        client.post(f"/api/studio/{ws['id']}/regenerate-qr")
+
+        resp = client.post(f"/api/studio/{ws['id']}/publish")
+
+        assert resp.status_code == 200, resp.text
+
     def test_publish_generates_hosted_url(self, client):
         ws = _create_workspace(client, restaurant_name="Test Ramen Shop")
         _add_item(client, ws["id"],
@@ -364,6 +429,15 @@ class TestTrialLifecycle:
         assert ws_data["trial"]["status"] == "accepted"
         assert ws_data["workflow"]["trial_status"] == "accepted"
 
+    def test_create_trial_is_idempotent_for_workspace(self, client):
+        ws = _create_workspace(client)
+
+        first = client.post(f"/api/studio/{ws['id']}/trial", json={}).json()
+        second = client.post(f"/api/studio/{ws['id']}/trial", json={}).json()
+
+        assert second["trial_id"] == first["trial_id"]
+        assert len(second["history"]) == 1
+
     def test_invalid_trial_transition_is_rejected(self, client):
         ws = _create_workspace(client)
         trial = client.post(f"/api/studio/{ws['id']}/trial", json={}).json()
@@ -371,6 +445,23 @@ class TestTrialLifecycle:
         resp = client.post(f"/api/trials/{trial['trial_id']}/transition", json={"status": "live_trial"})
 
         assert resp.status_code == 422
+
+    def test_live_trial_requires_public_url(self, client):
+        ws = _create_workspace(client)
+        trial = client.post(f"/api/studio/{ws['id']}/trial", json={}).json()
+        for status in ["accepted", "intake_needed", "build_started", "owner_review"]:
+            resp = client.post(f"/api/trials/{trial['trial_id']}/transition", json={"status": status})
+            assert resp.status_code == 200, resp.text
+
+        blocked = client.post(f"/api/trials/{trial['trial_id']}/transition", json={"status": "live_trial"})
+        allowed = client.post(f"/api/trials/{trial['trial_id']}/transition", json={
+            "status": "live_trial",
+            "public_url": "/menus/test-ramen/",
+        })
+
+        assert blocked.status_code == 422
+        assert allowed.status_code == 200
+        assert allowed.json()["public_url"] == "/menus/test-ramen/"
 
     def test_trials_endpoint_returns_metrics(self, client):
         ws = _create_workspace(client)
@@ -389,6 +480,17 @@ class TestTrialLifecycle:
         assert resp.status_code == 200
         assert resp.json()["status"] == "archived"
         assert client.get(f"/api/studio/{ws['id']}").json()["status"] == "archived"
+
+    def test_workspace_archive_archives_linked_trial(self, client):
+        ws = _create_workspace(client)
+        trial = client.post(f"/api/studio/{ws['id']}/trial", json={}).json()
+        client.post(f"/api/trials/{trial['trial_id']}/transition", json={"status": "accepted"})
+
+        resp = client.post(f"/api/studio/{ws['id']}/archive", json={"reason": "owner_declined_trial"})
+
+        assert resp.status_code == 200
+        trials = client.get("/api/trials").json()["trials"]
+        assert trials[0]["status"] == "archived"
 
 
 # ===========================================================================
@@ -413,6 +515,13 @@ class TestDashboardWorkspace:
         resp = client.get("/api/studio")
         assert resp.status_code == 200
         assert len(resp.json()) >= 1
+
+    def test_workspace_list_exposes_lead_id_for_no_duplicate_lead_workflow(self, client):
+        ws = _create_workspace(client, lead_id="wrm-lead-1")
+
+        listed = client.get("/api/studio").json()
+
+        assert any(item["id"] == ws["id"] and item["lead_id"] == "wrm-lead-1" for item in listed)
 
     def test_materials_upload(self, client, tmp_path):
         ws = _create_workspace(client)
@@ -552,6 +661,13 @@ class TestSendSafety:
         html = Path("dashboard/templates/index.html").read_text()
         assert "test sends" in html.lower() or "manual approval" in html.lower()
 
+    def test_dashboard_template_has_unique_element_ids(self):
+        html = Path("dashboard/templates/index.html").read_text()
+        ids = re.findall(r'id="([^"]+)"', html)
+        duplicates = sorted({value for value in ids if ids.count(value) > 1})
+
+        assert duplicates == []
+
     def test_batch_policy_endpoint_requires_manual_approval(self, client, _isolated_state):
         lead_path = _isolated_state / "leads" / "wrm-batch.json"
         lead_path.write_text(json.dumps({
@@ -568,6 +684,16 @@ class TestSendSafety:
         assert resp.status_code == 200
         assert resp.json()["ok"] is False
         assert "manual_batch_approval_missing" in resp.json()["reasons"]
+
+    def test_batch_policy_endpoint_blocks_missing_lead_ids(self, client):
+        resp = client.post("/api/send-batch/policy-check", json={
+            "lead_ids": ["missing-lead"],
+            "approved": True,
+        })
+
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is False
+        assert "missing_leads" in resp.json()["reasons"]
 
 
 # ===========================================================================

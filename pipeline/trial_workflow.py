@@ -123,6 +123,13 @@ def transition_trial(
         raise TrialWorkflowError(f"Unknown current trial status: {current}")
     if new_status != current and new_status not in _ALLOWED_TRANSITIONS[current]:
         raise TrialWorkflowError(f"Invalid trial transition: {current} -> {new_status}")
+    if new_status == current:
+        unchanged = {**record}
+        if public_url:
+            unchanged["public_url"] = public_url
+        if menu_id:
+            unchanged["menu_id"] = menu_id
+        return unchanged
 
     updated = {**record, "status": new_status, "updated_at": now or utc_now()}
     at = str(updated["updated_at"])

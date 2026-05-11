@@ -79,8 +79,12 @@ def _confirmed(item: dict[str, Any], field: str) -> bool:
         return True
     if field in {"ingredients", "allergens"} and bool(item.get("ingredient_allergen_confirmed")):
         return True
-    if field in {"ingredients", "allergens"} and bool(item.get("ingredient_allergen_confirmation")):
-        return True
+    if field in {"ingredients", "allergens"}:
+        combined = item.get("ingredient_allergen_confirmation")
+        if isinstance(combined, dict) and str(combined.get("status") or "") == "confirmed_by_owner":
+            return True
+        if isinstance(combined, bool):
+            return combined
     record = item.get(f"{field}_confirmation")
     if isinstance(record, dict):
         return str(record.get("status") or "") == "confirmed_by_owner"

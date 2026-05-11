@@ -55,6 +55,19 @@ def test_trial_invalid_transition_is_blocked():
         transition_trial(trial, "live_trial")
 
 
+def test_trial_same_status_transition_is_idempotent():
+    trial = create_trial_record(
+        lead={"business_name": "Hinode Ramen"},
+        now="2026-05-01T00:00:00+00:00",
+    )
+
+    retried = transition_trial(trial, "requested", now="2026-05-02T00:00:00+00:00")
+
+    assert retried["status"] == "requested"
+    assert retried["history"] == trial["history"]
+    assert retried.get("updated_at") is None
+
+
 def test_trial_metrics_are_privacy_light():
     requested = create_trial_record(lead={"lead_id": "one"})
     converted = transition_trial(create_trial_record(lead={"lead_id": "two"}), "accepted")

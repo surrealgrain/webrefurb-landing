@@ -30,7 +30,7 @@ SECRET_PATTERNS = {
 def scan(root: Path) -> dict:
     findings: list[dict] = []
     for path in root.rglob("*"):
-        if any(part in DEFAULT_EXCLUDES for part in path.parts):
+        if _is_excluded(path):
             continue
         if not path.is_file():
             continue
@@ -44,6 +44,13 @@ def scan(root: Path) -> dict:
             if pattern.search(text):
                 findings.append({"path": str(path.relative_to(root)), "code": name})
     return {"ok": not findings, "findings": findings}
+
+
+def _is_excluded(path: Path) -> bool:
+    for part in path.parts:
+        if part in DEFAULT_EXCLUDES or part.startswith(".env"):
+            return True
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:

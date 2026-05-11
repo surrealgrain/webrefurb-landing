@@ -82,7 +82,9 @@ def domain_cooldown_hits(
     hours: int = DOMAIN_COOLDOWN_HOURS,
 ) -> list[str]:
     current = datetime.fromisoformat((now or datetime.now(timezone.utc).isoformat()).replace("Z", "+00:00"))
-    domains = {_email_domain(str(record.get("email") or "")) for record in records}
+    domains: set[str] = set()
+    for record in records:
+        domains.update(_record_email_domains(record))
     domains.discard("")
     hits: set[str] = set()
     for sent in sent_history:
@@ -103,3 +105,15 @@ def _email_domain(value: str) -> str:
     if "@" not in value:
         return ""
     return value.rsplit("@", 1)[1]
+
+
+def _record_email_domains(record: dict[str, Any]) -> set[str]:
+    domains = {_email_domain(str(record.get("email") or ""))}
+    for contact in record.get("contacts") or []:
+        if not isinstance(contact, dict):
+            continue
+        if str(contact.get("type") or "").lower() != "email":
+            continue
+        domains.add(_email_domain(str(contact.get("value") or "")))
+    domains.discard("")
+    return domains

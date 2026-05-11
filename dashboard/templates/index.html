@@ -114,7 +114,7 @@ tr:hover td { background: #fafbfc; }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
 .empty-state h3 { color: var(--text); margin-bottom: 8px; }
 .empty-state .btn { margin-top: 16px; }
-.phone-frame { width: 390px; height: 844px; border: 8px solid #1a1a1a; border-radius: 40px; overflow: hidden; background: #fff; margin: 0 auto; box-shadow: var(--shadow-lg); }
+.phone-frame { width: min(390px, 100%); aspect-ratio: 390 / 844; max-height: 75vh; border: 8px solid #1a1a1a; border-radius: 40px; overflow: hidden; background: #fff; margin: 0 auto; box-shadow: var(--shadow-lg); }
 .phone-frame iframe { width: 100%; height: 100%; border: none; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .status-dot.green { background: var(--success); }
@@ -293,7 +293,7 @@ tr:hover td { background: #fafbfc; }
 <div class="modal-backdrop" id="create-modal"><div class="modal" style="width:560px;max-height:80vh;display:flex;flex-direction:column">
   <div class="modal-header"><h3>Create Workspace from Lead</h3><button class="btn-ghost" onclick="document.getElementById('create-modal').classList.remove('open')">&times;</button></div>
   <div class="modal-body" style="overflow-y:auto;flex:1;min-height:0">
-    <input class="form-input" id="lead-search" placeholder="Search leads..." oninput="filterLeadPicker()" style="margin-bottom:12px">
+    <input class="form-input" id="lead-picker-search" placeholder="Search leads..." oninput="filterLeadPicker()" style="margin-bottom:12px">
     <div id="lead-picker-list"></div>
     <div id="lead-picker-empty" style="display:none;text-align:center;padding:24px;color:var(--text-secondary)">
       <p>All leads already have workspaces.</p>
@@ -361,7 +361,7 @@ function showTab(tab) {
   if (tab === 'studio' && !activeWs) loadWorkspaces();
 }
 
-function showWsTab(tab) {
+async function showWsTab(tab) {
   currentWsTab = tab;
   document.querySelectorAll('#ws-tabs .tab').forEach((el, i) => {
     el.classList.toggle('active', ['materials','items','preview','trial','owner','publish'][i] === tab);
@@ -370,6 +370,8 @@ function showWsTab(tab) {
     const el = document.getElementById('ws-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
+  if (activeWs) await refreshWs();
+  if (tab === 'materials') renderMaterials();
   if (tab === 'items') renderItems();
   if (tab === 'preview') loadPreview();
   if (tab === 'trial') renderTrialPanel();
@@ -520,7 +522,7 @@ async function loadWorkspaces() {
 function renderWorkspaceCards() {
   const workspaces = _allWorkspaces || [];
   let filtered = workspaces;
-  if (_wsFilter === 'active') filtered = workspaces.filter(ws => !['published'].includes(ws.status));
+  if (_wsFilter === 'active') filtered = workspaces.filter(ws => !['published','archived'].includes(ws.status));
   if (_wsFilter === 'published') filtered = workspaces.filter(ws => ws.status === 'published');
 
   const container = document.getElementById('workspace-cards');
@@ -548,13 +550,13 @@ function renderWorkspaceCards() {
   }).join('');
 }
 
-function statusBadgeClass(s) { return {published:'badge-success',owner_review:'badge-warning',ready_to_publish:'badge-warning',needs_update:'badge-error',intake:'badge-neutral',editing:'badge-neutral',materials_received:'badge-neutral'}[s]||'badge-neutral'; }
+function statusBadgeClass(s) { return {published:'badge-success',owner_review:'badge-warning',ready_to_publish:'badge-warning',needs_update:'badge-error',archived:'badge-error',intake:'badge-neutral',editing:'badge-neutral',materials_received:'badge-neutral'}[s]||'badge-neutral'; }
 
 let _leadPickerLeads = [];
 
 async function openCreateWorkspace() {
   document.getElementById('create-modal').classList.add('open');
-  document.getElementById('lead-search').value = '';
+  document.getElementById('lead-picker-search').value = '';
   const leads = await api('/api/leads');
   const workspaces = await api('/api/studio');
   const usedIds = new Set(workspaces.map(w => w.lead_id).filter(Boolean));
@@ -563,7 +565,7 @@ async function openCreateWorkspace() {
 }
 
 function renderLeadPicker() {
-  const q = (document.getElementById('lead-search').value || '').toLowerCase();
+  const q = (document.getElementById('lead-picker-search').value || '').toLowerCase();
   const filtered = _leadPickerLeads.filter(l =>
     l.business_name.toLowerCase().includes(q) ||
     (l.business_name_ja || '').toLowerCase().includes(q) ||
@@ -619,7 +621,7 @@ async function openWorkspace(wsId) {
   document.getElementById('ws-status').textContent=activeWsData.status;
   document.getElementById('ws-status').className='badge '+statusBadgeClass(activeWsData.status);
   document.getElementById('ws-category').textContent=activeWsData.category;
-  showWsTab('materials');renderMaterials();
+  await showWsTab('materials');
 }
 
 async function openWorkspaceFromLead(leadId) {
@@ -772,7 +774,8 @@ function renderTrialPanel() {
   const workflow=activeWsData.workflow||{};
   const panel=document.getElementById('trial-panel');
   const status=trial.status||'not_requested';
-  const steps=['requested','accepted','intake_needed','build_started','owner_review','live_trial','trial_ending','converted','declined','archived'];
+  const publishUrl=activeWsData.publish?.published_url||trial.public_url||'';
+  const steps=trialNextSteps(status).filter(step=>step!=='live_trial'||publishUrl);
   let html='<div style="display:grid;gap:12px">';
   html+='<div><strong>Status:</strong> <span class="badge '+(status==='converted'?'badge-success':status==='declined'||status==='archived'?'badge-error':status==='not_requested'?'badge-neutral':'badge-warning')+'">'+esc(status)+'</span></div>';
   if(trial.public_url) html+='<div><strong>Trial URL:</strong> <a href="'+esc(trial.public_url)+'" target="_blank">'+esc(trial.public_url)+'</a></div>';
@@ -780,7 +783,9 @@ function renderTrialPanel() {
   if(workflow.next_actions&&workflow.next_actions.length) html+='<div><strong>Next actions:</strong><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+workflow.next_actions.map(a=>'<span class="badge badge-neutral">'+esc(a)+'</span>').join('')+'</div></div>';
   html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">';
   if(status==='not_requested') html+='<button class="btn btn-primary" onclick="createTrial()">Create Trial</button>';
-  else steps.forEach(step=>{ if(step!==status) html+='<button class="btn btn-secondary btn-sm" data-step="'+esc(step)+'" onclick="transitionTrial(this.dataset.step)">'+esc(step)+'</button>'; });
+  else steps.forEach(step=>{ html+='<button class="btn btn-secondary btn-sm" data-step="'+esc(step)+'" onclick="transitionTrial(this.dataset.step)">'+esc(step)+'</button>'; });
+  if(status==='owner_review'&&!publishUrl) html+='<span style="font-size:12px;color:var(--text-secondary);align-self:center">Publish the menu before starting the live trial.</span>';
+  if(status!=='not_requested'&&!steps.length&&['converted','declined','archived'].includes(status)) html+='<span style="font-size:12px;color:var(--text-secondary);align-self:center">No further trial transition is available.</span>';
   if(status!=='archived') html+='<button class="btn btn-danger btn-sm" onclick="archiveWorkspace()">Archive Workspace</button>';
   html+='</div></div>';
   panel.innerHTML=html;
@@ -788,10 +793,27 @@ function renderTrialPanel() {
 
 async function createTrial(){await api(`/api/studio/${activeWs}/trial`,{method:'POST',body:'{}'});await refreshWs();renderTrialPanel();toast('Trial created','success');}
 
+function trialNextSteps(status){
+  return {
+    requested:['accepted','declined','archived'],
+    accepted:['intake_needed','build_started','declined','archived'],
+    intake_needed:['build_started','declined','archived'],
+    build_started:['owner_review','declined','archived'],
+    owner_review:['live_trial','build_started','declined','archived'],
+    live_trial:['trial_ending','converted','declined','archived'],
+    trial_ending:['converted','declined','archived'],
+    converted:['archived'],
+    declined:['archived'],
+    archived:[]
+  }[status]||[];
+}
+
 async function transitionTrial(status){
   const trial=activeWsData.trial||{};
   if(!trial.trial_id)return toast('Create trial first','error');
-  await api(`/api/trials/${trial.trial_id}/transition`,{method:'POST',body:JSON.stringify({status})});
+  const body={status};
+  if(status==='live_trial') body.public_url=activeWsData.publish?.published_url||trial.public_url||'';
+  await api(`/api/trials/${trial.trial_id}/transition`,{method:'POST',body:JSON.stringify(body)});
   await refreshWs();renderTrialPanel();toast('Trial updated','success');
 }
 
@@ -804,14 +826,15 @@ async function archiveWorkspace(){
 async function renderPublishPanel() {
   if(!activeWsData)return;
   const checks=activeWsData.publish?.checks||{};const ready=activeWsData.publish?.ready||false;const p=document.getElementById('publish-panel');
-  const labels={restaurant_name_confirmed:'Restaurant name confirmed',materials_confirmed:'Menu materials received',has_items:'Menu has items',all_items_named:'All items have English names',owner_approved:'Owner content approved',prices_confirmed_or_hidden:'Prices confirmed or hidden',descriptions_confirmed_or_hidden:'Descriptions confirmed or hidden',ingredients_confirmed_or_hidden:'Ingredients confirmed or hidden',allergens_confirmed_or_hidden:'Allergens confirmed or hidden',qr_code_generated:'QR code generated',qr_sign_generated:'QR sign generated'};
+  const labels={restaurant_name_confirmed:'Restaurant name confirmed',materials_confirmed:'Menu materials received',has_items:'Visible menu has items',all_items_named:'All visible items have English and Japanese names',owner_approved:'Owner content approved',prices_confirmed_or_hidden:'Prices confirmed or hidden',descriptions_confirmed_or_hidden:'Descriptions confirmed or hidden',ingredients_confirmed_or_hidden:'Ingredients confirmed or hidden',allergens_confirmed_or_hidden:'Allergens confirmed or hidden',qr_code_generated:'QR code generated',qr_sign_generated:'QR sign generated'};
   let html=checks&&Object.keys(checks).length?Object.entries(checks).map(([k,v])=>`<div class="check-row"><div class="check-icon ${v?'check-pass':'check-fail'}">${v?'✓':'✗'}</div><span>${labels[k]||k}</span></div>`).join(''):'<p style="color:var(--text-secondary)">Loading checks...</p>';
   html+=`<div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border);display:flex;gap:12px;align-items:center">`;
   if(activeWsData.status==='published'){html+=`<span class="badge badge-success">Published</span><span style="font-size:12px;color:var(--text-secondary)">${esc(activeWsData.publish?.published_url||'')}</span><button class="btn btn-secondary btn-sm" onclick="unpublishMenu()">Unpublish</button><button class="btn btn-secondary btn-sm" onclick="exportPackage()">Export Package</button>`;}
-  else{html+=`<button class="btn btn-primary" ${!ready?'disabled':''} onclick="publishMenu()">${ready?'Publish Menu':'Publish Blocked'}</button>`;if(!ready)html+=`<span style="font-size:12px;color:var(--text-secondary)">Fix failing checks to enable publishing.</span>`;}
+  else{if(!checks.qr_code_generated||!checks.qr_sign_generated)html+=`<button class="btn btn-secondary" onclick="regenerateQrAssets()">Generate QR Assets</button>`;html+=`<button class="btn btn-primary" ${!ready?'disabled':''} onclick="publishMenu()">${ready?'Publish Menu':'Publish Blocked'}</button>`;if(!ready)html+=`<span style="font-size:12px;color:var(--text-secondary)">Fix failing checks to enable publishing.</span>`;}
   html+=`</div>`;p.innerHTML=html;
 }
 
+async function regenerateQrAssets(){await api(`/api/studio/${activeWs}/regenerate-qr`,{method:'POST'});await refreshWs();renderPublishPanel();toast('QR assets generated','success');}
 async function publishMenu(){if(!confirm('Publish this menu? It will be live at a public URL.'))return;await api(`/api/studio/${activeWs}/publish`,{method:'POST'});await refreshWs();renderPublishPanel();toast('Menu published!','success');}
 async function unpublishMenu(){await api(`/api/studio/${activeWs}/unpublish`,{method:'POST'});await refreshWs();renderPublishPanel();toast('Menu unpublished','success');}
 

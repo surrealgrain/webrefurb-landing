@@ -54,3 +54,13 @@ def test_batch_send_policy_requires_manual_approval_and_domain_cooldown():
     assert "manual_batch_approval_missing" in blocked["reasons"]
     assert "domain_cooldown_active" in blocked["reasons"]
     assert approved["ok"] is True
+
+
+def test_batch_send_policy_checks_contact_email_domain_cooldown():
+    records = [{"lead_id": "a", "contacts": [{"type": "email", "value": "info@example.jp"}]}]
+    history = [{"to": "owner@example.jp", "sent_at": "2026-05-11T00:00:00+00:00"}]
+
+    result = batch_send_policy(records, approved=True, sent_history=history, now="2026-05-11T01:00:00+00:00")
+
+    assert result["ok"] is False
+    assert result["cooldown_hits"] == ["example.jp"]

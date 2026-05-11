@@ -12,6 +12,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import html as html_lib
 import json
 import logging
 import os
@@ -75,7 +76,7 @@ def _log(action: str, detail: str = "", **fields: Any) -> None:
 DASHBOARD_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = DASHBOARD_ROOT.parent
 STATE_ROOT = Path(os.environ.get("WEBREFURB_STATE_ROOT", PROJECT_ROOT / "state")).resolve()
-QR_DOCS_ROOT = PROJECT_ROOT / "docs"
+QR_DOCS_ROOT = Path(os.environ.get("WEBREFURB_QR_DOCS_ROOT", PROJECT_ROOT / "docs")).resolve()
 TEMPLATES_DIR = PROJECT_ROOT / "assets" / "templates"
 
 # Studio workspace state
@@ -223,11 +224,15 @@ def _create_workspace(*, restaurant_name: str, restaurant_name_ja: str = "",
 def _run_publish_checks(workspace: dict) -> dict[str, bool]:
     """Run all pre-publish checks. Returns dict of check_name -> pass."""
     items = workspace.get("items", [])
+    visible_items = [
+        item for item in items
+        if item.get("visible", True) and not item.get("hidden")
+    ]
     owner = workspace.get("owner_review", {})
     pub = workspace.get("publish", {})
 
-    has_items = len(items) > 0
-    all_named = all(it.get("name_en") for it in items) if has_items else False
+    has_items = len(visible_items) > 0
+    all_named = all(it.get("name_en") and it.get("name_ja") for it in visible_items) if has_items else False
     owner_approved = owner.get("status") == "approved"
 
     # Sensitive field checks: all must be confirmed OR hidden
@@ -236,14 +241,14 @@ def _run_publish_checks(workspace: dict) -> dict[str, bool]:
     ingredients_ok = True
     allergens_ok = True
 
-    for it in items:
-        if it.get("price") and not it.get("price_confirmed") and not it.get("hidden"):
+    for it in visible_items:
+        if it.get("price") and not it.get("price_confirmed"):
             prices_ok = False
-        if it.get("description") and not it.get("desc_confirmed") and not it.get("hidden"):
+        if it.get("description") and not it.get("desc_confirmed"):
             descs_ok = False
-        if it.get("ingredients") and not it.get("ingredients_confirmed") and not it.get("hidden"):
+        if it.get("ingredients") and not it.get("ingredients_confirmed"):
             ingredients_ok = False
-        if it.get("allergens") and not it.get("allergens_confirmed") and not it.get("hidden"):
+        if it.get("allergens") and not it.get("allergens_confirmed"):
             allergens_ok = False
 
     checks = {
@@ -381,7 +386,7 @@ async def owner_review_page(request: Request, token: str):
             "expires_at": "",
         })
     workspace = _load_workspace(review.get("workspace_id", ""))
-    menu_data = _build_menu_data(workspace) if workspace else {"categories": []}
+    menu_data = _build_owner_review_menu_data(workspace) if workspace else {"items": []}
     fields = _fields_needing_confirmation(workspace) if workspace else []
 
     return templates.TemplateResponse(request, "owner_review.html", {
@@ -405,7 +410,7 @@ async def api_leads():
     # Enrich with category filter and QR readiness
     result = []
     for lead in leads:
-        cat = lead.get("lead_category") or lead.get("primary_category_v1") or "other"
+        cat = lead.get("category") or lead.get("lead_category") or lead.get("primary_category_v1") or "other"
         if cat not in ALLOWED_CATEGORIES:
             cat = "skip"
         result.append({
@@ -450,6 +455,7 @@ async def api_list_studios():
         if ws:
             workspaces.append({
                 "id": ws["id"],
+                "lead_id": ws.get("lead_id", ""),
                 "restaurant_name": ws.get("restaurant_name", ""),
                 "category": ws.get("category", ""),
                 "status": ws.get("status", "intake"),
@@ -785,8 +791,8 @@ async def api_preview_html(workspace_id: str):
     template = TEMPLATES_DIR / "customer_qr_menu.html"
     if template.exists():
         html = template.read_text("utf-8")
-        html = html.replace("{{RESTAURANT_NAME}}", menu_data.get("restaurant_name", ""))
-        html = html.replace("{{RESTAURANT_NAME_JA}}", menu_data.get("restaurant_name_ja", ""))
+        html = html.replace("{{RESTAURANT_NAME}}", html_lib.escape(menu_data.get("restaurant_name", "")))
+        html = html.replace("{{RESTAURANT_NAME_JA}}", html_lib.escape(menu_data.get("restaurant_name_ja", "")))
         menu_json = json.dumps(menu_data, ensure_ascii=False, indent=2)
         if "{{MENU_DATA}}" in html:
             html = html.replace("{{MENU_DATA}}", menu_json)
@@ -851,10 +857,37 @@ def _build_menu_data(workspace: dict) -> dict:
     }
 
 
+def _build_owner_review_menu_data(workspace: dict) -> dict:
+    """Build owner-review data from raw visible items, including unconfirmed facts."""
+    flat_items: list[dict[str, Any]] = []
+    for item in workspace.get("items", []):
+        if not item.get("visible", True) or item.get("hidden"):
+            continue
+        flat_items.append({
+            "id": item.get("id", ""),
+            "category": item.get("category", "Other"),
+            "section": item.get("category", "Other"),
+            "japanese_name": item.get("name_ja", ""),
+            "english_name": item.get("name_en", ""),
+            "price": item.get("price", ""),
+            "description": item.get("description", ""),
+            "ingredients": item.get("ingredients", ""),
+            "allergens": item.get("allergens", ""),
+            "allergy_notes": item.get("allergy_notes", ""),
+        })
+    return {
+        "restaurant_name": workspace.get("restaurant_name", ""),
+        "restaurant_name_ja": workspace.get("restaurant_name_ja", ""),
+        "items": flat_items,
+    }
+
+
 def _fields_needing_confirmation(workspace: dict) -> list[str]:
     """Identify which fields have unconfirmed data."""
     fields = set()
     for it in workspace.get("items", []):
+        if not it.get("visible", True) or it.get("hidden"):
+            continue
         if it.get("price") and not it.get("price_confirmed"):
             fields.add("price")
         if it.get("description") and not it.get("desc_confirmed"):
@@ -1069,6 +1102,22 @@ async def api_archive_studio(workspace_id: str, request: Request):
     ws["archive_reason"] = reason
     publish = ws.setdefault("publish", {})
     publish["health_status"] = "archived"
+    trial_id = str((ws.get("trial") or {}).get("trial_id") or "")
+    if trial_id:
+        record = load_trial_record(state_root=STATE_ROOT, trial_id=trial_id)
+        if record and record.get("status") != "archived":
+            try:
+                record = transition_trial(record, "archived", reason=reason)
+            except ValueError:
+                record = None
+            if record:
+                save_trial_record(state_root=STATE_ROOT, record=record)
+                ws["trial"] = {
+                    "status": record["status"],
+                    "trial_id": trial_id,
+                    "public_url": record.get("public_url", ""),
+                    "trial_ends_at": record.get("trial_ends_at", ""),
+                }
     _save_workspace(ws)
     _append_dashboard_audit("workspace_archived", workspace_id=workspace_id, detail={"reason": reason})
     return {"status": "archived", "reason": reason}
@@ -1090,6 +1139,11 @@ async def api_create_trial(workspace_id: str, request: Request):
     if not ws:
         raise HTTPException(status_code=404)
     body = await request.json()
+    existing_trial_id = str((ws.get("trial") or {}).get("trial_id") or "")
+    if existing_trial_id:
+        existing = load_trial_record(state_root=STATE_ROOT, trial_id=existing_trial_id)
+        if existing:
+            return existing
     record = create_trial_record(
         lead={
             "lead_id": ws.get("lead_id", ""),
@@ -1098,7 +1152,11 @@ async def api_create_trial(workspace_id: str, request: Request):
         requested_by=str(body.get("requested_by") or "operator"),
         source_channel=str(body.get("source_channel") or "dashboard"),
     )
-    save_trial_record(state_root=STATE_ROOT, record=record)
+    existing = load_trial_record(state_root=STATE_ROOT, trial_id=record["trial_id"])
+    if existing:
+        record = existing
+    else:
+        save_trial_record(state_root=STATE_ROOT, record=record)
     ws["trial"] = {
         "status": record["status"],
         "trial_id": record["trial_id"],
@@ -1116,13 +1174,17 @@ async def api_transition_trial(trial_id: str, request: Request):
     if not record:
         raise HTTPException(status_code=404)
     body = await request.json()
+    target_status = str(body.get("status") or "")
+    public_url = str(body.get("public_url") or record.get("public_url") or "")
+    if target_status == "live_trial" and not public_url:
+        raise HTTPException(status_code=422, detail="Live trial requires a published public URL")
     try:
         updated = transition_trial(
             record,
-            str(body.get("status") or ""),
+            target_status,
             actor=str(body.get("actor") or "operator"),
             reason=str(body.get("reason") or ""),
-            public_url=str(body.get("public_url") or ""),
+            public_url=public_url,
             menu_id=str(body.get("menu_id") or ""),
         )
     except ValueError as exc:
@@ -1154,8 +1216,8 @@ def _publish_menu_html(workspace: dict, slug: str) -> None:
     else:
         html = template.read_text("utf-8")
         # Replace placeholders
-        html = html.replace("{{RESTAURANT_NAME}}", menu_data.get("restaurant_name", ""))
-        html = html.replace("{{RESTAURANT_NAME_JA}}", menu_data.get("restaurant_name_ja", ""))
+        html = html.replace("{{RESTAURANT_NAME}}", html_lib.escape(menu_data.get("restaurant_name", "")))
+        html = html.replace("{{RESTAURANT_NAME_JA}}", html_lib.escape(menu_data.get("restaurant_name_ja", "")))
         # Embed menu data
         menu_json = json.dumps(menu_data, ensure_ascii=False, indent=2)
         if "{{MENU_DATA}}" in html:
@@ -1225,13 +1287,14 @@ def _generate_minimal_menu_html(menu_data: dict) -> str:
     parts.append("""<script>
 const M=JSON.parse(document.getElementById('menu-data').textContent);
 let L=JSON.parse(localStorage.getItem('wr_staff_list')||'[]');
+function escHTML(v){var d=document.createElement('div');d.textContent=v||'';return d.innerHTML;}
 function render(){var s=document.getElementById('menuSections');s.innerHTML='';
-M.categories.forEach(function(c){var h='<div class="section"><h2>'+c.name_en+'</h2>';
+M.categories.forEach(function(c){var h='<div class="section"><h2>'+escHTML(c.name_en)+'</h2>';
 c.items.forEach(function(it){var inList=L.filter(function(x){return x.id===it.id}).length;
-h+='<div class="item"><span class="item-price">'+(it.price||'')+'</span>';
-h+='<div class="item-name">'+it.name_en+'</div>';
-h+='<div class="item-ja">'+(it.name_ja||'')+'</div>';
-if(it.description)h+='<div style="color:#6b7280;font-size:13px;margin-top:4px">'+it.description+'</div>';
+h+='<div class="item"><span class="item-price">'+escHTML(it.price||'')+'</span>';
+h+='<div class="item-name">'+escHTML(it.name_en)+'</div>';
+h+='<div class="item-ja">'+escHTML(it.name_ja||'')+'</div>';
+if(it.description)h+='<div style="color:#6b7280;font-size:13px;margin-top:4px">'+escHTML(it.description)+'</div>';
 h+='<button class="add-btn" onclick="addToList(\\''+it.id+'\\')">'+(inList?'In list ('+inList+')':'Add to list')+'</button></div>';});
 h+='</div>';s.innerHTML+=h;});updateBadge();}
 function addToList(id){var found=null;M.categories.forEach(function(c){c.items.forEach(function(it){if(it.id===id)found=it})});
@@ -1243,9 +1306,9 @@ function toggleOverlay(){var o=document.getElementById('staffOverlay');o.classLi
 function renderStaffList(){var el=document.getElementById('staffList');el.innerHTML='';
 var counts={};L.forEach(function(it){counts[it.id]=(counts[it.id]||0)+1});
 Object.keys(counts).forEach(function(id){var count=counts[id];var it=L.find(function(x){return x.id===id});
-el.innerHTML+='<div class="overlay-item"><span class="price">'+(it.price||'')+'</span>';
-el.innerHTML+='<div class="ja">'+(it.name_ja||it.name_en)+'</div>';
-el.innerHTML+='<div class="en">'+it.name_en+(count>1?' x'+count:'')+'</div>';
+el.innerHTML+='<div class="overlay-item"><span class="price">'+escHTML(it.price||'')+'</span>';
+el.innerHTML+='<div class="ja">'+escHTML(it.name_ja||it.name_en)+'</div>';
+el.innerHTML+='<div class="en">'+escHTML(it.name_en)+(count>1?' x'+count:'')+'</div>';
 el.innerHTML+='<div class="remove" onclick="removeFromList('+L.indexOf(it)+')">Remove</div></div>';});}
 render();
 </script></body></html>""")
@@ -1331,7 +1394,14 @@ async def api_send_batch_policy_check(request: Request):
     approved = body.get("approved") is True
     leads = [lead for lead in _load_leads() if lead.get("lead_id") in lead_ids]
     sent_history = _load_sent_history()
-    return batch_send_policy(leads, approved=approved, sent_history=sent_history)
+    result = batch_send_policy(leads, approved=approved, sent_history=sent_history)
+    found_ids = {str(lead.get("lead_id") or "") for lead in leads}
+    missing_ids = [lead_id for lead_id in lead_ids if lead_id not in found_ids]
+    if missing_ids:
+        result["ok"] = False
+        result.setdefault("reasons", []).append("missing_leads")
+        result["missing_lead_ids"] = missing_ids
+    return result
 
 
 # ===================================================================
@@ -1685,6 +1755,9 @@ async def api_send(lead_id: str, request: Request):
     # Block DNC
     if record.get("outreach_status") == "do_not_contact":
         raise HTTPException(status_code=403, detail="Lead is marked Do Not Contact")
+    hard_blockers = record_blocks_send(record)
+    if hard_blockers:
+        raise HTTPException(status_code=403, detail=f"Lead cannot be sent: {','.join(hard_blockers)}")
 
     # Block re-sending to already-contacted businesses
     if record.get("outreach_status") in BLOCKED_SEND_STATUSES:

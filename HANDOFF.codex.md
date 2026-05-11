@@ -1,9 +1,9 @@
 # WebRefurbMenu Codex Handoff
-Updated: 2026-05-07.
+Updated: 2026-05-11.
 Startup read path: `AGENTS.md` -> `HANDOFF.codex.md` only.
 
 ## Current Product
-- Clean reset to one product: `english_qr_menu_65k` / English QR Menu / 65,000 yen.
+- Clean reset to one product: `english_qr_menu_65k` / English QR Menu + Show Staff List / 65,000 yen.
 - Customer flow: scan QR, read English menu, Add to list, review list, Show Staff List with Japanese item names first.
 - This is not a staff-side order flow; no checkout, POS, table workflow, or list submission in customer-facing copy.
 - Active lead categories are only `ramen`, `izakaya`, and `skip`.
@@ -20,11 +20,11 @@ Startup read path: `AGENTS.md` -> `HANDOFF.codex.md` only.
 - Outreach reset: `pipeline/outreach.py`, `pipeline/email_templates.py`, `pipeline/evidence_classifier.py`.
 - Hosted QR menu and export: `pipeline/qr.py`, `pipeline/package_export.py`, `pipeline/final_export_qa.py`, `pipeline/production_workflow.py`.
 - Public site and generic demo: `docs/index.html`, `docs/pricing.html`, `docs/ja/*`, `docs/demo/index.html`.
-- Dashboard simplified around active category, active product, generic demo, QR draft/review actions.
+- Dashboard supports lead -> workspace -> owner review -> QR assets -> publish -> trial -> archive, with browser E2E coverage.
 
 ## Validation
-- Full remaining suite after bloat cleanup: `.venv/bin/python -m pytest tests/ -q` -> 370 passed.
-- State audit passed: `.venv/bin/python -m pipeline.cli audit-state` -> `ok: true`.
+- Release gate: `.venv/bin/python scripts/release_gate.py` -> 458 passed, state audit ok, static health ok, secret scan ok.
+- Live health: `.venv/bin/python scripts/deployment_health_check.py --mode live --base-url https://webrefurb.com` -> ok.
 
 ## Production Ready Target
 - Release gate: tests, state audit, static/live site health, banned-term scan, and secret scan all pass.
