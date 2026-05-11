@@ -164,6 +164,30 @@ def test_public_pages_have_seo_foundation():
     assert "Sitemap: https://webrefurb.com/sitemap.xml" in _read("robots.txt")
 
 
+def test_root_public_files_mirror_docs_pages_source():
+    # GitHub Pages currently serves the repository root for the custom domain.
+    # Keep these mirrored until Pages is explicitly configured to use /docs.
+    mirrored = (
+        "CNAME",
+        "email-logo.svg",
+        "index.html",
+        "logo.svg",
+        "pricing.html",
+        "robots.txt",
+        "sitemap.xml",
+        "ja/index.html",
+        "ja/pricing.html",
+        "demo/index.html",
+        "demo/ramen.html",
+        "demo/sushi.html",
+    )
+    for name in mirrored:
+        assert (PROJECT_ROOT / name).read_bytes() == (DOCS_ROOT / name).read_bytes()
+
+    assert (PROJECT_ROOT / "assets" / "previews" / "qr-mobile-menu.png").exists()
+    assert (PROJECT_ROOT / "demo" / "_demo_images" / "ramen" / "shoyu_ramen.png").exists()
+
+
 def test_generic_demo_has_add_to_list_and_show_staff_flow():
     # Demo hub page references the flow and links to interactive demos
     html = _read("demo/index.html")
