@@ -43,13 +43,16 @@ ENGLISH_QR_MENU_LABEL = "English QR Menu"
 ENGLISH_QR_MENU_PRICE_YEN = 65000
 GENERIC_DEMO_PATH = "/demo/"
 GENERIC_DEMO_URL = "https://webrefurb.com/demo/"
+TRIAL_DURATION_DAYS = 7
+TRIAL_LABEL = "Free 1-week trial"
+TRIAL_LABEL_JA = "1週間の無料トライアル"
 
 ENGLISH_QR_MENU_INCLUDES = (
     "hosted English QR menu page",
     "QR code",
     "printable QR sign",
     "Show Staff List feature",
-    "12 months hosting",
+    "Hosting included",
     "one pre-launch revision",
     "owner confirmation before publishing prices/descriptions/ingredients/allergens",
 )

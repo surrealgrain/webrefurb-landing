@@ -13,6 +13,9 @@ node_modules/
 dashboard/.next/
 .env
 .DS_Store
+DESIGN_BRIEF.html
+assets/templates/demo_flow*.gif
+assets/templates/*_demo.gif
 pipeline/_logo_cache.png
 *_browser_preview.jpg
 docs/menus/_drafts/

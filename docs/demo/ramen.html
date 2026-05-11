@@ -1,13 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>麺屋響 — メニュー</title>
+  <meta name="description" content="Interactive ramen demo for WebRefurb English QR Menu.">
+  <link rel="canonical" href="https://webrefurb.com/demo/ramen.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Ramen Demo - English QR Menu">
+  <meta property="og:description" content="Try the ramen QR menu flow with Add to list and Show Staff List.">
+  <meta property="og:url" content="https://webrefurb.com/demo/ramen.html">
+  <meta property="og:image" content="https://webrefurb.com/logo.svg">
+  <link rel="icon" href="../logo.svg">
+  <link rel="mask-icon" href="../logo.svg" color="#E94560">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
+      /* Demo menus are self-contained screens; keep these tokens separate from the marketing-site --coral/--ink system. */
       --accent: #E94560;
       --accent-soft: #FFF0F2;
       --accent-dark: #C73550;
@@ -76,11 +86,11 @@
       margin-left: auto; flex-shrink: 0;
       display: flex; border-radius: 8px; overflow: hidden;
       border: 1.5px solid var(--border); background: var(--card);
-      height: 32px;
+      height: 44px;
     }
     .lang-btn {
       font-size: 11px; font-weight: 700; border: none;
-      padding: 0 10px; cursor: pointer; color: var(--text-muted);
+      min-width: 44px; padding: 0 12px; cursor: pointer; color: var(--text-muted);
       background: transparent; transition: all 0.15s;
       letter-spacing: 0.03em;
     }
@@ -270,9 +280,10 @@
     .add-btn {
       font-size: 14px; font-weight: 600; color: var(--accent);
       background: var(--accent-soft); border: none; border-radius: 24px;
-      padding: 9px 22px; min-height: 40px; cursor: pointer; transition: all 0.15s;
+      padding: 9px 22px; min-height: 44px; cursor: pointer; transition: all 0.15s;
     }
     .add-btn:active { transform: scale(0.95); }
+    .add-btn.added { color: #FFF; background: var(--accent); }
     .add-btn.bounce { animation: addBtnBounce 0.35s ease; }
     @keyframes addBtnBounce {
       0%   { transform: scale(1); }
@@ -284,7 +295,7 @@
     .stepper {
       display: none; align-items: center; gap: 0;
       background: var(--accent); border-radius: 24px;
-      overflow: hidden; min-height: 40px;
+      overflow: hidden; min-height: 44px;
     }
     .stepper.active { display: flex; }
     .stepper-btn {
@@ -463,10 +474,11 @@
     }
     .overlay-footer-en {
       font-size: 17px; font-weight: 800; color: #FFF;
-      background: var(--accent); border-radius: 14px;
+      background: var(--accent); border: 0; border-radius: 14px;
       padding: 18px 24px; letter-spacing: 0.02em;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       width: 100%;
+      font-family: inherit; cursor: pointer;
       box-shadow: 0 6px 24px rgba(233,69,96,0.35);
       animation: ctaPulse 2.5s ease-in-out infinite;
     }
@@ -514,7 +526,8 @@
     /* ===== ACCESSIBILITY ===== */
     .add-btn:focus-visible, .tab:focus-visible,
     .staff-btn:focus-visible, .topping-pill:focus-visible,
-    .overlay-close:focus-visible, .lang-btn:focus-visible {
+    .overlay-close:focus-visible, .overlay-footer-en:focus-visible,
+    .lang-btn:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -607,7 +620,7 @@
     </div>
   </div>
 
-  <header class="header">  <header class="header">
+  <header class="header">
     <div class="header-top">
       <div class="restaurant-logo">響</div>
       <div class="restaurant-name">
@@ -946,8 +959,8 @@
       </div>
       <div class="order-item">
         <div class="order-item-info">
-          <div class="order-item-ja">辛味噌ラーメン<span class="order-qty">×1</span></div>
-          <div class="order-item-en">Spicy Miso Ramen</div>
+          <div class="order-item-ja">担々麺<span class="order-qty">×1</span></div>
+          <div class="order-item-en">Tantanmen</div>
         </div>
         <div class="order-item-price">¥1,050</div>
       </div>
@@ -964,10 +977,10 @@
       </div>
     </div>
     <div class="overlay-footer">
-      <div class="overlay-footer-en">
+      <button class="overlay-footer-en" type="button" aria-label="Show this list to staff">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
         <span data-ja="このリストをスタッフに見せる">Show this list to staff</span>
-      </div>
+      </button>
     </div>
   </div>
 
@@ -990,11 +1003,14 @@
       var langJa=document.getElementById('langJa');
       var L={
         addBtn:'+ Add to list',
-        addBtnJa:'+ 追加する'
+        addBtnJa:'+ 追加する',
+        addedBtn:'✓ Added',
+        addedBtnJa:'✓ 追加済み'
       };
 
       function setLang(lang){
         currentLang=lang;
+        document.documentElement.lang=lang;
         langEn.classList.toggle('active',lang==='en');
         langJa.classList.toggle('active',lang==='ja');
         document.documentElement.style.setProperty('--label-ingredients',lang==='ja'?'「原材料」':'"Ingredients"');
@@ -1017,7 +1033,11 @@
           }
         }
         for(var i=0;i<btns.length;i++){
-          btns[i].textContent=lang==='ja'?L.addBtnJa:L.addBtn;
+          if(counts[i]>0){
+            btns[i].textContent=lang==='ja'?L.addedBtnJa:L.addedBtn;
+          }else{
+            btns[i].textContent=lang==='ja'?L.addBtnJa:L.addBtn;
+          }
         }
         var tpNameSpans=document.querySelectorAll('.topping-pill [data-ja]');
         for(var i=0;i<tpNameSpans.length;i++){
@@ -1168,6 +1188,7 @@
       }
       function hideStepper(idx){
         steppers[idx].classList.remove('active');
+        btns[idx].classList.remove('added','bounce');
         btns[idx].style.display='';
         btns[idx].textContent=currentLang==='ja'?L.addBtnJa:L.addBtn;
       }
@@ -1182,10 +1203,15 @@
 
           btns[idx].addEventListener('click',function(){
             counts[idx]=1;
-            btns[idx].style.display='none';
-            showStepper(idx);
-            flyBall(stepper);
-            updateStaffBtn();
+            btns[idx].classList.add('added','bounce');
+            btns[idx].textContent=currentLang==='ja'?L.addedBtnJa:L.addedBtn;
+            setTimeout(function(){
+              btns[idx].style.display='none';
+              btns[idx].classList.remove('bounce');
+              showStepper(idx);
+              flyBall(stepper);
+              updateStaffBtn();
+            },160);
           });
 
           plusBtn.addEventListener('click',function(){

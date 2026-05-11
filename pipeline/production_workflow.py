@@ -30,7 +30,7 @@ NEXT_ACTIONS = {
     "review_uploaded_photos",
     "answer_question",
     "send_quote",
-    "build_sample",
+    "build_trial",
     "close",
 }
 
@@ -185,7 +185,7 @@ def next_action_for_reply(
         return _next("review_uploaded_photos", "Review uploaded photos", "Classify each received owner asset as usable, needs better photo, or not needed.")
     if usable:
         if order and str((order.get("payment") or {}).get("status") or "") == "confirmed":
-            return _next("build_sample", "Build sample", "Paid order has usable production assets.")
+            return _next("build_trial", "Build trial", "Paid order has usable production assets.")
         return _next("send_quote", "Send quote", "Usable assets are ready; confirm package and quote before production.")
     return _next("ask_for_photos", "Ask for photos", "Positive reply needs current menu photos, files, or text.")
 

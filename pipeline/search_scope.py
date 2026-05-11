@@ -16,12 +16,6 @@ SEARCH_CATEGORY_SPECS: dict[str, dict[str, str]] = {
         "label": "izakayas",
         "default_query": "居酒屋 公式 お問い合わせ {place}",
     },
-    "sushi": {
-        "canonical": "sushi",
-        "term": "寿司",
-        "label": "sushi restaurants",
-        "default_query": "寿司 公式 お問い合わせ {place}",
-    },
     "skip": {
         "canonical": "skip",
         "term": "",

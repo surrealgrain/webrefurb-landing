@@ -43,11 +43,24 @@ def _visible_text(html: str) -> str:
 
 def test_homepage_is_qr_first_single_product():
     text = _visible_text(_read("index.html"))
+    html = _read("index.html")
 
     assert "English QR menus for restaurants in Japan" in text
     assert "Guests scan a QR code, read your menu in English" in text
     assert "English QR Menu + Show Staff List" in text
     assert "free trial" in text.lower()
+    assert 'href="pricing.html"' in html
+
+
+def test_ja_homepage_is_qr_first_single_product():
+    html = _read("ja/index.html")
+    text = _visible_text(html)
+
+    assert "日本の飲食店向け English QR Menu" in text
+    assert "英語でメニューを確認" in text
+    assert "English QR Menu + Show Staff List" in text
+    assert "1週間の無料トライアル" in text
+    assert 'href="pricing.html"' in html
 
 
 def test_pricing_page_has_one_product_and_owner_confirmation_rules():
@@ -63,6 +76,39 @@ def test_pricing_page_has_one_product_and_owner_confirmation_rules():
     assert "Updates after launch are available on request and quoted separately" in text
     assert "Free 1-week trial" in text
     assert "Show Staff List" in text
+    assert "Tax excluded" in text
+    assert "No monthly fees" in text
+    assert "used only to create and operate your QR menu" in text
+    assert "12 months" not in text
+
+
+def test_ja_pricing_page_has_one_product_and_owner_confirmation_rules():
+    text = _visible_text(_read("ja/pricing.html"))
+
+    assert "65,000円" in text
+    assert "英語QRメニューのトライアルページ" in text
+    assert "QRコード" in text
+    assert "印刷用QRサイン" in text
+    assert "ホスティング込み" in text
+    assert "公開前修正1回" in text
+    assert "価格はオーナー確認後のみ公開します" in text
+    assert "1週間の無料トライアル" in text
+    assert "税別" in text
+    assert "月額料金はありません" in text
+    assert "QRメニューの制作と運用のみに使用します" in text
+    assert "12ヶ月" not in text
+
+
+def test_homepage_keeps_mobile_demo_accessible():
+    html = _read("index.html")
+    ja_html = _read("ja/index.html")
+
+    assert 'class="mobile-demo"' in html
+    assert 'href="demo/ramen.html"' in html
+    assert ".phone-wrap { display: flex; }" in html
+    assert 'class="mobile-demo"' in ja_html
+    assert 'href="../demo/ramen.html"' in ja_html
+    assert ".phone-wrap { display: flex; }" in ja_html
 
 
 def test_public_site_avoids_banned_customer_facing_terms():
@@ -93,6 +139,29 @@ def test_public_site_avoids_banned_customer_facing_terms():
                 assert re.search(rf"\b{re.escape(term.lower())}\b", lowered) is None, f"{term} leaked in {name}"
             else:
                 assert term.lower() not in lowered, f"{term} leaked in {name}"
+
+
+def test_public_pages_have_seo_foundation():
+    expected = {
+        "index.html": "https://webrefurb.com/",
+        "ja/index.html": "https://webrefurb.com/ja/",
+        "pricing.html": "https://webrefurb.com/pricing.html",
+        "ja/pricing.html": "https://webrefurb.com/ja/pricing.html",
+        "demo/index.html": "https://webrefurb.com/demo/",
+        "demo/ramen.html": "https://webrefurb.com/demo/ramen.html",
+        "demo/sushi.html": "https://webrefurb.com/demo/sushi.html",
+    }
+    for name, canonical in expected.items():
+        html = _read(name)
+        assert f'<link rel="canonical" href="{canonical}">' in html
+        assert '<meta property="og:title"' in html
+        assert '<meta property="og:description"' in html
+        assert '<meta property="og:image" content="https://webrefurb.com/logo.svg">' in html
+
+    sitemap = _read("sitemap.xml")
+    for canonical in expected.values():
+        assert f"<loc>{canonical}</loc>" in sitemap
+    assert "Sitemap: https://webrefurb.com/sitemap.xml" in _read("robots.txt")
 
 
 def test_generic_demo_has_add_to_list_and_show_staff_flow():

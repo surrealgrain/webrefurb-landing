@@ -35,7 +35,8 @@ def test_first_contact_is_qr_first_and_reply_only():
     assert "英語QRメニュー" in email["body"]
     assert "日本語メニュー" in email["body"]
     assert "QRコード" in email["body"]
-    assert "注文リスト" in email["body"]
+    assert "リスト" in email["body"]
+    assert "Show Staff List" in email["body"]
     assert "日本語の商品名・数量・選択肢" in email["body"]
     assert GENERIC_DEMO_URL in combined
     assert "ご連絡" in email["body"]
@@ -98,7 +99,7 @@ def test_manual_contact_form_copy_matches_qr_product_scope():
 
     assert message["channel"] == "contact_form"
     assert "英語QRメニュー" in message["body"]
-    assert "注文リスト" in message["body"]
+    assert "Show Staff List" in message["body"]
     assert GENERIC_DEMO_URL in message["body"]
 
 

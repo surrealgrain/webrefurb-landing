@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WebRefurb - English QR Menu for Restaurants in Japan</title>
 <meta name="description" content="WebRefurb creates interactive English QR menus for Japanese restaurants. Guests scan a QR code, read the menu in English, and show staff a Japanese-first screen.">
+<link rel="canonical" href="https://webrefurb.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="WebRefurb - English QR Menu for Restaurants in Japan">
+<meta property="og:description" content="Interactive English QR menus for Japanese restaurants, with a Japanese-first staff list.">
+<meta property="og:url" content="https://webrefurb.com/">
+<meta property="og:image" content="https://webrefurb.com/logo.svg">
 <link rel="icon" href="logo.svg">
+<link rel="mask-icon" href="logo.svg" color="#E94560">
 <style>
 :root {
   --coral: #E94560;
@@ -34,8 +41,8 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; letter-spacing: .07em; font-size: 13px; text-transform: uppercase; }
 .brand img { width: 26px; height: 26px; }
 .nav-right { display: flex; align-items: center; gap: 14px; }
-.lang-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); height: 30px; }
-.lang-btn { display: flex; align-items: center; justify-content: center; padding: 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--light); transition: all .15s; }
+.lang-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); height: 44px; }
+.lang-btn { display: flex; align-items: center; justify-content: center; min-width: 44px; padding: 0 12px; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--light); transition: all .15s; }
 .lang-btn.active { background: var(--coral); color: #fff; border-color: var(--coral); }
 
 /* ── Buttons ── */
@@ -44,7 +51,7 @@ a { color: inherit; text-decoration: none; }
 .btn-coral:hover { background: var(--coral-dark); box-shadow: 0 6px 20px rgba(233,69,96,.35); transform: translateY(-1px); }
 .btn-ghost { background: var(--white); color: var(--ink); border: 1.5px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
 .btn-ghost:hover { border-color: var(--coral); color: var(--coral); }
-.btn-sm { min-height: 40px; padding: 0 20px; font-size: 14px; border-radius: 8px; }
+.btn-sm { min-height: 44px; padding: 0 20px; font-size: 14px; border-radius: 8px; }
 .btn-white { background: #fff; color: var(--coral); }
 .btn-white:hover { background: var(--coral-soft); }
 
@@ -65,8 +72,8 @@ a { color: inherit; text-decoration: none; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; }
 .phone { position: relative; width: 290px; height: 600px; border-radius: 36px; border: 6px solid var(--navy); background: var(--navy); box-shadow: 0 32px 80px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04); overflow: hidden; }
 .phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100px; height: 24px; background: var(--navy); border-radius: 0 0 16px 16px; z-index: 2; }
-.phone-screen { width: 100%; height: 100%; padding-top: 28px; }
-.phone-screen iframe { width: 100%; height: calc(100% - 28px); border: none; display: block; }
+.phone-screen { width: 100%; height: 100%; overflow: hidden; }
+.phone-screen iframe { width: 100%; height: calc(100% - 28px); border: none; display: block; margin-top: 28px; }
 
 /* ── Section shared ── */
 .section { padding: 88px 5%; }
@@ -119,7 +126,8 @@ a { color: inherit; text-decoration: none; }
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; gap: 40px; }
-  .phone-wrap { display: none; }
+  .phone-wrap { display: flex; }
+  .phone { width: 220px; height: 455px; border-radius: 32px; }
   .hero { padding: 72px 5% 56px; min-height: auto; }
   .steps { flex-wrap: wrap; }
   .step { flex: 0 0 50%; margin-bottom: 24px; }
@@ -159,7 +167,7 @@ a { color: inherit; text-decoration: none; }
       <h1>Help foreign guests choose with confidence</h1>
       <p class="hero-body">Guests scan a QR code, read your menu in English, add dishes and options to a simple list, and show staff a Japanese-first screen.</p>
       <div class="hero-actions">
-        <a class="btn btn-coral" href="mailto:chris@webrefurb.com">Start a free trial</a>
+        <a class="btn btn-coral" href="pricing.html">Start a free trial</a>
         <a class="btn btn-ghost" href="demo/ramen.html">Try the demo</a>
       </div>
       <div class="hero-note">
@@ -184,22 +192,12 @@ a { color: inherit; text-decoration: none; }
   <a class="btn btn-coral btn-sm" href="demo/ramen.html">Open demo</a>
 </div>
 
-<!-- 2. The handoff -->
-<section class="section">
-  <div class="section-inner">
-    <div class="section-head">
-      <h2>The hard part is the handoff</h2>
-      <p>A translated menu helps guests understand what they want. The harder part is helping staff understand the guest's choice quickly. WebRefurb connects both sides: English menu clarity for guests, and Japanese item names for staff.</p>
-    </div>
-  </div>
-</section>
-
-<!-- 3. How it works -->
+<!-- 2. How it works -->
 <section class="section bg-surface">
   <div class="section-inner">
     <div class="section-head">
       <h2>How it works</h2>
-      <p>English menu clarity for guests, Japanese item names for staff.</p>
+      <p>The hard part is the handoff. Guests choose from English menu details, then staff see Japanese item names and options.</p>
     </div>
     <div class="steps">
       <div class="step">
@@ -250,7 +248,7 @@ a { color: inherit; text-decoration: none; }
       <p style="color:rgba(255,255,255,.7);max-width:560px;margin:0 auto;">We'll create a live English QR Menu trial and send a print-ready A4 QR sign. Print one sheet, place it in your restaurant, and see whether it helps.</p>
     </div>
     <div style="text-align:center;margin-top:32px;">
-      <a class="btn btn-coral" href="mailto:chris@webrefurb.com">Start a free trial</a>
+      <a class="btn btn-coral" href="pricing.html">Start a free trial</a>
       <p style="margin-top:14px;font-size:13px;color:rgba(255,255,255,.4);">Keep it only if it helps.</p>
     </div>
   </div>

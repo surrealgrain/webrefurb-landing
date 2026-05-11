@@ -6,13 +6,21 @@
 
 **What it is NOT:** Not an ordering system. No POS, checkout, payment, order submission, table numbers, or staff dashboard.
 
+**Current offer:** `english_qr_menu_65k` / English QR Menu / 65,000 yen tax excluded, with a free 1-week trial before the owner decides whether to continue.
+
 **Four surfaces:**
 1. **Operator workflow** — QR Menu Studio where Chris builds menus
 2. **Customer experience** — mobile QR menu that restaurant customers see
 3. **Owner review** — secure link for restaurant owners to approve their menu
-4. **Publish lifecycle** — draft → review → published → superseded → rollback
+4. **Publish lifecycle** — draft → review → published; superseded/rollback handling is planned
 
 ---
+
+## Implementation Status
+
+This document is a product/design direction brief. Public site pages, the generic demo hub, ramen/sushi demo pages, and the QR Menu Studio baseline exist today. Larger workflow ideas such as rollback, the bulk spreadsheet editor, keyboard shortcuts, auto-save, owner self-service editing, and advanced published-menu management are planned unless code and tests explicitly show them as implemented.
+
+First contact remains QR-first, links the generic demo, asks for a reply only, and does not ask for menu photos. Test sends go only to `chris@webrefurb.com`; real sends require explicit manual approval.
 
 ## Design System — StyleSeed Alignment
 
@@ -57,7 +65,12 @@ Direct, plain language. Verbs over vague labels. No AI/automation/internal-tool 
 
 ## Design Tokens
 
-Existing palette (carry forward):
+WebRefurb uses two related visual systems:
+
+- **Operator dashboard:** teal/dark operational palette for dense workflow screens.
+- **Public site and demos:** coral/white menu palette that matches the customer-facing QR experience.
+
+Operator palette (carry forward):
 
 | Token | Value | Use |
 |-------|-------|-----|
@@ -78,6 +91,18 @@ Existing palette (carry forward):
 | `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle elevation |
 | `--shadow-md` | `0 4px 12px rgba(0,0,0,0.08)` | Cards |
 | `--shadow-lg` | `0 12px 32px rgba(0,0,0,0.12)` | Modals, drawers |
+
+Public palette:
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--coral` | `#E94560` | Public primary CTA, selected states |
+| `--coral-dark` | `#C73550` | Public CTA hover |
+| `--coral-soft` | `#FFF0F2` | Public soft highlight backgrounds |
+| `--navy` | `#1a1f36` | Public dark CTA bands and phone frame |
+| `--ink` | `#111827` | Public headings/body emphasis |
+| `--body` | `#374151` | Public body text |
+| `--border` | `#e5e7eb` | Public dividers and controls |
 
 **Typography:** Inter 400 body / 600-700 headings. Fira Code for IDs/codes. Line height 1.5 body, 1.2 headings.
 
@@ -344,7 +369,7 @@ N (new item), E (edit selected), ↑/↓ (navigate), S (new section), Esc (close
 
 ### Entry
 - URL: `/review/{review_token}` — one-time, 7-day expiry
-- Sent via email or LINE
+- Sent via email
 - Opens directly — no login
 
 ### Layout

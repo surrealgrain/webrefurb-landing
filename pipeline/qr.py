@@ -65,10 +65,10 @@ _DEFAULT_CONTENT_REQUIREMENTS = {
     "ingredient_allergen_required": False,
 }
 _QR_PACKAGE_PROMISE = {
-    "hosting_term": "12 months of hosting from the publish date",
+    "hosting_term": "Hosting included",
     "update_policy": "One pre-launch revision is included. Post-launch updates are supported on request and quoted separately unless manually agreed.",
-    "support": "Basic support during the hosting term covers QR link issues and page-loading failures.",
-    "after_term": "After 12 months the restaurant can renew hosting or let the page retire after export handoff and notice.",
+    "support": "Basic support covers QR link issues and page-loading failures.",
+    "after_term": "If WebRefurb ever needs to change hosting arrangements, the restaurant receives export handoff and notice.",
 }
 
 
@@ -346,8 +346,8 @@ def approve_qr_package(
         "# QR Support Record\n\n"
         f"- Restaurant: {job.get('restaurant_name', '')}\n"
         f"- Live URL: {job.get('live_url', '')}\n"
-        "- Hosting term: 12 months from publish date\n"
-        "- Support: QR link issues, page-loading failures, and minor approved text fixes during the hosting term\n",
+        "- Hosting: included\n"
+        "- Support: QR link issues, page-loading failures, and minor approved text fixes\n",
     )
 
     state_source = state_root / "qr_menus" / menu_id / "versions" / version_id / "source.json"

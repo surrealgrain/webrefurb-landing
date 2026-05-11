@@ -35,8 +35,9 @@ def build_subject(
 # ---------------------------------------------------------------------------
 
 SENDER_NAME = "Chris（クリス）"
+SENDER_LOCATION = "東京都内"
 
-SIGNATURE = f"{SENDER_NAME}\nWebRefurb\nhttps://webrefurb.com/"
+SIGNATURE = f"{SENDER_NAME}\nWebRefurb\n{SENDER_LOCATION}\nhttps://webrefurb.com/"
 
 SIGNATURE_FULL = SIGNATURE
 
@@ -56,11 +57,11 @@ CONTACT_FORM_BODY = """\
 
 WebRefurbのChris（クリス）と申します。飲食店向けに英語QRメニューを制作しています。
 
-こちらは、現在の日本語メニューやPOSを変更せずに使える仕組みです。
+こちらは、現在の日本語メニューや接客フローを変更せずに使える仕組みです。
 
 店内に置いたQRコードを外国人のお客様がスマートフォンで読み取り、英語で料理の説明や写真を確認できます。
 
-気になる料理は「注文リスト」に追加でき、最後に日本語の商品名・数量・選択肢がまとまった画面をスタッフの方に見せられます。
+気になる料理をリストに追加し、最後に日本語の商品名・数量・選択肢がまとまった「Show Staff List」画面をスタッフの方に見せられます。
 
 そのため、お客様は注文しやすくなり、スタッフの方も英語で細かく説明する負担を減らせます。
 
@@ -70,9 +71,11 @@ https://webrefurb.com/demo/
 デモは最初に日本語で表示されますが、画面上部の「EN / JP」切り替えで、外国人のお客様側の英語表示もご確認いただけます。
 
 もし貴店でも役立ちそうでしたら、このフォームからお知らせください。
+1週間の無料トライアルもご用意しています。
 
 どうぞよろしくお願いいたします。
 
 Chris（クリス）
 WebRefurb
+東京都内
 https://webrefurb.com/"""

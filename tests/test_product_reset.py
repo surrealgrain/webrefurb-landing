@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pipeline.constants import ENGLISH_QR_MENU_KEY, GENERIC_DEMO_URL, PACKAGE_1_KEY, PACKAGE_REGISTRY
+from pipeline.constants import (
+    ENGLISH_QR_MENU_KEY,
+    GENERIC_DEMO_URL,
+    PACKAGE_1_KEY,
+    PACKAGE_REGISTRY,
+    TRIAL_DURATION_DAYS,
+    TRIAL_LABEL,
+    TRIAL_LABEL_JA,
+)
 from pipeline.models import QualificationResult
 from pipeline.scoring import recommend_package_details_for_record
 from pipeline.search import _qr_first_pitch_draft, _recover_codex_review_qualification
@@ -31,6 +39,14 @@ def test_only_english_qr_menu_is_public_package():
     assert product["label"] == "English QR Menu"
     assert product["price_yen"] == 65000
     assert "Show Staff List feature" in product["includes"]
+    assert "Hosting included" in product["includes"]
+    assert "12 months hosting" not in product["includes"]
+
+
+def test_trial_constants_match_public_offer():
+    assert TRIAL_DURATION_DAYS == 7
+    assert TRIAL_LABEL == "Free 1-week trial"
+    assert TRIAL_LABEL_JA == "1週間の無料トライアル"
 
 
 def test_qualified_ramen_and_izakaya_recommend_english_qr_menu():

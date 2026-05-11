@@ -75,7 +75,7 @@ def can_transition(current: str, target: str) -> bool:
 _SCOPE_DESCRIPTIONS = {
     ENGLISH_QR_MENU_KEY: (
         "English QR Menu: hosted mobile English menu page, QR code, printable QR sign, "
-        "Show Staff List, 12 months hosting, one pre-launch revision, and owner "
+        "Show Staff List, hosting included, one pre-launch revision, and owner "
         "confirmation before publishing prices, descriptions, ingredients, or allergy details."
     ),
 }

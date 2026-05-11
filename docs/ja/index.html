@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WebRefurb - 日本の飲食店向け 英語QRメニュー</title>
 <meta name="description" content="WebRefurbは日本の飲食店向けにインタラクティブな英語QRメニューを制作します。訪日客がQRコードを読み取り、英語でメニューを確認し、日本語の商品名リストをスタッフに見せられます。">
+<link rel="canonical" href="https://webrefurb.com/ja/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="WebRefurb - 日本の飲食店向け 英語QRメニュー">
+<meta property="og:description" content="訪日客が英語でメニューを確認し、スタッフには日本語の商品名リストを見せられる英語QRメニュー。">
+<meta property="og:url" content="https://webrefurb.com/ja/">
+<meta property="og:image" content="https://webrefurb.com/logo.svg">
 <link rel="icon" href="../logo.svg">
+<link rel="mask-icon" href="../logo.svg" color="#E94560">
 <style>
 :root {
   --coral: #E94560;
@@ -34,8 +41,8 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; letter-spacing: .07em; font-size: 13px; text-transform: uppercase; }
 .brand img { width: 26px; height: 26px; }
 .nav-right { display: flex; align-items: center; gap: 14px; }
-.lang-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); height: 30px; }
-.lang-btn { display: flex; align-items: center; justify-content: center; padding: 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--light); transition: all .15s; }
+.lang-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); height: 44px; }
+.lang-btn { display: flex; align-items: center; justify-content: center; min-width: 44px; padding: 0 12px; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--light); transition: all .15s; }
 .lang-btn.active { background: var(--coral); color: #fff; border-color: var(--coral); }
 
 /* ── Buttons ── */
@@ -44,7 +51,7 @@ a { color: inherit; text-decoration: none; }
 .btn-coral:hover { background: var(--coral-dark); box-shadow: 0 6px 20px rgba(233,69,96,.35); transform: translateY(-1px); }
 .btn-ghost { background: var(--white); color: var(--ink); border: 1.5px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
 .btn-ghost:hover { border-color: var(--coral); color: var(--coral); }
-.btn-sm { min-height: 40px; padding: 0 20px; font-size: 14px; border-radius: 8px; }
+.btn-sm { min-height: 44px; padding: 0 20px; font-size: 14px; border-radius: 8px; }
 
 /* ── Hero ── */
 .hero { position: relative; overflow: hidden; padding: 100px 5% 90px; min-height: 520px; display: flex; align-items: center; }
@@ -61,10 +68,10 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Phone mockup ── */
 .phone-wrap { display: flex; justify-content: center; align-items: center; }
-.phone { position: relative; width: 280px; height: 580px; border-radius: 36px; border: 6px solid var(--navy); background: var(--navy); box-shadow: 0 32px 80px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04); overflow: hidden; }
+.phone { position: relative; width: 290px; height: 600px; border-radius: 36px; border: 6px solid var(--navy); background: var(--navy); box-shadow: 0 32px 80px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04); overflow: hidden; }
 .phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100px; height: 24px; background: var(--navy); border-radius: 0 0 16px 16px; z-index: 2; }
-.phone-screen { width: 100%; height: 100%; padding-top: 28px; }
-.phone-screen iframe { width: 100%; height: calc(100% - 28px); border: none; display: block; }
+.phone-screen { width: 100%; height: 100%; overflow: hidden; }
+.phone-screen iframe { width: 100%; height: calc(100% - 28px); border: none; display: block; margin-top: 28px; }
 
 /* ── Section shared ── */
 .section { padding: 88px 5%; }
@@ -111,7 +118,8 @@ a { color: inherit; text-decoration: none; }
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; gap: 40px; }
-  .phone-wrap { display: none; }
+  .phone-wrap { display: flex; }
+  .phone { width: 220px; height: 455px; border-radius: 32px; }
   .hero { padding: 72px 5% 56px; min-height: auto; }
   .steps { flex-wrap: wrap; }
   .step { flex: 0 0 50%; margin-bottom: 24px; }
@@ -151,7 +159,7 @@ a { color: inherit; text-decoration: none; }
       <h1>訪日客のメニュー選びを、もっとスムーズに</h1>
       <p class="hero-body">訪日客がQRコードを読み取り、英語でメニューを確認し、気になる料理や選択肢をリストに追加して、日本語の商品名リストをスタッフに見せられます。スタッフ側の通常の接客フローはそのままです。</p>
       <div class="hero-actions">
-        <a class="btn btn-coral" href="mailto:chris@webrefurb.com">無料トライアルを相談する</a>
+        <a class="btn btn-coral" href="pricing.html">無料トライアルを相談する</a>
         <a class="btn btn-ghost" href="../demo/ramen.html">デモを試す</a>
       </div>
       <div class="hero-note">
@@ -176,22 +184,12 @@ a { color: inherit; text-decoration: none; }
   <a class="btn btn-coral btn-sm" href="../demo/ramen.html">デモを開く</a>
 </div>
 
-<!-- 2. The handoff -->
-<section class="section">
-  <div class="section-inner">
-    <div class="section-head">
-      <h2>難しいのは「スタッフへの伝達」</h2>
-      <p>翻訳メニューがあれば、お客様は何を食べたいか理解できます。しかし、スタッフにお客様の選択を素早く伝えるのは、さらに難しい部分です。WebRefurbは両方をつなぎます：お客様には英語で分かりやすいメニューを、スタッフには日本語の商品名リストを。</p>
-    </div>
-  </div>
-</section>
-
-<!-- 3. How it works -->
+<!-- 2. How it works -->
 <section class="section bg-surface">
   <div class="section-inner">
     <div class="section-head">
       <h2>使い方</h2>
-      <p>お客様には英語のメニュー、スタッフには日本語の商品名リスト。</p>
+      <p>難しいのはスタッフへの伝達です。お客様は英語で選び、スタッフは日本語の商品名と選択肢を確認できます。</p>
     </div>
     <div class="steps">
       <div class="step">
@@ -242,7 +240,7 @@ a { color: inherit; text-decoration: none; }
       <p style="color:rgba(255,255,255,.7);max-width:560px;margin:0 auto;">WebRefurbが英語QRメニューのトライアルページを作成し、印刷用A4 QRサインをお送りします。1枚印刷して置くだけで、訪日客に1週間お試しいただけます。</p>
     </div>
     <div style="text-align:center;margin-top:32px;">
-      <a class="btn btn-coral" href="mailto:chris@webrefurb.com">無料トライアルを相談する</a>
+      <a class="btn btn-coral" href="pricing.html">無料トライアルを相談する</a>
       <p style="margin-top:14px;font-size:13px;color:rgba(255,255,255,.4);">継続する場合のみお支払い。</p>
     </div>
   </div>

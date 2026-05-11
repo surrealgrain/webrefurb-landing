@@ -33,6 +33,7 @@ from pipeline.constants import (
     ENGLISH_QR_MENU_KEY,
     ENGLISH_QR_MENU_LABEL,
     ENGLISH_QR_MENU_PRICE_YEN,
+    OUTREACH_STATUS_SENT,
 )
 from pipeline.utils import load_project_env
 
@@ -47,8 +48,11 @@ if not logger.handlers:
     logger.addHandler(_h)
 
 
-def _log(action: str, detail: str = "") -> None:
+def _log(action: str, detail: str = "", **fields: Any) -> None:
     msg = action
+    if fields:
+        field_text = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+        msg += f" {field_text}"
     if detail:
         msg += f" {detail[:200]}"
     logger.info(msg)
@@ -98,7 +102,7 @@ ALLOWED_TAGS = (
 BANNED_CUSTOMER_TERMS = (
     "ordering system", "qr ordering system",
     "place order", "submit order", "send order",
-    "pos system", "checkout page",
+    "pos", "pos system", "checkout page",
 )
 
 # ---------------------------------------------------------------------------
@@ -1178,6 +1182,83 @@ def _find_lead_by_email(to_email: str) -> dict[str, Any] | None:
     return None
 
 
+def _is_lead_business_recipient(lead_id: str, email: str) -> bool:
+    """Return whether the address appears to be a non-test restaurant recipient."""
+    return bool(str(lead_id or "").strip()) and _valid_email(email) and not _is_test_recipient_email(email)
+
+
+def _record_contact_emails(record: dict[str, Any]) -> list[str]:
+    emails = [str(record.get("email") or "").strip()]
+    for contact in record.get("contacts") or []:
+        if not isinstance(contact, dict):
+            continue
+        if str(contact.get("type") or "").lower() != "email":
+            continue
+        if contact.get("actionable") is False:
+            continue
+        emails.append(str(contact.get("value") or "").strip())
+    return [email for email in dict.fromkeys(emails) if email]
+
+
+def _customer_copy_has_qr_first_signal(text: str) -> bool:
+    lowered = text.lower()
+    return "qr" in lowered or "英語qrメニュー" in lowered or "英語QRメニュー" in text
+
+
+def _customer_copy_has_banned_term(text: str) -> bool:
+    lowered = text.lower()
+    for term in BANNED_CUSTOMER_TERMS:
+        if re.search(rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])", lowered):
+            return True
+    return False
+
+
+def _send_readiness_for_record(
+    record: dict[str, Any],
+    *,
+    final_check: bool = False,
+    to_email: str = "",
+) -> dict[str, Any]:
+    """Evaluate whether a lead can be sent first-contact outreach."""
+    reasons: list[str] = []
+
+    email = str(to_email or record.get("email") or "").strip()
+    valid_emails = [candidate for candidate in _record_contact_emails(record) if _valid_email(candidate)]
+    if email and _valid_email(email) and email not in valid_emails:
+        valid_emails.append(email)
+
+    category = str(record.get("category") or record.get("primary_category_v1") or "").strip().lower()
+    if record.get("lead") is not True or category == "skip":
+        reasons.append("skipped_or_not_true_lead")
+    if category and category not in ACTIVE_LEAD_CATEGORIES:
+        reasons.append("unsupported_lead_category")
+    if record.get("recommended_primary_package") != ENGLISH_QR_MENU_KEY:
+        reasons.append("active_product_missing")
+    if not valid_emails:
+        reasons.append("email_not_verified")
+
+    copy_fields = [
+        str(record.get("outreach_draft_body") or ""),
+        str(record.get("outreach_draft_english_body") or ""),
+    ]
+    combined_copy = "\n".join(part for part in copy_fields if part.strip())
+    populated_copy_fields = [part for part in copy_fields if part.strip()]
+    if not populated_copy_fields or any(not _customer_copy_has_qr_first_signal(part) for part in populated_copy_fields):
+        reasons.append("stale_or_non_qr_first_draft")
+    if _customer_copy_has_banned_term(combined_copy):
+        reasons.append("banned_customer_copy_term")
+
+    if final_check and _is_lead_business_recipient(str(record.get("lead_id") or ""), email or (valid_emails[0] if valid_emails else "")):
+        if record.get("manual_real_send_approved") is not True:
+            reasons.append("manual_real_send_approval_missing")
+
+    return {
+        "status": "ready_to_send" if not reasons else "not_ready",
+        "reasons": reasons,
+        "final_check": final_check,
+    }
+
+
 def _count_today_sends() -> int:
     sent_dir = STATE_ROOT / "sent"
     if not sent_dir.exists():
@@ -1318,6 +1399,65 @@ async def _send_email_resend(
     return result
 
 
+async def _send_lead_email_payload(
+    *,
+    lead_id: str,
+    record: dict[str, Any],
+    to_email: str,
+    subject: str,
+    email_body: str,
+    is_test_send: bool,
+) -> dict[str, Any]:
+    """Send one lead email and persist sent status only after provider success."""
+    include_menu_image = False
+    menu_html_path = None
+    ws_data = None
+    for ws_file in STUDIO_DIR.glob("*.json"):
+        ws = _load_json(ws_file)
+        if ws and ws.get("lead_id") == lead_id:
+            ws_data = ws
+            break
+    if ws_data and ws_data.get("items"):
+        menu_data = _build_menu_data(ws_data)
+        import tempfile
+        tmp_dir = tempfile.mkdtemp(prefix="wrm-email-preview-")
+        preview_path = Path(tmp_dir) / "menu_preview.html"
+        preview_html = _generate_minimal_menu_html(menu_data)
+        preview_path.write_text(preview_html, "utf-8")
+        menu_html_path = str(preview_path)
+        include_menu_image = True
+
+    _log("send_attempted", f"to={to_email} test={is_test_send}", lead_id=lead_id)
+
+    try:
+        result = await _send_email_resend(
+            to=to_email,
+            subject=subject,
+            body=email_body,
+            include_menu_image=include_menu_image,
+            menu_html_path=menu_html_path,
+            business_name=record.get("business_name", ""),
+        )
+    except Exception as exc:
+        _log("send_failed", str(exc)[:200], lead_id=lead_id)
+        raise HTTPException(status_code=502, detail=f"Send failed: {exc}")
+
+    if not is_test_send:
+        from pipeline.record import persist_lead_record
+        record["outreach_status"] = OUTREACH_STATUS_SENT
+        record["outreach_sent_at"] = datetime.now(timezone.utc).isoformat()
+        record["outreach_draft_body"] = email_body
+        if "status_history" not in record:
+            record["status_history"] = []
+        record["status_history"].append({
+            "status": OUTREACH_STATUS_SENT,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        persist_lead_record(record, state_root=STATE_ROOT)
+
+    return result
+
+
 # ===================================================================
 # API — Send Email
 # ===================================================================
@@ -1374,6 +1514,9 @@ async def api_send(lead_id: str, request: Request):
     if not is_test_send:
         if record.get("send_ready_checked") is not True:
             raise HTTPException(status_code=422, detail="Lead is not send-ready: final_check_missing")
+        readiness = _send_readiness_for_record(record, final_check=True, to_email=to_email)
+        if readiness["status"] != "ready_to_send":
+            raise HTTPException(status_code=422, detail=f"Lead is not send-ready: {','.join(readiness['reasons'])}")
 
     # Rate limit
     today_sends = _count_today_sends()
@@ -1381,53 +1524,14 @@ async def api_send(lead_id: str, request: Request):
     if today_sends >= max_sends:
         raise HTTPException(status_code=429, detail=f"Daily send limit reached ({today_sends}/{max_sends})")
 
-    # Optional menu image from workspace preview
-    include_menu_image = False
-    menu_html_path = None
-    ws_data = None
-    for ws_file in STUDIO_DIR.glob("*.json"):
-        ws = _load_json(ws_file)
-        if ws and ws.get("lead_id") == lead_id:
-            ws_data = ws
-            break
-    if ws_data and ws_data.get("items"):
-        menu_data = _build_menu_data(ws_data)
-        # Generate a temporary preview HTML for JPEG rendering
-        import tempfile
-        tmp_dir = tempfile.mkdtemp(prefix="wrm-email-preview-")
-        preview_path = Path(tmp_dir) / "menu_preview.html"
-        preview_html = _generate_minimal_menu_html(menu_data)
-        preview_path.write_text(preview_html, "utf-8")
-        menu_html_path = str(preview_path)
-        include_menu_image = True
-
-    _log("send_attempted", f"to={to_email} test={is_test_send}", lead_id=lead_id)
-
-    try:
-        result = await _send_email_resend(
-            to=to_email,
-            subject=subject,
-            body=email_body,
-            include_menu_image=include_menu_image,
-            menu_html_path=menu_html_path,
-            business_name=record.get("business_name", ""),
-        )
-    except Exception as exc:
-        _log("send_failed", str(exc)[:200], lead_id=lead_id)
-        raise HTTPException(status_code=502, detail=f"Send failed: {exc}")
-
-    # Update lead status for business sends
-    if not is_test_send:
-        record["outreach_status"] = "sent"
-        record["outreach_sent_at"] = datetime.now(timezone.utc).isoformat()
-        record["outreach_draft_body"] = email_body
-        if "status_history" not in record:
-            record["status_history"] = []
-        record["status_history"].append({
-            "status": "sent",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-        persist_lead_record(record, state_root=STATE_ROOT)
+    result = await _send_lead_email_payload(
+        lead_id=lead_id,
+        record=record,
+        to_email=to_email,
+        subject=subject,
+        email_body=email_body,
+        is_test_send=is_test_send,
+    )
 
     # Track sent email
     _save_sent_email(
